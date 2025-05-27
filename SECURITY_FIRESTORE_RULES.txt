@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // السماح بالقراءة والكتابة فقط للمستخدم الذي رقم هاتفه مطابق لمسار الوثيقة
+    match /users/{userPhone}/family/{docId} {
+      allow read, write: if request.auth != null && request.auth.token.phone_number == userPhone;
+    }
+    // السماح للمستخدم بقراءة بياناته فقط
+    match /users/{userPhone} {
+      allow read: if request.auth != null && request.auth.token.phone_number == userPhone;
+      allow write: if false; // لا يُسمح بالكتابة مباشرة على وثيقة المستخدم
+    }
+  }
+}
