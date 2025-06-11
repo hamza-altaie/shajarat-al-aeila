@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#2e7d32" />
+  <meta name="description" content="تطبيق شجرة العائلة - أنشئ وأدر شجرة عائلتك بسهولة وأمان" />
+  
+  <!-- ربط ملف المانيفست -->
+  <link rel="manifest" href="/manifest.json" />
+  
+  <!-- أيقونات متنوعة -->
+  <link rel="icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+  
+  <!-- Meta tags للـ PWA -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="شجرة العائلة" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="msapplication-TileImage" content="/icons/icon-144x144.png" />
+  <meta name="msapplication-TileColor" content="#2e7d32" />
+  <meta http-equiv="Content-Security-Policy" 
+      content="default-src 'self'; script-src 'self' 'unsafe-inline';">
+  
+  <!-- خطوط Google -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  
+  <title>شجرة العائلة</title>
+</head>
+<body>
+  <noscript>يجب تمكين JavaScript لتشغيل هذا التطبيق.</noscript>
+  <div id="root"></div>
+  
+  <!-- تسجيل Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((registration) => {
+            console.log('✅ Service Worker registered successfully');
+          })
+          .catch((registrationError) => {
+            console.log('❌ Service Worker registration failed');
+          });
+      });
+    }
+  </script>
+</body>
+</html>

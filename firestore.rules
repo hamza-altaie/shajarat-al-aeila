@@ -1,0 +1,246 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // =======================================================
+    // 🔐 قواعد أمان متقدمة لشجرة العائلة 2025 - مُصححة
+    // =======================================================
+    
+    // دالة التحقق من المصادقة
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // دالة التحقق من ملكية المستخدم للوثيقة
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // دالة التحقق من صحة البيانات المرسلة
+    function isValidUserData(data) {
+      return data.keys().hasAll(['phone', 'createdAt']) &&
+             data.phone is string &&
+             data.createdAt is timestamp;
+    }
+    
+    // دالة التحقق من صحة بيانات عضو العائلة
+    function isValidFamilyMember(data) {
+      return data.keys().hasAll(['firstName', 'relation']) &&
+             data.firstName is string &&
+             data.firstName.size() >= 2 &&
+             data.firstName.size() <= 50 &&
+             data.relation is string;
+    }
+    
+    // دالة التحقق من العلاقات المسموحة
+    function isValidRelation(relation) {
+      return relation in ['رب العائلة', 'ابن', 'بنت', 'أخ', 'أخت', 
+                         'ابن أخ', 'بنت أخ', 'ابن أخت', 'بنت أخت',
+                         'حفيد', 'حفيدة', 'عم', 'عمة', 'خال', 'خالة'];
+    }
+    
+    // دالة للحصول على UIDs من قائمة الأعضاء المرتبطين
+    function getLinkedMemberUIDs(linkedMembers) {
+      return linkedMembers != null ? 
+        linkedMembers.map('uid') : [];
+    }
+    
+    // =======================================================
+    // 📱 قواعد مجموعة المستخدمين الرئيسية
+    // =======================================================
+    match /users/{userId} {
+      // قراءة: المستخدم نفسه أو المستخدمون المرتبطون
+      allow read: if isAuthenticated() && (
+        isOwner(userId) ||
+        // السماح للمستخدمين المرتبطين بقراءة البيانات الأساسية
+        (resource != null && resource.data.get('allowLinking', false) == true) ||
+        // السماح للعائلات المرتبطة - مُصحح
+        (resource != null && request.auth.uid in getLinkedMemberUIDs(resource.data.get('linkedMembers', [])))
+      );
+      
+      // كتابة: المستخدم نفسه فقط مع التحقق من صحة البيانات
+      allow write: if isAuthenticated() && isOwner(userId) && (
+        // التحقق من البيانات الأساسية
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastLogin', 'updatedAt']) ||
+         isValidUserData(request.resource.data)) &&
+        
+        // التحقق من الحدود
+        request.resource.data.phone.size() >= 10 &&
+        request.resource.data.phone.size() <= 20 &&
+        
+        // منع تغيير البيانات الحساسة إلا بشروط معينة
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'createdAt']) ||
+         !exists(/databases/$(database)/documents/users/$(userId)))
+      );
+      
+      // حذف: المستخدم نفسه فقط
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // =======================================================
+    // 👨‍👩‍👧‍👦 قواعد مجموعة أعضاء العائلة
+    // =======================================================
+    match /users/{userId}/family/{memberId} {
+      // قراءة: صاحب العائلة أو المستخدمون المرتبطون
+      allow read: if isAuthenticated() && (
+        isOwner(userId) ||
+        // المستخدمون المرتبطون يمكنهم قراءة العائلة
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('linkedToFamilyHead', '') == userId) ||
+        
+        // أعضاء العائلة المرتبطون - مُصحح
+        (exists(/databases/$(database)/documents/users/$(userId)) &&
+         request.auth.uid in getLinkedMemberUIDs(get(/databases/$(database)/documents/users/$(userId)).data.get('linkedMembers', [])))
+      );
+      
+      // كتابة: صاحب العائلة مع التحقق الشامل
+      allow create: if isAuthenticated() && isOwner(userId) &&
+        // التحقق من صحة البيانات
+        isValidFamilyMember(request.resource.data) &&
+        isValidRelation(request.resource.data.relation);
+      
+      allow update: if isAuthenticated() && isOwner(userId) &&
+        isValidFamilyMember(request.resource.data) &&
+        isValidRelation(request.resource.data.relation) &&
+        
+        // منع تغيير معرف العضو
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['id', 'createdAt']);
+      
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // =======================================================
+    // 🔗 قواعد العلاقات والروابط بين العائلات
+    // =======================================================
+    match /family_connections/{connectionId} {
+      // قراءة: الأطراف المعنية بالاتصال
+      allow read: if isAuthenticated() && (
+        resource != null && (
+          request.auth.uid == resource.data.family1Id ||
+          request.auth.uid == resource.data.family2Id ||
+          // المستخدمون المرتبطون
+          request.auth.uid in resource.data.get('allowedUsers', [])
+        )
+      );
+      
+      // كتابة: إنشاء اتصال جديد بموافقة الطرفين
+      allow create: if isAuthenticated() && (
+        (request.auth.uid == request.resource.data.family1Id ||
+         request.auth.uid == request.resource.data.family2Id) &&
+        
+        // التحقق من وجود العائلات
+        exists(/databases/$(database)/documents/users/$(request.resource.data.family1Id)) &&
+        exists(/databases/$(database)/documents/users/$(request.resource.data.family2Id)) &&
+        
+        // بيانات صحيحة
+        request.resource.data.keys().hasAll(['family1Id', 'family2Id', 'connectionType', 'createdAt']) &&
+        request.resource.data.connectionType in ['parent-child', 'sibling', 'extended']
+      );
+      
+      // تحديث: الأطراف المعنية فقط
+      allow update: if isAuthenticated() && (
+        resource != null && (
+          request.auth.uid == resource.data.family1Id ||
+          request.auth.uid == resource.data.family2Id
+        ) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['family1Id', 'family2Id', 'createdAt'])
+      );
+      
+      // حذف: أي من الطرفين
+      allow delete: if isAuthenticated() && (
+        resource != null && (
+          request.auth.uid == resource.data.family1Id ||
+          request.auth.uid == resource.data.family2Id
+        )
+      );
+    }
+    
+    // =======================================================
+    // 📊 قواعد بيانات التحليلات والإحصائيات
+    // =======================================================
+    match /analytics/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow write: if isAuthenticated() && isOwner(userId) &&
+        // منع حفظ بيانات شخصية حساسة في التحليلات
+        !request.resource.data.keys().hasAny(['personalInfo', 'phoneNumbers', 'addresses']);
+    }
+    
+    // =======================================================
+    // 🔍 قواعد فهرس البحث
+    // =======================================================
+    match /search_index/{indexId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // يتم الكتابة فقط من خلال Cloud Functions
+    }
+    
+    // =======================================================
+    // 🔄 قواعد ذاكرة التخزين المؤقت
+    // =======================================================
+    match /cache/{userId}/{cacheId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow write: if isAuthenticated() && isOwner(userId) &&
+        // انتهاء صلاحية الذاكرة المؤقتة خلال 24 ساعة
+        request.resource.data.expiresAt > request.time &&
+        request.resource.data.expiresAt < request.time + duration.value(24, 'h');
+      
+      // حذف تلقائي للبيانات المنتهية الصلاحية
+      allow delete: if isAuthenticated() && (
+        isOwner(userId) ||
+        (resource != null && resource.data.expiresAt < request.time)
+      );
+    }
+    
+    // =======================================================
+    // 📱 قواعد إدارة الجلسات والأجهزة
+    // =======================================================
+    match /user_sessions/{userId}/sessions/{sessionId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create: if isAuthenticated() && isOwner(userId) &&
+        request.resource.data.keys().hasAll(['deviceInfo', 'loginTime', 'lastActivity']) &&
+        request.resource.data.deviceInfo is map;
+      
+      allow update: if isAuthenticated() && isOwner(userId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActivity', 'isActive']);
+      
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // =======================================================
+    // 🚨 قواعد تسجيل الأخطاء والتدقيق
+    // =======================================================
+    match /audit_logs/{userId}/logs/{logId} {
+      // قراءة فقط للمالك
+      allow read: if isAuthenticated() && isOwner(userId);
+      
+      // كتابة للنظام فقط (من خلال Cloud Functions)
+      allow create: if false; // سيتم التعامل معها عبر Cloud Functions
+    }
+    
+    // =======================================================
+    // 🎭 قواعد البيانات المؤقتة للأنشطة الحية
+    // =======================================================
+    match /live_activities/{activityId} {
+      // قراءة للمشاركين في النشاط
+      allow read: if isAuthenticated() && 
+        resource != null && request.auth.uid in resource.data.get('participants', []);
+      
+      // كتابة للمنشئ والمشاركين
+      allow write: if isAuthenticated() && (
+        request.resource.data.get('createdBy', '') == request.auth.uid ||
+        (resource != null && (
+          request.auth.uid == resource.data.get('createdBy', '') ||
+          request.auth.uid in resource.data.get('participants', [])
+        ))
+      ) && 
+      // انتهاء صلاحية النشاط خلال ساعة واحدة
+      request.resource.data.expiresAt < request.time + duration.value(1, 'h');
+    }
+    
+    // =======================================================
+    // 🔒 قواعد عامة - رفض كل شيء آخر
+    // =======================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -46,6 +46,7 @@ service cloud.firestore {
     match /users/{userPhone}/family/{docId} {
       allow read, write: if request.auth != null && request.auth.token.phone_number == userPhone;
     }
+
     // السماح للمستخدم بقراءة بياناته فقط
     match /users/{userPhone} {
       allow read: if request.auth != null && request.auth.token.phone_number == userPhone;
@@ -54,11 +55,6 @@ service cloud.firestore {
   }
 }
 ```
-
-### شرح القواعد:
-- **قراءة وكتابة أفراد العائلة**: فقط صاحب رقم الهاتف (الموثق عبر Firebase Auth) يمكنه قراءة أو تعديل بيانات عائلته.
-- **قراءة بيانات المستخدم**: فقط صاحب الحساب يمكنه قراءة بياناته.
-- **لا يُسمح بالكتابة المباشرة على وثيقة المستخدم**: حماية إضافية ضد التلاعب.
 
 ### توصيات:
 - يجب تفعيل التحقق عبر الهاتف (SMS) في Firebase Auth.
