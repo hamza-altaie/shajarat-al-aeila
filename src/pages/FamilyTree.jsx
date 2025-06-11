@@ -1,88 +1,257 @@
+
+// FamilyTree.jsx
 import React, { useEffect, useState } from 'react';
 import Tree from 'react-d3-tree';
 import { db } from '../firebase/config';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, setDoc  } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { Box, Button, Typography, Modal, TextField, Switch, FormControlLabel } from '@mui/material';
 import html2canvas from 'html2canvas';
 
+
 export default function FamilyTree() {
   // eslint-disable-next-line no-unused-vars
-  const phone = '';
   const [treeData, setTreeData] = useState(null);
+  const [showExtendedTree, setShowExtendedTree] = useState(true);
   const [selectedNode, setSelectedNode] = useState(null);
-  const [showLinked, setShowLinked] = useState(false);
-  const [linkedPhones, setLinkedPhones] = useState(() => {
-    const saved = localStorage.getItem('linkedPhones');
-    return saved ? JSON.parse(saved) : [];
-  });
   const [newPhone, setNewPhone] = useState('');
   const navigate = useNavigate();
   const CARD_WIDTH = 160;
   const CARD_HEIGHT = 200;
 
+
+  const ensureUserFieldsExist = async (phoneNumber) => {
+  const userRef = doc(db, 'users', phoneNumber);
+  const userSnap = await getDoc(userRef);
+
+  if (userSnap.exists()) {
+    const userData = userSnap.data();
+
+      if (!userData.linkedParentUid && userData.parentId) {
+        const parentSnap = await getDoc(doc(db, 'users', userData.parentId));
+        if (parentSnap.exists()) {
+          await setDoc(userRef, { linkedParentUid: parentSnap.id }, { merge: true });
+          console.log('🔗 تم ربط linkedParentUid تلقائيًا لهذا المستخدم');
+        }
+      }
+    const requiredFields = ['firstName', 'fatherName', 'grandfatherName', 'surname', 'birthdate', 'relation'];
+    const missingFields = requiredFields.filter(field => !userData[field]);
+
+    if (missingFields.length > 0) {
+      const updatedFields = {
+        firstName: userData.firstName || 'الاسم',
+        fatherName: userData.fatherName || 'الأب',
+        grandfatherName: userData.grandfatherName || 'الجد',
+        surname: userData.surname || 'اللقب',
+        birthdate: userData.birthdate || '1900-01-01',
+        relation: userData.relation || 'رب العائلة',
+        avatar: userData.avatar || '',
+        phone: phoneNumber,
+        isFamilyRoot: true,
+      };
+
+      await setDoc(userRef, updatedFields, { merge: true });
+      console.log('✅ تم تحديث بيانات المستخدم الأساسية');
+    }
+  } else {
+    await setDoc(userRef, {
+      firstName: 'الاسم',
+      fatherName: 'الأب',
+      grandfatherName: 'الجد',
+      surname: 'اللقب',
+      birthdate: '1900-01-01',
+      relation: 'رب العائلة',
+      avatar: '',
+      phone: phoneNumber,
+      isFamilyRoot: true,
+    });
+    console.log('✅ تم إنشاء وثيقة المستخدم الأساسية');
+  }
+};
+
+
   // إضافة loadTreeData و navigate إلى مصفوفة dependencies في useEffect
   useEffect(() => {
+  const run = async () => {
     const storedPhone = localStorage.getItem('verifiedPhone');
     if (!storedPhone) {
       navigate('/login');
     } else {
+      await ensureUserFieldsExist(storedPhone);
       loadTreeData(storedPhone);
     }
-  }, [navigate, showLinked, linkedPhones]);
+  };
+  run();
+}, [navigate]);
+
+
 
   const loadTreeData = async (phoneNumber) => {
+    await ensureUserFieldsExist(phoneNumber);
+
     let allMembers = [];
-    if (showLinked) {
-      // جلب أفراد الحساب الحالي والحسابات المرتبطة فقط (وليس كل المستخدمين)
-      const phones = [phoneNumber, ...linkedPhones.filter(p => p !== phoneNumber)];
-      for (const p of phones) {
-        const snapshot = await getDocs(collection(db, 'users', p, 'family'));
-        const members = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), phone: p }));
-        allMembers = allMembers.concat(members);
+    let dynamicPhones = new Set();
+    dynamicPhones.add(phoneNumber);
+    try {
+      // 🌀 نتابع سلسلة الآباء تلقائيًا
+      let currentPhone = phoneNumber;
+      while (true) {
+        const userDoc = await getDoc(doc(db, 'users', currentPhone));
+        const userData = userDoc.data();
+        const linkedParentUid = userData?.linkedParentUid || userData?.parentId;
+
+        if (linkedParentUid && !dynamicPhones.has(linkedParentUid)) {
+          dynamicPhones.add(linkedParentUid);
+          currentPhone = linkedParentUid;
+        } else {
+          break;
+        }
       }
-    } else {
-      const snapshot = await getDocs(collection(db, 'users', phoneNumber, 'family'));
-      allMembers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), phone: phoneNumber }));
+    } catch (error) {
+      console.error('فشل تتبع سلسلة الآباء:', error);
     }
+
+  // تحميل جميع أفراد العائلة من الحسابات المرتبطة
+  for (const phone of dynamicPhones) {
+    // 1. أفراد العائلة من /family
+    const familySnapshot = await getDocs(collection(db, 'users', phone, 'family'));
+    const familyMembers = familySnapshot.docs.map(doc => ({
+      id: doc.id,
+      docId: doc.id, // ✅ هذا السطر هو اللي أضفناه
+      ...doc.data(),
+      phone
+    }));
+
+
+    // 🔧 نضيف linkedParentUid إذا مفقود لأي عضو
+    for (const member of familySnapshot.docs) {
+      const data = member.data();
+      if (!data.linkedParentUid && data.parentId && data.parentId !== 'manual') {
+        const parentSnap = await getDoc(doc(db, 'users', phone, 'family', data.parentId));
+        if (parentSnap.exists()) {
+          await setDoc(doc.ref, { linkedParentUid: parentSnap.id }, { merge: true });
+        }
+      }
+    }
+
+
+
+    // 2. رب العائلة من /users/{phone}
+    const userDoc = await getDoc(doc(db, 'users', phone));
+    const userData = userDoc.exists() ? {
+      id: phone,
+      docId: userDoc.id,
+      uid: userDoc.id,
+      parentId: userDoc.data().parentId || '',
+      firstName: userDoc.data().firstName || '',
+      fatherName: userDoc.data().fatherName || '',
+      grandfatherName: userDoc.data().grandfatherName || '',
+      surname: userDoc.data().surname || '',
+      birthdate: userDoc.data().birthdate || '',
+      relation: userDoc.data().relation || '',
+      avatar: userDoc.data().avatar || '',
+      phone
+    } : null;
+
+
+    const combined = userData ? [userData, ...familyMembers] : familyMembers;
+    allMembers = [...allMembers, ...combined];
+  }
+
+    console.log('🔥 allMembers:', allMembers);
+    if (allMembers.length > 0) {
     const tree = buildTree(allMembers);
     setTreeData(tree);
+  } else {
+    setTreeData(null);
+  }
+};
+
+  
+  const buildTree = (members) => {
+  if (!members || members.length === 0) return null;
+
+  const personKey = (m) => {
+    if (
+      m.linkedParentUid &&
+      m.parentId === m.phone &&
+      m.firstName === '' &&
+      m.fatherName === '' &&
+      m.grandfatherName === ''
+    ) return null;
+
+    return `${m.firstName}|${m.fatherName}|${m.grandfatherName}|${m.surname}|${m.birthdate}|${m.phone}`;
   };
 
-  const buildTree = (members) => {
-    if (!members || members.length === 0) return null;
-    // طباعة الأعضاء للتشخيص
-    console.log('جميع الأفراد:', members);
-    // 1. بناء idMap: id+phone => node
-    const idMap = {};
-    members.forEach(m => {
-      idMap[m.id + '_' + m.phone] = {
-        name: m.name,
-        attributes: {
-          القرابة: m.relation,
-          الجنس: m.gender,
-          الميلاد: m.birthdate,
-        },
-        children: [],
-        gender: m.gender,
-        avatar: m.avatar || '',
-      };
-    });
-    // 2. ربط الأبناء بالأب عبر parentId
-    members.forEach(m => {
-      if (m.parentId && m.parentId !== m.id && idMap[m.parentId + '_' + m.phone]) {
-        idMap[m.parentId + '_' + m.phone].children.push(idMap[m.id + '_' + m.phone]);
+  const mergedMap = {};
+  const refMap = {}; // يستخدم لربط parentId بالـ key الصحيح
+
+  members.forEach(m => {
+    if (!m.firstName || m.firstName === '') return;
+
+    const key = personKey(m);
+    if (!key) return;
+
+  const docId = m.docId || m.id || m.uid || m.phone || '';
+
+
+    // حفظ المرجع للربط لاحقًا
+    if (docId) refMap[docId] = key;
+    if (m.uid) refMap[m.uid] = key;
+
+    if (!mergedMap[key]) {
+      mergedMap[key] = { ...m, mergedIds: [docId], children: [] };
+    } else {
+      if (docId && !mergedMap[key].mergedIds.includes(docId)) {
+        mergedMap[key].mergedIds.push(docId);
       }
-    });
-    // 3. الجذور: من ليس له أب أو parentId فارغ أو parentId === id أو parentId === 'manual' أو لا يوجد أب فعلي في القائمة
-    const roots = members.filter(m => !m.parentId || m.parentId === m.id || m.parentId === 'manual' || !members.find(x => x.id === m.parentId));
-    const rootNodes = roots.map(m => idMap[m.id + '_' + m.phone]);
-    // طباعة الجذور النهائية للتشخيص
-    console.log('جذور الشجرة:', rootNodes);
-    if (rootNodes.length === 0) return idMap[members[0].id + '_' + members[0].phone];
-    if (rootNodes.length === 1) return rootNodes[0];
-    return rootNodes;
-  };
+    }
+  });
+
+  const idMap = {};
+  Object.entries(mergedMap).forEach(([key, m]) => {
+    idMap[key] = {
+      name: `${m.firstName} ${m.fatherName} ${m.grandfatherName} ${m.surname}`,
+      attributes: {
+        القرابة: m.relation,
+        الميلاد: m.birthdate,
+      },
+      children: [],
+      avatar: m.avatar || '',
+      mergedIds: m.mergedIds,
+    };
+  });
+
+  Object.values(mergedMap).forEach(m => {
+    if (m.parentId && m.parentId !== m.id) {
+      const parentKey = refMap[m.linkedParentUid || m.parentId];
+      const childKey = personKey(m);
+
+      if (!parentKey) {
+        console.warn(`🚫 لم يتم العثور على الأب للعضو ${m.firstName} - parentId: ${m.parentId}`);
+      } else {
+        if (idMap[parentKey] && idMap[childKey]) {
+          idMap[parentKey].children.push(idMap[childKey]);
+        }
+      }
+    }
+  });
+
+  const roots = Object.values(mergedMap).filter(m =>
+    !m.parentId ||
+    m.parentId === m.id ||
+    m.parentId === 'manual' ||
+    !refMap[m.parentId]
+  );
+
+  const rootNodes = roots.map(m => idMap[personKey(m)]);
+  if (rootNodes.length === 0) return idMap[Object.keys(idMap)[0]];
+  if (rootNodes.length === 1) return rootNodes[0];
+  return rootNodes;
+};
+
+
+
 
   const exportTreeAsImage = async () => {
     const treeContainer = document.getElementById('tree-container');
@@ -172,11 +341,24 @@ export default function FamilyTree() {
             >
               🖼️ تصدير الشجرة كصورة
             </Button>
+
             <FormControlLabel
-              control={<Switch checked={showLinked} onChange={e => setShowLinked(e.target.checked)} color="primary" />}
-              label="عرض الشجرة الموسعة (الحسابات المرتبطة)"
+              control={
+                <Switch
+                  checked={showExtendedTree}
+                  onChange={(e) => {
+                    setShowExtendedTree(e.target.checked);
+                    const phone = localStorage.getItem('verifiedPhone');
+                    if (phone) loadTreeData(phone); // إعادة تحميل الشجرة عند تغيير السويتش
+                  }}
+                  color="primary"
+                />
+              }
+              label="عرض الشجرة الموسعة (تشمل الأب)"
               sx={{ mx: 1 }}
             />
+
+            
           </Box>
         </Box>
         {treeData ? (
@@ -285,11 +467,7 @@ export default function FamilyTree() {
                 <Typography variant="body2" mb={1.2}>
                   تاريخ الميلاد: {selectedNode.attributes?.الميلاد ? selectedNode.attributes.الميلاد : 'غير محدد'}
                 </Typography>
-                <Box mt={2} textAlign="center">
-                  <Button variant="contained" onClick={() => setSelectedNode(null)} fullWidth sx={{ py: 1, fontWeight: 700, fontSize: { xs: 15, sm: 17 } }}>
-                    إغلاق
-                  </Button>
-                </Box>
+                {/* يمكن إضافة المزيد من المعلومات هنا حسب الحاجة */}
               </>
             )}
           </Box>

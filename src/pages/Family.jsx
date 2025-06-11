@@ -16,7 +16,7 @@ import MenuItem from '@mui/material/MenuItem';
 import CloseIcon from '@mui/icons-material/Close';
 import GppGoodIcon from '@mui/icons-material/GppGood';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
-import { collection, addDoc, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, addDoc,collection, getDocs, query, where, deleteDoc  } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { storage, ref, uploadBytes, getDownloadURL } from '../firebase/storage';
 import { useNavigate } from 'react-router-dom';
@@ -25,7 +25,10 @@ import { validateName, validateBirthdate, validatePhone } from '../hooks/usePhon
 
 export default function Family() {
   const [form, setForm] = useState({
-    name: '',
+    firstName: '', // الاسم الأول
+    fatherName: '', // اسم الأب
+    grandfatherName: '', // اسم الجد
+    surname: '', // اللقب
     birthdate: '',
     relation: '',
     parentId: '',
@@ -48,31 +51,28 @@ export default function Family() {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
   const [loading, setLoading] = useState(false);
+  const [myFamilyMembers, setMyFamilyMembers] = useState([]);
+  const myPhone = localStorage.getItem('verifiedPhone');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteMemberId, setDeleteMemberId] = useState(null);
   const [search, setSearch] = useState('');
-  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
-  const [linkedPhones, setLinkedPhones] = useState(() => {
-    const saved = localStorage.getItem('linkedPhones');
-    return saved ? JSON.parse(saved) : [];
-  });
   const [fieldErrors, setFieldErrors] = useState({});
-  const [linkPhoneError, setLinkPhoneError] = useState('');
-  const [linkPhoneLoading, setLinkPhoneLoading] = useState(false);
   const [removePhoneLoading, setRemovePhoneLoading] = useState(false);
-  const [phoneToRemove, setPhoneToRemove] = useState(null);
-  const [confirmRemoveDialog, setConfirmRemoveDialog] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const storedPhone = localStorage.getItem('verifiedPhone');
-    if (!storedPhone) {
-      navigate('/login');
-    } else {
-      setPhone(storedPhone);
-      loadFamily(storedPhone);
-    }
-  }, [navigate]);
+  const storedPhone = localStorage.getItem('verifiedPhone');
+  if (!storedPhone) {
+    navigate('/login');
+  } else {
+    setPhone(storedPhone);
+
+    // 👇 تحميل أفراد العائلة المرتبطين بالمستخدم الحالي
+    loadFamily(storedPhone);
+  }
+}, [navigate]);
+
+
 
   const handleSettingsClick = (event) => setSettingsAnchor(event.currentTarget);
   const handleSettingsClose = () => setSettingsAnchor(null);
@@ -135,68 +135,151 @@ export default function Family() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    const errors = {};
-    if (!validateName(form.name)) {
-      errors.name = '❌ أدخل اسمًا صحيحًا (2-40 حرفًا، عربي أو إنجليزي)';
-    }
-    if (!validateBirthdate(form.birthdate)) {
-      errors.birthdate = '❌ أدخل تاريخ ميلاد صحيح (yyyy-mm-dd) وليس في المستقبل';
-    }
-    if (!form.relation) {
-      errors.relation = '❌ اختر القرابة';
-    }
-    // منطق افتراضي: إذا كان ابن/بنت ولم يحدد الأب، عيّن parentId لرب العائلة الحقيقي فقط إذا كان له id حقيقي وليس 'manual'
-    if ((form.relation === 'ابن' || form.relation === 'بنت') && (!form.parentId || form.parentId === '')) {
-      const heads = members.filter(m => m.relation === 'رب العائلة' && m.id && m.id !== 'manual');
-      if (heads.length === 1) {
-        form.parentId = heads[0].id;
-      }
-    }
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      setStatus('يرجى تصحيح الحقول بالأسفل');
-      return;
-    }
-    setFieldErrors({});
-    setStatus('');
-    setLoading(true);
-    try {
-      if (form.id) {
-        await setDoc(doc(db, 'users', phone, 'family', form.id), {
-          name: form.name,
-          birthdate: form.birthdate,
-          relation: form.relation,
-          parentId: form.parentId,
-          avatar: form.avatar || '',
-          manualParentName: form.manualParentName || ''
-        });
-        setStatus('✅ تم التعديل بنجاح');
-      } else {
-        await addDoc(collection(db, 'users', phone, 'family'), {
-          name: form.name,
-          birthdate: form.birthdate,
-          relation: form.relation,
-          parentId: form.parentId,
-          avatar: form.avatar || '',
-          manualParentName: form.manualParentName || ''
-        });
-        setStatus('✅ تمت الإضافة بنجاح');
-      }
-      setForm({ name: '', birthdate: '', relation: '', parentId: '', id: null, avatar: '', manualParentName: '' });
-      loadFamily(phone);
-    } catch {
-      setStatus('❌ حدث خطأ أثناء الحفظ');
-    } finally {
-      setLoading(false);
-    }
-  };
+  e.preventDefault();
 
-  const loadFamily = async (phoneNumber) => {
-    const snapshot = await getDocs(collection(db, 'users', phoneNumber, 'family'));
-    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    setMembers(data);
-  };
+  const errors = {};
+  if (!validateBirthdate(form.birthdate)) {
+    errors.birthdate = '❌ أدخل تاريخ ميلاد صحيح (yyyy-mm-dd) وليس في المستقبل';
+  }
+  if (!form.relation) {
+    errors.relation = '❌ اختر القرابة';
+  }
+  if (!form.firstName || form.firstName.length < 2) {
+    errors.firstName = '❌ أدخل الاسم الأول (2 أحرف على الأقل)';
+  }
+  if (!form.fatherName || form.fatherName.length < 2) {
+    errors.fatherName = '❌ أدخل اسم الأب (2 أحرف على الأقل)';
+  }
+  if (!form.grandfatherName || form.grandfatherName.length < 2) {
+    errors.grandfatherName = '❌ أدخل اسم الجد (2 أحرف على الأقل)';
+  }
+  if (!form.surname || form.surname.length < 2) {
+    errors.surname = '❌ أدخل اللقب (2 أحرف على الأقل)';
+  }
+
+  // تعيين parentId تلقائيًا إن أمكن
+  if ((form.relation === 'ابن' || form.relation === 'بنت') && (!form.parentId || form.parentId === '')) {
+    const heads = members.filter(m => m.relation === 'رب العائلة' && m.id && m.id !== 'manual');
+    if (heads.length === 1) {
+      form.parentId = heads[0].id;
+    }
+  }
+
+  if (Object.keys(errors).length > 0) {
+    setFieldErrors(errors);
+    setStatus('يرجى تصحيح الحقول بالأسفل');
+    return false;
+  }
+
+  if (form.id && form.parentId === form.id) {
+    setStatus('❌ لا يمكن للفرد أن يكون أبًا لنفسه');
+    return false;
+  }
+
+  if (!form.id && form.relation === 'رب العائلة' && members.some(m => m.relation === 'رب العائلة')) {
+    setStatus('❌ لا يمكن إضافة أكثر من رب عائلة واحد');
+    return false;
+  }
+
+  setFieldErrors({});
+  setStatus('');
+  setLoading(true);
+
+  try {
+    // ✅ هذا الكود الذكي يبحث عن الأب في كلا المكانين
+    let linkedParentUid = '';
+    if (form.parentId && form.parentId !== 'manual') {
+      // إذا كان الأب موجود داخل نفس الحساب
+      const familyRef = doc(db, 'users', phone, 'family', form.parentId);
+      const familySnap = await getDoc(familyRef);
+
+      if (familySnap.exists()) {
+        linkedParentUid = familySnap.id;
+      } else {
+        // لو ما موجود ضمن نفس الحساب، جرب جلبه كـ Root مستخدم آخر
+        const otherUserRef = doc(db, 'users', form.parentId); // نعتبر parentId هو uid لحساب آخر
+        const otherUserSnap = await getDoc(otherUserRef);
+        if (otherUserSnap.exists()) {
+          linkedParentUid = otherUserSnap.id;
+        }
+      }
+    }
+
+
+    if (form.id) {
+      if (form.relation !== 'رب العائلة') {
+        await setDoc(doc(db, 'users', phone), {
+          isFamilyRoot: false,
+          relation: '',
+        }, { merge: true });
+      }
+
+      await setDoc(doc(db, 'users', phone, 'family', form.id), {
+        ...form,
+        linkedParentUid: linkedParentUid || ''
+      });
+
+      if (form.relation === 'رب العائلة') {
+        await setDoc(doc(db, 'users', phone), {
+          ...form,
+          phone,
+          isFamilyRoot: true
+        }, { merge: true });
+      }
+
+      setStatus('✅ تم التعديل بنجاح');
+    } else {
+      await addDoc(collection(db, 'users', phone, 'family'), {
+        ...form,
+        parentId: form.parentId || phone,
+        linkedParentUid: linkedParentUid || ''
+      });
+
+      if (form.relation === 'رب العائلة') {
+        await setDoc(doc(db, 'users', phone), {
+          ...form,
+          phone,
+          isFamilyRoot: true
+        }, { merge: true });
+        setMembers(m => [...m, { ...form, phone }]);
+      }
+
+      setStatus('✅ تمت الإضافة بنجاح');
+    }
+
+    setForm({
+      firstName: '',
+      fatherName: '',
+      grandfatherName: '',
+      surname: '',
+      birthdate: '',
+      relation: '',
+      parentId: '',
+      id: null,
+      avatar: '',
+      manualParentName: ''
+    });
+
+    await loadFamily(phone);
+    return true;
+
+  } catch (err) {
+    console.error('🔥 Error in handleSubmit:', err);
+    setStatus('❌ حدث خطأ أثناء الحفظ');
+    return false;
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+
+  const loadFamily = async (parentPhone) => {
+  const snapshot = await getDocs(collection(db, 'users', parentPhone, 'family'));
+  const relatives = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  setMembers(relatives);
+};
+
 
   const handleDeleteConfirmation = (id) => {
     setDeleteMemberId(id);
@@ -204,21 +287,27 @@ export default function Family() {
   };
 
   const confirmDelete = async () => {
-    setDeleteDialogOpen(false);
-    setLoading(true);
-    try {
-      await deleteDoc(doc(db, 'users', phone, 'family', deleteMemberId));
-      loadFamily(phone);
-      setSnackbarMessage('✅ تم الحذف بنجاح');
-      setSnackbarSeverity('success');
-    } catch {
-      setSnackbarMessage('❌ حدث خطأ أثناء الحذف');
-      setSnackbarSeverity('error');
-    } finally {
-      setLoading(false);
-      setSnackbarOpen(true);
-    }
-  };
+  setDeleteDialogOpen(false);
+  setLoading(true);
+  try {
+  
+
+    // ✅ التصحيح:
+    await deleteDoc(doc(db, 'users', phone, 'family', deleteMemberId));
+
+    loadFamily(phone);
+    setSnackbarMessage('✅ تم الحذف بنجاح');
+    setSnackbarSeverity('success');
+  } catch (err) {
+    console.error("Delete error:", err); // 🪵 مهم لتشخيص السبب الحقيقي
+    setSnackbarMessage('❌ حدث خطأ أثناء الحذف');
+    setSnackbarSeverity('error');
+  } finally {
+    setLoading(false);
+    setSnackbarOpen(true);
+  }
+};
+
 
   const handleEdit = (member) => {
     setForm(member);
@@ -237,55 +326,7 @@ export default function Family() {
   const familyHead = members.find(m => m.relation === 'رب العائلة');
   const isFamilyHead = familyHead && phone === (familyHead.phone || phone);
 
-  const handleAddLinkedPhone = async () => {
-    if (!validatePhone(newPhone)) {
-      setLinkPhoneError('❌ أدخل رقم هاتف عراقي صحيح (مثال: +9647xxxxxxxxx)');
-      return;
-    }
-    setLinkPhoneError('');
-    setLinkPhoneLoading(true);
-    try {
-      // تحقق من وجود الحساب في قاعدة البيانات (Firestore)
-      const snapshot = await getDocs(collection(db, 'users', newPhone, 'family'));
-      if (snapshot.empty) {
-        setLinkPhoneError('❌ لا يوجد حساب بهذا الرقم. تأكد من أن الرقم مسجل في التطبيق.');
-        setLinkPhoneLoading(false);
-        return;
-      }
-      if (!linkedPhones.includes(newPhone)) {
-        const updated = [...linkedPhones, newPhone];
-        setLinkedPhones(updated);
-        localStorage.setItem('linkedPhones', JSON.stringify(updated));
-      }
-      setNewPhone(''); // إعادة تعيين الحقل بعد الربط
-      setLinkDialogOpen(false);
-      setSnackbarMessage('✅ تم ربط الحساب بنجاح');
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
-    } catch (err) {
-      setLinkPhoneError('❌ حدث خطأ أثناء التحقق من الحساب');
-    } finally {
-      setLinkPhoneLoading(false);
-    }
-  };
-
-  // إزالة حساب مرتبط
-  const handleRemoveLinkedPhone = (phone) => {
-    setPhoneToRemove(phone);
-    setConfirmRemoveDialog(true);
-  };
-  const confirmRemoveLinkedPhone = () => {
-    setRemovePhoneLoading(true);
-    const updated = linkedPhones.filter(p => p !== phoneToRemove);
-    setLinkedPhones(updated);
-    localStorage.setItem('linkedPhones', JSON.stringify(updated));
-    setRemovePhoneLoading(false);
-    setConfirmRemoveDialog(false);
-    setPhoneToRemove(null);
-    setSnackbarMessage('✅ تمت إزالة الحساب المرتبط بنجاح');
-    setSnackbarSeverity('success');
-    setSnackbarOpen(true);
-  };
+  
 
   return (
     <Container maxWidth="md" sx={{ p: 0, minHeight: '100vh', overflowX: 'hidden' }}>
@@ -343,12 +384,6 @@ export default function Family() {
           <MenuItem onClick={handleShare}>
             <WhatsAppIcon sx={{ ml: 1, color: '#25D366' }} /> مشاركة عبر واتساب
           </MenuItem>
-          <MenuItem onClick={() => setLinkDialogOpen(true)}>
-            <LinkIcon sx={{ ml: 1 }} /> ربط حساب آخر
-          </MenuItem>
-          {/* <MenuItem onClick={() => { handleSettingsClose(); navigate('/settings'); }}>
-            <SettingsIcon sx={{ ml: 1 }} /> صفحة الإعدادات المتقدمة
-          </MenuItem> */}
           <MenuItem onClick={handleLogout}>
             <LogoutIcon sx={{ ml: 1 }} /> تسجيل الخروج
           </MenuItem>
@@ -394,9 +429,24 @@ export default function Family() {
                 </Box>
               </label>
             </Box>
-            <TextField label="الاسم" name="name" value={form.name} onChange={handleChange} fullWidth size="small"
-              error={!!fieldErrors.name}
-              helperText={fieldErrors.name || ''}
+            <TextField label="الاسم الأول" name="firstName" value={form.firstName} onChange={handleChange} fullWidth size="small"
+              error={!!fieldErrors.firstName}
+              helperText={fieldErrors.firstName || ''}
+            />
+            <TextField label="اسم الأب" name="fatherName" value={form.fatherName} onChange={handleChange} fullWidth size="small"
+              sx={{ mt: 1 }}
+              error={!!fieldErrors.fatherName}
+              helperText={fieldErrors.fatherName || ''}
+            />
+            <TextField label="اسم الجد" name="grandfatherName" value={form.grandfatherName} onChange={handleChange} fullWidth size="small"
+              sx={{ mt: 1 }}
+              error={!!fieldErrors.grandfatherName}
+              helperText={fieldErrors.grandfatherName || ''}
+            />
+            <TextField label="اللقب" name="surname" value={form.surname} onChange={handleChange} fullWidth size="small"
+              sx={{ mt: 1 }}
+              error={!!fieldErrors.surname}
+              helperText={fieldErrors.surname || ''}
             />
             <TextField
               type="date"
@@ -440,7 +490,7 @@ export default function Family() {
               <option value="">-- اختر الأب --</option>
               {members.filter((m) => m.relation === 'رب العائلة' || m.relation === 'ابن').map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.name} ({m.relation})
+                  {`${m.firstName} ${m.fatherName} ${m.grandfatherName} ${m.surname}`} ({m.relation})
                 </option>
               ))}
               <option value="manual">إضافة أب غير موجود في القائمة </option>
@@ -490,7 +540,11 @@ export default function Family() {
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
             </IconButton>
             <Typography variant="h6" mb={2} textAlign="center">تعديل بيانات الفرد</Typography>
-            <Box component="form" onSubmit={(e) => { handleSubmit(e); setEditModalOpen(false); }} dir="rtl">
+            <Box component="form" onSubmit={async (e) => {
+              e.preventDefault();
+              const success = await handleSubmit(e);
+              if (success) setEditModalOpen(false);
+            }} dir="rtl">
               <Box display="flex" flexDirection="column" gap={2}>
                 <Box textAlign="center" mb={1}>
                   <label style={{ display: 'inline-block', cursor: 'pointer' }}>
@@ -527,9 +581,24 @@ export default function Family() {
                     </Box>
                   </label>
                 </Box>
-                <TextField label="الاسم" name="name" value={form.name} onChange={handleChange} fullWidth size="small"
-                  error={!!fieldErrors.name}
-                  helperText={fieldErrors.name || ''}
+                <TextField label="الاسم الأول" name="firstName" value={form.firstName} onChange={handleChange} fullWidth size="small"
+                  error={!!fieldErrors.firstName}
+                  helperText={fieldErrors.firstName || ''}
+                />
+                <TextField label="اسم الأب" name="fatherName" value={form.fatherName} onChange={handleChange} fullWidth size="small"
+                  sx={{ mt: 1 }}
+                  error={!!fieldErrors.fatherName}
+                  helperText={fieldErrors.fatherName || ''}
+                />
+                <TextField label="اسم الجد" name="grandfatherName" value={form.grandfatherName} onChange={handleChange} fullWidth size="small"
+                  sx={{ mt: 1 }}
+                  error={!!fieldErrors.grandfatherName}
+                  helperText={fieldErrors.grandfatherName || ''}
+                />
+                <TextField label="اللقب" name="surname" value={form.surname} onChange={handleChange} fullWidth size="small"
+                  sx={{ mt: 1 }}
+                  error={!!fieldErrors.surname}
+                  helperText={fieldErrors.surname || ''}
                 />
                 <TextField
                   type="date"
@@ -573,7 +642,7 @@ export default function Family() {
                   <option value="">-- اختر الأب --</option>
                   {members.filter((m) => m.relation === 'رب العائلة' || m.relation === 'ابن').map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.name} ({m.relation})
+                      {`${m.firstName} ${m.fatherName} ${m.grandfatherName} ${m.surname}`} ({m.relation})
                     </option>
                   ))}
                   <option value="manual">إضافة أب غير موجود في القائمة </option>
@@ -653,80 +722,6 @@ export default function Family() {
             </Typography>
           </Box>
         </Modal>
-        {/* نافذة ربط حساب آخر */}
-        <Dialog open={linkDialogOpen} onClose={() => setLinkDialogOpen(false)}>
-          <DialogTitle>ربط حساب جديد</DialogTitle>
-          <DialogContent>
-            <TextField
-              label="رقم هاتف الحساب الآخر"
-              value={newPhone}
-              onChange={e => { setNewPhone(e.target.value); setLinkPhoneError(''); }}
-              fullWidth
-              sx={{ mt: 1 }}
-              error={!!linkPhoneError}
-              helperText={linkPhoneError || ''}
-              disabled={linkPhoneLoading}
-              inputProps={{ 'aria-label': 'رقم هاتف الحساب الآخر' }}
-              autoFocus
-            />
-            {/* عرض الحسابات المرتبطة سابقاً */}
-            {linkedPhones.length > 0 && (
-              <Box mt={2}>
-                <Typography variant="subtitle2" color="text.secondary" mb={1}>
-                  الحسابات المرتبطة:
-                </Typography>
-                <Box display="flex" flexDirection="column" gap={1}>
-                  {linkedPhones.map((phone, idx) => (
-                    <Box key={phone} sx={{
-                      background: '#f1f8e9',
-                      color: '#33691e',
-                      borderRadius: 2,
-                      px: 2, py: 0.7,
-                      fontSize: 15,
-                      display: 'flex', alignItems: 'center', gap: 1
-                    }}>
-                      <span style={{ direction: 'ltr', fontFamily: 'monospace', fontWeight: 600 }}>{phone}</span>
-                      <IconButton
-                        aria-label={`إزالة الحساب المرتبط ${phone}`}
-                        size="small"
-                        color="error"
-                        onClick={() => handleRemoveLinkedPhone(phone)}
-                        sx={{ ml: 1 }}
-                        disabled={removePhoneLoading}
-                        tabIndex={0}
-                      >
-                        <RemoveCircleOutlineIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  ))}
-                </Box>
-              </Box>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setLinkDialogOpen(false)} disabled={linkPhoneLoading}>إلغاء</Button>
-            <Button onClick={handleAddLinkedPhone} variant="contained" disabled={linkPhoneLoading}>
-              {linkPhoneLoading ? 'جاري التحقق...' : 'ربط'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-        {/* نافذة تأكيد حذف الحساب المرتبط */}
-        <Dialog open={confirmRemoveDialog} onClose={() => setConfirmRemoveDialog(false)}>
-          <DialogTitle>تأكيد إزالة الحساب المرتبط</DialogTitle>
-          <DialogContent>
-            <DialogContentText>
-              هل أنت متأكد أنك تريد إزالة الحساب المرتبط:
-              <br />
-              <b style={{ direction: 'ltr', fontFamily: 'monospace' }}>{phoneToRemove}</b>
-            </DialogContentText>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setConfirmRemoveDialog(false)} color="primary" disabled={removePhoneLoading}>إلغاء</Button>
-            <Button onClick={confirmRemoveLinkedPhone} color="error" variant="contained" disabled={removePhoneLoading}>
-              حذف
-            </Button>
-          </DialogActions>
-        </Dialog>
         <Divider sx={{ my: 3 }} />
         {/* حقل البحث */}
         <Box mb={2}>
@@ -743,8 +738,7 @@ export default function Family() {
         {/* عرض الكروت بشكل متناسق */}
         <Grid container spacing={2} mt={4} dir="rtl" justifyContent="center" alignItems="stretch">
           {members.filter(member =>
-            member.name.toLowerCase().includes(search.toLowerCase()) ||
-            (member.relation && member.relation.toLowerCase().includes(search.toLowerCase()))
+            `${member.firstName} ${member.fatherName} ${member.grandfatherName} ${member.surname}`.toLowerCase().includes(search.toLowerCase())
           ).map((member) => (
             <Grid item xs={6} sm={6} md={6} key={member.id} display="flex">
               <Card sx={{ borderRadius: 2, boxShadow: 1, minWidth: 140, maxWidth: 250, width: '100%', margin: '0 auto', minHeight: 170, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', p: 1.5 }}>
@@ -753,7 +747,7 @@ export default function Family() {
                     <img src={member.avatar || '/boy.png'} alt="avatar" style={{ width: 60, height: 60, borderRadius: '50%', border: 'none', background: '#fff', boxShadow: '0 0 0 4px #e2d1c3', objectFit: 'cover' }} />
                   </Box>
                   <Typography variant="h6" fontWeight="bold" fontSize={{ xs: 15, sm: 16 }}>
-                    👤 {member.name}
+                    👤 {member.firstName} {member.fatherName} {member.grandfatherName} {member.surname}
                   </Typography>
                   <Typography variant="body2">القرابة: {member.relation ? member.relation : 'غير محدد'}</Typography>
                   <Typography variant="body2">تاريخ الميلاد: {member.birthdate ? member.birthdate : 'غير محدد'}</Typography>

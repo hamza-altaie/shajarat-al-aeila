@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { auth, signInWithPhoneNumber, RecaptchaVerifier } from '../firebase/auth';
 import { useNavigate } from 'react-router-dom';
+import { db } from '../firebase/config';
+import { getDoc, setDoc, doc } from 'firebase/firestore';
 
 // دالة التحقق من صحة الاسم (يجب أن يكون عربيًا أو إنجليزيًا، 2-40 حرفًا)
 function validateName(name) {
@@ -59,24 +61,54 @@ export default function usePhoneAuth() {
       setConfirmationResult(result);
       setMessage('✅ تم إرسال كود التحقق إلى هاتفك');
     } catch (error) {
-      setMessage('❌ حدث خطأ أثناء إرسال الكود: ' + error.message);
+      const friendly = error.message.includes('too-many-requests')
+        ? '❌ حاول لاحقًا، تم إرسال العديد من الطلبات'
+        : '❌ حدث خطأ: ' + error.message;
+      setMessage(friendly);
     }
   };
 
-  const verifyCode = async (redirectPath = '/family') => {
+  const verifyCode = async () => {
     if (!confirmationResult || !code) {
       setMessage('❌ أدخل كود التحقق');
       return;
     }
     try {
-      await confirmationResult.confirm(code);
-      localStorage.setItem('verifiedPhone', phone);
-      setMessage('✅ تم التحقق بنجاح');
-      setTimeout(() => navigate(redirectPath), 1000);
+      const result = await confirmationResult.confirm(code);
+      const phoneNumber = result.user.phoneNumber;
+
+      // ✅ احفظ رقم الهاتف في localStorage
+      localStorage.setItem('verifiedPhone', phoneNumber);
+
+      const userRef = doc(db, 'users', phoneNumber);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        // مستخدم جديد تمامًا
+        await setDoc(userRef, {
+          phone: phoneNumber,
+          isFamilyRoot: true,
+          linkedParentUid: ''
+        });
+        navigate('/select-father');
+      } else {
+        const data = userSnap.data();
+        if (!data.linkedParentUid) {
+          navigate('/select-father');
+        } else {
+          navigate('/family');
+        }
+      }
+
+      setMessage('✅ تم التحقق وحفظ الحساب بنجاح');
+      setCode('');
+      setConfirmationResult(null);
     } catch (error) {
       setMessage('❌ كود التحقق غير صحيح أو منتهي الصلاحية');
     }
   };
+
+
 
   return {
     phone, setPhone,
