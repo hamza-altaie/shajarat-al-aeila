@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { auth, signInWithPhoneNumber, RecaptchaVerifier } from '../firebase/auth';
+import React, { useState, useEffect } from 'react';
+import { auth } from '../firebase/config';
+import { signInWithPhoneNumber, RecaptchaVerifier } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase/config';
 import { getDoc, setDoc, doc } from 'firebase/firestore';
@@ -8,7 +9,6 @@ import { getDoc, setDoc, doc } from 'firebase/firestore';
 export const validateName = (name) => {
   if (!name || typeof name !== 'string') return false;
   const trimmedName = name.trim();
-  // يسمح بحروف عربية أو إنجليزية ومسافة، 2-40 حرف
   const nameRegex = /^[\u0600-\u06FFa-zA-Z\s]{2,40}$/;
   return nameRegex.test(trimmedName) && trimmedName.length >= 2;
 };
@@ -16,63 +16,46 @@ export const validateName = (name) => {
 export const validateBirthdate = (date) => {
   if (!date || typeof date !== 'string') return false;
   
-  // تحقق من الصيغة YYYY-MM-DD
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
   if (!dateRegex.test(date)) return false;
   
   const birthDate = new Date(date);
   const today = new Date();
   
-  // تحقق من صحة التاريخ
   if (isNaN(birthDate.getTime())) return false;
-  
-  // تحقق من عدم كون التاريخ في المستقبل
   if (birthDate > today) return false;
   
-  // تحقق من العمر المنطقي (أقل من 150 سنة)
   const age = today.getFullYear() - birthDate.getFullYear();
   if (age < 0 || age > 150) return false;
-  
-  // تحقق من التاريخ المنطقي (ليس قبل 1850)
   if (birthDate.getFullYear() < 1850) return false;
   
   return true;
 };
 
-// دالة التحقق من رقم الهاتف - مُصلحة
 export const validatePhone = (phone) => {
   if (!phone || typeof phone !== 'string') return false;
   
-  // إزالة الفراغات والرموز الخاصة
   const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
-  
-  // تحقق من الصيغة العراقية الدولية - مُصلح
-  // يقبل +9647 متبوعاً بـ 8 أو 9 أرقام
   const iraqiPhoneRegex = /^\+9647[0-9]{8,9}$/;
   
   return iraqiPhoneRegex.test(cleanPhone);
 };
 
-// دالة تنسيق رقم الهاتف - محسنة
 export const formatPhoneNumber = (phone) => {
   const cleanPhone = phone.replace(/[^\d+]/g, '');
   
-  // إذا بدأ بـ 07، أضف رمز العراق واحذف الصفر
   if (cleanPhone.startsWith('07')) {
     return '+964' + cleanPhone.substring(1);
   }
   
-  // إذا بدأ بـ 7 وطوله 9 أرقام، أضف رمز العراق
   if (cleanPhone.startsWith('7') && cleanPhone.length === 9) {
     return '+964' + cleanPhone;
   }
   
-  // إذا بدأ بـ 7 وطوله 10 أرقام، أضف رمز العراق
   if (cleanPhone.startsWith('7') && cleanPhone.length === 10) {
     return '+964' + cleanPhone;
   }
   
-  // إذا بدأ بـ +964، احتفظ به كما هو
   if (cleanPhone.startsWith('+964')) {
     return cleanPhone;
   }
@@ -89,7 +72,6 @@ export default function usePhoneAuth() {
   const [confirmationLoading, setConfirmationLoading] = useState(false);
   const navigate = useNavigate();
 
-  // إرسال كود التحقق
   const sendCode = async () => {
     const formattedPhone = formatPhoneNumber(phone);
     
@@ -104,55 +86,108 @@ export default function usePhoneAuth() {
     try {
       // تنظيف reCAPTCHA السابق
       if (window.recaptchaVerifier) {
-        window.recaptchaVerifier.clear();
+        try {
+          await window.recaptchaVerifier.clear();
+        } catch (e) {
+          console.warn('تحذير: فشل في تنظيف reCAPTCHA:', e);
+        }
         window.recaptchaVerifier = null;
       }
 
-      // إنشاء reCAPTCHA جديد
-      window.recaptchaVerifier = new RecaptchaVerifier(
-        'recaptcha-container',
-        {
-          size: 'invisible',
-          callback: () => {
-            console.log('reCAPTCHA solved');
-          },
-          'expired-callback': () => {
-            setMessage('❌ انتهت صلاحية التحقق، يرجى المحاولة مرة أخرى');
-          }
-        },
-        auth
-      );
+      // التحقق من وجود العنصر
+      const recaptchaContainer = document.getElementById('recaptcha-container');
+      if (!recaptchaContainer) {
+        throw new Error('عنصر reCAPTCHA غير موجود');
+      }
 
-      await window.recaptchaVerifier.render();
-      const appVerifier = window.recaptchaVerifier;
+      // إنشاء reCAPTCHA جديد مع إعدادات محسنة
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        size: 'invisible',
+        callback: (response) => {
+          console.log('✅ تم حل reCAPTCHA بنجاح');
+        },
+        'expired-callback': () => {
+          console.warn('⚠️ انتهت صلاحية reCAPTCHA');
+          setMessage('❌ انتهت صلاحية التحقق، يرجى المحاولة مرة أخرى');
+        },
+        'error-callback': (error) => {
+          console.error('❌ خطأ في reCAPTCHA:', error);
+          setMessage('❌ خطأ في نظام التحقق، يرجى المحاولة مرة أخرى');
+        }
+      });
+
+      // تقديم reCAPTCHA
+      try {
+        await window.recaptchaVerifier.render();
+        console.log('✅ تم تقديم reCAPTCHA بنجاح');
+      } catch (renderError) {
+        console.error('❌ خطأ في تقديم reCAPTCHA:', renderError);
+        throw new Error('فشل في تهيئة نظام التحقق');
+      }
+
+      // إرسال رمز التحقق
+      console.log('📱 إرسال رمز التحقق إلى:', formattedPhone);
+      const result = await signInWithPhoneNumber(auth, formattedPhone, window.recaptchaVerifier);
       
-      const result = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
       setConfirmationResult(result);
-      setPhone(formattedPhone); // حفظ الرقم المنسق
+      setPhone(formattedPhone);
       setMessage('✅ تم إرسال كود التحقق إلى هاتفك');
       
       return { success: true };
+      
     } catch (error) {
-      console.error('Error sending code:', error);
+      console.error('❌ خطأ في إرسال الكود:', error);
       
       let friendlyMessage = '❌ حدث خطأ أثناء إرسال الكود';
       
-      if (error.code === 'auth/too-many-requests') {
-        friendlyMessage = '❌ تم إرسال الكثير من الطلبات. يرجى المحاولة لاحقاً';
-      } else if (error.code === 'auth/invalid-phone-number') {
-        friendlyMessage = '❌ رقم الهاتف غير صحيح';
-      } else if (error.code === 'auth/quota-exceeded') {
-        friendlyMessage = '❌ تم تجاوز الحد المسموح من الرسائل لهذا اليوم';
+      // معالجة أنواع الأخطاء المختلفة
+      switch (error.code) {
+        case 'auth/too-many-requests':
+          friendlyMessage = '❌ تم إرسال الكثير من الطلبات. يرجى المحاولة لاحقاً';
+          break;
+        case 'auth/invalid-phone-number':
+          friendlyMessage = '❌ رقم الهاتف غير صحيح';
+          break;
+        case 'auth/quota-exceeded':
+          friendlyMessage = '❌ تم تجاوز الحد المسموح من الرسائل لهذا اليوم';
+          break;
+        case 'auth/app-not-authorized':
+          friendlyMessage = '❌ التطبيق غير مصرح له باستخدام هذه الخدمة';
+          break;
+        case 'auth/recaptcha-not-enabled':
+          friendlyMessage = '❌ نظام التحقق غير مفعل';
+          break;
+        case 'auth/operation-not-allowed':
+          friendlyMessage = '❌ تسجيل الدخول بالهاتف غير مفعل';
+          break;
+        default:
+          if (error.message.includes('network')) {
+            friendlyMessage = '❌ مشكلة في الاتصال بالإنترنت';
+          } else if (error.message.includes('cors')) {
+            friendlyMessage = '❌ مشكلة في إعدادات الأمان';
+          }
+          break;
       }
       
       setMessage(friendlyMessage);
-      return { success: false };
+      
+      // تنظيف reCAPTCHA عند الخطأ
+      if (window.recaptchaVerifier) {
+        try {
+          await window.recaptchaVerifier.clear();
+          window.recaptchaVerifier = null;
+        } catch (clearError) {
+          console.warn('تحذير: فشل في تنظيف reCAPTCHA بعد الخطأ:', clearError);
+        }
+      }
+      
+      return { success: false, error: friendlyMessage };
+      
     } finally {
       setLoading(false);
     }
   };
 
-  // التحقق من الكود
   const verifyCode = async () => {
     if (!confirmationResult) {
       setMessage('❌ يرجى إرسال كود التحقق أولاً');
@@ -168,12 +203,15 @@ export default function usePhoneAuth() {
     setMessage('');
 
     try {
+      console.log('🔐 التحقق من الكود...');
       const result = await confirmationResult.confirm(code);
       const user = result.user;
       const uid = user.uid;
       const phoneNumber = user.phoneNumber;
 
-      // حفظ بيانات المصادقة
+      console.log('✅ تم التحقق من الكود بنجاح');
+
+      // حفظ البيانات محلياً
       localStorage.setItem('verifiedUid', uid);
       localStorage.setItem('verifiedPhone', phoneNumber);
 
@@ -182,69 +220,103 @@ export default function usePhoneAuth() {
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
-        // مستخدم جديد - إنشاء حساب أساسي
-        await setDoc(userRef, {
+        // مستخدم جديد
+        const newUserData = {
           uid,
           phone: phoneNumber,
           createdAt: new Date().toISOString(),
-          isFamilyRoot: false, // سيتم تحديد هذا في صفحة اختيار العائلة
-          isNewUser: true, // علامة للمستخدم الجديد
-          hasCompletedSetup: false, // لم يكمل الإعداد بعد
+          isFamilyRoot: false,
+          isNewUser: true,
+          hasCompletedSetup: false,
           lastLogin: new Date().toISOString(),
-        });
+        };
+        
+        await setDoc(userRef, newUserData);
+        console.log('✅ تم إنشاء حساب جديد');
         
         setMessage('✅ تم إنشاء حسابك بنجاح');
-        
-        // توجيه المستخدم الجديد لصفحة اختيار العائلة
         navigate('/family-selection');
         
       } else {
-        // مستخدم موجود - تحديث آخر تسجيل دخول
+        // مستخدم موجود
         const userData = userSnap.data();
+        
+        // تحديث آخر تسجيل دخول
         await setDoc(userRef, {
           lastLogin: new Date().toISOString(),
         }, { merge: true });
 
+        console.log('✅ تم تسجيل دخول مستخدم موجود');
         setMessage('✅ تم تسجيل الدخول بنجاح');
         
-        // التحقق إذا كان المستخدم تخطى اختيار العائلة سابقاً
+        // توجيه المستخدم بناءً على حالة حسابه
         if (userData.isNewUser && !userData.hasCompletedSetup) {
-          // مستخدم قديم لم يكمل الإعداد - توجيه لاختيار العائلة
           navigate('/family-selection');
         } else {
-          // مستخدم مكتمل الإعداد - توجيه للصفحة الرئيسية
           navigate('/family');
         }
       }
-      // تنظيف النموذج
+      
+      // تنظيف البيانات
       setCode('');
       setConfirmationResult(null);
       
+      // تنظيف reCAPTCHA
+      if (window.recaptchaVerifier) {
+        try {
+          await window.recaptchaVerifier.clear();
+          window.recaptchaVerifier = null;
+        } catch (clearError) {
+          console.warn('تحذير: فشل في تنظيف reCAPTCHA:', clearError);
+        }
+      }
+      
     } catch (error) {
-      console.error('Error verifying code:', error);
+      console.error('❌ خطأ في التحقق من الكود:', error);
       
       let friendlyMessage = '❌ كود التحقق غير صحيح';
       
-      if (error.code === 'auth/invalid-verification-code') {
-        friendlyMessage = '❌ كود التحقق غير صحيح';
-      } else if (error.code === 'auth/code-expired') {
-        friendlyMessage = '❌ انتهت صلاحية كود التحقق، يرجى طلب كود جديد';
-      } else if (error.code === 'auth/session-expired') {
-        friendlyMessage = '❌ انتهت جلسة التحقق، يرجى البدء من جديد';
+      switch (error.code) {
+        case 'auth/invalid-verification-code':
+          friendlyMessage = '❌ كود التحقق غير صحيح';
+          break;
+        case 'auth/code-expired':
+          friendlyMessage = '❌ انتهت صلاحية كود التحقق، يرجى طلب كود جديد';
+          break;
+        case 'auth/session-expired':
+          friendlyMessage = '❌ انتهت جلسة التحقق، يرجى البدء من جديد';
+          break;
+        case 'auth/invalid-verification-id':
+          friendlyMessage = '❌ معرف التحقق غير صالح، يرجى طلب كود جديد';
+          break;
+        case 'auth/missing-verification-code':
+          friendlyMessage = '❌ يرجى إدخال كود التحقق';
+          break;
+        default:
+          if (error.message.includes('network')) {
+            friendlyMessage = '❌ مشكلة في الاتصال بالإنترنت';
+          }
+          break;
       }
       
       setMessage(friendlyMessage);
+      
     } finally {
       setConfirmationLoading(false);
     }
   };
 
-  // تنظيف الموارد
   const cleanup = () => {
+    // تنظيف شامل
     if (window.recaptchaVerifier) {
-      window.recaptchaVerifier.clear();
+      try {
+        window.recaptchaVerifier.clear();
+      } catch (e) {
+        console.warn('تحذير: فشل في تنظيف reCAPTCHA:', e);
+      }
       window.recaptchaVerifier = null;
     }
+    
     setPhone('');
     setCode('');
     setConfirmationResult(null);
@@ -253,8 +325,14 @@ export default function usePhoneAuth() {
     setConfirmationLoading(false);
   };
 
+  // تنظيف عند إلغاء تحميل المكون
+  useEffect(() => {
+    return () => {
+      cleanup();
+    };
+  }, []);
+
   return {
-    // البيانات
     phone,
     code,
     confirmationResult,
@@ -262,7 +340,6 @@ export default function usePhoneAuth() {
     loading,
     confirmationLoading,
     
-    // الدوال
     setPhone,
     setCode,
     setMessage,
@@ -271,7 +348,6 @@ export default function usePhoneAuth() {
     verifyCode,
     cleanup,
     
-    // دوال التحقق
     validateName,
     validateBirthdate,
     validatePhone,

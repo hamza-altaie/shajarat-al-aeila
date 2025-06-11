@@ -6,38 +6,19 @@ import { resolve } from 'path'
 export default defineConfig({
   plugins: [
     react({
-      // تحسين React Fast Refresh
       fastRefresh: true,
-      // تحسين معالجة JSX
-      jsxImportSource: '@emotion/react',
-      babel: {
-        plugins: ['@emotion/babel-plugin']
-      }
     })
   ],
   
   // إعدادات الخادم
   server: {
     port: 5173,
-    host: true, // للوصول من الشبكة المحلية
-    open: true, // فتح المتصفح تلقائياً
-    strictPort: false, // السماح بمنافذ بديلة
-    
-    // إعدادات الـ proxy لـ Firebase (إذا لزم الأمر)
-    proxy: {
-      '/api': {
-        target: 'https://shajarat-al-aeila.firebaseapp.com',
-        changeOrigin: true,
-        secure: true
-      }
-    },
-    
-    // معالجة CORS
+    host: true,
+    open: true,
+    strictPort: false,
     cors: true,
-    
-    // إعدادات HMR (Hot Module Replacement)
     hmr: {
-      overlay: true, // إظهار الأخطاء على الشاشة
+      overlay: true,
       clientPort: 5173
     }
   },
@@ -46,42 +27,30 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
-    sourcemap: true, // خرائط المصدر للتطوير
-    
-    // تحسين حجم الملفات
+    sourcemap: true,
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: false, // الاحتفاظ بـ console.log في البناء
+        drop_console: false,
         drop_debugger: true
       }
     },
-    
-    // تقسيم الحزم
     rollupOptions: {
       output: {
         manualChunks: {
-          // حزمة React منفصلة
           'react-vendor': ['react', 'react-dom'],
-          // حزمة Material-UI منفصلة
           'mui-vendor': ['@mui/material', '@mui/icons-material'],
-          // حزمة Firebase منفصلة
-          'firebase-vendor': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-          // حزمة المكونات الثقيلة
+          'firebase-vendor': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
           'heavy-components': ['react-d3-tree', 'html2canvas']
         }
       }
     },
-    
-    // تحسين الأصول
-    assetsInlineLimit: 4096, // 4KB
-    chunkSizeWarningLimit: 1000, // 1MB
-    
-    // تحسين CSS
+    assetsInlineLimit: 4096,
+    chunkSizeWarningLimit: 1000,
     cssCodeSplit: true
   },
   
-  // إعدادات الحل والاستيراد
+  // إعدادات الحل والاستيراد - مُصححة
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
@@ -89,11 +58,9 @@ export default defineConfig({
       '@pages': resolve(__dirname, 'src/pages'),
       '@hooks': resolve(__dirname, 'src/hooks'),
       '@utils': resolve(__dirname, 'src/utils'),
-      '@firebase': resolve(__dirname, 'src/firebase'),
       '@contexts': resolve(__dirname, 'src/contexts')
+      // إزالة alias للـ firebase لتجنب التضارب
     },
-    
-    // امتدادات الملفات المدعومة
     extensions: ['.js', '.jsx', '.ts', '.tsx', '.json']
   },
   
@@ -105,79 +72,44 @@ export default defineConfig({
   
   // إعدادات الـ CSS
   css: {
-    devSourcemap: true, // خرائط مصدر CSS في التطوير
-    
-    // معالج CSS
-    preprocessorOptions: {
-      scss: {
-        additionalData: `@import "@/styles/variables.scss";`
-      }
-    },
-    
-    // PostCSS
+    devSourcemap: true,
     postcss: {
-      plugins: [
-        // يمكن إضافة plugins هنا عند الحاجة
-      ]
+      plugins: []
     }
   },
   
-  // تحسينات الأداء
+  // تحسينات الأداء - مُصححة
   optimizeDeps: {
     include: [
-      // تحسين استيراد المكتبات الشائعة
       'react',
       'react-dom',
       'react-router-dom',
       '@mui/material',
       '@mui/icons-material',
-      'firebase/app',
-      'firebase/auth', 
-      'firebase/firestore'
+      '@emotion/react',
+      '@emotion/styled'
     ],
     exclude: [
-      // استبعاد المكتبات الثقيلة من التحسين المسبق
-      'react-d3-tree'
-    ]
+      'firebase'  // استبعاد Firebase من التحسين المسبق لتجنب المشاكل
+    ],
+    // تجبر Vite على إعادة تحسين التبعيات
+    force: true
   },
   
   // إعدادات التطوير المتقدمة
   esbuild: {
-    // تحسين JSX
     jsxFactory: 'React.createElement',
-    jsxFragment: 'React.Fragment',
-    
-    // إزالة console.log في الإنتاج
-    drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : []
+    jsxFragment: 'React.Fragment'
   },
   
-  // معالجة الأخطاء
   logLevel: 'info',
-  clearScreen: false, // عدم مسح الشاشة عند إعادة التحميل
-  
-  // إعدادات الـ PWA (إذا كان مطلوباً)
+  clearScreen: false,
   base: '/',
   
-  // تحسين الذاكرة
   worker: {
     format: 'es'
   },
   
-  // إعدادات خاصة بالبيئة
   mode: process.env.NODE_ENV || 'development',
-  
-  // معالجة الملفات العامة
-  publicDir: 'public',
-  
-  // إعدادات الأمان
-  experimental: {
-    renderBuiltUrl(filename, { hostType }) {
-      // معالجة خاصة للملفات المختلفة
-      if (hostType === 'js') {
-        return `/${filename}`
-      } else {
-        return `/${filename}`
-      }
-    }
-  }
+  publicDir: 'public'
 })

@@ -1,10 +1,9 @@
+// src/firebase/auth.js
 import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
-import { app } from "./config";
+import app from "./config"; // ✅ تصحيح الاستيراد
 
-// تهيئة خدمة المصادقة
 const auth = getAuth(app);
 
-// تصدير الخدمات المطلوبة
 export {
   auth,
   RecaptchaVerifier,

@@ -3,8 +3,8 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline, GlobalStyles, Box, CircularProgress, Typography } from '@mui/material';
 
-// استيراد المكونات الأساسية
-import AppRoutes from './AppRoutes';
+// استيراد المكونات الأساسية - مُصحح
+import AppRoutes from './AppRoutes.jsx';
 import { AuthProvider } from './AuthContext.jsx';
 
 // ======================================================

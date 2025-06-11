@@ -1,8 +1,7 @@
 import React, { createContext, useEffect, useState, useCallback } from 'react';
-import { auth } from './firebase/auth';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from './firebase/config';
+import { auth, db } from './firebase/config';  // ✅ استيراد صحيح
+import { onAuthStateChanged, signOut } from 'firebase/auth';  // ✅ استيراد صحيح
+import { doc, getDoc, setDoc } from 'firebase/firestore';  // ✅ استيراد صحيح
 
 // إنشاء Context للمصادقة
 export const AuthContext = createContext({
@@ -27,7 +26,7 @@ export const AuthProvider = ({ children }) => {
   // جلب بيانات المستخدم من Firestore
   const fetchUserData = useCallback(async (uid) => {
     try {
-      const userRef = doc(db, 'users', uid);
+      const userRef = doc(db, 'users', uid);  // ✅ استخدام db من config
       const userSnap = await getDoc(userRef);
       
       if (userSnap.exists()) {
@@ -48,7 +47,7 @@ export const AuthProvider = ({ children }) => {
   // تحديث آخر تسجيل دخول
   const updateLastLogin = useCallback(async (uid) => {
     try {
-      const userRef = doc(db, 'users', uid);
+      const userRef = doc(db, 'users', uid);  // ✅ استخدام db من config
       await setDoc(userRef, {
         lastLogin: new Date().toISOString(),
       }, { merge: true });
@@ -67,7 +66,6 @@ export const AuthProvider = ({ children }) => {
     }
 
     if (currentUser) {
-      // التحقق من تطابق البيانات
       if (currentUser.uid !== storedUid || currentUser.phoneNumber !== storedPhone) {
         console.warn('عدم تطابق البيانات المحلية مع Firebase');
         return false;
@@ -87,24 +85,21 @@ export const AuthProvider = ({ children }) => {
 
   // مراقبة حالة المصادقة
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {  // ✅ استخدام auth من config
       try {
         setError(null);
         setUser(currentUser);
 
         if (currentUser) {
-          // التحقق من صحة البيانات المحلية
           const isValidLocal = validateLocalStorage(currentUser);
           
           if (isValidLocal) {
-            // جلب بيانات المستخدم من Firestore
             const userData = await fetchUserData(currentUser.uid);
             
             if (userData) {
               setIsAuthenticated(true);
               await updateLastLogin(currentUser.uid);
             } else {
-              // لا توجد بيانات في Firestore - إنشاء بيانات أساسية
               const newUserData = {
                 uid: currentUser.uid,
                 phone: currentUser.phoneNumber,
@@ -114,20 +109,17 @@ export const AuthProvider = ({ children }) => {
                 linkedParentUid: '',
               };
               
-              await setDoc(doc(db, 'users', currentUser.uid), newUserData);
+              await setDoc(doc(db, 'users', currentUser.uid), newUserData);  // ✅ استخدام db من config
               setUserData(newUserData);
               setIsAuthenticated(true);
             }
           } else {
-            // بيانات محلية غير صحيحة
             clearLocalStorage();
             setIsAuthenticated(false);
           }
         } else {
-          // لا يوجد مستخدم مسجل دخول
           const hasLocalData = localStorage.getItem('verifiedPhone') || localStorage.getItem('verifiedUid');
           if (hasLocalData) {
-            // يوجد بيانات محلية ولكن لا يوجد مستخدم في Firebase
             clearLocalStorage();
           }
           setIsAuthenticated(false);
@@ -144,30 +136,26 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, [validateLocalStorage, fetchUserData, updateLastLogin, clearLocalStorage]);
 
-  // تسجيل الدخول (يتم استدعاؤها بعد التحقق من الهاتف)
+  // تسجيل الدخول
   const login = useCallback(async (user, additionalData = {}) => {
     try {
       setError(null);
       setLoading(true);
 
-      // حفظ بيانات المصادقة محلياً
       localStorage.setItem('verifiedUid', user.uid);
       localStorage.setItem('verifiedPhone', user.phoneNumber);
 
-      // تحديث أو إنشاء بيانات المستخدم في Firestore
-      const userRef = doc(db, 'users', user.uid);
+      const userRef = doc(db, 'users', user.uid);  // ✅ استخدام db من config
       const userSnap = await getDoc(userRef);
 
       let userData;
       if (userSnap.exists()) {
-        // تحديث البيانات الموجودة
         userData = {
           ...userSnap.data(),
           lastLogin: new Date().toISOString(),
           ...additionalData
         };
       } else {
-        // إنشاء بيانات جديدة
         userData = {
           uid: user.uid,
           phone: user.phoneNumber,
@@ -201,10 +189,8 @@ export const AuthProvider = ({ children }) => {
       setError(null);
       setLoading(true);
 
-      // تسجيل الخروج من Firebase
-      await signOut(auth);
+      await signOut(auth);  // ✅ استخدام auth من config
       
-      // تنظيف البيانات المحلية والحالة
       clearLocalStorage();
       setUser(null);
 
@@ -243,7 +229,7 @@ export const AuthProvider = ({ children }) => {
     if (!user?.uid) return false;
 
     try {
-      const userRef = doc(db, 'users', user.uid);
+      const userRef = doc(db, 'users', user.uid);  // ✅ استخدام db من config
       const updatedData = {
         ...userData,
         ...newData,
@@ -279,24 +265,20 @@ export const AuthProvider = ({ children }) => {
 
   // قيم Context
   const contextValue = {
-    // البيانات
     user,
     loading,
     error,
     isAuthenticated,
     userData,
 
-    // الوظائف الأساسية
     login,
     logout,
     refreshUserData,
     clearError,
     updateUserData,
 
-    // وظائف مساعدة
     hasPermission,
 
-    // معلومات إضافية
     isLoading: loading,
     isLoggedIn: isAuthenticated,
     userPhone: userData?.phone || user?.phoneNumber,

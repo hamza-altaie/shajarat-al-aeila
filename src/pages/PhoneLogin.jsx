@@ -4,7 +4,7 @@ import {
   Container, Paper, TextField, Button, Box, Typography, 
   Alert, CircularProgress, InputAdornment, Link
 } from '@mui/material';
-import { Phone as PhoneIcon, Security as SecurityIcon } from '@mui/icons-material';
+import { Phone as PhoneIcon, Security as SecurityIcon, Warning as WarningIcon } from '@mui/icons-material';
 
 const PhoneLogin = () => {
   const {
@@ -21,6 +21,29 @@ const PhoneLogin = () => {
 
   const [timer, setTimer] = useState(0);
   const [phoneInput, setPhoneInput] = useState('');
+  const [firebaseStatus, setFirebaseStatus] = useState(null);
+
+  // فحص حالة Firebase عند التحميل
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const { checkFirebaseStatus } = await import('../firebase/config');
+        const status = checkFirebaseStatus();
+        setFirebaseStatus(status);
+        
+        if (!status.isInitialized) {
+          setMessage('❌ خطأ في تهيئة Firebase. يرجى التحقق من الإعدادات.');
+        } else if (status.config.isDemoConfig) {
+          setMessage('⚠️ يتم استخدام إعدادات تجريبية. يرجى تحديث ملف .env');
+        }
+      } catch (error) {
+        console.error('خطأ في فحص Firebase:', error);
+        setFirebaseStatus({ isInitialized: false, error: error.message });
+      }
+    };
+    
+    checkStatus();
+  }, [setMessage]);
 
   // عداد مؤقت لإعادة تفعيل زر الإرسال
   useEffect(() => {
@@ -32,20 +55,20 @@ const PhoneLogin = () => {
 
   // دالة مساعدة للتحقق من الرقم العراقي
   const isValidIraqiNumber = (phoneInput) => {
-  // 07xxxxxxxx (10 أرقام تبدأ بـ 07)
-  if (phoneInput.length === 10 && phoneInput.startsWith('07')) {
-    return true;
-  }
-  
-  // 7xxxxxxxx أو 7xxxxxxxxx (9-10 أرقام تبدأ بـ 7 بدون صفر)
-  if ((phoneInput.length === 9 || phoneInput.length === 10) && phoneInput.startsWith('7') && !phoneInput.startsWith('07')) {
-    return true;
-  }
-  
-  return false;
-};
+    // 07xxxxxxxx (10 أرقام تبدأ بـ 07)
+    if (phoneInput.length === 10 && phoneInput.startsWith('07')) {
+      return true;
+    }
+    
+    // 7xxxxxxxx أو 7xxxxxxxxx (9-10 أرقام تبدأ بـ 7 بدون صفر)
+    if ((phoneInput.length === 9 || phoneInput.length === 10) && phoneInput.startsWith('7') && !phoneInput.startsWith('07')) {
+      return true;
+    }
+    
+    return false;
+  };
 
-  // معالجة تغيير رقم الهاتف - مُحدث ومُصلح
+  // معالجة تغيير رقم الهاتف
   const handlePhoneChange = (e) => {
     let value = e.target.value.replace(/[^\d]/g, ''); // إزالة كل شيء عدا الأرقام
     
@@ -75,7 +98,7 @@ const PhoneLogin = () => {
     setPhone(formattedPhone);
   };
 
-  // إرسال كود التحقق - مُحسن
+  // إرسال كود التحقق
   const handleSendCode = async () => {
     // التأكد من أن الرقم صحيح قبل الإرسال
     if (!phone || !phone.startsWith('+9647') || (phone.length !== 13 && phone.length !== 14)) {
@@ -83,11 +106,16 @@ const PhoneLogin = () => {
       return;
     }
     
+    // فحص حالة Firebase قبل الإرسال
+    if (!firebaseStatus?.isInitialized) {
+      setMessage('❌ خطأ في الاتصال بالخدمة. يرجى إعادة تحميل الصفحة.');
+      return;
+    }
+    
     try {
       const result = await sendCode();
       if (result?.success !== false) {
         setTimer(60); // 60 ثانية انتظار
-        setMessage('✅ تم إرسال الكود بنجاح');
       }
     } catch (error) {
       console.error('خطأ في إرسال الكود:', error);
@@ -104,7 +132,7 @@ const PhoneLogin = () => {
     }
   };
 
-  // التحقق من صحة رقم الهاتف للعرض - مُصلح
+  // التحقق من صحة رقم الهاتف للعرض
   const isPhoneValid = () => {
     if (!phone) return false;
     
@@ -112,14 +140,12 @@ const PhoneLogin = () => {
     if (!phone.startsWith('+9647')) return false;
     
     // التحقق من طول الرقم الصحيح
-    // +9647xxxxxxxx = 13 حرف (كود الدولة + 9 أرقام)
-    // +9647xxxxxxxxx = 14 حرف (كود الدولة + 10 أرقام)
     return phone.length === 13 || phone.length === 14;
   };
 
   const isCodeValid = code && code.length === 6;
 
-  // تحديد النص التوضيحي بناءً على ما تم إدخاله - مُصلح
+  // تحديد النص التوضيحي بناءً على ما تم إدخاله
   const getHelperText = () => {
     if (phoneInput.length === 0) {
       return "مثال: 7701234567 أو 07701234567";
@@ -198,6 +224,26 @@ const PhoneLogin = () => {
           </Typography>
         </Box>
 
+        {/* تحذير حالة Firebase */}
+        {firebaseStatus && !firebaseStatus.isInitialized && (
+          <Alert severity="error" sx={{ mb: 3 }} icon={<WarningIcon />}>
+            <Typography variant="body2" fontWeight="bold">
+              خطأ في الاتصال بالخدمة
+            </Typography>
+            <Typography variant="body2">
+              يرجى التحقق من اتصالك بالإنترنت وإعادة تحميل الصفحة
+            </Typography>
+          </Alert>
+        )}
+
+        {firebaseStatus?.config?.isDemoConfig && (
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            <Typography variant="body2">
+              يتم استخدام إعدادات تجريبية. قد لا تعمل جميع الميزات بشكل صحيح.
+            </Typography>
+          </Alert>
+        )}
+
         {/* نموذج تسجيل الدخول */}
         <Box>
           <Typography 
@@ -209,7 +255,7 @@ const PhoneLogin = () => {
             تسجيل الدخول برقم الهاتف
           </Typography>
 
-          {/* حقل رقم الهاتف مع ترتيب صحيح - كود الدولة في اليسار */}
+          {/* حقل رقم الهاتف */}
           <Box mb={3}>
             <Box display="flex" gap={1} mb={2}>
               <TextField
@@ -221,6 +267,7 @@ const PhoneLogin = () => {
                 fullWidth
                 size="medium"
                 dir="ltr"
+                disabled={!firebaseStatus?.isInitialized}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -266,7 +313,7 @@ const PhoneLogin = () => {
               fullWidth
               size="large"
               onClick={handleSendCode}
-              disabled={loading || timer > 0 || !isPhoneValid()}
+              disabled={loading || timer > 0 || !isPhoneValid() || !firebaseStatus?.isInitialized}
               sx={{ 
                 py: 1.5, 
                 fontSize: 16,
@@ -302,6 +349,7 @@ const PhoneLogin = () => {
                 fullWidth
                 size="medium"
                 placeholder="أدخل الكود المكون من 6 أرقام"
+                disabled={!firebaseStatus?.isInitialized}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -322,7 +370,7 @@ const PhoneLogin = () => {
                 fullWidth
                 size="large"
                 onClick={handleVerifyCode}
-                disabled={confirmationLoading || !isCodeValid}
+                disabled={confirmationLoading || !isCodeValid || !firebaseStatus?.isInitialized}
                 sx={{ 
                   py: 1.5, 
                   fontSize: 16,
@@ -348,7 +396,7 @@ const PhoneLogin = () => {
                     component="button"
                     variant="body2"
                     onClick={handleSendCode}
-                    disabled={loading}
+                    disabled={loading || !firebaseStatus?.isInitialized}
                     sx={{ cursor: 'pointer' }}
                   >
                     لم تستلم الكود؟ إعادة الإرسال
@@ -361,7 +409,7 @@ const PhoneLogin = () => {
           {/* رسائل الحالة */}
           {message && (
             <Alert 
-              severity={message.includes('✅') ? 'success' : 'error'}
+              severity={message.includes('✅') ? 'success' : message.includes('⚠️') ? 'warning' : 'error'}
               sx={{ mb: 2 }}
             >
               {message}
