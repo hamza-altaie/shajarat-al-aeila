@@ -1,4 +1,4 @@
-// src/components/FamilyTreeAdvanced.jsx - نسخة محسنة مع الربط الموسع
+// src/components/FamilyTreeAdvanced.jsx - نسخة مُصححة
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Tree from 'react-d3-tree';
 import { useNavigate } from 'react-router-dom';
@@ -18,6 +18,10 @@ import {
   Timeline as TimelineIcon
 } from '@mui/icons-material';
 
+// ✅ إضافة الاستيرادات المفقودة من Firebase
+import { db } from '../firebase/config';
+import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore';
+
 // استيراد Hook المُصحح والمكونات الجديدة
 import useAdvancedFamilyGraph from '../hooks/useAdvancedFamilyGraph';
 import ExtendedFamilyLinking from './ExtendedFamilyLinking';
@@ -27,15 +31,13 @@ export default function FamilyTreeAdvanced() {
   // الحالات الأساسية
   // ===========================================================================
   
-  
-
   // حالات الواجهة الموسعة
-  const [showExtendedTree, setShowExtendedTree] = useState(true); // افتراضياً مفعل
+  const [showExtendedTree, setShowExtendedTree] = useState(true);
   const [selectedNode, setSelectedNode] = useState(null);
   const [currentView, setCurrentView] = useState('tree');
-  const [zoomLevel, setZoomLevel] = useState(0.6); // تصغير افتراضي للشجرة الكبيرة
+  const [zoomLevel, setZoomLevel] = useState(0.6);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState(0); // للتنقل بين الأقسام
+  const [activeTab, setActiveTab] = useState(0);
   
   // حالات الربط الموسع
   const [linkedFamilies, setLinkedFamilies] = useState([]);
@@ -47,7 +49,6 @@ export default function FamilyTreeAdvanced() {
   const [personModalOpen, setPersonModalOpen] = useState(false);
   const [extendedStatsOpen, setExtendedStatsOpen] = useState(false);
   
-  
   // حالات الإشعارات
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
@@ -57,7 +58,7 @@ export default function FamilyTreeAdvanced() {
   const uid = localStorage.getItem('verifiedUid');
   const navigate = useNavigate();
 
-  // أضف هذا الكود بعد تعريف المتغيرات
+  // استخدام Hook المُصحح
   const {
     familyGraph,
     treeData,
@@ -108,10 +109,10 @@ export default function FamilyTreeAdvanced() {
         loadLinkedFamilies: true
       });
     }
-  }, [showExtendedTree, hasData]);
+  }, [showExtendedTree, hasData, uid, loadExtendedTree]);
 
   // ===========================================================================
-  // دوال التحميل والإدارة
+  // دوال التحميل والإدارة - مُصححة
   // ===========================================================================
 
   const loadInitialData = useCallback(async () => {
@@ -132,8 +133,7 @@ export default function FamilyTreeAdvanced() {
     }
   }, [uid, showExtendedTree, loadExtendedTree]);
 
-  
-
+  // ✅ إصلاح دالة loadLinkedFamilies
   const loadLinkedFamilies = useCallback(async () => {
     try {
       console.log('🔗 تحميل العائلات المرتبطة...');
@@ -198,11 +198,11 @@ export default function FamilyTreeAdvanced() {
   const handleLinkingComplete = useCallback((linkedFamily, linkType) => {
     showSnackbar(`تم ربط ${linkedFamily.name} بنجاح كـ ${linkType}`, 'success');
     loadLinkedFamilies();
-    loadInitialData(); // إعادة تحميل الشجرة مع الروابط الجديدة
+    loadInitialData();
   }, [loadLinkedFamilies, loadInitialData]);
 
   // ===========================================================================
-  // عرض العقدة المخصص المحسن
+  // عرض العقدة المخصص المحسن - مُصحح
   // ===========================================================================
 
   const renderAdvancedNodeElement = useCallback(({ nodeDatum, toggleNode }) => {
@@ -290,7 +290,7 @@ export default function FamilyTreeAdvanced() {
           style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.1))' }}
         />
         
-        {/* الصورة مع fallback */}
+        {/* ✅ إصلاح الصورة مع معالجة صحيحة للأخطاء */}
         <image
           href={nodeDatum.avatar || '/boy.png'}
           x="-26"
@@ -301,7 +301,11 @@ export default function FamilyTreeAdvanced() {
           style={{ cursor: 'pointer' }}
           onClick={() => handleNodeClick(nodeDatum)}
           onError={(e) => {
-            e.target.href = '/boy.png';
+            // ✅ معالجة صحيحة لأخطاء SVG
+            const target = e.target;
+            if (target && target.setAttribute) {
+              target.setAttribute('href', '/boy.png');
+            }
           }}
         />
         
@@ -319,9 +323,9 @@ export default function FamilyTreeAdvanced() {
           }}
           onClick={() => handleNodeClick(nodeDatum)}
         >
-          {nodeDatum.name.length > 20 
+          {nodeDatum.name && nodeDatum.name.length > 20 
             ? nodeDatum.name.substring(0, 20) + '...' 
-            : nodeDatum.name}
+            : nodeDatum.name || 'غير محدد'}
         </text>
         
         {/* القرابة مع أيقونة */}
@@ -402,7 +406,7 @@ export default function FamilyTreeAdvanced() {
   };
 
   // ===========================================================================
-  // عرض الشجرة الموسعة
+  // عرض الشجرة الموسعة - مُصحح
   // ===========================================================================
 
   const renderExtendedTreeView = () => (
@@ -736,7 +740,7 @@ export default function FamilyTreeAdvanced() {
       <Box
         sx={{
           position: 'absolute',
-          top: 200, // مساحة أكبر للشريط المحسن
+          top: 200,
           left: 0,
           right: 0,
           bottom: 0,
@@ -758,14 +762,34 @@ export default function FamilyTreeAdvanced() {
             <Typography variant="h5" gutterBottom>
               📊 إحصائيات الشجرة الموسعة
             </Typography>
-            {/* يمكن إضافة مكون الإحصائيات هنا */}
+            {statistics && (
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>نظرة عامة</Typography>
+                      <Typography>إجمالي الأشخاص: {statistics.overview.totalPersons}</Typography>
+                      <Typography>إجمالي العائلات: {statistics.overview.totalFamilies}</Typography>
+                      <Typography>إجمالي العلاقات: {statistics.overview.totalRelations}</Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>الأداء</Typography>
+                      <Typography>وقت التحميل: {statistics.performance.totalLoadTime}ms</Typography>
+                      <Typography>حجم الذاكرة المؤقتة: {statistics.performance.cacheSize}</Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+            )}
           </Box>
         )}
       </Box>
 
       {renderLinkingPanel()}
-
-      {/* باقي النوافذ المنبثقة... */}
       
       <Snackbar 
         open={snackbarOpen} 

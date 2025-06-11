@@ -1,4 +1,4 @@
-// src/components/ExtendedFamilyLinking.jsx
+// src/components/ExtendedFamilyLinking.jsx - نسخة مُصححة
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Card, CardContent, Typography, Button, Dialog, DialogTitle,
@@ -11,7 +11,11 @@ import {
   Close as CloseIcon, Check as CheckIcon, Warning as WarningIcon,
   Groups as GroupsIcon, AccountTree as TreeIcon
 } from '@mui/icons-material';
-import { collection, getDocs, doc, updateDoc, arrayUnion, query, where } from 'firebase/firestore';
+
+// ✅ إضافة الاستيرادات المفقودة من Firebase
+import { 
+  collection, getDocs, doc, updateDoc, arrayUnion, query, where, getDoc, setDoc 
+} from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 export default function ExtendedFamilyLinking({ 
@@ -40,11 +44,18 @@ export default function ExtendedFamilyLinking({
 
   // تحميل العائلات المتاحة عند تحميل المكون
   useEffect(() => {
-    loadAvailableFamilies();
+    if (currentUserUid) {
+      loadAvailableFamilies();
+    }
   }, [currentUserUid]);
 
   // تحميل العائلات المتاحة للربط
-  const loadAvailableFamilies = async () => {
+  const loadAvailableFamilies = useCallback(async () => {
+    if (!currentUserUid) {
+      console.warn('⚠️ لا يوجد معرف مستخدم');
+      return;
+    }
+
     setLoading(true);
     try {
       console.log('🔍 البحث عن العائلات المتاحة للربط...');
@@ -112,10 +123,10 @@ export default function ExtendedFamilyLinking({
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUserUid, existingLinks]);
 
   // البحث في العائلات
-  const searchFamilies = (searchTerm) => {
+  const searchFamilies = useCallback((searchTerm) => {
     if (!searchTerm.trim()) {
       setSearchResults([]);
       return;
@@ -132,18 +143,18 @@ export default function ExtendedFamilyLinking({
     });
     
     setSearchResults(results);
-  };
+  }, [availableFamilies]);
 
   // فتح نافذة الربط
-  const openLinkingDialog = (family) => {
+  const openLinkingDialog = useCallback((family) => {
     setSelectedFamily(family);
     setLinkType('');
     setRelationDescription('');
     setLinkingDialogOpen(true);
-  };
+  }, []);
 
   // تأكيد الربط
-  const confirmLinking = async () => {
+  const confirmLinking = useCallback(async () => {
     if (!selectedFamily || !linkType) {
       setMessage('يرجى اختيار نوع الرابط');
       return;
@@ -166,10 +177,24 @@ export default function ExtendedFamilyLinking({
       };
       
       // تحديث العائلة الحالية
-      await updateDoc(doc(db, 'users', currentUserUid), {
-        linkedFamilies: arrayUnion(linkData),
-        lastUpdated: new Date().toISOString()
-      });
+      const currentUserRef = doc(db, 'users', currentUserUid);
+      const currentUserDoc = await getDoc(currentUserRef);
+      
+      if (currentUserDoc.exists()) {
+        const currentUserData = currentUserDoc.data();
+        const existingLinks = currentUserData.linkedFamilies || [];
+        
+        await updateDoc(currentUserRef, {
+          linkedFamilies: [...existingLinks, linkData],
+          lastUpdated: new Date().toISOString()
+        });
+      } else {
+        // إنشاء وثيقة جديدة إذا لم تكن موجودة
+        await setDoc(currentUserRef, {
+          linkedFamilies: [linkData],
+          lastUpdated: new Date().toISOString()
+        }, { merge: true });
+      }
       
       // تحديث العائلة المستهدفة
       const reverseLinkData = {
@@ -183,10 +208,23 @@ export default function ExtendedFamilyLinking({
         mutual: true
       };
       
-      await updateDoc(doc(db, 'users', selectedFamily.uid), {
-        linkedFamilies: arrayUnion(reverseLinkData),
-        lastUpdated: new Date().toISOString()
-      });
+      const targetUserRef = doc(db, 'users', selectedFamily.uid);
+      const targetUserDoc = await getDoc(targetUserRef);
+      
+      if (targetUserDoc.exists()) {
+        const targetUserData = targetUserDoc.data();
+        const existingTargetLinks = targetUserData.linkedFamilies || [];
+        
+        await updateDoc(targetUserRef, {
+          linkedFamilies: [...existingTargetLinks, reverseLinkData],
+          lastUpdated: new Date().toISOString()
+        });
+      } else {
+        await setDoc(targetUserRef, {
+          linkedFamilies: [reverseLinkData],
+          lastUpdated: new Date().toISOString()
+        }, { merge: true });
+      }
       
       console.log('✅ تم إنشاء الرابط بنجاح');
       setMessage('✅ تم ربط العائلة بنجاح');
@@ -206,10 +244,10 @@ export default function ExtendedFamilyLinking({
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedFamily, linkType, relationDescription, currentUserUid, onLinkingComplete, loadAvailableFamilies]);
 
   // الحصول على نوع الرابط العكسي
-  const getReverseLinkType = (linkType) => {
+  const getReverseLinkType = useCallback((linkType) => {
     const reverseMap = {
       'parent-child': 'child-parent',
       'child-parent': 'parent-child',
@@ -219,10 +257,10 @@ export default function ExtendedFamilyLinking({
       'extended': 'extended'
     };
     return reverseMap[linkType] || linkType;
-  };
+  }, []);
 
   // عرض كارت العائلة
-  const renderFamilyCard = (family, showLinkButton = true) => (
+  const renderFamilyCard = useCallback((family, showLinkButton = true) => (
     <Card 
       key={family.uid} 
       sx={{ 
@@ -280,7 +318,7 @@ export default function ExtendedFamilyLinking({
         </Box>
       </CardContent>
     </Card>
-  );
+  ), [loading, openLinkingDialog]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -461,7 +499,7 @@ export default function ExtendedFamilyLinking({
             variant="contained"
             onClick={confirmLinking}
             disabled={!linkType || loading}
-            startIcon={loading ? <LinearProgress size={20} /> : <CheckIcon />}
+            startIcon={loading ? <CircularProgress size={20} /> : <CheckIcon />}
           >
             {loading ? 'جاري الربط...' : 'تأكيد الربط'}
           </Button>
