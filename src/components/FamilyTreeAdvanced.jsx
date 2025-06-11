@@ -1,44 +1,21 @@
-// =============================================================================
-<<<<<<< HEAD
-// FamilyTreeAdvanced.jsx - مكون شجرة العائلة المحسن (مُصحح)
-=======
-// FamilyTreeAdvanced.jsx - مكون شجرة العائلة المحسن والمتقدم
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
-// =============================================================================
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Tree from 'react-d3-tree';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Button, Typography, Modal, FormControlLabel, Switch, Alert,
   Snackbar, CircularProgress, Chip, Card, CardContent, Grid,
-<<<<<<< HEAD
   IconButton, Tooltip, TextField, InputAdornment, Paper,
   LinearProgress, Dialog, DialogTitle, DialogContent, DialogActions,
   SpeedDial, SpeedDialAction, Slider
-=======
-  IconButton, Tooltip, TextField, InputAdornment, Drawer, List,
-  ListItem, ListItemText, ListItemIcon, Divider, Avatar, Paper,
-  LinearProgress, Dialog, DialogTitle, DialogContent, DialogActions,
-  Fab, SpeedDial, SpeedDialAction, Menu, MenuItem, Slider
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
 } from '@mui/material';
 import {
   AccountTree, Search, Analytics, Groups, Edit, Person,
   Visibility, Close, ZoomIn, ZoomOut, CenterFocusStrong, Download,
-<<<<<<< HEAD
   Share, Print, Settings, Refresh, Speed, SaveAlt,
   FilterList, Timeline, Info, Warning, CheckCircle
 } from '@mui/icons-material';
 
 // استيراد Hook المُصحح
-=======
-  Share, Print, Settings, Refresh, Speed, SaveAlt, CloudUpload,
-  FilterList, Timeline, Info, Warning, CheckCircle
-} from '@mui/icons-material';
-
-// استيراد النظام الجديد
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
 import useAdvancedFamilyGraph from '../hooks/useAdvancedFamilyGraph';
 
 // =============================================================================
@@ -90,10 +67,6 @@ export default function FamilyTreeAdvanced() {
   const [showSearchResults, setShowSearchResults] = useState(false);
   
   // حالات النوافذ المنبثقة
-<<<<<<< HEAD
-=======
-  const [sidebarOpen, setSidebarOpen] = useState(false);
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
   const [statsModalOpen, setStatsModalOpen] = useState(false);
   const [personModalOpen, setPersonModalOpen] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -108,29 +81,6 @@ export default function FamilyTreeAdvanced() {
   const uid = localStorage.getItem('verifiedUid');
   const navigate = useNavigate();
 
-<<<<<<< HEAD
-=======
-
-  // أضف في بداية الملف:
-  const TooltipWrapper = ({ title, children, disabled = false, ...props }) => {
-    if (disabled) {
-      return (
-        <Tooltip title={title} {...props}>
-          <span style={{ display: 'inline-block' }}>
-            {children}
-          </span>
-        </Tooltip>
-      );
-    }
-    
-    return (
-      <Tooltip title={title} {...props}>
-        {children}
-      </Tooltip>
-    );
-  };
-
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
   // ===========================================================================
   // تأثيرات ودورة الحياة
   // ===========================================================================
@@ -142,42 +92,20 @@ export default function FamilyTreeAdvanced() {
       return;
     }
 
-<<<<<<< HEAD
-=======
-    // تحميل البيانات الأولي
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
     loadInitialData();
   }, [uid, navigate]);
 
   // مراقبة تغيير وضع الشجرة الموسعة
   useEffect(() => {
     if (uid && isReady) {
-<<<<<<< HEAD
       loadExtendedTree(uid, showExtendedTree, { forceRefresh: false });
     }
-  }, [showExtendedTree, uid, isReady, loadExtendedTree]);
-=======
-      loadExtendedTree(uid, showExtendedTree, { forceRefresh: false }); // غيّر إلى false
-    }
   }, [showExtendedTree, uid]);
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
 
   // ===========================================================================
   // دوال التحميل والإدارة
   // ===========================================================================
 
-<<<<<<< HEAD
-  const loadInitialData = useCallback(async () => {
-    try {
-      console.log('🚀 بدء تحميل البيانات الأولي');
-      
-      await loadExtendedTree(uid, showExtendedTree);
-      
-      console.log('✅ اكتمل التحميل الأولي');
-      
-    } catch (error) {
-      console.error('❌ خطأ في التحميل الأولي:', error);
-=======
   /**
    * تحميل البيانات الأولي
    */
@@ -191,17 +119,13 @@ export default function FamilyTreeAdvanced() {
       
     } catch (error) {
       console.error('❌ [FamilyTree] خطأ في التحميل الأولي:', error);
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
       showSnackbar('فشل في تحميل البيانات', 'error');
     }
   }, [uid, showExtendedTree, loadExtendedTree]);
 
-<<<<<<< HEAD
-=======
   /**
    * إعادة تحميل البيانات
    */
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
   const handleRefresh = useCallback(async () => {
     showSnackbar('جاري إعادة تحميل البيانات...', 'info');
     
@@ -222,12 +146,9 @@ export default function FamilyTreeAdvanced() {
   // دوال البحث والفلترة
   // ===========================================================================
 
-<<<<<<< HEAD
-=======
   /**
    * التعامل مع البحث
    */
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
   const handleSearch = useCallback(async (query) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -246,12 +167,9 @@ export default function FamilyTreeAdvanced() {
     }
   }, [searchInTree, searchFilters]);
 
-<<<<<<< HEAD
-=======
   /**
    * البحث عن علاقة بين شخصين
    */
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
   const handleFindRelationship = useCallback((person1, person2) => {
     if (!person1 || !person2) {
       showSnackbar('اختر شخصين للبحث عن العلاقة بينهما', 'warning');
@@ -262,10 +180,6 @@ export default function FamilyTreeAdvanced() {
     
     if (path) {
       showSnackbar(`تم العثور على علاقة: ${path.length} خطوات`, 'success');
-<<<<<<< HEAD
-=======
-      // يمكن إضافة عرض مفصل للمسار هنا
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
     } else {
       showSnackbar('لا توجد علاقة مباشرة بين الشخصين', 'info');
     }
@@ -275,28 +189,20 @@ export default function FamilyTreeAdvanced() {
   // دوال التفاعل مع الشجرة
   // ===========================================================================
 
-<<<<<<< HEAD
-  const handleNodeClick = useCallback((nodeData) => {
-    console.log('👆 تم النقر على العقدة:', nodeData.name);
-=======
   /**
    * التعامل مع النقر على عقدة
    */
   const handleNodeClick = useCallback((nodeData) => {
     console.log('👆 [FamilyTree] تم النقر على العقدة:', nodeData.name);
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
     
     setSelectedNode(nodeData);
     selectPerson(nodeData.attributes);
     setPersonModalOpen(true);
   }, [selectPerson]);
 
-<<<<<<< HEAD
-=======
   /**
    * التعامل مع تغيير الزووم
    */
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
   const handleZoomChange = useCallback((newZoom) => {
     setZoomLevel(Math.max(0.1, Math.min(3, newZoom)));
   }, []);
@@ -305,18 +211,12 @@ export default function FamilyTreeAdvanced() {
   // دوال التصدير والمشاركة
   // ===========================================================================
 
-<<<<<<< HEAD
-  const handleExportImage = useCallback(async () => {
-    try {
-      const html2canvas = (await import('html2canvas')).default;
-=======
   /**
    * تصدير الشجرة كصورة
    */
   const handleExportImage = useCallback(async () => {
     try {
       const { default: html2canvas } = await import('html2canvas');
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
       
       const treeContainer = document.getElementById('tree-container');
       if (!treeContainer) {
@@ -333,10 +233,7 @@ export default function FamilyTreeAdvanced() {
         backgroundColor: '#ffffff'
       });
 
-<<<<<<< HEAD
-=======
       // تنزيل الصورة
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
       const link = document.createElement('a');
       link.download = `family-tree-${new Date().toISOString().split('T')[0]}.png`;
       link.href = canvas.toDataURL('image/png');
@@ -350,12 +247,9 @@ export default function FamilyTreeAdvanced() {
     }
   }, []);
 
-<<<<<<< HEAD
-=======
   /**
    * تصدير البيانات
    */
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
   const handleExportData = useCallback((format) => {
     try {
       const data = exportTreeData(format);
@@ -389,34 +283,25 @@ export default function FamilyTreeAdvanced() {
   // دوال مساعدة
   // ===========================================================================
 
-<<<<<<< HEAD
-=======
   /**
    * عرض إشعار
    */
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
   const showSnackbar = useCallback((message, severity = 'info') => {
     setSnackbarMessage(message);
     setSnackbarSeverity(severity);
     setSnackbarOpen(true);
   }, []);
 
-<<<<<<< HEAD
-=======
   /**
    * إعادة تعيين الزووم
    */
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
   const resetZoom = useCallback(() => {
     setZoomLevel(0.8);
   }, []);
 
-<<<<<<< HEAD
-=======
   /**
    * تكبير/تصغير
    */
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
   const zoomIn = useCallback(() => {
     setZoomLevel(prev => Math.min(prev + 0.2, 3));
   }, []);
@@ -426,11 +311,7 @@ export default function FamilyTreeAdvanced() {
   }, []);
 
   // ===========================================================================
-<<<<<<< HEAD
-  // عرض العقدة المخصص
-=======
   // عرض العقدة المخصص المحسن
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
   // ===========================================================================
 
   const renderAdvancedNodeElement = useCallback(({ nodeDatum, toggleNode }) => {
@@ -574,8 +455,6 @@ export default function FamilyTreeAdvanced() {
           </>
         )}
         
-<<<<<<< HEAD
-=======
         {/* مؤشر العائلة الموسعة */}
         {person?.hasExtendedFamily && (
           <circle
@@ -602,7 +481,6 @@ export default function FamilyTreeAdvanced() {
           </text>
         )}
         
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
         {/* مؤشر التحديد */}
         {isSelected && (
           <circle
@@ -1099,8 +977,6 @@ export default function FamilyTreeAdvanced() {
               </Box>
             </Card>
           </Grid>
-<<<<<<< HEAD
-=======
 
           {/* أداء النظام */}
           <Grid item xs={12}>
@@ -1144,7 +1020,6 @@ export default function FamilyTreeAdvanced() {
               </Grid>
             </Card>
           </Grid>
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
         </Grid>
       </Box>
     );
@@ -1224,7 +1099,6 @@ export default function FamilyTreeAdvanced() {
                   }}
                 >
                   <CardContent sx={{ textAlign: 'center' }}>
-<<<<<<< HEAD
                     <Box
                       component="img"
                       src={person.avatar || '/boy.png'}
@@ -1237,11 +1111,6 @@ export default function FamilyTreeAdvanced() {
                         mb: 1,
                         objectFit: 'cover'
                       }}
-=======
-                    <Avatar
-                      src={person.avatar}
-                      sx={{ width: 60, height: 60, mx: 'auto', mb: 1 }}
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
                     />
                     <Typography variant="h6" fontSize="0.9rem">
                       {person.name}
@@ -1268,10 +1137,7 @@ export default function FamilyTreeAdvanced() {
   // النوافذ المنبثقة
   // ===========================================================================
 
-<<<<<<< HEAD
-=======
   // نافذة تفاصيل الشخص
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
   const renderPersonModal = () => (
     <Modal open={personModalOpen} onClose={() => setPersonModalOpen(false)}>
       <Box
@@ -1292,7 +1158,6 @@ export default function FamilyTreeAdvanced() {
       >
         {selectedNode && (
           <>
-<<<<<<< HEAD
             <Box
               component="img"
               src={selectedNode.avatar || '/boy.png'}
@@ -1305,11 +1170,6 @@ export default function FamilyTreeAdvanced() {
                 mb: 2,
                 objectFit: 'cover'
               }}
-=======
-            <Avatar
-              src={selectedNode.avatar}
-              sx={{ width: 120, height: 120, mx: 'auto', mb: 2 }}
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
             />
             
             <Typography variant="h5" gutterBottom sx={{ color: '#1565c0' }}>
@@ -1352,10 +1212,6 @@ export default function FamilyTreeAdvanced() {
                   {selectedNode.attributes?.gender === 'female' ? 'أنثى' : 'ذكر'}
                 </Typography>
               </Grid>
-<<<<<<< HEAD
-            </Grid>
-            
-=======
 
               <Grid item xs={6}>
                 <Typography variant="body2" color="text.secondary">
@@ -1405,7 +1261,6 @@ export default function FamilyTreeAdvanced() {
               </Button>
             </Box>
             
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
             <Button
               variant="contained"
               fullWidth
@@ -1419,8 +1274,6 @@ export default function FamilyTreeAdvanced() {
     </Modal>
   );
 
-<<<<<<< HEAD
-=======
   // نافذة الإحصائيات
   const renderStatsModal = () => (
     <Modal open={statsModalOpen} onClose={() => setStatsModalOpen(false)}>
@@ -1455,7 +1308,6 @@ export default function FamilyTreeAdvanced() {
   );
 
   // نافذة التصدير
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
   const renderExportModal = () => (
     <Dialog open={exportModalOpen} onClose={() => setExportModalOpen(false)}>
       <DialogTitle>
@@ -1510,10 +1362,7 @@ export default function FamilyTreeAdvanced() {
     </Dialog>
   );
 
-<<<<<<< HEAD
-=======
   // نافذة الإعدادات
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
   const renderSettingsModal = () => (
     <Dialog open={settingsModalOpen} onClose={() => setSettingsModalOpen(false)}>
       <DialogTitle>
@@ -1553,8 +1402,6 @@ export default function FamilyTreeAdvanced() {
             valueLabelFormat={(value) => `${Math.round(value * 100)}%`}
             sx={{ mb: 3 }}
           />
-<<<<<<< HEAD
-=======
 
           <Typography gutterBottom>
             نمط العقد
@@ -1582,7 +1429,6 @@ export default function FamilyTreeAdvanced() {
               مضغوط
             </Button>
           </Box>
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
         </Box>
       </DialogContent>
       <DialogActions>
@@ -1608,13 +1454,10 @@ export default function FamilyTreeAdvanced() {
     }
   };
 
-<<<<<<< HEAD
-=======
   // ===========================================================================
   // الزر العائم للإجراءات السريعة
   // ===========================================================================
 
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
   const renderSpeedDial = () => (
     <SpeedDial
       ariaLabel="إجراءات سريعة"
@@ -1656,8 +1499,6 @@ export default function FamilyTreeAdvanced() {
         tooltipTitle="الإعدادات"
         onClick={() => setSettingsModalOpen(true)}
       />
-<<<<<<< HEAD
-=======
 
       <SpeedDialAction
         icon={<Search />}
@@ -1665,13 +1506,10 @@ export default function FamilyTreeAdvanced() {
         onClick={() => setCurrentView('search')}
         disabled={!hasData}
       />
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
     </SpeedDial>
   );
 
   // ===========================================================================
-<<<<<<< HEAD
-=======
   // معلومات الحالة في الزاوية
   // ===========================================================================
 
@@ -1747,7 +1585,6 @@ export default function FamilyTreeAdvanced() {
   );
 
   // ===========================================================================
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
   // الإرجاع النهائي للمكون
   // ===========================================================================
 
@@ -1779,21 +1616,15 @@ export default function FamilyTreeAdvanced() {
         {renderCurrentView()}
       </Box>
 
-<<<<<<< HEAD
-=======
       {/* معلومات الحالة */}
       {renderStatusInfo()}
 
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
       {/* الزر العائم للإجراءات السريعة */}
       {renderSpeedDial()}
 
       {/* النوافذ المنبثقة */}
       {renderPersonModal()}
-<<<<<<< HEAD
-=======
       {renderStatsModal()}
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
       {renderExportModal()}
       {renderSettingsModal()}
 
@@ -1816,8 +1647,6 @@ export default function FamilyTreeAdvanced() {
           {snackbarMessage}
         </Alert>
       </Snackbar>
-<<<<<<< HEAD
-=======
 
       {/* مؤشر الأداء (في وضع التطوير) */}
       {process.env.NODE_ENV === 'development' && statistics && (
@@ -1849,7 +1678,6 @@ export default function FamilyTreeAdvanced() {
           </Typography>
         </Box>
       )}
->>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
     </Box>
   );
 }
