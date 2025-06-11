@@ -27,31 +27,7 @@ export default function FamilyTreeAdvanced() {
   // الحالات الأساسية
   // ===========================================================================
   
-  const {
-    familyGraph,
-    treeData,
-    loading,
-    error,
-    loadingProgress,
-    loadingStage,
-    statistics,
-    searchResults,
-    selectedPersons,
-    loadExtendedTree,
-    searchInTree,
-    findRelationshipPath,
-    selectPerson,
-    clearSelection,
-    getPersonDetails,
-    exportTreeData,
-    isReady,
-    hasData
-  } = useAdvancedFamilyGraph({
-    maxDepth: 6, // زيادة العمق للشجرة الموسعة
-    includeExtended: true,
-    autoOptimize: true,
-    enableCrossFamily: true // ميزة جديدة للربط بين العائلات
-  });
+  
 
   // حالات الواجهة الموسعة
   const [showExtendedTree, setShowExtendedTree] = useState(true); // افتراضياً مفعل
@@ -80,6 +56,33 @@ export default function FamilyTreeAdvanced() {
   // المتغيرات
   const uid = localStorage.getItem('verifiedUid');
   const navigate = useNavigate();
+
+  // أضف هذا الكود بعد تعريف المتغيرات
+  const {
+    familyGraph,
+    treeData,
+    loading,
+    error,
+    loadingProgress,
+    loadingStage,
+    statistics,
+    searchResults,
+    selectedPersons,
+    loadExtendedTree,
+    searchInTree,
+    findRelationshipPath,
+    selectPerson,
+    clearSelection,
+    getPersonDetails,
+    exportTreeData,
+    isReady,
+    hasData
+  } = useAdvancedFamilyGraph({
+    maxDepth: 6,
+    includeExtended: true,
+    autoOptimize: true,
+    enableCrossFamily: true
+  });
 
   // ===========================================================================
   // تأثيرات ودورة الحياة
@@ -128,6 +131,8 @@ export default function FamilyTreeAdvanced() {
       showSnackbar('فشل في تحميل البيانات الموسعة', 'error');
     }
   }, [uid, showExtendedTree, loadExtendedTree]);
+
+  
 
   const loadLinkedFamilies = useCallback(async () => {
     try {
