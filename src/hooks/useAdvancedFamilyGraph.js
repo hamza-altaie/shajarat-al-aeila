@@ -25,10 +25,13 @@ export default function useAdvancedFamilyGraph(options = {}) {
   // ============================================================================
   
   const config = useMemo(() => ({
-    maxDepth: 4,
+    maxDepth: 6, // زيادة من 4 إلى 6
     includeExtended: true,
     autoOptimize: true,
     enableDetailedLogging: false,
+    enableCrossFamily: true, // ميزة جديدة
+    includeCrossFamilyLinks: true, // إضافة جديدة
+    loadLinkedFamilies: true, // إضافة جديدة
     ...options
   }), [options]);
 

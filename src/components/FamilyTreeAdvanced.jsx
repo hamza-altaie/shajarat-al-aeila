@@ -1,3 +1,4 @@
+// src/components/FamilyTreeAdvanced.jsx - نسخة محسنة مع الربط الموسع
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Tree from 'react-d3-tree';
 import { useNavigate } from 'react-router-dom';
@@ -5,16 +6,21 @@ import {
   Box, Button, Typography, Modal, FormControlLabel, Switch, Alert,
   Snackbar, CircularProgress, Chip, Card, CardContent, Grid,
   IconButton, Tooltip, TextField, InputAdornment, Paper,
-  LinearProgress, Dialog, DialogTitle, DialogContent, DialogActions
+  LinearProgress, Dialog, DialogTitle, DialogContent, DialogActions,
+  Tabs, Tab, Divider, List, ListItem, ListItemText, 
+  ListItemAvatar, Badge
 } from '@mui/material';
 import {
   AccountTree, Search, Analytics, Groups, Edit, Person,
   Visibility, Close, ZoomIn, ZoomOut, CenterFocusStrong, Download,
-  Share, Print, Settings, Refresh, Warning, CheckCircle
+  Share, Print, Settings, Refresh, Warning, CheckCircle,
+  Link as LinkIcon, PersonAdd, ExpandMore, ExpandLess,
+  Timeline as TimelineIcon
 } from '@mui/icons-material';
 
-// استيراد Hook المُصحح
+// استيراد Hook المُصحح والمكونات الجديدة
 import useAdvancedFamilyGraph from '../hooks/useAdvancedFamilyGraph';
+import ExtendedFamilyLinking from './ExtendedFamilyLinking';
 
 export default function FamilyTreeAdvanced() {
   // ===========================================================================
@@ -41,21 +47,30 @@ export default function FamilyTreeAdvanced() {
     isReady,
     hasData
   } = useAdvancedFamilyGraph({
-    maxDepth: 4,
+    maxDepth: 6, // زيادة العمق للشجرة الموسعة
     includeExtended: true,
-    autoOptimize: true
+    autoOptimize: true,
+    enableCrossFamily: true // ميزة جديدة للربط بين العائلات
   });
 
-  // حالات الواجهة
-  const [showExtendedTree, setShowExtendedTree] = useState(false);
+  // حالات الواجهة الموسعة
+  const [showExtendedTree, setShowExtendedTree] = useState(true); // افتراضياً مفعل
   const [selectedNode, setSelectedNode] = useState(null);
   const [currentView, setCurrentView] = useState('tree');
-  const [zoomLevel, setZoomLevel] = useState(0.8);
+  const [zoomLevel, setZoomLevel] = useState(0.6); // تصغير افتراضي للشجرة الكبيرة
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState(0); // للتنقل بين الأقسام
+  
+  // حالات الربط الموسع
+  const [linkedFamilies, setLinkedFamilies] = useState([]);
+  const [showLinkingPanel, setShowLinkingPanel] = useState(false);
+  const [crossFamilyConnections, setCrossFamilyConnections] = useState([]);
   
   // حالات النوافذ المنبثقة
   const [statsModalOpen, setStatsModalOpen] = useState(false);
   const [personModalOpen, setPersonModalOpen] = useState(false);
+  const [extendedStatsOpen, setExtendedStatsOpen] = useState(false);
+  
   
   // حالات الإشعارات
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -78,7 +93,19 @@ export default function FamilyTreeAdvanced() {
     }
 
     loadInitialData();
+    loadLinkedFamilies();
   }, [uid, navigate]);
+
+  // تحديث الشجرة عند تغيير الإعدادات
+  useEffect(() => {
+    if (hasData && showExtendedTree) {
+      loadExtendedTree(uid, true, { 
+        maxDepth: 6,
+        includeCrossFamilyLinks: true,
+        loadLinkedFamilies: true
+      });
+    }
+  }, [showExtendedTree, hasData]);
 
   // ===========================================================================
   // دوال التحميل والإدارة
@@ -86,54 +113,63 @@ export default function FamilyTreeAdvanced() {
 
   const loadInitialData = useCallback(async () => {
     try {
-      console.log('🚀 [FamilyTree] بدء تحميل البيانات الأولي');
+      console.log('🚀 [FamilyTree] بدء تحميل البيانات الموسعة');
       
-      await loadExtendedTree(uid, showExtendedTree);
+      await loadExtendedTree(uid, showExtendedTree, {
+        includeCrossFamilyLinks: true,
+        loadLinkedFamilies: true,
+        maxDepth: showExtendedTree ? 6 : 3
+      });
       
-      console.log('✅ [FamilyTree] اكتمل التحميل الأولي');
+      console.log('✅ [FamilyTree] اكتمل التحميل الموسع');
       
     } catch (error) {
-      console.error('❌ [FamilyTree] خطأ في التحميل الأولي:', error);
-      showSnackbar('فشل في تحميل البيانات', 'error');
+      console.error('❌ [FamilyTree] خطأ في التحميل الموسع:', error);
+      showSnackbar('فشل في تحميل البيانات الموسعة', 'error');
     }
   }, [uid, showExtendedTree, loadExtendedTree]);
 
+  const loadLinkedFamilies = useCallback(async () => {
+    try {
+      console.log('🔗 تحميل العائلات المرتبطة...');
+      
+      // جلب بيانات العائلات المرتبطة من Firestore
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const linked = userData.linkedFamilies || [];
+        setLinkedFamilies(linked);
+        
+        console.log(`✅ تم تحميل ${linked.length} عائلة مرتبطة`);
+      }
+      
+    } catch (error) {
+      console.error('❌ خطأ في تحميل العائلات المرتبطة:', error);
+    }
+  }, [uid]);
+
   const handleRefresh = useCallback(async () => {
-    showSnackbar('جاري إعادة تحميل البيانات...', 'info');
+    showSnackbar('جاري إعادة تحميل البيانات الموسعة...', 'info');
     
     try {
       await loadExtendedTree(uid, showExtendedTree, { 
         forceRefresh: true,
-        clearCache: true 
+        clearCache: true,
+        includeCrossFamilyLinks: true,
+        loadLinkedFamilies: true
       });
       
-      showSnackbar('تم تحديث البيانات بنجاح', 'success');
+      await loadLinkedFamilies();
+      
+      showSnackbar('تم تحديث البيانات الموسعة بنجاح', 'success');
       
     } catch (error) {
       showSnackbar('فشل في تحديث البيانات', 'error');
     }
-  }, [uid, showExtendedTree, loadExtendedTree]);
+  }, [uid, showExtendedTree, loadExtendedTree, loadLinkedFamilies]);
 
   // ===========================================================================
-  // دوال البحث والفلترة
-  // ===========================================================================
-
-  const handleSearch = useCallback(async (query) => {
-    if (!query.trim()) {
-      return;
-    }
-
-    try {
-      const results = await searchInTree(query);
-      showSnackbar(`تم العثور على ${results.length} نتيجة`, 'info');
-      
-    } catch (error) {
-      showSnackbar('خطأ في البحث', 'error');
-    }
-  }, [searchInTree]);
-
-  // ===========================================================================
-  // دوال التفاعل مع الشجرة
+  // دوال التفاعل مع الشجرة المحسنة
   // ===========================================================================
 
   const handleNodeClick = useCallback((nodeData) => {
@@ -154,104 +190,182 @@ export default function FamilyTreeAdvanced() {
     setSnackbarOpen(true);
   }, []);
 
-  const zoomIn = useCallback(() => {
-    setZoomLevel(prev => Math.min(prev + 0.2, 3));
-  }, []);
-
-  const zoomOut = useCallback(() => {
-    setZoomLevel(prev => Math.max(prev - 0.2, 0.1));
-  }, []);
+  const handleLinkingComplete = useCallback((linkedFamily, linkType) => {
+    showSnackbar(`تم ربط ${linkedFamily.name} بنجاح كـ ${linkType}`, 'success');
+    loadLinkedFamilies();
+    loadInitialData(); // إعادة تحميل الشجرة مع الروابط الجديدة
+  }, [loadLinkedFamilies, loadInitialData]);
 
   // ===========================================================================
-  // عرض العقدة المخصص
+  // عرض العقدة المخصص المحسن
   // ===========================================================================
 
   const renderAdvancedNodeElement = useCallback(({ nodeDatum, toggleNode }) => {
     const person = nodeDatum.attributes;
     const isSelected = selectedPersons.some(p => p.globalId === nodeDatum.id);
+    const isFromDifferentFamily = person?.familyUid !== uid;
+    const hasMultipleFamilies = person?.familyUids?.size > 1;
     
     return (
       <g>
-        {/* خلفية العقدة */}
+        {/* خلفية العقدة المحسنة */}
+        <defs>
+          <linearGradient id={`grad-${nodeDatum.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={
+              isFromDifferentFamily ? '#fff3e0' : 
+              isSelected ? '#e3f2fd' : '#ffffff'
+            } />
+            <stop offset="100%" stopColor={
+              isFromDifferentFamily ? '#ffe0b2' : 
+              isSelected ? '#bbdefb' : '#f5f5f5'
+            } />
+          </linearGradient>
+          
+          {/* تأثير للعائلات المختلفة */}
+          {isFromDifferentFamily && (
+            <pattern id={`pattern-${nodeDatum.id}`} patternUnits="userSpaceOnUse" width="4" height="4">
+              <rect width="4" height="4" fill={`url(#grad-${nodeDatum.id})`}/>
+              <path d="M-1,1 l2,-2 M0,4 l4,-4 M3,5 l2,-2" stroke="#ff9800" strokeWidth="0.5"/>
+            </pattern>
+          )}
+        </defs>
+        
         <rect
-          width="200"
-          height="120"
-          x="-100"
-          y="-60"
-          rx="10"
-          fill={isSelected ? '#e3f2fd' : 'white'}
-          stroke={isSelected ? '#2196f3' : '#e0e0e0'}
-          strokeWidth={isSelected ? 2 : 1}
-          style={{ cursor: 'pointer', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
+          width="260"
+          height="160"
+          x="-130"
+          y="-80"
+          rx="20"
+          fill={isFromDifferentFamily ? `url(#pattern-${nodeDatum.id})` : `url(#grad-${nodeDatum.id})`}
+          stroke={
+            isFromDifferentFamily ? '#ff9800' :
+            isSelected ? '#2196f3' : '#e0e0e0'
+          }
+          strokeWidth={isSelected ? 3 : isFromDifferentFamily ? 2 : 1}
+          style={{ 
+            cursor: 'pointer', 
+            filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.15))',
+            transition: 'all 0.3s ease'
+          }}
           onClick={() => handleNodeClick(nodeDatum)}
         />
         
-        {/* صورة الشخص */}
+        {/* مؤشر العائلة المختلفة */}
+        {isFromDifferentFamily && (
+          <circle
+            cx="-110"
+            cy="-60"
+            r="12"
+            fill="#ff9800"
+            stroke="white"
+            strokeWidth="2"
+          />
+        )}
+        
+        {/* مؤشر العائلات المتعددة */}
+        {hasMultipleFamilies && (
+          <circle
+            cx="110"
+            cy="-60"
+            r="10"
+            fill="#9c27b0"
+            stroke="white"
+            strokeWidth="2"
+          />
+        )}
+        
+        {/* إطار الصورة المحسن */}
         <circle
           cx="0"
-          cy="-20"
-          r="20"
+          cy="-30"
+          r="30"
           fill="white"
-          stroke="#2196f3"
-          strokeWidth="2"
-        />
-        <image
-          href={nodeDatum.avatar || '/boy.png'}
-          x="-18"
-          y="-38"
-          width="36"
-          height="36"
-          clipPath="circle(18px at 18px 18px)"
-          style={{ cursor: 'pointer' }}
-          onClick={() => handleNodeClick(nodeDatum)}
+          stroke={isFromDifferentFamily ? '#ff9800' : '#2196f3'}
+          strokeWidth="4"
+          style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.1))' }}
         />
         
-        {/* اسم الشخص */}
+        {/* الصورة مع fallback */}
+        <image
+          href={nodeDatum.avatar || '/boy.png'}
+          x="-26"
+          y="-56"
+          width="52"
+          height="52"
+          clipPath="circle(26px at 26px 26px)"
+          style={{ cursor: 'pointer' }}
+          onClick={() => handleNodeClick(nodeDatum)}
+          onError={(e) => {
+            e.target.href = '/boy.png';
+          }}
+        />
+        
+        {/* اسم الشخص مع خط أفضل */}
         <text
           x="0"
-          y="10"
+          y="20"
           textAnchor="middle"
           style={{
-            fontSize: '12px',
+            fontSize: '16px',
             fontWeight: 'bold',
-            fill: '#1565c0',
-            cursor: 'pointer'
+            fill: isFromDifferentFamily ? '#e65100' : '#1565c0',
+            cursor: 'pointer',
+            fontFamily: 'Cairo, sans-serif'
           }}
           onClick={() => handleNodeClick(nodeDatum)}
         >
-          {nodeDatum.name.length > 15 
-            ? nodeDatum.name.substring(0, 15) + '...' 
+          {nodeDatum.name.length > 20 
+            ? nodeDatum.name.substring(0, 20) + '...' 
             : nodeDatum.name}
         </text>
         
-        {/* القرابة */}
+        {/* القرابة مع أيقونة */}
         <text
           x="0"
-          y="30"
+          y="40"
           textAnchor="middle"
           style={{
-            fontSize: '10px',
-            fill: '#666'
+            fontSize: '14px',
+            fill: '#666',
+            fontFamily: 'Cairo, sans-serif'
           }}
         >
-          {person?.relation || 'عضو'}
+          {getRelationIcon(person?.relation)} {person?.relation || 'عضو'}
         </text>
         
-        {/* عدد الأطفال */}
+        {/* معلومات العائلة */}
+        {isFromDifferentFamily && (
+          <text
+            x="0"
+            y="58"
+            textAnchor="middle"
+            style={{
+              fontSize: '11px',
+              fill: '#e65100',
+              fontWeight: 'bold'
+            }}
+          >
+            🏠 عائلة مرتبطة
+          </text>
+        )}
+        
+        {/* عدد الأطفال المحسن */}
         {nodeDatum.children && nodeDatum.children.length > 0 && (
           <>
             <circle
-              cx="70"
-              cy="-40"
-              r="10"
+              cx="90"
+              cy="-50"
+              r="15"
               fill="#4caf50"
+              stroke="white"
+              strokeWidth="3"
             />
             <text
-              x="70"
-              y="-35"
+              x="90"
+              y="-44"
               textAnchor="middle"
               style={{
-                fontSize: '10px',
+                fontSize: '12px',
                 fill: 'white',
                 fontWeight: 'bold'
               }}
@@ -262,13 +376,31 @@ export default function FamilyTreeAdvanced() {
         )}
       </g>
     );
-  }, [selectedPersons, handleNodeClick]);
+  }, [selectedPersons, handleNodeClick, uid]);
+
+  // دالة مساعدة للأيقونات
+  const getRelationIcon = (relation) => {
+    const icons = {
+      'رب العائلة': '👨‍💼',
+      'ابن': '👦',
+      'بنت': '👧',
+      'أخ': '👨',
+      'أخت': '👩',
+      'جد': '👴',
+      'جدة': '👵',
+      'عم': '👨‍🦳',
+      'عمة': '👩‍🦳',
+      'خال': '👨‍🦲',
+      'خالة': '👩‍🦲'
+    };
+    return icons[relation] || '👤';
+  };
 
   // ===========================================================================
-  // عرض الشجرة الرئيسي
+  // عرض الشجرة الموسعة
   // ===========================================================================
 
-  const renderTreeView = () => (
+  const renderExtendedTreeView = () => (
     <Box
       sx={{
         position: 'absolute',
@@ -279,18 +411,19 @@ export default function FamilyTreeAdvanced() {
         overflow: 'hidden',
         backgroundColor: '#f8f9fa'
       }}
+      className="tree-container"
     >
       {treeData ? (
         <Tree
           data={treeData}
           orientation="vertical"
-          translate={{ x: window.innerWidth / 2, y: 100 }}
+          translate={{ x: window.innerWidth / 2, y: 120 }}
           zoomable
           zoom={zoomLevel}
           collapsible={false}
-          pathFunc="elbow"
-          separation={{ siblings: 1.5, nonSiblings: 2 }}
-          nodeSize={{ x: 220, y: 150 }}
+          pathFunc="step"
+          separation={{ siblings: 2, nonSiblings: 2.5 }}
+          nodeSize={{ x: 280, y: 200 }}
           renderCustomNodeElement={renderAdvancedNodeElement}
           styles={{
             links: {
@@ -299,6 +432,8 @@ export default function FamilyTreeAdvanced() {
             }
           }}
           onNodeClick={handleNodeClick}
+          enableLegacyTransitions={false}
+          transitionDuration={500}
         />
       ) : (
         <Box
@@ -310,19 +445,22 @@ export default function FamilyTreeAdvanced() {
         >
           {loading ? (
             <Box textAlign="center">
-              <CircularProgress size={80} sx={{ color: '#2e7d32', mb: 3 }} />
+              <CircularProgress size={100} sx={{ color: '#2e7d32', mb: 3 }} />
               <Typography variant="h5" sx={{ mb: 2, color: '#2e7d32' }}>
-                {loadingStage || 'جاري التحميل...'}
+                {loadingStage || 'جاري تحميل الشجرة الموسعة...'}
               </Typography>
               <Typography variant="body1" color="text.secondary">
                 {loadingProgress > 0 && `${Math.round(loadingProgress)}% مكتمل`}
               </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                يتم تحميل العائلات المرتبطة والروابط الموسعة
+              </Typography>
             </Box>
           ) : error ? (
             <Box textAlign="center">
-              <Warning sx={{ fontSize: 80, color: '#f44336', mb: 2 }} />
+              <Warning sx={{ fontSize: 100, color: '#f44336', mb: 2 }} />
               <Typography variant="h4" color="error" gutterBottom>
-                حدث خطأ
+                حدث خطأ في الشجرة الموسعة
               </Typography>
               <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
                 {error}
@@ -332,28 +470,40 @@ export default function FamilyTreeAdvanced() {
                 color="primary"
                 onClick={handleRefresh}
                 startIcon={<Refresh />}
+                size="large"
               >
-                إعادة المحاولة
+                إعادة تحميل الشجرة الموسعة
               </Button>
             </Box>
           ) : (
             <Box textAlign="center">
-              <AccountTree sx={{ fontSize: 80, color: '#2e7d32', mb: 2 }} />
+              <AccountTree sx={{ fontSize: 120, color: '#2e7d32', mb: 2 }} />
               <Typography variant="h4" color="text.secondary" gutterBottom>
-                🌱 شجرة العائلة فارغة
+                🌳 ابنِ شجرتك الموسعة
               </Typography>
-              <Typography variant="body1" color="text.secondary" textAlign="center" sx={{ mb: 3, maxWidth: 400 }}>
-                لم يتم العثور على بيانات لعرض الشجرة. ابدأ بإضافة أفراد العائلة لبناء شجرتك.
+              <Typography variant="body1" color="text.secondary" textAlign="center" sx={{ mb: 3, maxWidth: 500 }}>
+                اربط عائلتك مع العائلات الأخرى لبناء شجرة موسعة تضم جميع الأقارب والعلاقات الأسرية
               </Typography>
-              <Button
-                variant="contained"
-                color="primary"
-                size="large"
-                onClick={() => navigate('/family')}
-                startIcon={<Person />}
-              >
-                إضافة أول فرد في العائلة
-              </Button>
+              <Box display="flex" gap={2} justifyContent="center">
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="large"
+                  onClick={() => navigate('/family')}
+                  startIcon={<Person />}
+                >
+                  إضافة أفراد العائلة
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  size="large"
+                  onClick={() => setShowLinkingPanel(true)}
+                  startIcon={<LinkIcon />}
+                >
+                  ربط عائلات
+                </Button>
+              </Box>
             </Box>
           )}
         </Box>
@@ -362,194 +512,204 @@ export default function FamilyTreeAdvanced() {
   );
 
   // ===========================================================================
-  // شريط الأدوات
+  // شريط الأدوات المحسن
   // ===========================================================================
 
-  const renderToolbar = () => (
+  const renderEnhancedToolbar = () => (
     <Paper
-      elevation={4}
+      elevation={6}
       sx={{
         position: 'fixed',
         top: 0,
         left: 0,
         right: 0,
         zIndex: 1000,
-        backgroundColor: 'rgba(255,255,255,0.95)',
-        backdropFilter: 'blur(10px)',
-        p: 2
+        backgroundColor: 'rgba(255,255,255,0.98)',
+        backdropFilter: 'blur(20px)',
+        borderBottom: '1px solid #e0e0e0'
       }}
     >
-      <Typography 
-        variant="h5" 
-        textAlign="center" 
-        sx={{ mb: 2, color: '#2e7d32', fontWeight: 'bold' }}
-      >
-        🌳 شجرة العائلة المتقدمة
-      </Typography>
-      
-      {loading && (
-        <LinearProgress 
-          variant="determinate" 
-          value={loadingProgress} 
-          sx={{ mb: 2, height: 6, borderRadius: 3 }}
-        />
-      )}
-      
-      <Box
-        display="flex"
-        gap={1}
-        justifyContent="center"
-        alignItems="center"
-        flexWrap="wrap"
-      >
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={() => navigate('/family')}
-          disabled={loading}
+      <Box sx={{ p: 2 }}>
+        <Typography 
+          variant="h5" 
+          textAlign="center" 
+          sx={{ mb: 2, color: '#2e7d32', fontWeight: 'bold' }}
         >
-          ⬅️ إدارة الأفراد
-        </Button>
+          🌳 الشجرة الموسعة للعائلة
+        </Typography>
         
-        <Button
-          variant="contained"
-          size="small"
-          color="success"
-          onClick={() => navigate('/family')}
-          disabled={loading}
+        {loading && (
+          <LinearProgress 
+            variant="determinate" 
+            value={loadingProgress} 
+            sx={{ mb: 2, height: 8, borderRadius: 4 }}
+          />
+        )}
+        
+        {/* التبويبات */}
+        <Tabs 
+          value={activeTab} 
+          onChange={(e, newValue) => setActiveTab(newValue)}
+          centered
+          sx={{ mb: 2 }}
         >
-          ➕ إضافة
-        </Button>
-
-        <Tooltip title="تكبير">
-          <IconButton size="small" onClick={zoomIn} disabled={loading}>
-            <ZoomIn />
-          </IconButton>
-        </Tooltip>
+          <Tab label="🌳 الشجرة" />
+          <Tab label="🔗 الروابط" />
+          <Tab label="📊 الإحصائيات" />
+        </Tabs>
         
-        <Chip 
-          label={`${Math.round(zoomLevel * 100)}%`} 
-          size="small" 
-          onClick={() => setZoomLevel(0.8)}
-          style={{ cursor: 'pointer', minWidth: 60 }}
-        />
-        
-        <Tooltip title="تصغير">
-          <IconButton size="small" onClick={zoomOut} disabled={loading}>
-            <ZoomOut />
-          </IconButton>
-        </Tooltip>
-        
-        <Tooltip title="إعادة تحميل">
-          <IconButton size="small" onClick={handleRefresh} disabled={loading}>
-            <Refresh />
-          </IconButton>
-        </Tooltip>
-
-        <FormControlLabel
-          control={
-            <Switch
-              checked={showExtendedTree}
-              onChange={(e) => setShowExtendedTree(e.target.checked)}
-              color="primary"
-              size="small"
-              disabled={loading}
-            />
-          }
-          label="الشجرة الموسعة"
-          sx={{ fontSize: 14 }}
-        />
-      </Box>
-
-      {hasData && (
         <Box
           display="flex"
+          gap={1}
           justifyContent="center"
-          gap={3}
-          sx={{ mt: 1, opacity: 0.7 }}
+          alignItems="center"
+          flexWrap="wrap"
         >
-          <Typography variant="caption">
-            👥 الأشخاص: {statistics?.overview?.totalPersons || 0}
-          </Typography>
-          <Typography variant="caption">
-            🏠 العائلات: {statistics?.overview?.totalFamilies || 0}
-          </Typography>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => navigate('/family')}
+            disabled={loading}
+            startIcon={<Edit />}
+          >
+            إدارة الأفراد
+          </Button>
+          
+          <Button
+            variant="contained"
+            size="small"
+            color="success"
+            onClick={() => navigate('/family')}
+            disabled={loading}
+            startIcon={<PersonAdd />}
+          >
+            إضافة فرد
+          </Button>
+
+          <Button
+            variant="outlined"
+            size="small"
+            color="secondary"
+            onClick={() => setShowLinkingPanel(true)}
+            disabled={loading}
+            startIcon={<LinkIcon />}
+          >
+            ربط عائلات
+          </Button>
+
+          <Divider orientation="vertical" flexItem />
+
+          <Tooltip title="تكبير الشجرة">
+            <IconButton size="small" onClick={() => setZoomLevel(prev => Math.min(prev + 0.2, 2))} disabled={loading}>
+              <ZoomIn />
+            </IconButton>
+          </Tooltip>
+          
+          <Chip 
+            label={`${Math.round(zoomLevel * 100)}%`} 
+            size="small" 
+            onClick={() => setZoomLevel(0.6)}
+            style={{ cursor: 'pointer', minWidth: 70 }}
+          />
+          
+          <Tooltip title="تصغير الشجرة">
+            <IconButton size="small" onClick={() => setZoomLevel(prev => Math.max(prev - 0.2, 0.2))} disabled={loading}>
+              <ZoomOut />
+            </IconButton>
+          </Tooltip>
+          
+          <Tooltip title="إعادة تحميل">
+            <IconButton size="small" onClick={handleRefresh} disabled={loading}>
+              <Refresh />
+            </IconButton>
+          </Tooltip>
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={showExtendedTree}
+                onChange={(e) => setShowExtendedTree(e.target.checked)}
+                color="primary"
+                size="small"
+                disabled={loading}
+              />
+            }
+            label="الشجرة الموسعة"
+            sx={{ fontSize: 14 }}
+          />
         </Box>
-      )}
+
+        {/* معلومات الحالة */}
+        {hasData && (
+          <Box
+            display="flex"
+            justifyContent="center"
+            gap={4}
+            sx={{ mt: 1, opacity: 0.8 }}
+          >
+            <Chip
+              size="small"
+              icon={<Groups />}
+              label={`${statistics?.overview?.totalPersons || 0} شخص`}
+              color="primary"
+              variant="outlined"
+            />
+            <Chip
+              size="small"
+              icon={<AccountTree />}
+              label={`${statistics?.overview?.totalFamilies || 0} عائلة`}
+              color="secondary"
+              variant="outlined"
+            />
+            <Chip
+              size="small"
+              icon={<LinkIcon />}
+              label={`${linkedFamilies.length} رابط`}
+              color="success"
+              variant="outlined"
+            />
+          </Box>
+        )}
+      </Box>
     </Paper>
   );
 
   // ===========================================================================
-  // النوافذ المنبثقة
+  // لوحة الربط الموسع
   // ===========================================================================
 
-  const renderPersonModal = () => (
-    <Modal open={personModalOpen} onClose={() => setPersonModalOpen(false)}>
-      <Box
-        sx={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: { xs: 350, sm: 450 },
-          bgcolor: 'background.paper',
-          boxShadow: 24,
-          p: 4,
-          borderRadius: 3,
-          textAlign: 'center'
-        }}
-      >
-        {selectedNode && (
-          <>
-            <Box
-              component="img"
-              src={selectedNode.avatar || '/boy.png'}
-              alt={selectedNode.name}
-              sx={{ 
-                width: 120, 
-                height: 120, 
-                borderRadius: '50%', 
-                mx: 'auto', 
-                mb: 2,
-                objectFit: 'cover'
-              }}
-            />
-            
-            <Typography variant="h5" gutterBottom sx={{ color: '#1565c0' }}>
-              {selectedNode.name}
+  const renderLinkingPanel = () => (
+    <Dialog
+      open={showLinkingPanel}
+      onClose={() => setShowLinkingPanel(false)}
+      maxWidth="lg"
+      fullWidth
+      PaperProps={{
+        sx: { borderRadius: 3, minHeight: '80vh' }
+      }}
+    >
+      <DialogTitle>
+        <Box display="flex" alignItems="center" justifyContent="space-between">
+          <Box display="flex" alignItems="center" gap={2}>
+            <LinkIcon color="primary" sx={{ fontSize: 32 }} />
+            <Typography variant="h5" fontWeight="bold">
+              الربط الموسع بين العائلات
             </Typography>
-            
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">
-                  القرابة
-                </Typography>
-                <Typography variant="body1" fontWeight="bold">
-                  {selectedNode.attributes?.relation || 'غير محدد'}
-                </Typography>
-              </Grid>
-              
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">
-                  الجيل
-                </Typography>
-                <Typography variant="body1" fontWeight="bold">
-                  {selectedNode.attributes?.generation || 0}
-                </Typography>
-              </Grid>
-            </Grid>
-            
-            <Button
-              variant="contained"
-              fullWidth
-              onClick={() => setPersonModalOpen(false)}
-            >
-              إغلاق
-            </Button>
-          </>
-        )}
-      </Box>
-    </Modal>
+          </Box>
+          <IconButton onClick={() => setShowLinkingPanel(false)}>
+            <Close />
+          </IconButton>
+        </Box>
+      </DialogTitle>
+      
+      <DialogContent>
+        <ExtendedFamilyLinking
+          currentUserUid={uid}
+          onLinkingComplete={handleLinkingComplete}
+          existingLinks={linkedFamilies.map(link => link.targetFamilyUid)}
+        />
+      </DialogContent>
+    </Dialog>
   );
 
   // ===========================================================================
@@ -566,23 +726,42 @@ export default function FamilyTreeAdvanced() {
         overflow: 'hidden',
       }}
     >
-      {renderToolbar()}
+      {renderEnhancedToolbar()}
 
       <Box
         sx={{
           position: 'absolute',
-          top: 140,
+          top: 200, // مساحة أكبر للشريط المحسن
           left: 0,
           right: 0,
           bottom: 0,
           overflow: 'auto'
         }}
       >
-        {renderTreeView()}
+        {activeTab === 0 && renderExtendedTreeView()}
+        {activeTab === 1 && (
+          <Box sx={{ p: 3 }}>
+            <ExtendedFamilyLinking
+              currentUserUid={uid}
+              onLinkingComplete={handleLinkingComplete}
+              existingLinks={linkedFamilies.map(link => link.targetFamilyUid)}
+            />
+          </Box>
+        )}
+        {activeTab === 2 && (
+          <Box sx={{ p: 3 }}>
+            <Typography variant="h5" gutterBottom>
+              📊 إحصائيات الشجرة الموسعة
+            </Typography>
+            {/* يمكن إضافة مكون الإحصائيات هنا */}
+          </Box>
+        )}
       </Box>
 
-      {renderPersonModal()}
+      {renderLinkingPanel()}
 
+      {/* باقي النوافذ المنبثقة... */}
+      
       <Snackbar 
         open={snackbarOpen} 
         autoHideDuration={6000} 
