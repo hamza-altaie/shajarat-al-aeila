@@ -1,14 +1,26 @@
+<<<<<<< HEAD
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
+=======
+import React, { useContext, useEffect, useState } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
+import { AuthContext } from './AuthContext.jsx';
+>>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
 import { CircularProgress, Box, Typography, Alert, Button } from '@mui/material';
 import { Refresh as RefreshIcon } from '@mui/icons-material';
 
 export default function ProtectedRoute({ children, requireAuth = true }) {
+<<<<<<< HEAD
   const [authStatus, setAuthStatus] = useState('checking');
+=======
+  const { user, loading } = useContext(AuthContext);
+  const [verificationStatus, setVerificationStatus] = useState('checking');
+>>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
   const [error, setError] = useState(null);
   const location = useLocation();
 
   useEffect(() => {
+<<<<<<< HEAD
     const checkAuth = async () => {
       try {
         setError(null);
@@ -53,6 +65,58 @@ export default function ProtectedRoute({ children, requireAuth = true }) {
 
   // مؤشر التحميل
   if (authStatus === 'checking') {
+=======
+    const verifyUser = async () => {
+      try {
+        setError(null);
+        setVerificationStatus('checking');
+
+        // التحقق من البيانات المحلية
+        const phoneVerified = localStorage.getItem('verifiedPhone');
+        const uidVerified = localStorage.getItem('verifiedUid');
+
+        if (!requireAuth) {
+          setVerificationStatus('allowed');
+          return;
+        }
+
+        // التحقق من وجود بيانات المصادقة
+        if (!phoneVerified || !uidVerified) {
+          setVerificationStatus('unauthorized');
+          return;
+        }
+
+        // التحقق من تطابق البيانات مع Firebase
+        if (user) {
+          if (user.uid === uidVerified && user.phoneNumber === phoneVerified) {
+            setVerificationStatus('authorized');
+          } else {
+            // عدم تطابق - تنظيف البيانات المحلية
+            localStorage.removeItem('verifiedPhone');
+            localStorage.removeItem('verifiedUid');
+            setVerificationStatus('unauthorized');
+          }
+        } else if (!loading) {
+          // لا يوجد مستخدم في Firebase ولكن يوجد بيانات محلية
+          localStorage.removeItem('verifiedPhone');
+          localStorage.removeItem('verifiedUid');
+          setVerificationStatus('unauthorized');
+        }
+      } catch (err) {
+        console.error('خطأ في التحقق من المصادقة:', err);
+        setError('حدث خطأ في التحقق من صلاحية الوصول');
+        setVerificationStatus('error');
+      }
+    };
+
+    if (!loading) {
+      verifyUser();
+    }
+  }, [user, loading, requireAuth]);
+
+  // مؤشر التحميل
+  if (loading || verificationStatus === 'checking') {
+>>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
     return (
       <Box 
         display="flex" 
@@ -106,7 +170,11 @@ export default function ProtectedRoute({ children, requireAuth = true }) {
           textAlign="center"
           sx={{ maxWidth: 300 }}
         >
+<<<<<<< HEAD
           يرجى الانتظار بينما نتأكد من صلاحية وصولك
+=======
+          يرجى الانتظار بينما نتأكد من صلاحية وصولك للتطبيق
+>>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
         </Typography>
 
         <style>
@@ -122,8 +190,13 @@ export default function ProtectedRoute({ children, requireAuth = true }) {
     );
   }
 
+<<<<<<< HEAD
   // رسالة الخطأ
   if (authStatus === 'error') {
+=======
+  // رسالة الخطأ مع إمكانية إعادة المحاولة
+  if (verificationStatus === 'error') {
+>>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
     return (
       <Box 
         display="flex" 
@@ -174,7 +247,11 @@ export default function ProtectedRoute({ children, requireAuth = true }) {
   }
 
   // غير مصرح له بالوصول
+<<<<<<< HEAD
   if (authStatus === 'unauthorized') {
+=======
+  if (verificationStatus === 'unauthorized') {
+>>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
     return (
       <Navigate 
         to="/login" 
@@ -185,10 +262,18 @@ export default function ProtectedRoute({ children, requireAuth = true }) {
   }
 
   // مصرح له بالوصول أو لا يتطلب مصادقة
+<<<<<<< HEAD
   if (authStatus === 'authorized' || authStatus === 'allowed') {
     return children;
   }
 
   // حالة افتراضية
+=======
+  if (verificationStatus === 'authorized' || verificationStatus === 'allowed') {
+    return children;
+  }
+
+  // حالة افتراضية - إعادة توجيه لتسجيل الدخول
+>>>>>>> 28e487ce19d61bfd638839fa61f185c8bbc97f13
   return <Navigate to="/login" replace />;
 }
