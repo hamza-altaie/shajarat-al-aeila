@@ -610,91 +610,124 @@ export default function FamilyTreeAdvanced() {
   // 🎨 عرض العقدة المُحسن مع الأدوار المتعددة
   // ===========================================================================
 
+  
+  // دالة renderNodeElement مطابقة لتصميم صفحة العائلة
+
   const renderNodeElement = useCallback(({ nodeDatum }) => {
     const person = nodeDatum.attributes;
     const isExtended = person?.isExtended || false;
     const isMultiRole = person?.isMultiRole || false;
     const roles = person?.roles || [person?.relation || 'عضو'];
     
-    // تحديد الألوان حسب الدور
-    const getNodeColor = () => {
-      if (roles.includes('رب العائلة')) return '#4caf50'; // أخضر لرب العائلة
-      if (isExtended) return '#ff9800'; // برتقالي للعائلات المرتبطة
-      return '#2196f3'; // أزرق للأطفال
+    // نفس ألوان صفحة العائلة الخضراء
+    const getNodeColors = () => {
+      if (roles.includes('رب العائلة')) {
+        return {
+          primary: '#2e7d32', // نفس الأخضر
+          light: '#4caf50',
+          bg: '#e8f5e8'
+        };
+      }
+      if (isExtended) {
+        return {
+          primary: '#f57c00', // برتقالي للمرتبطين
+          light: '#ff9800',
+          bg: '#fff3e0'
+        };
+      }
+      return {
+        primary: '#1976d2', // أزرق للأطفال
+        light: '#42a5f5',
+        bg: '#e3f2fd'
+      };
     };
     
-    const getBorderStyle = () => {
-      if (isMultiRole) return '4,2'; // متقطع للأدوار المتعددة
-      return 'none';
+    const colors = getNodeColors();
+    
+    // تحسين عرض الاسم
+    const getDisplayName = (name) => {
+      if (!name || name === 'غير محدد') return 'غير محدد';
+      const words = name.trim().split(' ');
+      if (words.length <= 2) return name;
+      return `${words[0]} ${words[1]}`;
     };
     
     return (
       <g>
         <defs>
-          <linearGradient id={`grad-${nodeDatum.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+          {/* تدرج مشابه لصفحة العائلة */}
+          <linearGradient id={`familyGrad-${nodeDatum.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="100%" stopColor={isMultiRole ? '#fff8e1' : '#f8f9fa'} />
+            <stop offset="100%" stopColor={colors.bg} />
           </linearGradient>
+          
+          {/* ظل ناعم مثل الكاردات */}
+          <filter id={`familyShadow-${nodeDatum.id}`}>
+            <feDropShadow dx="0" dy="4" stdDeviation="8" floodColor="rgba(0,0,0,0.12)"/>
+          </filter>
         </defs>
         
-        {/* الإطار الرئيسي مع تأثير الدور المتعدد */}
+        {/* الكارت الرئيسي - نفس ستايل صفحة العائلة */}
         <rect
           width="280"
-          height="180"
+          height="160"
           x="-140"
-          y="-90"
-          rx="15"
-          fill={`url(#grad-${nodeDatum.id})`}
-          stroke={getNodeColor()}
-          strokeWidth={isMultiRole ? 4 : 2}
-          strokeDasharray={getBorderStyle()}
+          y="-80"
+          rx="16"
+          fill={`url(#familyGrad-${nodeDatum.id})`}
+          stroke={colors.primary}
+          strokeWidth="2"
           style={{ 
-            cursor: 'pointer', 
-            filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.15))'
+            cursor: 'pointer',
+            filter: `url(#familyShadow-${nodeDatum.id})`,
+            transition: 'all 0.3s ease'
           }}
           onClick={() => handleNodeClick(nodeDatum)}
         />
         
-        {/* شارة الأدوار المتعددة */}
+        {/* شارة الأدوار المتعددة - بستايل Material */}
         {isMultiRole && (
-          <>
+          <g>
             <circle
-              cx="-120"
-              cy="-70"
-              r="15"
-              fill="#ffc107"
+              cx="-110"
+              cy="-60"
+              r="16"
+              fill={colors.primary}
               stroke="white"
               strokeWidth="2"
+              style={{ filter: `url(#familyShadow-${nodeDatum.id})` }}
             />
             <text
-              x="-120"
-              y="-65"
+              x="-110"
+              y="-55"
               textAnchor="middle"
               style={{
                 fontSize: '12px',
                 fill: 'white',
-                fontWeight: 'bold'
+                fontWeight: '600',
+                fontFamily: '"Cairo", "Roboto", sans-serif'
               }}
             >
               {roles.length}
             </text>
-          </>
+          </g>
         )}
         
-        {/* الصورة الشخصية */}
+        {/* الصورة الشخصية - مثل الأفاتار في صفحة العائلة */}
         <circle
           cx="0"
-          cy="-30"
+          cy="-25"
           r="35"
           fill="white"
-          stroke={getNodeColor()}
+          stroke={colors.primary}
           strokeWidth="3"
+          style={{ filter: `url(#familyShadow-${nodeDatum.id})` }}
         />
         
         <image
           href={nodeDatum.avatar || '/boy.png'}
           x="-30"
-          y="-60"
+          y="-55"
           width="60"
           height="60"
           clipPath="circle(30px at 30px 30px)"
@@ -702,80 +735,111 @@ export default function FamilyTreeAdvanced() {
           onClick={() => handleNodeClick(nodeDatum)}
         />
         
-        {/* اسم الشخص */}
+        {/* منطقة النص - نفس ستايل الكاردات */}
+        <rect
+          x="-130"
+          y="25"
+          width="260"
+          height="45"
+          rx="8"
+          fill="rgba(255,255,255,0.9)"
+          stroke="rgba(0,0,0,0.06)"
+          strokeWidth="1"
+        />
+        
+        {/* الاسم - نفس typography صفحة العائلة */}
         <text
           x="0"
-          y="15"
+          y="42"
           textAnchor="middle"
           style={{
-            fontSize: '14px',
-            fontWeight: 'bold',
-            fill: getNodeColor(),
-            cursor: 'pointer',
-            fontFamily: 'Cairo, sans-serif'
+            fontSize: '16px',
+            fontWeight: '600',
+            fill: '#333',
+            fontFamily: '"Cairo", "Roboto", sans-serif',
+            cursor: 'pointer'
           }}
           onClick={() => handleNodeClick(nodeDatum)}
         >
-          {nodeDatum.name && nodeDatum.name.length > 20 
-            ? nodeDatum.name.substring(0, 20) + '...' 
-            : nodeDatum.name || 'غير محدد'}
+          {getDisplayName(nodeDatum.name)}
         </text>
         
-        {/* عرض الأدوار المتعددة */}
+        {/* الدور - مع Chip style */}
+        <rect
+          x="-60"
+          y="50"
+          width="120"
+          height="20"
+          rx="10"
+          fill={colors.primary}
+          opacity="0.1"
+        />
+        
         <text
           x="0"
-          y="35"
+          y="62"
           textAnchor="middle"
           style={{
-            fontSize: '11px',
-            fill: '#666',
-            fontFamily: 'Cairo, sans-serif'
+            fontSize: '12px',
+            fill: colors.primary,
+            fontFamily: '"Cairo", "Roboto", sans-serif',
+            fontWeight: '500'
           }}
         >
-          {isMultiRole ? roles.join(' • ') : roles[0]}
+          {isMultiRole ? roles.slice(0,2).join(' + ') : roles[0]}
         </text>
         
-        {/* معلومات العائلات */}
-        {isMultiRole && (
-          <text
-            x="0"
-            y="55"
-            textAnchor="middle"
-            style={{
-              fontSize: '9px',
-              fill: '#999',
-              fontStyle: 'italic'
-            }}
-          >
-            🏠 {person.familyUids?.length || 1} عائلة
-          </text>
-        )}
-        
-        {/* عدد الأطفال */}
+        {/* عدد الأطفال - مثل الشارات في صفحة العائلة */}
         {nodeDatum.children && nodeDatum.children.length > 0 && (
-          <>
+          <g>
             <circle
               cx="110"
               cy="-60"
-              r="18"
+              r="16"
               fill="#4caf50"
               stroke="white"
               strokeWidth="2"
+              style={{ filter: `url(#familyShadow-${nodeDatum.id})` }}
             />
             <text
               x="110"
               y="-55"
               textAnchor="middle"
               style={{
-                fontSize: '12px',
+                fontSize: '11px',
                 fill: 'white',
-                fontWeight: 'bold'
+                fontWeight: '600',
+                fontFamily: '"Cairo", "Roboto", sans-serif'
               }}
             >
               {nodeDatum.children.length}
             </text>
-          </>
+          </g>
         )}
+        
+        {/* تأثير hover مثل الكاردات */}
+        <rect
+          width="280"
+          height="160"
+          x="-140"
+          y="-80"
+          rx="16"
+          fill="rgba(46, 125, 50, 0)"
+          stroke="none"
+          style={{ 
+            cursor: 'pointer',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.target.previousSibling.style.transform = 'translateY(-2px)';
+            e.target.previousSibling.style.filter = 'drop-shadow(0 8px 24px rgba(0,0,0,0.15))';
+          }}
+          onMouseLeave={(e) => {
+            e.target.previousSibling.style.transform = 'translateY(0px)';
+            e.target.previousSibling.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.12))';
+          }}
+          onClick={() => handleNodeClick(nodeDatum)}
+        />
       </g>
     );
   }, [handleNodeClick]);
