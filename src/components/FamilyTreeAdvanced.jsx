@@ -1,4 +1,4 @@
-// src/components/FamilyTreeAdvanced.jsx - النسخة المُحدثة مع إصلاح التكرار
+// src/components/FamilyTreeAdvanced.jsx - النسخة المُحدثة مع النظام الذكي
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Tree from 'react-d3-tree';
 import { useNavigate } from 'react-router-dom';
@@ -36,9 +36,50 @@ export default function FamilyTreeAdvanced() {
   
   const [personModalOpen, setPersonModalOpen] = useState(false);
   
+  // ===========================================================================
+  // إعدادات الشجرة القابلة للتخصيص
+  // ===========================================================================
+  
+  const [treeSettings, setTreeSettings] = useState({
+    maxDepth: 15, // عمق أكبر للقبائل الكبيرة
+    maxPersonsPerLevel: 50,
+    maxTotalPersons: 2000,
+    enableSmartLimits: true, // حدود ذكية
+    showDepthWarning: true, // تحذير عند العمق الكبير
+    autoOptimize: true // تحسين تلقائي للأداء
+  });
+  
+  const [performanceMetrics, setPerformanceMetrics] = useState({
+    loadTime: 0,
+    personCount: 0,
+    maxDepthReached: 0,
+    memoryUsage: 0
+  });
+
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('info');
+
+  // مراقبة الأداء أثناء بناء الشجرة
+  const monitorPerformance = useCallback((metrics) => {
+    setPerformanceMetrics(prev => ({
+      ...prev,
+      ...metrics
+    }));
+    
+    // تحذيرات تلقائية
+    if (metrics.personCount > 1000) {
+      showSnackbar('⚠️ الشجرة كبيرة - قد يتأثر الأداء', 'warning');
+    }
+    
+    if (metrics.maxDepthReached > 12) {
+      showSnackbar('📏 تم الوصول لعمق كبير في الشجرة', 'info');
+    }
+    
+    if (metrics.loadTime > 10000) { // 10 ثواني
+      showSnackbar('🐌 التحميل بطيء - فكر في تقليل العمق', 'warning');
+    }
+  }, []);
   
   // حالات البيانات
   const [simpleTreeData, setSimpleTreeData] = useState(null);
@@ -160,6 +201,7 @@ export default function FamilyTreeAdvanced() {
 
     console.log('🏛️ تحميل الشجرة الموسعة (جميع العائلات المرتبطة)...');
     
+    const startTime = Date.now();
     setLoading(true);
     setError(null);
     setLoadingStage('البحث عن الجذر الأساسي...');
@@ -173,17 +215,26 @@ export default function FamilyTreeAdvanced() {
       const allFamilies = await collectAllLinkedFamilies(rootUid);
       setLoadingProgress(60);
       
-      setLoadingStage('بناء الشجرة الموسعة المُحسنة...');
-      const treeData = await buildExtendedTreeStructure(allFamilies, rootUid);
+      setLoadingStage('بناء الشجرة الموسعة الذكية...');
+      const { treeData, metrics } = await buildExtendedTreeStructure(allFamilies, rootUid, treeSettings);
       setLoadingProgress(90);
+      
+      // تسجيل المقاييس
+      const endTime = Date.now();
+      const finalMetrics = {
+        ...metrics,
+        loadTime: endTime - startTime
+      };
+      
+      monitorPerformance(finalMetrics);
       
       setLoadingStage('اكتمل التحميل الموسع');
       setLoadingProgress(100);
       
       setExtendedTreeData(treeData);
       
-      console.log(`✅ تم تحميل الشجرة الموسعة: ${allFamilies.length} عائلة`);
-      showSnackbar(`تم تحميل الشجرة الموسعة: ${allFamilies.length} عائلة`, 'success');
+      console.log(`✅ تم تحميل الشجرة الموسعة: ${allFamilies.length} عائلة، العمق الأقصى: ${metrics.maxDepthReached}`);
+      showSnackbar(`تم تحميل الشجرة الموسعة: ${allFamilies.length} عائلة، ${metrics.personCount} شخص`, 'success');
 
     } catch (error) {
       console.error('❌ خطأ في تحميل الشجرة الموسعة:', error);
@@ -192,7 +243,7 @@ export default function FamilyTreeAdvanced() {
     } finally {
       setLoading(false);
     }
-  }, [uid]);
+  }, [uid, treeSettings, monitorPerformance]);
 
   // ===========================================================================
   // بناء الشجرة العادية
@@ -398,11 +449,11 @@ export default function FamilyTreeAdvanced() {
   };
 
   // ===========================================================================
-  // 🔥 بناء الشجرة الموسعة المُحسنة - بدون تكرار
+  // 🔥 بناء الشجرة الموسعة المُحسنة - مع النظام الذكي
   // ===========================================================================
 
-  const buildExtendedTreeStructure = async (families, rootUid) => {
-    console.log('🏗️ بناء الشجرة الموسعة المُحسنة من الجذر:', rootUid);
+  const buildExtendedTreeStructure = async (families, rootUid, settings) => {
+    console.log('🏗️ بناء الشجرة الموسعة الذكية من الجذر:', rootUid);
     
     const rootFamily = families.find(f => f.uid === rootUid);
     if (!rootFamily || !rootFamily.head) {
@@ -456,18 +507,44 @@ export default function FamilyTreeAdvanced() {
       console.log(`${key}: أدوار [${person.roles.join(', ')}] في العائلات [${person.families.join(', ')}]`);
     });
 
-    // الخطوة 2: بناء الهيكل الهرمي المُصحح
+    // الخطوة 2: بناء الهيكل الهرمي المُصحح بدون حد ثابت
     const buildPersonNode = (person, family, depth = 0, parentId = null) => {
       const personKey = `${person.firstName}_${person.fatherName}_${person.grandfatherName}`;
       
-      if (processedPersons.has(personKey) || depth > 6) {
+      // 🔄 نظام ذكي بدلاً من الحد الثابت
+      const smartLimits = {
+        maxDepth: settings.maxDepth || 15, // حد أمان عالي
+        maxPersonsPerLevel: settings.maxPersonsPerLevel || 50, // حد الأشخاص في المستوى الواحد
+        maxTotalPersons: settings.maxTotalPersons || 2000, // حد إجمالي للأمان
+        currentPersonCount: processedPersons.size
+      };
+      
+      // فحص الحدود الذكية
+      if (processedPersons.has(personKey)) {
+        console.log(`🔄 تم تجاهل ${buildFullName(person)} - معالج مسبقاً`);
+        return null;
+      }
+      
+      if (depth > smartLimits.maxDepth) {
+        console.log(`⚠️ تم إيقاف البناء عند العمق ${depth} - الحد الأقصى ${smartLimits.maxDepth}`);
+        return null;
+      }
+      
+      if (smartLimits.currentPersonCount > smartLimits.maxTotalPersons) {
+        console.log(`⚠️ تم إيقاف البناء - تجاوز الحد الأقصى للأشخاص ${smartLimits.maxTotalPersons}`);
+        return null;
+      }
+      
+      // 🔍 فحص الدائرة المرجعية (تجنب اللانهاية)
+      if (parentId && person.globalId === parentId) {
+        console.log(`🚫 تم منع الدائرة المرجعية: ${buildFullName(person)}`);
         return null;
       }
       
       processedPersons.add(personKey);
       const globalPerson = globalPersonMap.get(personKey);
       
-      console.log(`🔗 بناء عقدة: ${buildFullName(person)} (الأدوار: ${globalPerson.roles.join(', ')})`);
+      console.log(`🔗 بناء عقدة: ${buildFullName(person)} (المستوى: ${depth}, الأدوار: ${globalPerson.roles.join(', ')})`);
 
       // إنشاء العقدة مع الأدوار المتعددة
       const node = {
@@ -482,6 +559,7 @@ export default function FamilyTreeAdvanced() {
           isExtended: family.uid !== rootUid,
           treeType: 'extended',
           familyLevel: family.level || 0,
+          generationDepth: depth, // تتبع العمق الفعلي
           primaryRole: globalPerson.roles.includes('رب العائلة') ? 'رب العائلة' : globalPerson.roles[0]
         },
         children: []
@@ -559,7 +637,7 @@ export default function FamilyTreeAdvanced() {
       });
 
       // 🔥 ترتيب الأطفال وإضافتهم دفعة واحدة (حل مشكلة التسلسل الخطي)
-      const sortedChildren = allChildren.sort((a, b) => {
+      const sortedChildren = validChildren.sort((a, b) => {
         // ترتيب حسب تاريخ الميلاد إذا متوفر
         if (a.child.birthDate && b.child.birthDate) {
           return new Date(a.child.birthDate) - new Date(b.child.birthDate);
@@ -586,11 +664,40 @@ export default function FamilyTreeAdvanced() {
       return node;
     };
 
-    // الخطوة 3: بناء الشجرة من الجذر
+    // الخطوة 3: بناء الشجرة من الجذر مع المقاييس
+    let maxDepthReached = 0;
+    let totalPersonsProcessed = 0;
+    
     const rootNode = buildPersonNode(rootFamily.head, rootFamily);
     
+    // حساب المقاييس النهائية
+    processedPersons.forEach((personKey) => {
+      totalPersonsProcessed++;
+    });
+    
+    // حساب العمق الأقصى المُحقق فعلياً
+    const calculateMaxDepth = (node, currentDepth = 0) => {
+      maxDepthReached = Math.max(maxDepthReached, currentDepth);
+      if (node.children) {
+        node.children.forEach(child => calculateMaxDepth(child, currentDepth + 1));
+      }
+    };
+    
+    if (rootNode) {
+      calculateMaxDepth(rootNode);
+    }
+    
+    const metrics = {
+      personCount: totalPersonsProcessed,
+      maxDepthReached,
+      familyCount: families.length,
+      processedFamilies: families.length
+    };
+    
     console.log('✅ تم بناء الشجرة الموسعة المُحسنة مع تصحيح هيكل الأخوان');
-    return rootNode;
+    console.log(`📊 المقاييس: ${metrics.personCount} شخص، عمق أقصى: ${metrics.maxDepthReached}`);
+    
+    return { treeData: rootNode, metrics };
   };
 
   // ===========================================================================
@@ -948,8 +1055,14 @@ export default function FamilyTreeAdvanced() {
             zoom={zoomLevel}
             collapsible={false}
             pathFunc="step"
-            separation={{ siblings: 1.5, nonSiblings: 2 }}
-            nodeSize={{ x: 300, y: 220 }}
+            separation={{ 
+              siblings: showExtendedTree ? 2.2 : 1.8, // مساحة أكبر بين الأخوان في الشجرة الموسعة
+              nonSiblings: showExtendedTree ? 3 : 2.5 
+            }}
+            nodeSize={{ 
+              x: showExtendedTree ? 350 : 300, // عرض أكبر للعقد في الشجرة الموسعة
+              y: 220 
+            }}
             renderCustomNodeElement={renderNodeElement}
             styles={{
               links: {
@@ -961,6 +1074,9 @@ export default function FamilyTreeAdvanced() {
             onNodeClick={handleNodeClick}
             enableLegacyTransitions={false}
             transitionDuration={500}
+            scaleExtent={{ min: 0.1, max: 2 }}
+            branchNodeClassName="branch-node"
+            leafNodeClassName="leaf-node"
           />
         ) : (
           <Box
@@ -1209,6 +1325,24 @@ export default function FamilyTreeAdvanced() {
               icon={<LinkIcon />}
               label={`${linkedFamilies.length} رابط`}
               color="success"
+              variant="outlined"
+            />
+          )}
+          {performanceMetrics.personCount > 0 && (
+            <Chip
+              size="small"
+              icon={<Groups />}
+              label={`${performanceMetrics.personCount} شخص`}
+              color="info"
+              variant="outlined"
+            />
+          )}
+          {performanceMetrics.maxDepthReached > 0 && (
+            <Chip
+              size="small"
+              icon={<AccountTree />}
+              label={`عمق: ${performanceMetrics.maxDepthReached}`}
+              color={performanceMetrics.maxDepthReached > 10 ? "warning" : "default"}
               variant="outlined"
             />
           )}
