@@ -1,27 +1,24 @@
-// =============================================================================
-// AdvancedFamilyGraph.js - نظام شجرة العائلة الموسعة الشاملة
-// =============================================================================
-
+// src/utils/AdvancedFamilyGraph.js - إضافة الدالة المفقودة
 import { collection, getDocs, query, where, orderBy, limit, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 export class AdvancedFamilyGraph {
   constructor() {
     // البيانات الأساسية
-    this.nodes = new Map();           // الأشخاص: Map<globalId, Person>
-    this.edges = new Map();           // العلاقات المباشرة: Map<edgeId, Relation>
-    this.families = new Map();        // العائلات: Map<familyUid, Family>
+    this.nodes = new Map();           
+    this.edges = new Map();           
+    this.families = new Map();        
     
     // الفهارس للبحث السريع
-    this.pathIndex = new Map();       // فهرس المسارات
-    this.nameIndex = new Map();       // فهرس الأسماء
-    this.generationIndex = new Map(); // فهرس الأجيال
-    this.relationIndex = new Map();   // فهرس العلاقات
+    this.pathIndex = new Map();       
+    this.nameIndex = new Map();       
+    this.generationIndex = new Map(); 
+    this.relationIndex = new Map();   
     
     // الذاكرة المؤقتة والأداء
-    this.cache = new Map();           // ذاكرة التخزين المؤقت
-    this.loadedFamilies = new Set();  // العائلات المحملة
-    this.optimized = false;           // حالة التحسين
+    this.cache = new Map();           
+    this.loadedFamilies = new Set();  
+    this.optimized = false;           
     this.metadata = {
       totalNodes: 0,
       totalEdges: 0,
@@ -45,13 +42,12 @@ export class AdvancedFamilyGraph {
   }
 
   /**
-   * تحميل الشجرة الموسعة الشاملة للقبيلة
-   * يربط جميع العائلات والأقارب في شجرة واحدة متكاملة
+   * 🔥 الدالة الجديدة الشاملة للقبيلة
    */
-  async loadExtendedFamilies(userUid, options = {}) {
+  async loadCompleteTribalTree(userUid, options = {}) {
     const startTime = Date.now();
     
-    console.log(`🏛️ بدء تحميل الشجرة الموسعة الشاملة للقبيلة من: ${userUid}`);
+    console.log(`🏛️ بدء تحميل الشجرة الشاملة للقبيلة من: ${userUid}`);
     
     try {
       // تنظيف البيانات السابقة
@@ -59,60 +55,68 @@ export class AdvancedFamilyGraph {
         this.clear();
       }
       
+      // callback للتقدم
+      const updateProgress = (stage, progress) => {
+        if (options.onProgress) {
+          options.onProgress(stage, progress);
+        }
+      };
+      
       // الخطوة 1: العثور على الجذر الأساسي للقبيلة
-      console.log(`🔍 1. البحث عن الجذر الأساسي للقبيلة...`);
+      updateProgress('البحث عن الجذر الأساسي للقبيلة...', 10);
       const tribalRoot = await this.findTribalRoot(userUid);
       
       // الخطوة 2: تحميل شجرة القبيلة الكاملة من الجذر
-      console.log(`🌳 2. تحميل شجرة القبيلة الكاملة...`);
-      await this.loadCompleteTribalBranches(tribalRoot);
+      updateProgress('تحميل شجرة القبيلة الكاملة...', 30);
+      await this.loadCompleteTribalBranches(tribalRoot, updateProgress);
       
       // الخطوة 3: بناء العلاقات الهرمية الشاملة
-      console.log(`🔗 3. بناء العلاقات الهرمية الشاملة...`);
+      updateProgress('بناء العلاقات الهرمية الشاملة...', 60);
       await this.buildCompleteTribalRelationships();
       
       // الخطوة 4: تحسين وتنظيم الشجرة
-      console.log(`⚡ 4. تحسين وتنظيم الشجرة...`);
+      updateProgress('تحسين وتنظيم الشجرة...', 80);
       this.optimizeTribalTree();
       
       // الخطوة 5: إنشاء بيانات الشجرة الهرمية
-      console.log(`📊 5. إنشاء بيانات الشجرة الهرمية...`);
+      updateProgress('إنشاء بيانات الشجرة الهرمية...', 90);
       const treeData = this.generateTribalTreeData(tribalRoot);
+      
+      updateProgress('اكتمل التحميل الشامل', 100);
       
       const endTime = Date.now();
       this.metadata.loadingStats.totalLoadTime = endTime - startTime;
       this.metadata.lastUpdated = endTime;
       
-      console.log(`✅ اكتملت الشجرة الموسعة الشاملة في ${endTime - startTime}ms`);
+      console.log(`✅ اكتملت الشجرة الشاملة في ${endTime - startTime}ms`);
       console.log(`📈 إحصائيات: ${this.nodes.size} شخص، ${this.families.size} عائلة`);
       
       return {
+        success: true,
         treeData,
         tribalRoot,
         graph: this,
         stats: this.getTribalStatistics(),
-        loadTime: endTime - startTime,
-        success: true
+        loadTime: endTime - startTime
       };
       
     } catch (error) {
-      console.error('❌ خطأ في تحميل الشجرة الموسعة الشاملة:', error);
+      console.error('❌ خطأ في تحميل الشجرة الشاملة:', error);
       return {
+        success: false,
         treeData: null,
-        error: error.message,
-        success: false
+        error: error.message
       };
     }
   }
 
   /**
    * العثور على الجذر الأساسي للقبيلة
-   * يتتبع الروابط إلى أعلى حتى يصل للجد الأكبر
    */
   async findTribalRoot(startUserUid) {
     const visited = new Set();
     let currentUid = startUserUid;
-    let maxDepth = 10; // حماية من الحلقات اللانهائية
+    let maxDepth = 10;
     
     console.log(`🔍 البحث عن جذر القبيلة بدءاً من: ${startUserUid}`);
     
@@ -120,7 +124,6 @@ export class AdvancedFamilyGraph {
       visited.add(currentUid);
       
       try {
-        // جلب بيانات المستخدم الحالي
         const userDoc = await getDoc(doc(db, 'users', currentUid));
         if (!userDoc.exists()) {
           console.warn(`⚠️ المستخدم ${currentUid} غير موجود`);
@@ -130,7 +133,6 @@ export class AdvancedFamilyGraph {
         const userData = userDoc.data();
         const linkedToHead = userData.linkedToFamilyHead;
         
-        // إذا لم يكن مرتبط بأحد، فهو الجذر
         if (!linkedToHead || linkedToHead === currentUid) {
           console.log(`🏛️ تم العثور على جذر القبيلة: ${currentUid}`);
           return {
@@ -141,7 +143,6 @@ export class AdvancedFamilyGraph {
           };
         }
         
-        // الانتقال إلى المستوى الأعلى
         console.log(`⬆️ الانتقال من ${currentUid} إلى ${linkedToHead}`);
         currentUid = linkedToHead;
         maxDepth--;
@@ -152,7 +153,6 @@ export class AdvancedFamilyGraph {
       }
     }
     
-    // في حالة عدم وجود جذر واضح، نعتبر المستخدم الحالي هو الجذر
     console.log(`🏛️ اعتماد ${startUserUid} كجذر افتراضي`);
     const userDoc = await getDoc(doc(db, 'users', startUserUid));
     return {
@@ -166,9 +166,10 @@ export class AdvancedFamilyGraph {
   /**
    * تحميل جميع فروع القبيلة من الجذر
    */
-  async loadCompleteTribalBranches(tribalRoot) {
+  async loadCompleteTribalBranches(tribalRoot, updateProgress) {
     const processedUsers = new Set();
     const userQueue = [{ uid: tribalRoot.uid, level: 0, parentUid: null }];
+    let totalFound = 0;
     
     console.log(`🌳 تحميل جميع فروع القبيلة من الجذر: ${tribalRoot.uid}`);
     
@@ -177,6 +178,7 @@ export class AdvancedFamilyGraph {
       
       if (processedUsers.has(uid)) continue;
       processedUsers.add(uid);
+      totalFound++;
       
       try {
         console.log(`📥 تحميل المستوى ${level}: المستخدم ${uid}`);
@@ -184,10 +186,9 @@ export class AdvancedFamilyGraph {
         // تحميل عائلة المستخدم
         await this.loadUserFamily(uid, level, parentUid);
         
-        // البحث عن الأطفال المرتبطين (العائلات التابعة)
+        // البحث عن الأطفال المرتبطين
         const childrenUids = await this.findLinkedChildren(uid);
         
-        // إضافة الأطفال إلى القائمة
         childrenUids.forEach(childUid => {
           if (!processedUsers.has(childUid)) {
             userQueue.push({ 
@@ -199,6 +200,12 @@ export class AdvancedFamilyGraph {
         });
         
         console.log(`✅ المستوى ${level}: تم تحميل ${uid} مع ${childrenUids.length} طفل`);
+        
+        // تحديث التقدم
+        if (updateProgress) {
+          const progress = 30 + (totalFound * 2); // من 30 إلى 60
+          updateProgress(`تحميل العائلة ${totalFound}: ${uid}`, Math.min(progress, 58));
+        }
         
       } catch (error) {
         console.error(`❌ خطأ في تحميل ${uid}:`, error);
@@ -213,13 +220,11 @@ export class AdvancedFamilyGraph {
    */
   async loadUserFamily(userUid, level, parentUid) {
     try {
-      // تحميل بيانات المستخدم
       const userDoc = await getDoc(doc(db, 'users', userUid));
       if (!userDoc.exists()) return;
       
       const userData = userDoc.data();
       
-      // تحميل أعضاء العائلة
       const familySnapshot = await getDocs(collection(db, 'users', userUid, 'family'));
       const familyMembers = [];
       
@@ -239,7 +244,6 @@ export class AdvancedFamilyGraph {
         }
       });
       
-      // إنشاء كائن العائلة
       if (familyMembers.length > 0) {
         const family = {
           uid: userUid,
@@ -260,11 +264,10 @@ export class AdvancedFamilyGraph {
   }
 
   /**
-   * البحث عن الأطفال المرتبطين (العائلات التابعة)
+   * البحث عن الأطفال المرتبطين
    */
   async findLinkedChildren(parentUid) {
     try {
-      // البحث في جميع المستخدمين عن من مرتبط بهذا المستخدم
       const usersSnapshot = await getDocs(collection(db, 'users'));
       const linkedChildren = [];
       
@@ -272,19 +275,16 @@ export class AdvancedFamilyGraph {
         const userData = userDoc.data();
         const userId = userDoc.id;
         
-        // تجاهل المستخدم نفسه
         if (userId === parentUid) continue;
         
-        // فحص إذا كان مرتبط بالوالد
         if (userData.linkedToFamilyHead === parentUid) {
           linkedChildren.push(userId);
         }
         
-        // فحص linkedFamilies أيضاً
         const linkedFamilies = userData.linkedFamilies || [];
         const isLinked = linkedFamilies.some(link => 
           link.targetFamilyUid === parentUid && 
-          link.linkType === 'child-parent'
+          (link.linkType === 'child-parent' || link.linkType === 'parent-child')
         );
         
         if (isLinked && !linkedChildren.includes(userId)) {
@@ -327,12 +327,13 @@ export class AdvancedFamilyGraph {
       children: new Set(),
       parents: new Set(),
       siblings: new Set(),
-      familyChildren: new Set(), // عائلات الأطفال
-      familyParents: new Set(),  // عائلات الوالدين
+      familyChildren: new Set(),
+      familyParents: new Set(),
       
       // معلومات إضافية
       generation: this.calculateGeneration(memberData),
       isHousehead: memberData.relation === 'رب العائلة',
+      importance: 0,
       
       metadata: {
         addedAt: Date.now(),
@@ -352,10 +353,10 @@ export class AdvancedFamilyGraph {
       this.buildInternalFamilyRelations(family);
     });
     
-    // 2. بناء العلاقات بين العائلات (الأجيال)
+    // 2. بناء العلاقات بين العائلات
     await this.buildInterFamilyTribalRelations();
     
-    // 3. بناء علاقات الأقارب (أعمام، أولاد عم، إلخ)
+    // 3. بناء علاقات الأقارب الموسعة
     this.buildExtendedFamilyRelations();
     
     console.log('✅ تم بناء العلاقات الهرمية الشاملة');
@@ -368,16 +369,14 @@ export class AdvancedFamilyGraph {
     const head = family.head;
     if (!head) return;
     
-    // ربط الأطفال بالوالد
     family.members.forEach(member => {
       if (member.relation === 'ابن' || member.relation === 'بنت') {
-        // إضافة العلاقة والد-طفل
         head.children.add(member.globalId);
         member.parents.add(head.globalId);
       }
     });
     
-    // ربط الأشقاء ببعضهم
+    // ربط الأشقاء
     const children = family.members.filter(m => m.relation === 'ابن' || m.relation === 'بنت');
     for (let i = 0; i < children.length; i++) {
       for (let j = i + 1; j < children.length; j++) {
@@ -393,7 +392,6 @@ export class AdvancedFamilyGraph {
   async buildInterFamilyTribalRelations() {
     console.log('🔗 بناء العلاقات بين العائلات...');
     
-    // ترتيب العائلات حسب المستوى
     const familiesByLevel = new Map();
     this.families.forEach(family => {
       const level = family.level || 0;
@@ -403,7 +401,6 @@ export class AdvancedFamilyGraph {
       familiesByLevel.get(level).push(family);
     });
     
-    // ربط كل مستوى بالمستوى الذي فوقه
     for (const [level, families] of familiesByLevel) {
       for (const family of families) {
         if (family.parentFamilyUid) {
@@ -424,11 +421,9 @@ export class AdvancedFamilyGraph {
     const parentHead = parentFamily.head;
     
     if (childHead && parentHead) {
-      // ربط العائلات
       childHead.familyParents.add(parentFamilyUid);
       parentHead.familyChildren.add(childFamily.uid);
       
-      // ربط الأشخاص
       parentHead.children.add(childHead.globalId);
       childHead.parents.add(parentHead.globalId);
       
@@ -437,12 +432,11 @@ export class AdvancedFamilyGraph {
   }
 
   /**
-   * بناء علاقات الأقارب الموسعة (أعمام، أولاد عم، إلخ)
+   * بناء علاقات الأقارب الموسعة
    */
   buildExtendedFamilyRelations() {
     console.log('👥 بناء علاقات الأقارب الموسعة...');
     
-    // العثور على الأشقاء في نفس المستوى
     const familiesByLevel = new Map();
     this.families.forEach(family => {
       const level = family.level || 0;
@@ -455,14 +449,12 @@ export class AdvancedFamilyGraph {
       familiesByLevel.get(key).push(family);
     });
     
-    // ربط الأشقاء ببعضهم (العائلات الشقيقة)
     familiesByLevel.forEach(families => {
       if (families.length > 1) {
         this.linkSiblingFamilies(families);
       }
     });
     
-    // بناء علاقات أولاد العم
     this.buildCousinRelations();
   }
 
@@ -491,28 +483,23 @@ export class AdvancedFamilyGraph {
   buildCousinRelations() {
     console.log('👨‍👩‍👧‍👦 بناء علاقات أولاد العم...');
     
-    // للكل شخص، نجد أولاد عمه (أطفال أشقاء والده)
     this.nodes.forEach(person => {
-      // العثور على والد الشخص
       const parentIds = Array.from(person.parents);
       
       parentIds.forEach(parentId => {
         const parent = this.nodes.get(parentId);
         if (!parent) return;
         
-        // العثور على أشقاء الوالد (الأعمام)
         const uncleIds = Array.from(parent.siblings);
         
         uncleIds.forEach(uncleId => {
           const uncle = this.nodes.get(uncleId);
           if (!uncle) return;
           
-          // العثور على أطفال العم (أولاد العم)
           const cousinIds = Array.from(uncle.children);
           
           cousinIds.forEach(cousinId => {
             if (cousinId !== person.globalId) {
-              // إضافة علاقة ولد عم
               person.cousins = person.cousins || new Set();
               person.cousins.add(cousinId);
               
@@ -534,10 +521,7 @@ export class AdvancedFamilyGraph {
   optimizeTribalTree() {
     console.log('⚡ تحسين وتنظيم الشجرة...');
     
-    // حساب الأجيال بدقة
     this.calculatePreciseGenerations();
-    
-    // ترتيب الأشخاص حسب الأهمية
     this.rankPersonsByImportance();
     
     console.log('✅ تم تحسين الشجرة');
@@ -547,7 +531,6 @@ export class AdvancedFamilyGraph {
    * حساب الأجيال بدقة
    */
   calculatePreciseGenerations() {
-    // تعيين الجيل للجذر
     const rootFamilies = Array.from(this.families.values()).filter(f => f.level === 0);
     
     rootFamilies.forEach(rootFamily => {
@@ -565,7 +548,6 @@ export class AdvancedFamilyGraph {
     
     person.calculatedGeneration = generation;
     
-    // تعيين الجيل لجميع الأطفال
     person.children.forEach(childId => {
       const child = this.nodes.get(childId);
       if (child) {
@@ -581,16 +563,9 @@ export class AdvancedFamilyGraph {
     this.nodes.forEach(person => {
       let importance = 0;
       
-      // رب العائلة لديه أهمية أكبر
       if (person.isHousehead) importance += 50;
-      
-      // الأجيال الأعلى لديها أهمية أكبر
       importance += (10 - (person.calculatedGeneration || 0)) * 10;
-      
-      // عدد الأطفال يزيد الأهمية
       importance += person.children.size * 5;
-      
-      // عدد الأشقاء يزيد الأهمية قليلاً
       importance += person.siblings.size * 2;
       
       person.importance = importance;
@@ -603,7 +578,6 @@ export class AdvancedFamilyGraph {
   generateTribalTreeData(tribalRoot) {
     console.log('🌳 إنشاء بيانات الشجرة الهرمية...');
     
-    // العثور على رب العائلة الجذر
     const rootFamily = this.families.get(tribalRoot.uid);
     if (!rootFamily || !rootFamily.head) {
       console.warn('⚠️ لم يتم العثور على رب العائلة الجذر');
@@ -636,7 +610,6 @@ export class AdvancedFamilyGraph {
         children: []
       };
       
-      // إضافة الأطفال مرتبين حسب الأهمية
       const childrenArray = Array.from(person.children)
         .map(childId => this.nodes.get(childId))
         .filter(Boolean)
@@ -660,64 +633,11 @@ export class AdvancedFamilyGraph {
   }
 
   /**
-   * إنشاء بيانات الشجرة - دالة بديلة مبسطة
-   */
-  generateTreeData(rootPersonId = null) {
-    if (!rootPersonId) {
-      rootPersonId = this.selectOptimalRoot();
-    }
-    
-    if (!rootPersonId) {
-      console.warn('⚠️ لم يتم العثور على جذر مناسب للشجرة');
-      return null;
-    }
-    
-    return this.generateTribalTreeData({ uid: rootPersonId.split('_')[0] });
-  }
-
-  /**
-   * اختيار أفضل جذر للشجرة
-   */
-  selectOptimalRoot() {
-    let bestRoot = null;
-    let maxScore = -1;
-    
-    this.nodes.forEach((person, personId) => {
-      let score = 0;
-      
-      // نقاط للأطفال
-      score += person.children.size * 15;
-      
-      // نقاط لكونه رب عائلة
-      if (person.relation === 'رب العائلة') score += 100;
-      
-      // نقاط للجيل (الأجيال الأعلى أولوية)
-      score += (person.generation || 0) * 10;
-      
-      // نقاط للمعلومات المكتملة
-      if (person.birthDate) score += 10;
-      if (person.avatar && person.avatar !== '/boy.png') score += 10;
-      
-      // نقاط للأهمية
-      score += person.importance || 0;
-      
-      if (score > maxScore) {
-        maxScore = score;
-        bestRoot = personId;
-      }
-    });
-    
-    return bestRoot;
-  }
-
-  /**
    * حساب الجيل للشخص
    */
   calculateGeneration(memberData) {
     const tribalLevel = memberData.tribalLevel || 0;
     
-    // رب العائلة في المستوى 0 = الجيل 0
-    // أطفاله = الجيل 1، إلخ
     if (memberData.relation === 'رب العائلة') {
       return tribalLevel;
     } else {
@@ -821,7 +741,58 @@ export class AdvancedFamilyGraph {
       }
     };
   }
+
+  // ===== للتوافق مع النظام القديم =====
+  
+  /**
+   * دالة للتوافق مع Hook القديم
+   */
+  async loadExtendedFamilies(userUid, options = {}) {
+    console.log('🔄 تم استدعاء loadExtendedFamilies - إعادة توجيه إلى loadCompleteTribalTree');
+    return await this.loadCompleteTribalTree(userUid, options);
+  }
+
+  /**
+   * إنشاء بيانات شجرة بسيطة
+   */
+  generateTreeData(rootPersonId = null) {
+    if (!rootPersonId) {
+      rootPersonId = this.selectOptimalRoot();
+    }
+    
+    if (!rootPersonId) {
+      console.warn('⚠️ لم يتم العثور على جذر مناسب للشجرة');
+      return null;
+    }
+    
+    return this.generateTribalTreeData({ uid: rootPersonId.split('_')[0] });
+  }
+
+  /**
+   * اختيار أفضل جذر للشجرة
+   */
+  selectOptimalRoot() {
+    let bestRoot = null;
+    let maxScore = -1;
+    
+    this.nodes.forEach((person, personId) => {
+      let score = 0;
+      
+      score += person.children.size * 15;
+      if (person.relation === 'رب العائلة') score += 100;
+      score += (person.generation || 0) * 10;
+      if (person.birthDate) score += 10;
+      if (person.avatar && person.avatar !== '/boy.png') score += 10;
+      score += person.importance || 0;
+      
+      if (score > maxScore) {
+        maxScore = score;
+        bestRoot = personId;
+      }
+    });
+    
+    return bestRoot;
+  }
 }
 
-// تصدير الفئة
 export default AdvancedFamilyGraph;
