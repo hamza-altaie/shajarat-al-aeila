@@ -412,17 +412,22 @@ export default function FamilyTreeAdvanced() {
     const processedPersons = new Set(); // لتتبع الأشخاص المُعالجين
     const globalPersonMap = new Map(); // خريطة شاملة للأشخاص
 
-    // الخطوة 1: إنشاء خريطة شاملة لجميع الأشخاص
+    // الخطوة 1: إنشاء خريطة شاملة لجميع الأشخاص مع فهم العلاقات
     families.forEach(family => {
+      console.log(`📋 معالجة عائلة ${family.uid}:`);
+      
       family.members.forEach(member => {
         const personKey = `${member.firstName}_${member.fatherName}_${member.grandfatherName}`;
+        console.log(`  - ${buildFullName(member)} (${member.relation}) في عائلة ${family.uid}`);
         
         if (!globalPersonMap.has(personKey)) {
           globalPersonMap.set(personKey, {
             ...member,
-            roles: [member.relation], // الأدوار المتعددة
-            families: [family.uid], // العائلات التي ينتمي إليها
-            isMultiRole: false
+            roles: [member.relation], 
+            families: [family.uid], 
+            isMultiRole: false,
+            originalFamily: family.uid, // العائلة الأصلية
+            siblingFamilies: [] // العائلات التي له فيها أخوة
           });
         } else {
           // شخص موجود - إضافة دور جديد
@@ -431,19 +436,28 @@ export default function FamilyTreeAdvanced() {
           existingPerson.families.push(family.uid);
           existingPerson.isMultiRole = true;
           
+          // تتبع العائلات للأدوار المختلفة
+          if (member.relation === 'أخ' || member.relation === 'أخت') {
+            existingPerson.siblingFamilies.push(family.uid);
+          }
+          
           // إذا كان رب عائلة، يصبح هو المرجع الأساسي
           if (member.relation === 'رب العائلة') {
             existingPerson.globalId = member.globalId;
             existingPerson.familyUid = member.familyUid;
+            existingPerson.primaryFamily = family.uid;
           }
         }
       });
     });
 
-    console.log('🗺️ الخريطة الشاملة للأشخاص:', globalPersonMap);
+    console.log('🗺️ الخريطة الشاملة للأشخاص:');
+    globalPersonMap.forEach((person, key) => {
+      console.log(`${key}: أدوار [${person.roles.join(', ')}] في العائلات [${person.families.join(', ')}]`);
+    });
 
-    // الخطوة 2: بناء الهيكل الهرمي بدون تكرار
-    const buildPersonNode = (person, family, depth = 0) => {
+    // الخطوة 2: بناء الهيكل الهرمي المُصحح
+    const buildPersonNode = (person, family, depth = 0, parentId = null) => {
       const personKey = `${person.firstName}_${person.fatherName}_${person.grandfatherName}`;
       
       if (processedPersons.has(personKey) || depth > 6) {
@@ -473,50 +487,109 @@ export default function FamilyTreeAdvanced() {
         children: []
       };
 
-      // إضافة الأطفال المباشرين (من نفس العائلة)
-      const directChildren = family.members.filter(m => 
-        (m.relation === 'ابن' || m.relation === 'بنت') && 
-        m.globalId !== person.globalId &&
-        !processedPersons.has(`${m.firstName}_${m.fatherName}_${m.grandfatherName}`)
-      );
+      // 🔥 التعامل الصحيح مع الأطفال والأخوة - تفريق دقيق بين العلاقات
+      const allChildren = [];
 
-      directChildren.forEach(child => {
-        const childNode = buildPersonNode(child, family, depth + 1);
+      // ✅ الحالة 1: إذا كان رب العائلة - جمع أطفاله المباشرين فقط
+      if (person.relation === 'رب العائلة') {
+        const directChildren = family.members.filter(m => 
+          (m.relation === 'ابن' || m.relation === 'بنت') && 
+          m.globalId !== person.globalId &&
+          !processedPersons.has(`${m.firstName}_${m.fatherName}_${m.grandfatherName}`)
+        );
+        
+        allChildren.push(...directChildren.map(child => ({ child, family })));
+        console.log(`👑 رب العائلة ${buildFullName(person)} له ${directChildren.length} أطفال مباشرين`);
+
+        // جمع الأطفال من العائلات الأخرى التي يرأسها (إذا كان رب عدة عائلات)
+        if (globalPerson.roles.includes('رب العائلة') && globalPerson.families.length > 1) {
+          const otherFamilies = families.filter(f => 
+            f.head && 
+            `${f.head.firstName}_${f.head.fatherName}_${f.head.grandfatherName}` === personKey &&
+            f.uid !== family.uid
+          );
+
+          otherFamilies.forEach(otherFamily => {
+            const otherFamilyChildren = otherFamily.members.filter(m => 
+              (m.relation === 'ابن' || m.relation === 'بنت') &&
+              !processedPersons.has(`${m.firstName}_${m.fatherName}_${m.grandfatherName}`)
+            );
+            
+            allChildren.push(...otherFamilyChildren.map(child => ({ child, family: otherFamily })));
+            console.log(`🏠 عائلة إضافية ${otherFamily.uid}: ${otherFamilyChildren.length} أطفال`);
+          });
+        }
+      }
+      
+      // ✅ الحالة 2: إذا كان ابن أو بنت - قد يكون له أطفال في عائلة منفصلة
+      else if (person.relation === 'ابن' || person.relation === 'بنت') {
+        // البحث عن العائلات التي يرأسها هذا الشخص
+        const familiesHeaded = families.filter(f => 
+          f.head && 
+          `${f.head.firstName}_${f.head.fatherName}_${f.head.grandfatherName}` === personKey
+        );
+
+        familiesHeaded.forEach(headedFamily => {
+          const childrenInHeadedFamily = headedFamily.members.filter(m => 
+            (m.relation === 'ابن' || m.relation === 'بنت') &&
+            !processedPersons.has(`${m.firstName}_${m.fatherName}_${m.grandfatherName}`)
+          );
+          
+          allChildren.push(...childrenInHeadedFamily.map(child => ({ child, family: headedFamily })));
+          console.log(`👨‍👩‍👧‍👦 ${buildFullName(person)} يرأس عائلة ${headedFamily.uid} مع ${childrenInHeadedFamily.length} أطفال`);
+        });
+      }
+
+      // ✅ الحالة 3: تجاهل الأخوة تماماً (لا يتم إضافتهم كأطفال)
+      // الأخوة لهم نفس الأب، لذا سيظهرون في نفس المستوى من الشجرة
+
+      // ✅ فلترة نهائية: تأكد من أن الأخوة لا يُضافون كأطفال أبداً
+      const validChildren = allChildren.filter(({ child }) => {
+        const childKey = `${child.firstName}_${child.fatherName}_${child.grandfatherName}`;
+        const childGlobalPerson = globalPersonMap.get(childKey);
+        
+        // استبعاد أي شخص له دور "أخ" أو "أخت" مع الشخص الحالي
+        if (childGlobalPerson && (childGlobalPerson.roles.includes('أخ') || childGlobalPerson.roles.includes('أخت'))) {
+          console.log(`❌ استبعاد ${buildFullName(child)} لأنه أخ/أخت وليس طفل`);
+          return false;
+        }
+        
+        // قبول فقط من له دور "ابن" أو "بنت" بالنسبة للشخص الحالي
+        return child.relation === 'ابن' || child.relation === 'بنت';
+      });
+
+      // 🔥 ترتيب الأطفال وإضافتهم دفعة واحدة (حل مشكلة التسلسل الخطي)
+      const sortedChildren = allChildren.sort((a, b) => {
+        // ترتيب حسب تاريخ الميلاد إذا متوفر
+        if (a.child.birthDate && b.child.birthDate) {
+          return new Date(a.child.birthDate) - new Date(b.child.birthDate);
+        }
+        // ثم حسب الاسم
+        return (a.child.firstName || '').localeCompare(b.child.firstName || '', 'ar');
+      });
+
+      console.log(`👶 إضافة ${sortedChildren.length} طفل لـ ${buildFullName(person)}:`);
+      sortedChildren.forEach(({ child }, index) => {
+        console.log(`  ${index + 1}. ${buildFullName(child)} (${child.relation})`);
+      });
+      
+      // إضافة جميع الأطفال بشكل متوازي (ليس تسلسلي)
+      sortedChildren.forEach(({ child, family: childFamily }) => {
+        const childNode = buildPersonNode(child, childFamily, depth + 1, person.globalId);
         if (childNode) {
           node.children.push(childNode);
         }
       });
 
-      // إضافة العائلات التي يرأسها هذا الشخص (إذا كان رب عائلة)
-      if (globalPerson.roles.includes('رب العائلة')) {
-        const ledFamilies = families.filter(f => 
-          f.head && 
-          `${f.head.firstName}_${f.head.fatherName}_${f.head.grandfatherName}` === personKey &&
-          f.uid !== family.uid // تجنب نفس العائلة
-        );
-
-        ledFamilies.forEach(ledFamily => {
-          const familyChildren = ledFamily.members.filter(m => 
-            (m.relation === 'ابن' || m.relation === 'بنت') &&
-            !processedPersons.has(`${m.firstName}_${m.fatherName}_${m.grandfatherName}`)
-          );
-
-          familyChildren.forEach(child => {
-            const childNode = buildPersonNode(child, ledFamily, depth + 1);
-            if (childNode) {
-              node.children.push(childNode);
-            }
-          });
-        });
-      }
-
+      console.log(`✅ عقدة ${buildFullName(person)} تحتوي على ${node.children.length} طفل`);
+      
       return node;
     };
 
     // الخطوة 3: بناء الشجرة من الجذر
     const rootNode = buildPersonNode(rootFamily.head, rootFamily);
     
-    console.log('✅ تم بناء الشجرة الموسعة المُحسنة');
+    console.log('✅ تم بناء الشجرة الموسعة المُحسنة مع تصحيح هيكل الأخوان');
     return rootNode;
   };
 
