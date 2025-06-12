@@ -1,4 +1,4 @@
-// src/components/FamilyTreeAdvanced.jsx - نسخة مُصححة
+// src/components/FamilyTreeAdvanced.jsx - إصلاح مشكلة onClick في Chip
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Tree from 'react-d3-tree';
 import { useNavigate } from 'react-router-dom';
@@ -18,11 +18,11 @@ import {
   Timeline as TimelineIcon
 } from '@mui/icons-material';
 
-// ✅ إضافة الاستيرادات المفقودة من Firebase
+// استيرادات Firebase
 import { db } from '../firebase/config';
 import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore';
 
-// استيراد Hook المُصحح والمكونات الجديدة
+// استيراد Hook والمكونات
 import useAdvancedFamilyGraph from '../hooks/useAdvancedFamilyGraph';
 import ExtendedFamilyLinking from './ExtendedFamilyLinking';
 
@@ -31,7 +31,6 @@ export default function FamilyTreeAdvanced() {
   // الحالات الأساسية
   // ===========================================================================
   
-  // حالات الواجهة الموسعة
   const [showExtendedTree, setShowExtendedTree] = useState(true);
   const [selectedNode, setSelectedNode] = useState(null);
   const [currentView, setCurrentView] = useState('tree');
@@ -39,26 +38,22 @@ export default function FamilyTreeAdvanced() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState(0);
   
-  // حالات الربط الموسع
   const [linkedFamilies, setLinkedFamilies] = useState([]);
   const [showLinkingPanel, setShowLinkingPanel] = useState(false);
   const [crossFamilyConnections, setCrossFamilyConnections] = useState([]);
   
-  // حالات النوافذ المنبثقة
   const [statsModalOpen, setStatsModalOpen] = useState(false);
   const [personModalOpen, setPersonModalOpen] = useState(false);
   const [extendedStatsOpen, setExtendedStatsOpen] = useState(false);
   
-  // حالات الإشعارات
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('info');
   
-  // المتغيرات
   const uid = localStorage.getItem('verifiedUid');
   const navigate = useNavigate();
 
-  // استخدام Hook المُصحح
+  // استخدام Hook
   const {
     familyGraph,
     treeData,
@@ -89,7 +84,6 @@ export default function FamilyTreeAdvanced() {
   // تأثيرات ودورة الحياة
   // ===========================================================================
 
-  // تحميل البيانات عند تحميل المكون
   useEffect(() => {
     if (!uid) {
       navigate('/login');
@@ -100,7 +94,6 @@ export default function FamilyTreeAdvanced() {
     loadLinkedFamilies();
   }, [uid, navigate]);
 
-  // تحديث الشجرة عند تغيير الإعدادات
   useEffect(() => {
     if (hasData && showExtendedTree) {
       loadExtendedTree(uid, true, { 
@@ -112,7 +105,7 @@ export default function FamilyTreeAdvanced() {
   }, [showExtendedTree, hasData, uid, loadExtendedTree]);
 
   // ===========================================================================
-  // دوال التحميل والإدارة - مُصححة
+  // دوال التحميل والإدارة
   // ===========================================================================
 
   const loadInitialData = useCallback(async () => {
@@ -133,12 +126,10 @@ export default function FamilyTreeAdvanced() {
     }
   }, [uid, showExtendedTree, loadExtendedTree]);
 
-  // ✅ إصلاح دالة loadLinkedFamilies
   const loadLinkedFamilies = useCallback(async () => {
     try {
       console.log('🔗 تحميل العائلات المرتبطة...');
       
-      // جلب بيانات العائلات المرتبطة من Firestore
       const userDoc = await getDoc(doc(db, 'users', uid));
       if (userDoc.exists()) {
         const userData = userDoc.data();
@@ -174,7 +165,7 @@ export default function FamilyTreeAdvanced() {
   }, [uid, showExtendedTree, loadExtendedTree, loadLinkedFamilies]);
 
   // ===========================================================================
-  // دوال التفاعل مع الشجرة المحسنة
+  // دوال التفاعل - مُصححة
   // ===========================================================================
 
   const handleNodeClick = useCallback((nodeData) => {
@@ -184,10 +175,6 @@ export default function FamilyTreeAdvanced() {
     selectPerson(nodeData.attributes);
     setPersonModalOpen(true);
   }, [selectPerson]);
-
-  // ===========================================================================
-  // دوال مساعدة
-  // ===========================================================================
 
   const showSnackbar = useCallback((message, severity = 'info') => {
     setSnackbarMessage(message);
@@ -201,8 +188,21 @@ export default function FamilyTreeAdvanced() {
     loadInitialData();
   }, [loadLinkedFamilies, loadInitialData]);
 
+  // ✅ إصلاح دوال التحكم في التكبير
+  const handleZoomIn = useCallback(() => {
+    setZoomLevel(prev => Math.min(prev + 0.2, 2));
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setZoomLevel(prev => Math.max(prev - 0.2, 0.2));
+  }, []);
+
+  const handleResetZoom = useCallback(() => {
+    setZoomLevel(0.6);
+  }, []);
+
   // ===========================================================================
-  // عرض العقدة المخصص المحسن - مُصحح
+  // عرض العقدة المخصص
   // ===========================================================================
 
   const renderAdvancedNodeElement = useCallback(({ nodeDatum, toggleNode }) => {
@@ -213,7 +213,6 @@ export default function FamilyTreeAdvanced() {
     
     return (
       <g>
-        {/* خلفية العقدة المحسنة */}
         <defs>
           <linearGradient id={`grad-${nodeDatum.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor={
@@ -226,7 +225,6 @@ export default function FamilyTreeAdvanced() {
             } />
           </linearGradient>
           
-          {/* تأثير للعائلات المختلفة */}
           {isFromDifferentFamily && (
             <pattern id={`pattern-${nodeDatum.id}`} patternUnits="userSpaceOnUse" width="4" height="4">
               <rect width="4" height="4" fill={`url(#grad-${nodeDatum.id})`}/>
@@ -255,7 +253,6 @@ export default function FamilyTreeAdvanced() {
           onClick={() => handleNodeClick(nodeDatum)}
         />
         
-        {/* مؤشر العائلة المختلفة */}
         {isFromDifferentFamily && (
           <circle
             cx="-110"
@@ -267,7 +264,6 @@ export default function FamilyTreeAdvanced() {
           />
         )}
         
-        {/* مؤشر العائلات المتعددة */}
         {hasMultipleFamilies && (
           <circle
             cx="110"
@@ -279,7 +275,6 @@ export default function FamilyTreeAdvanced() {
           />
         )}
         
-        {/* إطار الصورة المحسن */}
         <circle
           cx="0"
           cy="-30"
@@ -290,7 +285,6 @@ export default function FamilyTreeAdvanced() {
           style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.1))' }}
         />
         
-        {/* ✅ إصلاح الصورة مع معالجة صحيحة للأخطاء */}
         <image
           href={nodeDatum.avatar || '/boy.png'}
           x="-26"
@@ -301,7 +295,6 @@ export default function FamilyTreeAdvanced() {
           style={{ cursor: 'pointer' }}
           onClick={() => handleNodeClick(nodeDatum)}
           onError={(e) => {
-            // ✅ معالجة صحيحة لأخطاء SVG
             const target = e.target;
             if (target && target.setAttribute) {
               target.setAttribute('href', '/boy.png');
@@ -309,7 +302,6 @@ export default function FamilyTreeAdvanced() {
           }}
         />
         
-        {/* اسم الشخص مع خط أفضل */}
         <text
           x="0"
           y="20"
@@ -328,7 +320,6 @@ export default function FamilyTreeAdvanced() {
             : nodeDatum.name || 'غير محدد'}
         </text>
         
-        {/* القرابة مع أيقونة */}
         <text
           x="0"
           y="40"
@@ -342,7 +333,6 @@ export default function FamilyTreeAdvanced() {
           {getRelationIcon(person?.relation)} {person?.relation || 'عضو'}
         </text>
         
-        {/* معلومات العائلة */}
         {isFromDifferentFamily && (
           <text
             x="0"
@@ -358,7 +348,6 @@ export default function FamilyTreeAdvanced() {
           </text>
         )}
         
-        {/* عدد الأطفال المحسن */}
         {nodeDatum.children && nodeDatum.children.length > 0 && (
           <>
             <circle
@@ -387,7 +376,6 @@ export default function FamilyTreeAdvanced() {
     );
   }, [selectedPersons, handleNodeClick, uid]);
 
-  // دالة مساعدة للأيقونات
   const getRelationIcon = (relation) => {
     const icons = {
       'رب العائلة': '👨‍💼',
@@ -406,7 +394,7 @@ export default function FamilyTreeAdvanced() {
   };
 
   // ===========================================================================
-  // عرض الشجرة الموسعة - مُصحح
+  // عرض الشجرة
   // ===========================================================================
 
   const renderExtendedTreeView = () => (
@@ -521,7 +509,7 @@ export default function FamilyTreeAdvanced() {
   );
 
   // ===========================================================================
-  // شريط الأدوات المحسن
+  // شريط الأدوات المُصحح
   // ===========================================================================
 
   const renderEnhancedToolbar = () => (
@@ -555,7 +543,6 @@ export default function FamilyTreeAdvanced() {
           />
         )}
         
-        {/* التبويبات */}
         <Tabs 
           value={activeTab} 
           onChange={(e, newValue) => setActiveTab(newValue)}
@@ -609,20 +596,22 @@ export default function FamilyTreeAdvanced() {
           <Divider orientation="vertical" flexItem />
 
           <Tooltip title="تكبير الشجرة">
-            <IconButton size="small" onClick={() => setZoomLevel(prev => Math.min(prev + 0.2, 2))} disabled={loading}>
+            <IconButton size="small" onClick={handleZoomIn} disabled={loading}>
               <ZoomIn />
             </IconButton>
           </Tooltip>
           
+          {/* ✅ إصلاح Chip مع onClick صحيح */}
           <Chip 
             label={`${Math.round(zoomLevel * 100)}%`} 
             size="small" 
-            onClick={() => setZoomLevel(0.6)}
+            onClick={handleResetZoom}
             style={{ cursor: 'pointer', minWidth: 70 }}
+            disabled={loading}
           />
           
           <Tooltip title="تصغير الشجرة">
-            <IconButton size="small" onClick={() => setZoomLevel(prev => Math.max(prev - 0.2, 0.2))} disabled={loading}>
+            <IconButton size="small" onClick={handleZoomOut} disabled={loading}>
               <ZoomOut />
             </IconButton>
           </Tooltip>
@@ -648,7 +637,6 @@ export default function FamilyTreeAdvanced() {
           />
         </Box>
 
-        {/* معلومات الحالة */}
         {hasData && (
           <Box
             display="flex"
@@ -684,7 +672,7 @@ export default function FamilyTreeAdvanced() {
   );
 
   // ===========================================================================
-  // لوحة الربط الموسع
+  // لوحة الربط
   // ===========================================================================
 
   const renderLinkingPanel = () => (

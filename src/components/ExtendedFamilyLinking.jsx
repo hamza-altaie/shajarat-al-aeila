@@ -1,10 +1,10 @@
-// src/components/ExtendedFamilyLinking.jsx - نسخة مُصححة
+// src/components/ExtendedFamilyLinking.jsx - نسخة مُصححة ومبسطة
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Card, CardContent, Typography, Button, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, Autocomplete, Chip,
   List, ListItem, ListItemText, ListItemAvatar, Avatar, Alert,
-  LinearProgress, IconButton, Tooltip, Grid, Divider
+  LinearProgress, IconButton, Tooltip, Grid, Divider, CircularProgress
 } from '@mui/material';
 import {
   Link as LinkIcon, Search as SearchIcon, PersonAdd as PersonAddIcon,
@@ -12,9 +12,9 @@ import {
   Groups as GroupsIcon, AccountTree as TreeIcon
 } from '@mui/icons-material';
 
-// ✅ إضافة الاستيرادات المفقودة من Firebase
+// استيرادات Firebase
 import { 
-  collection, getDocs, doc, updateDoc, arrayUnion, query, where, getDoc, setDoc 
+  collection, getDocs, doc, updateDoc, query, getDoc, setDoc 
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
@@ -173,7 +173,7 @@ export default function ExtendedFamilyLinking({
         establishedAt: new Date().toISOString(),
         establishedBy: currentUserUid,
         status: 'active',
-        mutual: true // رابط متبادل
+        mutual: true
       };
       
       // تحديث العائلة الحالية
@@ -189,7 +189,6 @@ export default function ExtendedFamilyLinking({
           lastUpdated: new Date().toISOString()
         });
       } else {
-        // إنشاء وثيقة جديدة إذا لم تكن موجودة
         await setDoc(currentUserRef, {
           linkedFamilies: [linkData],
           lastUpdated: new Date().toISOString()
@@ -199,7 +198,7 @@ export default function ExtendedFamilyLinking({
       // تحديث العائلة المستهدفة
       const reverseLinkData = {
         targetFamilyUid: currentUserUid,
-        targetFamilyName: 'عائلة مرتبطة', // يمكن تحسينها
+        targetFamilyName: 'عائلة مرتبطة',
         linkType: getReverseLinkType(linkType),
         relationDescription: relationDescription.trim(),
         establishedAt: new Date().toISOString(),
