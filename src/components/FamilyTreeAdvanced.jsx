@@ -1,17 +1,16 @@
 // src/components/FamilyTreeAdvanced.jsx - إصلاح منطق الشجرة
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Tree from 'react-d3-tree';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Button, Typography, Alert, Snackbar, CircularProgress, 
-  Chip, Card, CardContent, Grid, IconButton, Tooltip, 
-  Paper, LinearProgress, Dialog, DialogTitle, DialogContent, 
-  DialogActions, Tabs, Tab, Divider, FormControlLabel, Switch
+  Chip, LinearProgress, Dialog, DialogTitle, DialogContent, 
+  DialogActions, Paper, IconButton, Tooltip, FormControlLabel, Switch
 } from '@mui/material';
 import {
   AccountTree, Groups, Edit, Person, Visibility, Close, 
   ZoomIn, ZoomOut, Refresh, Warning, Link as LinkIcon, 
-  PersonAdd, Timeline as TimelineIcon
+  PersonAdd
 } from '@mui/icons-material';
 
 // استيرادات Firebase
@@ -23,26 +22,24 @@ import ExtendedFamilyLinking from './ExtendedFamilyLinking';
 
 export default function FamilyTreeAdvanced() {
   // ===========================================================================
-  // الحالات الأساسية
+  // 🎯 الحالات الأساسية
   // ===========================================================================
   
-  const [showExtendedTree, setShowExtendedTree] = useState(false); // 🔥 البداية بالشجرة العادية
+  const [showExtendedTree, setShowExtendedTree] = useState(false); // ❌ البداية بالشجرة العادية
   const [selectedNode, setSelectedNode] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(0.6);
-  const [activeTab, setActiveTab] = useState(0);
   
   const [linkedFamilies, setLinkedFamilies] = useState([]);
   const [showLinkingPanel, setShowLinkingPanel] = useState(false);
-  
   const [personModalOpen, setPersonModalOpen] = useState(false);
   
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('info');
   
-  // حالات البيانات
-  const [simpleTreeData, setSimpleTreeData] = useState(null); // الشجرة العادية
-  const [extendedTreeData, setExtendedTreeData] = useState(null); // الشجرة الموسعة
+  // 🔄 حالات البيانات - منفصلة تماماً
+  const [simpleTreeData, setSimpleTreeData] = useState(null); // 🌳 الشجرة العادية
+  const [extendedTreeData, setExtendedTreeData] = useState(null); // 🏛️ الشجرة الموسعة
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [loadingStage, setLoadingStage] = useState('');
@@ -52,7 +49,7 @@ export default function FamilyTreeAdvanced() {
   const navigate = useNavigate();
 
   // ===========================================================================
-  // 🔥 دالة تحميل الشجرة العادية (الحساب الحالي فقط)
+  // 🌳 دالة تحميل الشجرة العادية (الحساب الحالي فقط)
   // ===========================================================================
 
   const loadSimpleTree = useCallback(async () => {
@@ -109,7 +106,7 @@ export default function FamilyTreeAdvanced() {
   }, [uid]);
 
   // ===========================================================================
-  // 🔥 دالة تحميل الشجرة الموسعة (جميع العائلات المرتبطة)
+  // 🏛️ دالة تحميل الشجرة الموسعة (جميع العائلات المرتبطة)
   // ===========================================================================
 
   const loadExtendedTree = useCallback(async () => {
@@ -123,8 +120,8 @@ export default function FamilyTreeAdvanced() {
     setLoadingProgress(0);
 
     try {
-      // 1. العثور على الجذر الأساسي
-      const rootUid = await findFamilyRoot(uid);
+      // 1. العثور على الجذر الأساسي للقبيلة
+      const rootUid = await findTribalRoot(uid);
       setLoadingProgress(20);
       
       // 2. جمع جميع العائلات المرتبطة
@@ -180,7 +177,7 @@ export default function FamilyTreeAdvanced() {
       children: []
     };
 
-    // إضافة الأطفال
+    // إضافة الأطفال فقط (بدون تكرار)
     const children = familyMembers.filter(m => 
       (m.relation === 'ابن' || m.relation === 'بنت') && m.id !== head.id
     );
@@ -201,11 +198,13 @@ export default function FamilyTreeAdvanced() {
     return rootNode;
   };
 
-  // العثور على جذر العائلة
-  const findFamilyRoot = async (startUid) => {
+  // العثور على جذر القبيلة
+  const findTribalRoot = async (startUid) => {
     let currentUid = startUid;
     let maxDepth = 10;
     const visited = new Set();
+
+    console.log(`🔍 البحث عن جذر القبيلة بدءاً من: ${startUid}`);
 
     while (maxDepth > 0 && !visited.has(currentUid)) {
       visited.add(currentUid);
@@ -218,9 +217,11 @@ export default function FamilyTreeAdvanced() {
         const linkedToHead = userData.linkedToFamilyHead;
         
         if (!linkedToHead || linkedToHead === currentUid) {
+          console.log(`🏛️ تم العثور على جذر القبيلة: ${currentUid}`);
           return currentUid; // هذا هو الجذر
         }
         
+        console.log(`⬆️ الانتقال من ${currentUid} إلى ${linkedToHead}`);
         currentUid = linkedToHead;
         maxDepth--;
       } catch (error) {
@@ -229,6 +230,7 @@ export default function FamilyTreeAdvanced() {
       }
     }
     
+    console.log(`🏛️ اعتماد ${startUid} كجذر افتراضي`);
     return startUid; // fallback
   };
 
@@ -344,6 +346,8 @@ export default function FamilyTreeAdvanced() {
 
   // بناء الشجرة الموسعة بدون تكرار
   const buildExtendedTreeStructure = async (families, rootUid) => {
+    console.log(`🏗️ بناء الشجرة الموسعة من الجذر: ${rootUid}`);
+    
     // العثور على العائلة الجذر
     const rootFamily = families.find(f => f.uid === rootUid);
     if (!rootFamily || !rootFamily.head) {
@@ -353,11 +357,15 @@ export default function FamilyTreeAdvanced() {
     const processed = new Set();
 
     const buildFamilyNode = (family, depth = 0) => {
-      if (processed.has(family.uid) || depth > 6) {
+      const familyKey = `${family.uid}_${depth}`;
+      
+      if (processed.has(familyKey) || depth > 6) {
         return null;
       }
       
-      processed.add(family.uid);
+      processed.add(familyKey);
+      
+      console.log(`🔗 بناء عقدة العائلة: ${family.head.name} (مستوى ${family.level || 0})`);
       
       // رب العائلة كعقدة رئيسية
       const headNode = {
@@ -368,12 +376,13 @@ export default function FamilyTreeAdvanced() {
           ...family.head,
           isExtended: family.uid !== uid,
           treeType: 'extended',
-          familyLevel: family.level || 0
+          familyLevel: family.level || 0,
+          familyUid: family.uid
         },
         children: []
       };
 
-      // إضافة أطفال رب العائلة (من نفس العائلة)
+      // ✅ إضافة أطفال رب العائلة (من نفس العائلة فقط)
       const directChildren = family.members.filter(m => 
         (m.relation === 'ابن' || m.relation === 'بنت') && 
         m.globalId !== family.head.globalId
@@ -393,7 +402,7 @@ export default function FamilyTreeAdvanced() {
         });
       });
 
-      // إضافة العائلات المرتبطة كأطفال (مستوى أعلى)
+      // ✅ إضافة العائلات المرتبطة كأطفال (مستوى أعلى)
       const childFamilies = families.filter(f => f.parentFamilyUid === family.uid);
       
       childFamilies.forEach(childFamily => {
@@ -406,7 +415,10 @@ export default function FamilyTreeAdvanced() {
       return headNode;
     };
 
-    return buildFamilyNode(rootFamily);
+    const result = buildFamilyNode(rootFamily);
+    console.log(`✅ تم بناء الشجرة الموسعة بنجاح`);
+    
+    return result;
   };
 
   // بناء الاسم الكامل
@@ -422,7 +434,7 @@ export default function FamilyTreeAdvanced() {
   };
 
   // ===========================================================================
-  // تأثيرات ودورة الحياة
+  // 🔄 تأثيرات ودورة الحياة
   // ===========================================================================
 
   useEffect(() => {
@@ -463,7 +475,7 @@ export default function FamilyTreeAdvanced() {
   }, [uid]);
 
   // ===========================================================================
-  // دوال التفاعل
+  // 🎮 دوال التفاعل
   // ===========================================================================
 
   const handleNodeClick = useCallback((nodeData) => {
@@ -500,20 +512,20 @@ export default function FamilyTreeAdvanced() {
     setZoomLevel(0.6);
   }, []);
 
-  // تبديل نوع الشجرة
+  // 🔥 تبديل نوع الشجرة (الميزة الرئيسية)
   const handleTreeTypeToggle = useCallback((event) => {
     const newValue = event.target.checked;
     setShowExtendedTree(newValue);
     
     if (newValue) {
-      showSnackbar('تحويل للشجرة الموسعة...', 'info');
+      showSnackbar('🏛️ تحويل للشجرة الموسعة للقبيلة...', 'info');
     } else {
-      showSnackbar('تحويل للشجرة العادية', 'info');
+      showSnackbar('🌳 تحويل للشجرة العادية', 'info');
     }
   }, []);
 
   // ===========================================================================
-  // عرض العقدة المحسن
+  // 🎨 عرض العقدة المحسن
   // ===========================================================================
 
   const renderNodeElement = useCallback(({ nodeDatum }) => {
@@ -666,11 +678,11 @@ export default function FamilyTreeAdvanced() {
   }, [handleNodeClick]);
 
   // ===========================================================================
-  // عرض الشجرة
+  // 🖼️ عرض الشجرة
   // ===========================================================================
 
   const renderTreeView = () => {
-    // تحديد أي شجرة نعرض
+    // ✅ تحديد أي شجرة نعرض بدقة
     const currentTreeData = showExtendedTree ? extendedTreeData : simpleTreeData;
     const treeTitle = showExtendedTree ? 'الشجرة الموسعة للقبيلة' : 'شجرة عائلتك';
     
@@ -796,7 +808,7 @@ export default function FamilyTreeAdvanced() {
   };
 
   // ===========================================================================
-  // شريط الأدوات
+  // 🛠️ شريط الأدوات المحسن
   // ===========================================================================
 
   const renderToolbar = () => (
@@ -881,8 +893,6 @@ export default function FamilyTreeAdvanced() {
             </Button>
           )}
 
-          <Divider orientation="vertical" flexItem />
-
           <Tooltip title="تكبير">
             <IconButton size="small" onClick={handleZoomIn} disabled={loading}>
               <ZoomIn />
@@ -910,7 +920,7 @@ export default function FamilyTreeAdvanced() {
           </Tooltip>
         </Box>
 
-        {/* المفتاح الأساسي: تبديل نوع الشجرة */}
+        {/* 🔥 المفتاح الأساسي: تبديل نوع الشجرة */}
         <Box display="flex" justifyContent="center" sx={{ mb: 2 }}>
           <FormControlLabel
             control={
@@ -963,7 +973,7 @@ export default function FamilyTreeAdvanced() {
   );
 
   // ===========================================================================
-  // العرض الرئيسي
+  // 🖥️ العرض الرئيسي
   // ===========================================================================
 
   return (
@@ -991,7 +1001,7 @@ export default function FamilyTreeAdvanced() {
         {renderTreeView()}
       </Box>
 
-      {/* النوافذ المنبثقة */}
+      {/* 🔗 النوافذ المنبثقة */}
       <Dialog
         open={showLinkingPanel}
         onClose={() => setShowLinkingPanel(false)}
