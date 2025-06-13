@@ -1,4 +1,4 @@
-// src/pages/Family.jsx - منظف ومحسن
+// src/pages/Family.jsx - إصلاح Grid للإصدار الحالي
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container, TextField, Button, Typography, Paper, Box, IconButton, 
@@ -6,6 +6,9 @@ import {
   Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, 
   Grid, Menu, MenuItem, Divider, Chip, InputAdornment, Fab
 } from '@mui/material';
+
+// ✅ استيراد Grid العادي (متوفر في جميع الإصدارات)
+
 import {
   Delete as DeleteIcon, Edit as EditIcon, Settings as SettingsIcon,
   Logout as LogoutIcon, WhatsApp as WhatsAppIcon, PhoneIphone as PhoneIphoneIcon,
@@ -62,6 +65,7 @@ export default function Family() {
   
   // حالات الإشعارات والصور
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarUploadSuccess, setAvatarUploadSuccess] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
@@ -235,6 +239,11 @@ export default function Family() {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
     
+    // إعادة تعيين حالة نجاح رفع الصورة عند تغيير أي حقل
+    if (avatarUploadSuccess) {
+      setAvatarUploadSuccess(false);
+    }
+    
     if (fieldErrors[name]) {
       setFieldErrors(prev => ({ ...prev, [name]: '' }));
     }
@@ -275,6 +284,7 @@ export default function Family() {
       const downloadURL = await getDownloadURL(snapshot.ref);
       
       setForm(prev => ({ ...prev, avatar: downloadURL }));
+      setAvatarUploadSuccess(true); // ✅ تعيين حالة النجاح
       
       if (form.id) {
         await setDoc(doc(db, 'users', uid, 'family', form.id), {
@@ -348,6 +358,7 @@ export default function Family() {
 
       await loadFamily();
       setForm(DEFAULT_FORM);
+      setAvatarUploadSuccess(false); // ✅ إعادة تعيين حالة رفع الصورة
       return true;
     } catch (error) {
       console.error('خطأ في حفظ البيانات:', error);
@@ -361,6 +372,7 @@ export default function Family() {
   // معالجة تعديل العضو
   const handleEdit = (member) => {
     setForm({ ...member });
+    setAvatarUploadSuccess(false); // ✅ إعادة تعيين حالة رفع الصورة
     setEditModalOpen(true);
   };
 
@@ -549,7 +561,7 @@ export default function Family() {
                 }}
               />
             </Button>
-            {form.avatar && (
+            {avatarUploadSuccess && !avatarUploading && (
               <Typography variant="caption" color="success.main" display="block" sx={{ mt: 1 }}>
                 ✅ تم رفع الصورة بنجاح
               </Typography>
@@ -565,168 +577,180 @@ export default function Family() {
         </Typography>
         
         <Box display="flex" flexDirection="column" gap={3}>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                label="الاسم الأول"
-                name="firstName"
-                value={form.firstName}
-                onChange={handleChange}
-                fullWidth
-                size="medium"
-                error={!!fieldErrors.firstName}
-                helperText={fieldErrors.firstName}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PersonIcon color={fieldErrors.firstName ? 'error' : 'action'} />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
+          {/* ✅ استخدام Grid التقليدي الآمن */}
+          <Box 
+            sx={{ 
+              display: 'grid', 
+              gridTemplateColumns: { 
+                xs: '1fr', 
+                sm: 'repeat(2, 1fr)', 
+                md: 'repeat(4, 1fr)' 
+              }, 
+              gap: 2,
+              mb: 3
+            }}
+          >
+            <TextField
+              label="الاسم الأول"
+              name="firstName"
+              value={form.firstName}
+              onChange={handleChange}
+              fullWidth
+              size="medium"
+              error={!!fieldErrors.firstName}
+              helperText={fieldErrors.firstName}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <PersonIcon color={fieldErrors.firstName ? 'error' : 'action'} />
+                  </InputAdornment>
+                ),
+              }}
+            />
             
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                label="اسم الأب"
-                name="fatherName"
-                value={form.fatherName}
-                onChange={handleChange}
-                fullWidth
-                size="medium"
-                error={!!fieldErrors.fatherName}
-                helperText={fieldErrors.fatherName}
-              />
-            </Grid>
+            <TextField
+              label="اسم الأب"
+              name="fatherName"
+              value={form.fatherName}
+              onChange={handleChange}
+              fullWidth
+              size="medium"
+              error={!!fieldErrors.fatherName}
+              helperText={fieldErrors.fatherName}
+            />
             
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                label="اسم الجد"
-                name="grandfatherName"
-                value={form.grandfatherName}
-                onChange={handleChange}
-                fullWidth
-                size="medium"
-                error={!!fieldErrors.grandfatherName}
-                helperText={fieldErrors.grandfatherName}
-              />
-            </Grid>
+            <TextField
+              label="اسم الجد"
+              name="grandfatherName"
+              value={form.grandfatherName}
+              onChange={handleChange}
+              fullWidth
+              size="medium"
+              error={!!fieldErrors.grandfatherName}
+              helperText={fieldErrors.grandfatherName}
+            />
             
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                label="اللقب"
-                name="surname"
-                value={form.surname}
-                onChange={handleChange}
-                fullWidth
-                size="medium"
-                error={!!fieldErrors.surname}
-                helperText={fieldErrors.surname}
-              />
-            </Grid>
+            <TextField
+              label="اللقب"
+              name="surname"
+              value={form.surname}
+              onChange={handleChange}
+              fullWidth
+              size="medium"
+              error={!!fieldErrors.surname}
+              helperText={fieldErrors.surname}
+            />
+          </Box>
+
+          <Box 
+            sx={{ 
+              display: 'grid', 
+              gridTemplateColumns: { 
+                xs: '1fr', 
+                sm: 'repeat(2, 1fr)' 
+              }, 
+              gap: 2,
+              mb: 3
+            }}
+          >
+            <TextField
+              type="date"
+              label="تاريخ الميلاد"
+              name="birthdate"
+              value={form.birthdate}
+              onChange={handleChange}
+              fullWidth
+              size="medium"
+              InputLabelProps={{ shrink: true }}
+              error={!!fieldErrors.birthdate}
+              helperText={fieldErrors.birthdate}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <CakeIcon color={fieldErrors.birthdate ? 'error' : 'action'} />
+                  </InputAdornment>
+                ),
+              }}
+            />
             
-            <Grid item xs={12} sm={6}>
-              <TextField
-                type="date"
-                label="تاريخ الميلاد"
-                name="birthdate"
-                value={form.birthdate}
-                onChange={handleChange}
-                fullWidth
-                size="medium"
-                InputLabelProps={{ shrink: true }}
-                error={!!fieldErrors.birthdate}
-                helperText={fieldErrors.birthdate}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <CakeIcon color={fieldErrors.birthdate ? 'error' : 'action'} />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                select
-                label="القرابة"
-                name="relation"
-                value={form.relation}
-                onChange={handleChange}
-                fullWidth
-                size="medium"
-                SelectProps={{ native: true }}
-                error={!!fieldErrors.relation}
-                helperText={fieldErrors.relation || " "}
-                InputLabelProps={{ shrink: true }}
-                sx={{
-                  '& .MuiFormHelperText-root': {
-                    minHeight: '20px'
-                  },
-                  '& .MuiSelect-select': {
-                    textAlign: 'right'
-                  }
-                }}
-              >
-                <option value="">اختر القرابة</option>
-                {FAMILY_RELATIONS.map((relation) => (
-                  <option key={relation.value} value={relation.value}>
-                    {relation.label}
+            <TextField
+              select
+              label="القرابة"
+              name="relation"
+              value={form.relation}
+              onChange={handleChange}
+              fullWidth
+              size="medium"
+              SelectProps={{ native: true }}
+              error={!!fieldErrors.relation}
+              helperText={fieldErrors.relation || " "}
+              InputLabelProps={{ shrink: true }}
+              sx={{
+                '& .MuiFormHelperText-root': {
+                  minHeight: '20px'
+                },
+                '& .MuiSelect-select': {
+                  textAlign: 'right'
+                }
+              }}
+            >
+              <option value="">اختر القرابة</option>
+              {FAMILY_RELATIONS.map((relation) => (
+                <option key={relation.value} value={relation.value}>
+                  {relation.label}
+                </option>
+              ))}
+            </TextField>
+          </Box>
+
+          <Box sx={{ mb: 3 }}>
+            <TextField
+              select
+              label="يتبع لـ"
+              name="parentId"
+              value={form.parentId}
+              onChange={handleChange}
+              fullWidth
+              size="medium"
+              SelectProps={{ native: true }}
+              helperText={fieldErrors.parentId || "اختر الأب إذا لم يكن رب العائلة"}
+              InputLabelProps={{ shrink: true }}
+              sx={{
+                '& .MuiFormHelperText-root': {
+                  minHeight: '20px',
+                  textAlign: 'right'
+                },
+                '& .MuiSelect-select': {
+                  textAlign: 'right'
+                }
+              }}
+            >
+              <option value="">لا يتبع لأحد (رب العائلة)</option>
+              {members
+                .filter(m => m.relation === 'رب العائلة' || m.relation === 'ابن')
+                .filter(m => m.id !== form.id)
+                .map(m => (
+                  <option key={m.id} value={m.id}>
+                    {`${m.firstName || ''} ${m.fatherName || ''} ${m.grandfatherName || ''} ${m.surname || ''}`} ({m.relation})
                   </option>
                 ))}
-              </TextField>
-              </Grid>
-            
-            <Grid item xs={12}>
+              <option value="manual">إضافة أب غير موجود في القائمة</option>
+            </TextField>
+          </Box>
+          
+          {form.parentId === 'manual' && (
+            <Box sx={{ mb: 3 }}>
               <TextField
-                select
-                label="يتبع لـ"
-                name="parentId"
-                value={form.parentId}
-                onChange={handleChange}
+                label="اسم الأب الكامل"
+                name="manualParentName"
+                value={form.manualParentName || ''}
+                onChange={(e) => setForm(prev => ({ ...prev, manualParentName: e.target.value }))}
                 fullWidth
                 size="medium"
-                SelectProps={{ native: true }}
-                helperText={fieldErrors.parentId || "اختر الأب إذا لم يكن رب العائلة"}
-                InputLabelProps={{ shrink: true }}
-                sx={{
-                  '& .MuiFormHelperText-root': {
-                    minHeight: '20px',
-                    textAlign: 'right'
-                  },
-                  '& .MuiSelect-select': {
-                    textAlign: 'right'
-                  }
-                }}
-              >
-                <option value="">لا يتبع لأحد (رب العائلة)</option>
-                {members
-                  .filter(m => m.relation === 'رب العائلة' || m.relation === 'ابن')
-                  .filter(m => m.id !== form.id)
-                  .map(m => (
-                    <option key={m.id} value={m.id}>
-                      {`${m.firstName || ''} ${m.fatherName || ''} ${m.grandfatherName || ''} ${m.surname || ''}`} ({m.relation})
-                    </option>
-                  ))}
-                <option value="manual">إضافة أب غير موجود في القائمة</option>
-              </TextField>
-              </Grid>
-            
-            {form.parentId === 'manual' && (
-              <Grid item xs={12}>
-                <TextField
-                  label="اسم الأب الكامل"
-                  name="manualParentName"
-                  value={form.manualParentName || ''}
-                  onChange={(e) => setForm(prev => ({ ...prev, manualParentName: e.target.value }))}
-                  fullWidth
-                  size="medium"
-                  placeholder="أدخل اسم الأب الكامل"
-                />
-              </Grid>
-            )}
-          </Grid>
+                placeholder="أدخل اسم الأب الكامل"
+              />
+            </Box>
+          )}
         </Box>
       </Paper>
 
@@ -760,7 +784,10 @@ export default function Family() {
         {form.id && (
           <Button
             variant="outlined"
-            onClick={() => setForm(DEFAULT_FORM)}
+            onClick={() => {
+              setForm(DEFAULT_FORM);
+              setAvatarUploadSuccess(false); // ✅ إعادة تعيين حالة رفع الصورة
+            }}
             disabled={loading}
             sx={{ borderRadius: 2, minWidth: { xs: '100%', sm: 'auto' } }}
           >
@@ -773,19 +800,19 @@ export default function Family() {
 
   // عرض كارت العضو
   const renderMemberCard = (member) => (
-    <Grid item xs={12} sm={6} lg={4} key={member.id}>
-      <Card 
-        elevation={3}
-        sx={{ 
-          height: '100%', 
-          borderRadius: 3,
-          transition: 'all 0.3s ease',
-          '&:hover': {
-            transform: 'translateY(-4px)',
-            boxShadow: 6,
-          }
-        }}
-      >
+    <Card 
+      key={member.id}
+      elevation={3}
+      sx={{ 
+        height: '100%', 
+        borderRadius: 3,
+        transition: 'all 0.3s ease',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: 6,
+        }
+      }}
+    >
         <CardContent sx={{ textAlign: 'center', p: { xs: 2, sm: 3 } }}>
           {/* صورة العضو */}
           <Box
@@ -899,7 +926,6 @@ export default function Family() {
           </IconButton>
         </CardActions>
       </Card>
-    </Grid>
   );
 
   return (
@@ -952,43 +978,47 @@ export default function Family() {
       </Box>
 
       {/* إحصائيات سريعة */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={4}>
-          <Paper elevation={2} sx={{ p: 3, textAlign: 'center', borderRadius: 3 }}>
-            <FamilyIcon sx={{ fontSize: 40, color: '#2196f3', mb: 1 }} />
-            <Typography variant="h4" fontWeight="bold" color="primary">
-              {members.length}
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              إجمالي الأفراد
-            </Typography>
-          </Paper>
-        </Grid>
+      <Box 
+        sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: { 
+            xs: '1fr', 
+            sm: 'repeat(3, 1fr)' 
+          }, 
+          gap: 3,
+          mb: 4
+        }}
+      >
+        <Paper elevation={2} sx={{ p: 3, textAlign: 'center', borderRadius: 3 }}>
+          <FamilyIcon sx={{ fontSize: 40, color: '#2196f3', mb: 1 }} />
+          <Typography variant="h4" fontWeight="bold" color="primary">
+            {members.length}
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            إجمالي الأفراد
+          </Typography>
+        </Paper>
         
-        <Grid item xs={12} sm={4}>
-          <Paper elevation={2} sx={{ p: 3, textAlign: 'center', borderRadius: 3 }}>
-            <GppGoodIcon sx={{ fontSize: 40, color: '#4caf50', mb: 1 }} />
-            <Typography variant="h4" fontWeight="bold" color="success.main">
-              {members.filter(m => m.relation === 'رب العائلة').length}
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              أرباب العائلات
-            </Typography>
-          </Paper>
-        </Grid>
+        <Paper elevation={2} sx={{ p: 3, textAlign: 'center', borderRadius: 3 }}>
+          <GppGoodIcon sx={{ fontSize: 40, color: '#4caf50', mb: 1 }} />
+          <Typography variant="h4" fontWeight="bold" color="success.main">
+            {members.filter(m => m.relation === 'رب العائلة').length}
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            أرباب العائلات
+          </Typography>
+        </Paper>
         
-        <Grid item xs={12} sm={4}>
-          <Paper elevation={2} sx={{ p: 3, textAlign: 'center', borderRadius: 3 }}>
-            <GroupIcon sx={{ fontSize: 40, color: '#ff9800', mb: 1 }} />
-            <Typography variant="h4" fontWeight="bold" color="warning.main">
-              {members.filter(m => m.relation === 'ابن' || m.relation === 'بنت').length}
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              الأطفال
-            </Typography>
-          </Paper>
-        </Grid>
-      </Grid>
+        <Paper elevation={2} sx={{ p: 3, textAlign: 'center', borderRadius: 3 }}>
+          <GroupIcon sx={{ fontSize: 40, color: '#ff9800', mb: 1 }} />
+          <Typography variant="h4" fontWeight="bold" color="warning.main">
+            {members.filter(m => m.relation === 'ابن' || m.relation === 'بنت').length}
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            الأطفال
+          </Typography>
+        </Paper>
+      </Box>
 
       {/* قسم إضافة عضو جديد */}
       <Paper elevation={3} sx={{ p: { xs: 2, sm: 4 }, mb: 4, borderRadius: 3 }}>
@@ -1029,39 +1059,48 @@ export default function Family() {
             <CircularProgress size={60} />
           </Box>
         ) : (
-          <Grid container spacing={3}>
+          <Box 
+            sx={{ 
+              display: 'grid', 
+              gridTemplateColumns: { 
+                xs: '1fr', 
+                sm: 'repeat(2, 1fr)', 
+                lg: 'repeat(3, 1fr)' 
+              }, 
+              gap: 3 
+            }}
+          >
             {filteredMembers.length > 0 ? (
               filteredMembers.map(renderMemberCard)
             ) : (
-              <Grid item xs={12}>
-                <Box textAlign="center" py={6}>
-                  <PersonIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
-                  <Typography variant="h5" color="text.secondary" gutterBottom>
-                    {search ? 'لا توجد نتائج للبحث' : 'لم يتم إضافة أي أفراد بعد'}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                    {search ? 'جرب البحث بكلمات مختلفة' : 'ابدأ بإضافة أول فرد في العائلة'}
-                  </Typography>
-                  {!search && (
-                    <Button
-                      variant="contained"
-                      startIcon={<AddIcon />}
-                      onClick={() => {
-                        setForm(DEFAULT_FORM);
-                        document.querySelector('input[name="firstName"]')?.focus();
-                      }}
-                      sx={{ borderRadius: 2 }}
-                    >
-                      إضافة أول فرد
-                    </Button>
-                  )}
-                </Box>
-              </Grid>
+              <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 6 }}>
+                <PersonIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="h5" color="text.secondary" gutterBottom>
+                  {search ? 'لا توجد نتائج للبحث' : 'لم يتم إضافة أي أفراد بعد'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  {search ? 'جرب البحث بكلمات مختلفة' : 'ابدأ بإضافة أول فرد في العائلة'}
+                </Typography>
+                {!search && (
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={() => {
+                      setForm(DEFAULT_FORM);
+                      document.querySelector('input[name="firstName"]')?.focus();
+                    }}
+                    sx={{ borderRadius: 2 }}
+                  >
+                    إضافة أول فرد
+                  </Button>
+                )}
+              </Box>
             )}
-          </Grid>
+          </Box>
         )}
       </Paper>
 
+      {/* باقي المكونات... */}
       {/* زر عائم */}
       <Fab
         color="primary"
@@ -1075,6 +1114,7 @@ export default function Family() {
         }}
         onClick={() => {
           setForm(DEFAULT_FORM);
+          setAvatarUploadSuccess(false); // ✅ إعادة تعيين حالة رفع الصورة
           document.querySelector('input[name="firstName"]')?.focus();
         }}
       >
