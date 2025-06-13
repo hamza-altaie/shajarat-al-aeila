@@ -1,168 +1,72 @@
-// src/firebase/config.js
-import { initializeApp } from 'firebase/app';
+// src/firebase/config.js - التكوين الموحد لجميع خدمات Firebase
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
 
-// إعدادات Firebase مع قيم افتراضية آمنة
+// إعدادات Firebase
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "demo-api-key",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "demo-project.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "demo-project",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "demo-project.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "123456789",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:123456789:web:demo",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-DEMO"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-// التحقق من صحة الإعدادات
-const validateFirebaseConfig = () => {
-  const requiredFields = ['apiKey', 'authDomain', 'projectId'];
-  const missingFields = requiredFields.filter(field => 
-    !firebaseConfig[field] || firebaseConfig[field].includes('demo')
-  );
-  
-  if (missingFields.length > 0) {
-    console.warn('⚠️ Firebase config contains demo values. Please update your .env file with real values.');
-    console.warn('Missing or demo fields:', missingFields);
-    
-    if (import.meta.env.DEV) {
-      console.info('🔧 Development mode: Using demo configuration');
-    }
-  }
-  
-  return missingFields.length === 0;
-};
+// التحقق من وجود الإعدادات المطلوبة
+const requiredConfig = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
+const missingConfig = requiredConfig.filter(key => !firebaseConfig[key]);
 
-// تهيئة Firebase
+if (missingConfig.length > 0) {
+  console.error('❌ Firebase config ناقص! المتغيرات المفقودة:', missingConfig);
+  console.error('تأكد من وجود هذه المتغيرات في ملف .env:');
+  missingConfig.forEach(key => {
+    console.error(`- VITE_FIREBASE_${key.toUpperCase()}`);
+  });
+  throw new Error('Firebase configuration is incomplete');
+}
+
+// تهيئة Firebase App (تجنب التكرار)
 let app;
-let auth;
-let db;
-let storage;
-
-try {
-  // تهيئة التطبيق
+if (getApps().length === 0) {
   app = initializeApp(firebaseConfig);
-  console.log('🔥 Firebase app initialized');
-  
-  // تهيئة الخدمات
-  auth = getAuth(app);
-  db = getFirestore(app);
-  storage = getStorage(app);
-  
-  // إعدادات خاصة بالتطوير
-  if (import.meta.env.DEV) {
-    // تعطيل التحقق من التطبيق في وضع التطوير
-    if (typeof window !== 'undefined') {
-      window.recaptchaVerifierSettings = {
-        appVerificationDisabledForTesting: true
-      };
+  console.log('🔥 تم تهيئة Firebase بنجاح');
+} else {
+  app = getApp();
+  console.log('🔥 Firebase مُهيأ مسبقاً');
+}
+
+// تهيئة الخدمات
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);
+
+// إعدادات المحاكي للتطوير المحلي (اختياري)
+if (import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
+  try {
+    // محاكي Auth
+    if (!auth._delegate._config.emulator) {
+      connectAuthEmulator(auth, 'http://localhost:9099');
+      console.log('🔧 متصل بمحاكي Firebase Auth');
     }
     
-    // الاتصال بالمحاكيات إذا كانت متاحة
-    try {
-      // محاكي Auth
-      if (!auth._delegate.emulatorConfig) {
-        connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-        console.log('🔧 Connected to Auth emulator');
-      }
-    } catch (emulatorError) {
-      console.log('ℹ️ Auth emulator not available, using production');
+    // محاكي Firestore
+    if (!db._delegate._databaseId.projectId.includes('demo-')) {
+      connectFirestoreEmulator(db, 'localhost', 8080);
+      console.log('🔧 متصل بمحاكي Firestore');
     }
     
-    try {
-      // محاكي Firestore
-      if (!db._delegate._databaseId.projectId.includes('localhost')) {
-        connectFirestoreEmulator(db, 'localhost', 8080);
-        console.log('🔧 Connected to Firestore emulator');
-      }
-    } catch (emulatorError) {
-      console.log('ℹ️ Firestore emulator not available, using production');
+    // محاكي Storage
+    if (!storage._delegate._host.includes('localhost')) {
+      connectStorageEmulator(storage, 'localhost', 9199);
+      console.log('🔧 متصل بمحاكي Storage');
     }
-    
-    try {
-      // محاكي Storage
-      if (!storage._location.bucket.includes('localhost')) {
-        connectStorageEmulator(storage, 'localhost', 9199);
-        console.log('🔧 Connected to Storage emulator');
-      }
-    } catch (emulatorError) {
-      console.log('ℹ️ Storage emulator not available, using production');
-    }
-  }
-  
-  // التحقق من صحة الإعدادات
-  const isValidConfig = validateFirebaseConfig();
-  
-  if (isValidConfig) {
-    console.log('✅ Firebase initialized successfully with valid configuration');
-  } else {
-    console.warn('⚠️ Firebase initialized with demo configuration - please update .env file');
-  }
-  
-} catch (error) {
-  console.error('❌ Failed to initialize Firebase:', error);
-  
-  // إنشاء كائنات وهمية لتجنب الأخطاء
-  auth = null;
-  db = null;
-  storage = null;
-  
-  // عرض رسالة خطأ للمستخدم
-  if (typeof window !== 'undefined') {
-    setTimeout(() => {
-      const errorMessage = `
-        خطأ في تهيئة Firebase:
-        ${error.message}
-        
-        يرجى التحقق من:
-        1. ملف .env موجود ويحتوي على القيم الصحيحة
-        2. اتصالك بالإنترنت
-        3. إعدادات Firebase في وحدة التحكم
-      `;
-      
-      if (confirm(errorMessage + '\n\nهل تريد إعادة تحميل الصفحة؟')) {
-        window.location.reload();
-      }
-    }, 1000);
+  } catch (error) {
+    console.warn('⚠️ فشل الاتصال بالمحاكيات:', error.message);
   }
 }
 
-// دالة فحص حالة Firebase
-export const checkFirebaseStatus = () => {
-  return {
-    isInitialized: !!app,
-    hasAuth: !!auth,
-    hasFirestore: !!db,
-    hasStorage: !!storage,
-    config: {
-      projectId: firebaseConfig.projectId,
-      authDomain: firebaseConfig.authDomain,
-      isDemoConfig: firebaseConfig.projectId.includes('demo')
-    }
-  };
-};
-
-// دالة إعادة تهيئة Firebase
-export const reinitializeFirebase = async () => {
-  try {
-    if (app) {
-      await app.delete();
-    }
-    
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
-    storage = getStorage(app);
-    
-    console.log('🔄 Firebase reinitialized successfully');
-    return true;
-  } catch (error) {
-    console.error('❌ Failed to reinitialize Firebase:', error);
-    return false;
-  }
-};
-
 // تصدير الكائنات
-export { auth, db, storage };
-export default app;
+export { app };
+export default { app, auth, db, storage };

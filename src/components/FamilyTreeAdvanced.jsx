@@ -1,17 +1,17 @@
-// src/components/FamilyTreeAdvanced.jsx - النسخة المُحدثة مع النظام الذكي
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+// src/components/FamilyTreeAdvanced.jsx - النسخة المُصححة
+import React, { useState, useEffect, useCallback } from 'react';
 import Tree from 'react-d3-tree';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Button, Typography, Alert, Snackbar, CircularProgress, 
-  Chip, Card, CardContent, Grid, IconButton, Tooltip, 
-  Paper, LinearProgress, Dialog, DialogTitle, DialogContent, 
-  DialogActions, Tabs, Tab, Divider, FormControlLabel, Switch
+  Chip, IconButton, Tooltip, Paper, LinearProgress, 
+  Dialog, DialogTitle, DialogContent, Divider, 
+  FormControlLabel, Switch
 } from '@mui/material';
 import {
-  AccountTree, Groups, Edit, Person, Visibility, Close, 
+  AccountTree, Groups, Edit, Person, Close, 
   ZoomIn, ZoomOut, Refresh, Warning, Link as LinkIcon, 
-  PersonAdd, Timeline as TimelineIcon
+  PersonAdd
 } from '@mui/icons-material';
 
 // استيرادات Firebase
@@ -29,24 +29,21 @@ export default function FamilyTreeAdvanced() {
   const [showExtendedTree, setShowExtendedTree] = useState(false);
   const [selectedNode, setSelectedNode] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(0.6);
-  const [activeTab, setActiveTab] = useState(0);
   
   const [linkedFamilies, setLinkedFamilies] = useState([]);
   const [showLinkingPanel, setShowLinkingPanel] = useState(false);
-  
-  const [personModalOpen, setPersonModalOpen] = useState(false);
-  
+
   // ===========================================================================
   // إعدادات الشجرة القابلة للتخصيص
   // ===========================================================================
   
-  const [treeSettings, setTreeSettings] = useState({
+  const [treeSettings] = useState({
     maxDepth: 15, // عمق أكبر للقبائل الكبيرة
     maxPersonsPerLevel: 50,
     maxTotalPersons: 2000,
-    enableSmartLimits: true, // حدود ذكية
-    showDepthWarning: true, // تحذير عند العمق الكبير
-    autoOptimize: true // تحسين تلقائي للأداء
+    enableSmartLimits: true,
+    showDepthWarning: true,
+    autoOptimize: true
   });
   
   const [performanceMetrics, setPerformanceMetrics] = useState({
@@ -121,11 +118,9 @@ export default function FamilyTreeAdvanced() {
   };
 
   const findFamilyHead = (members) => {
-    // البحث عن رب العائلة
     const head = members.find(m => m.relation === 'رب العائلة');
     if (head) return head;
     
-    // إذا لم يوجد، البحث عن أقدم عضو
     const sorted = [...members].sort((a, b) => {
       const dateA = new Date(a.createdAt || 0);
       const dateB = new Date(b.createdAt || 0);
@@ -142,7 +137,7 @@ export default function FamilyTreeAdvanced() {
   const loadSimpleTree = useCallback(async () => {
     if (!uid) return;
 
-    console.log('🌳 تحميل الشجرة العادية (الحساب الحالي فقط)...');
+    console.log('🌳 تحميل الشجرة العادية...');
     
     setLoading(true);
     setError(null);
@@ -168,7 +163,7 @@ export default function FamilyTreeAdvanced() {
         }
       });
 
-      console.log('📋 أعضاء العائلة المُحمَّلة:', familyMembers);
+      console.log('📋 أعضاء العائلة:', familyMembers);
 
       setLoadingProgress(60);
       setLoadingStage('بناء الشجرة...');
@@ -184,7 +179,7 @@ export default function FamilyTreeAdvanced() {
       showSnackbar(`تم تحميل عائلتك: ${familyMembers.length} أفراد`, 'success');
 
     } catch (error) {
-      console.error('❌ خطأ في تحميل الشجرة العادية:', error);
+      console.error('❌ خطأ في تحميل الشجرة:', error);
       setError(error.message);
       showSnackbar('فشل في تحميل الشجرة', 'error');
     } finally {
@@ -193,13 +188,13 @@ export default function FamilyTreeAdvanced() {
   }, [uid]);
 
   // ===========================================================================
-  // تحميل الشجرة الموسعة المُحسنة
+  // تحميل الشجرة الموسعة
   // ===========================================================================
 
   const loadExtendedTree = useCallback(async () => {
     if (!uid) return;
 
-    console.log('🏛️ تحميل الشجرة الموسعة (جميع العائلات المرتبطة)...');
+    console.log('🏛️ تحميل الشجرة الموسعة...');
     
     const startTime = Date.now();
     setLoading(true);
@@ -233,7 +228,7 @@ export default function FamilyTreeAdvanced() {
       
       setExtendedTreeData(treeData);
       
-      console.log(`✅ تم تحميل الشجرة الموسعة: ${allFamilies.length} عائلة، العمق الأقصى: ${metrics.maxDepthReached}`);
+      console.log(`✅ تم تحميل الشجرة الموسعة: ${allFamilies.length} عائلة`);
       showSnackbar(`تم تحميل الشجرة الموسعة: ${allFamilies.length} عائلة، ${metrics.personCount} شخص`, 'success');
 
     } catch (error) {
@@ -250,7 +245,7 @@ export default function FamilyTreeAdvanced() {
   // ===========================================================================
 
   const buildSimpleTreeStructure = (familyMembers) => {
-    console.log('🏗️ بناء الشجرة العادية مع:', familyMembers);
+    console.log('🏗️ بناء الشجرة العادية...');
     
     if (!familyMembers || familyMembers.length === 0) {
       return null;
@@ -262,7 +257,7 @@ export default function FamilyTreeAdvanced() {
       return null;
     }
 
-    console.log('👑 رب العائلة المختار:', head.firstName);
+    console.log('👑 رب العائلة:', head.firstName);
 
     const rootNode = {
       name: buildFullName(head),
@@ -281,9 +276,6 @@ export default function FamilyTreeAdvanced() {
       m.globalId !== head.globalId
     );
 
-    const childrenNames = children.map(c => buildFullName(c));
-    console.log('👶 الأطفال المُضافون:', childrenNames);
-
     children.forEach(child => {
       rootNode.children.push({
         name: buildFullName(child),
@@ -297,7 +289,7 @@ export default function FamilyTreeAdvanced() {
       });
     });
 
-    console.log('✅ الشجرة العادية جاهزة:', rootNode);
+    console.log('✅ الشجرة العادية جاهزة');
     return rootNode;
   };
 
@@ -306,7 +298,7 @@ export default function FamilyTreeAdvanced() {
   // ===========================================================================
 
   const findFamilyRoot = async (startUid) => {
-    console.log('🔍 البحث عن جذر القبيلة بدءاً من:', startUid);
+    console.log('🔍 البحث عن جذر القبيلة من:', startUid);
     
     let currentUid = startUid;
     let maxDepth = 10;
@@ -323,7 +315,7 @@ export default function FamilyTreeAdvanced() {
         const linkedToHead = userData.linkedToFamilyHead;
         
         if (!linkedToHead || linkedToHead === currentUid) {
-          console.log('🏛️ تم العثور على جذر القبيلة:', currentUid);
+          console.log('🏛️ جذر القبيلة:', currentUid);
           return currentUid;
         }
         
@@ -336,7 +328,7 @@ export default function FamilyTreeAdvanced() {
       }
     }
     
-    console.log('🏛️ اعتماد', startUid, 'كجذر افتراضي');
+    console.log('🏛️ اعتماد', startUid, 'كجذر');
     return startUid;
   };
 
@@ -359,7 +351,7 @@ export default function FamilyTreeAdvanced() {
         const familyData = await loadFamilyData(uid, level, parentUid);
         if (familyData) {
           allFamilies.set(uid, familyData);
-          console.log(`👨‍👩‍👧‍👦 عائلة ${uid} - رب العائلة: ${familyData.head?.firstName || 'غير محدد'}`);
+          console.log(`👨‍👩‍👧‍👦 عائلة ${uid}`);
           
           const linkedChildren = await findLinkedChildren(uid);
           linkedChildren.forEach(childUid => {
@@ -449,27 +441,24 @@ export default function FamilyTreeAdvanced() {
   };
 
   // ===========================================================================
-  // 🔥 بناء الشجرة الموسعة المُحسنة - مع النظام الذكي
+  // 🔥 بناء الشجرة الموسعة الذكية
   // ===========================================================================
 
   const buildExtendedTreeStructure = async (families, rootUid, settings) => {
-    console.log('🏗️ بناء الشجرة الموسعة الذكية من الجذر:', rootUid);
+    console.log('🏗️ بناء الشجرة الموسعة الذكية...');
     
     const rootFamily = families.find(f => f.uid === rootUid);
     if (!rootFamily || !rootFamily.head) {
       throw new Error('لم يتم العثور على العائلة الجذر');
     }
 
-    const processedPersons = new Set(); // لتتبع الأشخاص المُعالجين
-    const globalPersonMap = new Map(); // خريطة شاملة للأشخاص
+    const processedPersons = new Set();
+    const globalPersonMap = new Map();
 
-    // الخطوة 1: إنشاء خريطة شاملة لجميع الأشخاص مع فهم العلاقات
+    // الخطوة 1: إنشاء خريطة شاملة للأشخاص
     families.forEach(family => {
-      console.log(`📋 معالجة عائلة ${family.uid}:`);
-      
       family.members.forEach(member => {
         const personKey = `${member.firstName}_${member.fatherName}_${member.grandfatherName}`;
-        console.log(`  - ${buildFullName(member)} (${member.relation}) في عائلة ${family.uid}`);
         
         if (!globalPersonMap.has(personKey)) {
           globalPersonMap.set(personKey, {
@@ -477,22 +466,14 @@ export default function FamilyTreeAdvanced() {
             roles: [member.relation], 
             families: [family.uid], 
             isMultiRole: false,
-            originalFamily: family.uid, // العائلة الأصلية
-            siblingFamilies: [] // العائلات التي له فيها أخوة
+            originalFamily: family.uid
           });
         } else {
-          // شخص موجود - إضافة دور جديد
           const existingPerson = globalPersonMap.get(personKey);
           existingPerson.roles.push(member.relation);
           existingPerson.families.push(family.uid);
           existingPerson.isMultiRole = true;
           
-          // تتبع العائلات للأدوار المختلفة
-          if (member.relation === 'أخ' || member.relation === 'أخت') {
-            existingPerson.siblingFamilies.push(family.uid);
-          }
-          
-          // إذا كان رب عائلة، يصبح هو المرجع الأساسي
           if (member.relation === 'رب العائلة') {
             existingPerson.globalId = member.globalId;
             existingPerson.familyUid = member.familyUid;
@@ -502,51 +483,35 @@ export default function FamilyTreeAdvanced() {
       });
     });
 
-    console.log('🗺️ الخريطة الشاملة للأشخاص:');
-    globalPersonMap.forEach((person, key) => {
-      console.log(`${key}: أدوار [${person.roles.join(', ')}] في العائلات [${person.families.join(', ')}]`);
-    });
+    console.log('🗺️ تم إنشاء خريطة الأشخاص');
 
-    // الخطوة 2: بناء الهيكل الهرمي المُصحح بدون حد ثابت
+    // الخطوة 2: بناء الهيكل الهرمي
     const buildPersonNode = (person, family, depth = 0, parentId = null) => {
       const personKey = `${person.firstName}_${person.fatherName}_${person.grandfatherName}`;
       
-      // 🔄 نظام ذكي بدلاً من الحد الثابت
-      const smartLimits = {
-        maxDepth: settings.maxDepth || 15, // حد أمان عالي
-        maxPersonsPerLevel: settings.maxPersonsPerLevel || 50, // حد الأشخاص في المستوى الواحد
-        maxTotalPersons: settings.maxTotalPersons || 2000, // حد إجمالي للأمان
-        currentPersonCount: processedPersons.size
-      };
-      
       // فحص الحدود الذكية
       if (processedPersons.has(personKey)) {
-        console.log(`🔄 تم تجاهل ${buildFullName(person)} - معالج مسبقاً`);
         return null;
       }
       
-      if (depth > smartLimits.maxDepth) {
-        console.log(`⚠️ تم إيقاف البناء عند العمق ${depth} - الحد الأقصى ${smartLimits.maxDepth}`);
+      if (depth > settings.maxDepth) {
+        console.log(`⚠️ توقف عند العمق ${depth}`);
         return null;
       }
       
-      if (smartLimits.currentPersonCount > smartLimits.maxTotalPersons) {
-        console.log(`⚠️ تم إيقاف البناء - تجاوز الحد الأقصى للأشخاص ${smartLimits.maxTotalPersons}`);
+      if (processedPersons.size > settings.maxTotalPersons) {
+        console.log(`⚠️ تجاوز الحد الأقصى للأشخاص`);
         return null;
       }
       
-      // 🔍 فحص الدائرة المرجعية (تجنب اللانهاية)
       if (parentId && person.globalId === parentId) {
-        console.log(`🚫 تم منع الدائرة المرجعية: ${buildFullName(person)}`);
+        console.log(`🚫 منع الدائرة المرجعية`);
         return null;
       }
       
       processedPersons.add(personKey);
       const globalPerson = globalPersonMap.get(personKey);
       
-      console.log(`🔗 بناء عقدة: ${buildFullName(person)} (المستوى: ${depth}, الأدوار: ${globalPerson.roles.join(', ')})`);
-
-      // إنشاء العقدة مع الأدوار المتعددة
       const node = {
         name: buildFullName(person),
         id: person.globalId,
@@ -559,16 +524,15 @@ export default function FamilyTreeAdvanced() {
           isExtended: family.uid !== rootUid,
           treeType: 'extended',
           familyLevel: family.level || 0,
-          generationDepth: depth, // تتبع العمق الفعلي
+          generationDepth: depth,
           primaryRole: globalPerson.roles.includes('رب العائلة') ? 'رب العائلة' : globalPerson.roles[0]
         },
         children: []
       };
 
-      // 🔥 التعامل الصحيح مع الأطفال والأخوة - تفريق دقيق بين العلاقات
+      // إضافة الأطفال
       const allChildren = [];
 
-      // ✅ الحالة 1: إذا كان رب العائلة - جمع أطفاله المباشرين فقط
       if (person.relation === 'رب العائلة') {
         const directChildren = family.members.filter(m => 
           (m.relation === 'ابن' || m.relation === 'بنت') && 
@@ -577,9 +541,7 @@ export default function FamilyTreeAdvanced() {
         );
         
         allChildren.push(...directChildren.map(child => ({ child, family })));
-        console.log(`👑 رب العائلة ${buildFullName(person)} له ${directChildren.length} أطفال مباشرين`);
 
-        // جمع الأطفال من العائلات الأخرى التي يرأسها (إذا كان رب عدة عائلات)
         if (globalPerson.roles.includes('رب العائلة') && globalPerson.families.length > 1) {
           const otherFamilies = families.filter(f => 
             f.head && 
@@ -594,14 +556,9 @@ export default function FamilyTreeAdvanced() {
             );
             
             allChildren.push(...otherFamilyChildren.map(child => ({ child, family: otherFamily })));
-            console.log(`🏠 عائلة إضافية ${otherFamily.uid}: ${otherFamilyChildren.length} أطفال`);
           });
         }
-      }
-      
-      // ✅ الحالة 2: إذا كان ابن أو بنت - قد يكون له أطفال في عائلة منفصلة
-      else if (person.relation === 'ابن' || person.relation === 'بنت') {
-        // البحث عن العائلات التي يرأسها هذا الشخص
+      } else if (person.relation === 'ابن' || person.relation === 'بنت') {
         const familiesHeaded = families.filter(f => 
           f.head && 
           `${f.head.firstName}_${f.head.fatherName}_${f.head.grandfatherName}` === personKey
@@ -614,71 +571,51 @@ export default function FamilyTreeAdvanced() {
           );
           
           allChildren.push(...childrenInHeadedFamily.map(child => ({ child, family: headedFamily })));
-          console.log(`👨‍👩‍👧‍👦 ${buildFullName(person)} يرأس عائلة ${headedFamily.uid} مع ${childrenInHeadedFamily.length} أطفال`);
         });
       }
 
-      // ✅ الحالة 3: تجاهل الأخوة تماماً (لا يتم إضافتهم كأطفال)
-      // الأخوة لهم نفس الأب، لذا سيظهرون في نفس المستوى من الشجرة
-
-      // ✅ فلترة نهائية: تأكد من أن الأخوة لا يُضافون كأطفال أبداً
+      // فلترة الأطفال الصحيحين
       const validChildren = allChildren.filter(({ child }) => {
         const childKey = `${child.firstName}_${child.fatherName}_${child.grandfatherName}`;
         const childGlobalPerson = globalPersonMap.get(childKey);
         
-        // استبعاد أي شخص له دور "أخ" أو "أخت" مع الشخص الحالي
         if (childGlobalPerson && (childGlobalPerson.roles.includes('أخ') || childGlobalPerson.roles.includes('أخت'))) {
-          console.log(`❌ استبعاد ${buildFullName(child)} لأنه أخ/أخت وليس طفل`);
           return false;
         }
         
-        // قبول فقط من له دور "ابن" أو "بنت" بالنسبة للشخص الحالي
         return child.relation === 'ابن' || child.relation === 'بنت';
       });
 
-      // 🔥 ترتيب الأطفال وإضافتهم دفعة واحدة (حل مشكلة التسلسل الخطي)
+      // ترتيب وإضافة الأطفال
       const sortedChildren = validChildren.sort((a, b) => {
-        // ترتيب حسب تاريخ الميلاد إذا متوفر
         if (a.child.birthDate && b.child.birthDate) {
           return new Date(a.child.birthDate) - new Date(b.child.birthDate);
         }
-        // ثم حسب الاسم
         return (a.child.firstName || '').localeCompare(b.child.firstName || '', 'ar');
       });
-
-      console.log(`👶 إضافة ${sortedChildren.length} طفل لـ ${buildFullName(person)}:`);
-      sortedChildren.forEach(({ child }, index) => {
-        console.log(`  ${index + 1}. ${buildFullName(child)} (${child.relation})`);
-      });
       
-      // إضافة جميع الأطفال بشكل متوازي (ليس تسلسلي)
       sortedChildren.forEach(({ child, family: childFamily }) => {
         const childNode = buildPersonNode(child, childFamily, depth + 1, person.globalId);
         if (childNode) {
           node.children.push(childNode);
         }
       });
-
-      console.log(`✅ عقدة ${buildFullName(person)} تحتوي على ${node.children.length} طفل`);
       
       return node;
     };
 
-    // الخطوة 3: بناء الشجرة من الجذر مع المقاييس
+    // بناء الشجرة من الجذر
     let maxDepthReached = 0;
     let totalPersonsProcessed = 0;
     
     const rootNode = buildPersonNode(rootFamily.head, rootFamily);
     
-    // حساب المقاييس النهائية
-    processedPersons.forEach((personKey) => {
-      totalPersonsProcessed++;
-    });
+    totalPersonsProcessed = processedPersons.size;
     
-    // حساب العمق الأقصى المُحقق فعلياً
+    // حساب العمق الأقصى
     const calculateMaxDepth = (node, currentDepth = 0) => {
       maxDepthReached = Math.max(maxDepthReached, currentDepth);
-      if (node.children) {
+      if (node && node.children) {
         node.children.forEach(child => calculateMaxDepth(child, currentDepth + 1));
       }
     };
@@ -694,63 +631,24 @@ export default function FamilyTreeAdvanced() {
       processedFamilies: families.length
     };
     
-    console.log('✅ تم بناء الشجرة الموسعة المُحسنة مع تصحيح هيكل الأخوان');
     console.log(`📊 المقاييس: ${metrics.personCount} شخص، عمق أقصى: ${metrics.maxDepthReached}`);
     
     return { treeData: rootNode, metrics };
   };
 
   // ===========================================================================
-  // تأثيرات ودورة الحياة
+  // دوال مساعدة
   // ===========================================================================
-
-  useEffect(() => {
-    if (!uid) {
-      navigate('/login');
-      return;
-    }
-
-    loadSimpleTree();
-    loadLinkedFamilies();
-  }, [uid, navigate, loadSimpleTree]);
-
-  useEffect(() => {
-    if (!uid) return;
-    
-    if (showExtendedTree) {
-      if (!extendedTreeData) {
-        loadExtendedTree();
-      }
-    }
-  }, [showExtendedTree, uid, extendedTreeData, loadExtendedTree]);
-
-  const loadLinkedFamilies = useCallback(async () => {
-    try {
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const linked = userData.linkedFamilies || [];
-        setLinkedFamilies(linked);
-      }
-    } catch (error) {
-      console.error('خطأ في تحميل العائلات المرتبطة:', error);
-    }
-  }, [uid]);
-
-  // ===========================================================================
-  // دوال التفاعل
-  // ===========================================================================
-
-  const handleNodeClick = useCallback((nodeData) => {
-    console.log('👆 تم النقر على:', nodeData.name);
-    setSelectedNode(nodeData);
-    setPersonModalOpen(true);
-  }, []);
 
   const showSnackbar = useCallback((message, severity = 'info') => {
     setSnackbarMessage(message);
     setSnackbarSeverity(severity);
     setSnackbarOpen(true);
+  }, []);
+
+  const handleNodeClick = useCallback((nodeData) => {
+    console.log('👆 تم النقر على:', nodeData.name);
+    setSelectedNode(nodeData);
   }, []);
 
   const handleRefresh = useCallback(() => {
@@ -784,14 +682,11 @@ export default function FamilyTreeAdvanced() {
     } else {
       showSnackbar('تحويل للشجرة العادية', 'info');
     }
-  }, []);
+  }, [showSnackbar]);
 
   // ===========================================================================
-  // 🎨 عرض العقدة المُحسن مع الأدوار المتعددة
+  // عرض العقدة
   // ===========================================================================
-
-  
-  // دالة renderNodeElement مطابقة لتصميم صفحة العائلة
 
   const renderNodeElement = useCallback(({ nodeDatum }) => {
     const person = nodeDatum.attributes;
@@ -799,24 +694,23 @@ export default function FamilyTreeAdvanced() {
     const isMultiRole = person?.isMultiRole || false;
     const roles = person?.roles || [person?.relation || 'عضو'];
     
-    // نفس ألوان صفحة العائلة الخضراء
     const getNodeColors = () => {
       if (roles.includes('رب العائلة')) {
         return {
-          primary: '#2e7d32', // نفس الأخضر
+          primary: '#2e7d32',
           light: '#4caf50',
           bg: '#e8f5e8'
         };
       }
       if (isExtended) {
         return {
-          primary: '#f57c00', // برتقالي للمرتبطين
+          primary: '#f57c00',
           light: '#ff9800',
           bg: '#fff3e0'
         };
       }
       return {
-        primary: '#1976d2', // أزرق للأطفال
+        primary: '#1976d2',
         light: '#42a5f5',
         bg: '#e3f2fd'
       };
@@ -824,7 +718,6 @@ export default function FamilyTreeAdvanced() {
     
     const colors = getNodeColors();
     
-    // تحسين عرض الاسم
     const getDisplayName = (name) => {
       if (!name || name === 'غير محدد') return 'غير محدد';
       const words = name.trim().split(' ');
@@ -835,37 +728,32 @@ export default function FamilyTreeAdvanced() {
     return (
       <g>
         <defs>
-          {/* تدرج مشابه لصفحة العائلة */}
-          <linearGradient id={`familyGrad-${nodeDatum.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <linearGradient id={`grad-${nodeDatum.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#ffffff" />
             <stop offset="100%" stopColor={colors.bg} />
           </linearGradient>
           
-          {/* ظل ناعم مثل الكاردات */}
-          <filter id={`familyShadow-${nodeDatum.id}`}>
+          <filter id={`shadow-${nodeDatum.id}`}>
             <feDropShadow dx="0" dy="4" stdDeviation="8" floodColor="rgba(0,0,0,0.12)"/>
           </filter>
         </defs>
         
-        {/* الكارت الرئيسي - نفس ستايل صفحة العائلة */}
         <rect
           width="280"
           height="160"
           x="-140"
           y="-80"
           rx="16"
-          fill={`url(#familyGrad-${nodeDatum.id})`}
+          fill={`url(#grad-${nodeDatum.id})`}
           stroke={colors.primary}
           strokeWidth="2"
           style={{ 
             cursor: 'pointer',
-            filter: `url(#familyShadow-${nodeDatum.id})`,
-            transition: 'all 0.3s ease'
+            filter: `url(#shadow-${nodeDatum.id})`
           }}
           onClick={() => handleNodeClick(nodeDatum)}
         />
         
-        {/* شارة الأدوار المتعددة - بستايل Material */}
         {isMultiRole && (
           <g>
             <circle
@@ -875,7 +763,6 @@ export default function FamilyTreeAdvanced() {
               fill={colors.primary}
               stroke="white"
               strokeWidth="2"
-              style={{ filter: `url(#familyShadow-${nodeDatum.id})` }}
             />
             <text
               x="-110"
@@ -884,8 +771,7 @@ export default function FamilyTreeAdvanced() {
               style={{
                 fontSize: '12px',
                 fill: 'white',
-                fontWeight: '600',
-                fontFamily: '"Cairo", "Roboto", sans-serif'
+                fontWeight: '600'
               }}
             >
               {roles.length}
@@ -893,7 +779,6 @@ export default function FamilyTreeAdvanced() {
           </g>
         )}
         
-        {/* الصورة الشخصية - مثل الأفاتار في صفحة العائلة */}
         <circle
           cx="0"
           cy="-25"
@@ -901,7 +786,6 @@ export default function FamilyTreeAdvanced() {
           fill="white"
           stroke={colors.primary}
           strokeWidth="3"
-          style={{ filter: `url(#familyShadow-${nodeDatum.id})` }}
         />
         
         <image
@@ -915,7 +799,6 @@ export default function FamilyTreeAdvanced() {
           onClick={() => handleNodeClick(nodeDatum)}
         />
         
-        {/* منطقة النص - نفس ستايل الكاردات */}
         <rect
           x="-130"
           y="25"
@@ -927,7 +810,6 @@ export default function FamilyTreeAdvanced() {
           strokeWidth="1"
         />
         
-        {/* الاسم - نفس typography صفحة العائلة */}
         <text
           x="0"
           y="42"
@@ -936,7 +818,6 @@ export default function FamilyTreeAdvanced() {
             fontSize: '16px',
             fontWeight: '600',
             fill: '#333',
-            fontFamily: '"Cairo", "Roboto", sans-serif',
             cursor: 'pointer'
           }}
           onClick={() => handleNodeClick(nodeDatum)}
@@ -944,7 +825,6 @@ export default function FamilyTreeAdvanced() {
           {getDisplayName(nodeDatum.name)}
         </text>
         
-        {/* الدور - مع Chip style */}
         <rect
           x="-60"
           y="50"
@@ -962,14 +842,12 @@ export default function FamilyTreeAdvanced() {
           style={{
             fontSize: '12px',
             fill: colors.primary,
-            fontFamily: '"Cairo", "Roboto", sans-serif',
             fontWeight: '500'
           }}
         >
           {isMultiRole ? roles.slice(0,2).join(' + ') : roles[0]}
         </text>
         
-        {/* عدد الأطفال - مثل الشارات في صفحة العائلة */}
         {nodeDatum.children && nodeDatum.children.length > 0 && (
           <g>
             <circle
@@ -979,7 +857,6 @@ export default function FamilyTreeAdvanced() {
               fill="#4caf50"
               stroke="white"
               strokeWidth="2"
-              style={{ filter: `url(#familyShadow-${nodeDatum.id})` }}
             />
             <text
               x="110"
@@ -988,41 +865,51 @@ export default function FamilyTreeAdvanced() {
               style={{
                 fontSize: '11px',
                 fill: 'white',
-                fontWeight: '600',
-                fontFamily: '"Cairo", "Roboto", sans-serif'
+                fontWeight: '600'
               }}
             >
               {nodeDatum.children.length}
             </text>
           </g>
         )}
-        
-        {/* تأثير hover مثل الكاردات */}
-        <rect
-          width="280"
-          height="160"
-          x="-140"
-          y="-80"
-          rx="16"
-          fill="rgba(46, 125, 50, 0)"
-          stroke="none"
-          style={{ 
-            cursor: 'pointer',
-            transition: 'all 0.3s ease'
-          }}
-          onMouseEnter={(e) => {
-            e.target.previousSibling.style.transform = 'translateY(-2px)';
-            e.target.previousSibling.style.filter = 'drop-shadow(0 8px 24px rgba(0,0,0,0.15))';
-          }}
-          onMouseLeave={(e) => {
-            e.target.previousSibling.style.transform = 'translateY(0px)';
-            e.target.previousSibling.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.12))';
-          }}
-          onClick={() => handleNodeClick(nodeDatum)}
-        />
       </g>
     );
   }, [handleNodeClick]);
+
+  // ===========================================================================
+  // تأثيرات ودورة الحياة
+  // ===========================================================================
+
+  useEffect(() => {
+    if (!uid) {
+      navigate('/login');
+      return;
+    }
+
+    loadSimpleTree();
+    loadLinkedFamilies();
+  }, [uid, navigate, loadSimpleTree]);
+
+  useEffect(() => {
+    if (!uid) return;
+    
+    if (showExtendedTree && !extendedTreeData) {
+      loadExtendedTree();
+    }
+  }, [showExtendedTree, uid, extendedTreeData, loadExtendedTree]);
+
+  const loadLinkedFamilies = useCallback(async () => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const linked = userData.linkedFamilies || [];
+        setLinkedFamilies(linked);
+      }
+    } catch (error) {
+      console.error('خطأ في تحميل العائلات المرتبطة:', error);
+    }
+  }, [uid]);
 
   // ===========================================================================
   // عرض الشجرة
@@ -1056,11 +943,11 @@ export default function FamilyTreeAdvanced() {
             collapsible={false}
             pathFunc="step"
             separation={{ 
-              siblings: showExtendedTree ? 2.2 : 1.8, // مساحة أكبر بين الأخوان في الشجرة الموسعة
+              siblings: showExtendedTree ? 2.2 : 1.8,
               nonSiblings: showExtendedTree ? 3 : 2.5 
             }}
             nodeSize={{ 
-              x: showExtendedTree ? 350 : 300, // عرض أكبر للعقد في الشجرة الموسعة
+              x: showExtendedTree ? 350 : 300,
               y: 220 
             }}
             renderCustomNodeElement={renderNodeElement}
@@ -1075,8 +962,6 @@ export default function FamilyTreeAdvanced() {
             enableLegacyTransitions={false}
             transitionDuration={500}
             scaleExtent={{ min: 0.1, max: 2 }}
-            branchNodeClassName="branch-node"
-            leafNodeClassName="leaf-node"
           />
         ) : (
           <Box
@@ -1105,7 +990,7 @@ export default function FamilyTreeAdvanced() {
               <Box textAlign="center">
                 <Warning sx={{ fontSize: 100, color: '#f44336', mb: 2 }} />
                 <Typography variant="h4" color="error" gutterBottom>
-                  حدث خطأ في {treeTitle}
+                  حدث خطأ
                 </Typography>
                 <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
                   {error}
@@ -1250,13 +1135,11 @@ export default function FamilyTreeAdvanced() {
 
           <Divider orientation="vertical" flexItem />
 
-          <Box component="span">
-            <Tooltip title="تكبير">
-              <IconButton size="small" onClick={handleZoomIn} disabled={loading}>
-                <ZoomIn />
-              </IconButton>
-            </Tooltip>
-          </Box>
+          <Tooltip title="تكبير">
+            <IconButton size="small" onClick={handleZoomIn} disabled={loading}>
+              <ZoomIn />
+            </IconButton>
+          </Tooltip>
           
           <Chip 
             label={`${Math.round(zoomLevel * 100)}%`} 
@@ -1266,21 +1149,17 @@ export default function FamilyTreeAdvanced() {
             disabled={loading}
           />
           
-          <Box component="span">
-            <Tooltip title="تصغير">
-              <IconButton size="small" onClick={handleZoomOut} disabled={loading}>
-                <ZoomOut />
-              </IconButton>
-            </Tooltip>
-          </Box>
+          <Tooltip title="تصغير">
+            <IconButton size="small" onClick={handleZoomOut} disabled={loading}>
+              <ZoomOut />
+            </IconButton>
+          </Tooltip>
           
-          <Box component="span">
-            <Tooltip title="إعادة تحميل">
-              <IconButton size="small" onClick={handleRefresh} disabled={loading}>
-                <Refresh />
-              </IconButton>
-            </Tooltip>
-          </Box>
+          <Tooltip title="إعادة تحميل">
+            <IconButton size="small" onClick={handleRefresh} disabled={loading}>
+              <Refresh />
+            </IconButton>
+          </Tooltip>
         </Box>
 
         <Box display="flex" justifyContent="center" sx={{ mb: 2 }}>
@@ -1295,16 +1174,14 @@ export default function FamilyTreeAdvanced() {
               />
             }
             label={
-              <Box display="flex" alignItems="center" gap={1}>
-                <Typography variant="body1" fontWeight="bold">
-                  {showExtendedTree ? '🏛️ الشجرة الموسعة للقبيلة' : '🌳 شجرة عائلتك فقط'}
-                </Typography>
-              </Box>
+              <Typography variant="body1" fontWeight="bold">
+                {showExtendedTree ? '🏛️ الشجرة الموسعة للقبيلة' : '🌳 شجرة عائلتك فقط'}
+              </Typography>
             }
           />
         </Box>
 
-        <Box display="flex" justifyContent="center" gap={3}>
+        <Box display="flex" justifyContent="center" gap={3} flexWrap="wrap">
           <Chip
             size="small"
             icon={<Groups />}
@@ -1380,6 +1257,7 @@ export default function FamilyTreeAdvanced() {
         {renderTreeView()}
       </Box>
 
+      {/* حوار ربط العائلات */}
       <Dialog
         open={showLinkingPanel}
         onClose={() => setShowLinkingPanel(false)}
@@ -1411,6 +1289,7 @@ export default function FamilyTreeAdvanced() {
         </DialogContent>
       </Dialog>
       
+      {/* رسائل التنبيه */}
       <Snackbar 
         open={snackbarOpen} 
         autoHideDuration={6000} 
