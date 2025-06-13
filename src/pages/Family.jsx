@@ -61,6 +61,8 @@ export default function Family() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteMemberId, setDeleteMemberId] = useState(null);
   const [settingsAnchor, setSettingsAnchor] = useState(null);
+  const [phoneModalOpen, setPhoneModalOpen] = useState(false);
+  const [newPhone, setNewPhone] = useState('');
   
   // حالات الصور والتحديث
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -542,6 +544,33 @@ export default function Family() {
   const handleSettingsClick = (event) => setSettingsAnchor(event.currentTarget);
   const handleSettingsClose = () => setSettingsAnchor(null);
 
+  // تغيير رقم الهاتف
+  const handlePhoneChange = async () => {
+    if (!newPhone.trim()) {
+      showSnackbar('❌ يرجى إدخال رقم الهاتف', 'error');
+      return;
+    }
+
+    // التحقق من صحة رقم الهاتف العراقي
+    const cleanPhone = newPhone.replace(/[\s\-\(\)]/g, '');
+    const iraqiPhoneRegex = /^\+9647[0-9]{8,9}$/;
+    
+    if (!iraqiPhoneRegex.test(cleanPhone)) {
+      showSnackbar('❌ رقم الهاتف غير صحيح. يجب أن يبدأ بـ +9647', 'error');
+      return;
+    }
+
+    try {
+      localStorage.setItem('verifiedPhone', cleanPhone);
+      setPhoneModalOpen(false);
+      setNewPhone('');
+      showSnackbar('✅ تم تحديث رقم الهاتف بنجاح');
+    } catch (error) {
+      console.error('خطأ في تحديث رقم الهاتف:', error);
+      showSnackbar('❌ حدث خطأ أثناء تحديث رقم الهاتف', 'error');
+    }
+  };
+
   // تسجيل الخروج
   const handleLogout = () => {
     localStorage.removeItem('verifiedUid');
@@ -1014,15 +1043,6 @@ export default function Family() {
         </Box>
 
         <Box display="flex" gap={2}>
-          <Button
-            variant="outlined"
-            startIcon={<VisibilityIcon />}
-            onClick={() => navigate('/tree')}
-            sx={{ borderRadius: 2 }}
-          >
-            عرض الشجرة
-          </Button>
-          
           <IconButton onClick={handleSettingsClick}>
             <SettingsIcon />
           </IconButton>
@@ -1202,6 +1222,85 @@ export default function Family() {
         </DialogContent>
       </Dialog>
 
+      {/* نافذة تغيير رقم الهاتف */}
+      <Dialog
+        open={phoneModalOpen}
+        onClose={() => {
+          setPhoneModalOpen(false);
+          setNewPhone('');
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center" gap={2}>
+            <PhoneIphoneIcon sx={{ color: '#2196f3' }} />
+            <Typography variant="h6" fontWeight="bold">
+              تغيير رقم الهاتف
+            </Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            أدخل رقم الهاتف الجديد بالصيغة العراقية (+9647xxxxxxxx)
+          </Typography>
+          
+          <TextField
+            autoFocus
+            label="رقم الهاتف الجديد"
+            value={newPhone}
+            onChange={(e) => setNewPhone(e.target.value)}
+            fullWidth
+            placeholder="+9647xxxxxxxx"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <PhoneIphoneIcon color="action" />
+                </InputAdornment>
+              ),
+            }}
+            helperText="يجب أن يبدأ الرقم بـ +9647"
+            sx={{ mb: 2 }}
+          />
+          
+          <Box 
+            sx={{ 
+              p: 2, 
+              backgroundColor: '#e3f2fd', 
+              borderRadius: 2,
+              border: '1px solid #bbdefb'
+            }}
+          >
+            <Typography variant="body2" color="primary" sx={{ fontWeight: 'bold' }}>
+              📱 الرقم الحالي: {phone || 'غير محدد'}
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, gap: 1 }}>
+          <Button 
+            onClick={() => {
+              setPhoneModalOpen(false);
+              setNewPhone('');
+            }}
+            variant="outlined"
+            sx={{ borderRadius: 2 }}
+          >
+            إلغاء
+          </Button>
+          <Button 
+            onClick={handlePhoneChange}
+            variant="contained"
+            sx={{ 
+              borderRadius: 2,
+              minWidth: 120
+            }}
+            startIcon={<PhoneIphoneIcon />}
+          >
+            تحديث الرقم
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* نافذة حذف العضو */}
       <Dialog
         open={deleteDialogOpen}
@@ -1229,9 +1328,23 @@ export default function Family() {
         open={Boolean(settingsAnchor)}
         onClose={handleSettingsClose}
       >
-        <MenuItem onClick={() => { navigate('/tree'); handleSettingsClose(); }}>
-          <VisibilityIcon sx={{ mr: 1 }} />
-          عرض الشجرة
+        <MenuItem onClick={() => {
+          const message = `أنضم إلينا في شجرة العائلة! يمكنك الآن إدارة وعرض شجرة عائلتك بسهولة. الرابط: ${window.location.origin}`;
+          const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+          window.open(whatsappUrl, '_blank');
+          handleSettingsClose();
+        }}>
+          <WhatsAppIcon sx={{ mr: 1, color: '#25d366' }} />
+          مشاركة عبر واتساب
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={() => {
+          setNewPhone(phone || '');
+          setPhoneModalOpen(true);
+          handleSettingsClose();
+        }}>
+          <PhoneIphoneIcon sx={{ mr: 1 }} />
+          تغيير رقم الهاتف
         </MenuItem>
         <Divider />
         <MenuItem onClick={() => { handleLogout(); handleSettingsClose(); }}>
