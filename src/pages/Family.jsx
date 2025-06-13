@@ -455,19 +455,64 @@ export default function Family() {
     navigate('/login');
   };
 
-  // تحديث البحث والتصفية
-  useEffect(() => {
-    if (!search.trim()) {
-      setFilteredMembers(members);
-    } else {
-      const filtered = members.filter(member => {
-        const fullName = `${member.firstName} ${member.fatherName} ${member.grandfatherName} ${member.surname}`.toLowerCase();
-        const searchTerm = search.toLowerCase();
-        return fullName.includes(searchTerm) || member.relation.toLowerCase().includes(searchTerm);
-      });
-      setFilteredMembers(filtered);
+  // تحديث البحث والتصفية مع الترتيب
+useEffect(() => {
+  let filtered;
+  
+  if (!search.trim()) {
+    filtered = members;
+  } else {
+    filtered = members.filter(member => {
+      const fullName = `${member.firstName} ${member.fatherName} ${member.grandfatherName} ${member.surname}`.toLowerCase();
+      const searchTerm = search.toLowerCase();
+      return fullName.includes(searchTerm) || member.relation.toLowerCase().includes(searchTerm);
+    });
+  }
+  
+  // ✅ ترتيب الأعضاء: الأب أولاً ثم الأبناء حسب العمر
+  const sortedMembers = filtered.sort((a, b) => {
+    // 1. رب العائلة أولاً
+    if (a.relation === 'رب العائلة' && b.relation !== 'رب العائلة') return -1;
+    if (b.relation === 'رب العائلة' && a.relation !== 'رب العائلة') return 1;
+    
+    // 2. إذا كان كلاهما رب عائلة، ترتيب حسب تاريخ الإنشاء
+    if (a.relation === 'رب العائلة' && b.relation === 'رب العائلة') {
+      const dateA = new Date(a.createdAt || 0);
+      const dateB = new Date(b.createdAt || 0);
+      return dateA - dateB;
     }
-  }, [search, members]);
+    
+    // 3. إذا كان كلاهما ابن/بنت، ترتيب حسب العمر (الأكبر أولاً)
+    if ((a.relation === 'ابن' || a.relation === 'بنت') && 
+        (b.relation === 'ابن' || b.relation === 'بنت')) {
+      
+      // إذا كان لديهما تاريخ ميلاد، ترتيب حسب العمر
+      if (a.birthdate && b.birthdate) {
+        const birthA = new Date(a.birthdate);
+        const birthB = new Date(b.birthdate);
+        return birthA - birthB; // الأقدم (الأكبر) أولاً
+      }
+      
+      // إذا لم يكن لديهما تاريخ ميلاد، ترتيب حسب تاريخ الإضافة
+      if (!a.birthdate && !b.birthdate) {
+        const dateA = new Date(a.createdAt || 0);
+        const dateB = new Date(b.createdAt || 0);
+        return dateA - dateB;
+      }
+      
+      // إذا كان لأحدهما تاريخ ميلاد والآخر لا، الذي له تاريخ ميلاد أولاً
+      if (a.birthdate && !b.birthdate) return -1;
+      if (!a.birthdate && b.birthdate) return 1;
+    }
+    
+    // 4. ترتيب باقي العلاقات حسب الاسم
+    const nameA = `${a.firstName} ${a.fatherName}`.toLowerCase();
+    const nameB = `${b.firstName} ${b.fatherName}`.toLowerCase();
+    return nameA.localeCompare(nameB, 'ar');
+  });
+  
+  setFilteredMembers(sortedMembers);
+}, [search, members]);
 
   // تحميل البيانات عند بداية المكون
   useEffect(() => {
