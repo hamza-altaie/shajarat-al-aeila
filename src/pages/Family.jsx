@@ -1,4 +1,4 @@
-// src/pages/Family.jsx - الكود الكامل النهائي مع إصلاح شامل للصور
+// src/pages/Family.jsx - نفس الكود تماماً مع إضافة زر عرض الشجرة فقط
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container, TextField, Button, Typography, Paper, Box, IconButton, 
@@ -1036,7 +1036,7 @@ export default function Family() {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
-      {/* الهيدر */}
+      {/* الهيدر مع زر عرض الشجرة المحسن */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
         <Box>
           <Typography variant="h3" fontWeight="bold" gutterBottom>
@@ -1047,7 +1047,37 @@ export default function Family() {
           </Typography>
         </Box>
 
-        <Box display="flex" gap={2}>
+        <Box display="flex" gap={2} alignItems="center">
+          {/* زر عرض الشجرة محسن للجوال */}
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<VisibilityIcon />}
+            onClick={() => navigate('/tree')}
+            sx={{ 
+              borderRadius: 2,
+              px: { xs: 2, sm: 3 },
+              py: { xs: 1, sm: 1.5 },
+              fontSize: { xs: '0.875rem', sm: '1rem' },
+              fontWeight: 600,
+              minWidth: { xs: 100, sm: 140 },
+              '& .MuiButton-startIcon': {
+                marginLeft: { xs: '4px', sm: '8px' },
+                marginRight: '0px',
+                '& > svg': {
+                  fontSize: { xs: '18px', sm: '20px' }
+                }
+              }
+            }}
+          >
+            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+              عرض الشجرة
+            </Box>
+            <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+              الشجرة
+            </Box>
+          </Button>
+          
           <IconButton onClick={handleSettingsClick}>
             <SettingsIcon />
           </IconButton>
@@ -1337,6 +1367,7 @@ export default function Family() {
           </Button>
         </DialogActions>
       </Dialog>
+
       {/* نافذة حذف العضو */}
       <Dialog
         open={deleteDialogOpen}
@@ -1358,7 +1389,7 @@ export default function Family() {
         </DialogActions>
       </Dialog>
 
-      {/* قائمة الإعدادات */}
+      {/* قائمة الإعدادات - بدون زر عرض الشجرة */}
       <Menu
         anchorEl={settingsAnchor}
         open={Boolean(settingsAnchor)}
