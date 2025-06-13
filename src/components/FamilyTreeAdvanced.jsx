@@ -1136,9 +1136,11 @@ export default function FamilyTreeAdvanced() {
           <Divider orientation="vertical" flexItem />
 
           <Tooltip title="تكبير">
-            <IconButton size="small" onClick={handleZoomIn} disabled={loading}>
-              <ZoomIn />
-            </IconButton>
+            <span>
+              <IconButton size="small" onClick={handleZoomIn} disabled={loading}>
+                <ZoomIn />
+              </IconButton>
+            </span>
           </Tooltip>
           
           <Chip 
@@ -1150,15 +1152,19 @@ export default function FamilyTreeAdvanced() {
           />
           
           <Tooltip title="تصغير">
-            <IconButton size="small" onClick={handleZoomOut} disabled={loading}>
-              <ZoomOut />
-            </IconButton>
+            <span>
+              <IconButton size="small" onClick={handleZoomOut} disabled={loading}>
+                <ZoomOut />
+              </IconButton>
+            </span>
           </Tooltip>
           
           <Tooltip title="إعادة تحميل">
-            <IconButton size="small" onClick={handleRefresh} disabled={loading}>
-              <Refresh />
-            </IconButton>
+            <span>
+              <IconButton size="small" onClick={handleRefresh} disabled={loading}>
+                <Refresh />
+              </IconButton>
+            </span>
           </Tooltip>
         </Box>
 
