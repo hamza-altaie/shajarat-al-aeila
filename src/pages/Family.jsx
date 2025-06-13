@@ -551,20 +551,25 @@ export default function Family() {
       return;
     }
 
-    // التحقق من صحة رقم الهاتف العراقي
+    // التحقق من صحة رقم الهاتف العراقي (فقط الأرقام بعد 07)
     const cleanPhone = newPhone.replace(/[\s\-\(\)]/g, '');
-    const iraqiPhoneRegex = /^\+9647[0-9]{8,9}$/;
+    const phoneRegex = /^07[0-9]{8,9}$/;
     
-    if (!iraqiPhoneRegex.test(cleanPhone)) {
-      showSnackbar('❌ رقم الهاتف غير صحيح. يجب أن يبدأ بـ +9647', 'error');
+    if (!phoneRegex.test(cleanPhone)) {
+      showSnackbar('❌ رقم الهاتف غير صحيح. يجب أن يبدأ بـ 07', 'error');
       return;
     }
 
+    // تكوين الرقم الكامل
+    const fullPhone = `+964${cleanPhone.substring(1)}`;
+
     try {
-      localStorage.setItem('verifiedPhone', cleanPhone);
+      localStorage.setItem('verifiedPhone', fullPhone);
       setPhoneModalOpen(false);
       setNewPhone('');
       showSnackbar('✅ تم تحديث رقم الهاتف بنجاح');
+      // إعادة تحميل الصفحة لتظهر الرقم الجديد
+      window.location.reload();
     } catch (error) {
       console.error('خطأ في تحديث رقم الهاتف:', error);
       showSnackbar('❌ حدث خطأ أثناء تحديث رقم الهاتف', 'error');
@@ -1242,30 +1247,67 @@ export default function Family() {
         </DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            أدخل رقم الهاتف الجديد بالصيغة العراقية (+9647xxxxxxxx)
+            أدخل رقم الهاتف الجديد (مثال: 07xxxxxxxx)
           </Typography>
           
-          <TextField
-            autoFocus
-            label="رقم الهاتف الجديد"
-            value={newPhone}
-            onChange={(e) => setNewPhone(e.target.value)}
-            fullWidth
-            placeholder="+9647xxxxxxxx"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <PhoneIphoneIcon color="action" />
-                </InputAdornment>
-              ),
-            }}
-            helperText="يجب أن يبدأ الرقم بـ +9647"
-            sx={{ mb: 2 }}
-          />
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+            {/* كود الدولة الثابت */}
+            <TextField
+              label="كود الدولة"
+              value="+964"
+              disabled
+              sx={{ 
+                width: 100,
+                '& .MuiInputBase-input': {
+                  textAlign: 'center',
+                  fontWeight: 'bold'
+                }
+              }}
+            />
+            
+            {/* حقل إدخال الرقم */}
+            <TextField
+              autoFocus
+              label="رقم الهاتف"
+              value={newPhone}
+              onChange={(e) => setNewPhone(e.target.value)}
+              fullWidth
+              placeholder="07xxxxxxxx"
+              inputProps={{
+                maxLength: 11,
+                style: { direction: 'ltr', textAlign: 'left' }
+              }}
+              helperText="أدخل الرقم بصيغة 07xxxxxxxx"
+              sx={{ 
+                '& .MuiInputBase-input': {
+                  direction: 'ltr',
+                  textAlign: 'left'
+                }
+              }}
+            />
+          </Box>
+          
+          {/* عرض الرقم النهائي فقط إذا كان الإدخال صحيحاً */}
+          {newPhone && newPhone.startsWith('07') && newPhone.length >= 10 && (
+            <Box 
+              sx={{ 
+                p: 2, 
+                mt: 2,
+                backgroundColor: '#e8f5e8', 
+                borderRadius: 2,
+                border: '1px solid #4caf50'
+              }}
+            >
+              <Typography variant="body2" color="success.main" sx={{ fontWeight: 'bold' }}>
+                📱 الرقم النهائي: +964{newPhone.substring(1)}
+              </Typography>
+            </Box>
+          )}
           
           <Box 
             sx={{ 
               p: 2, 
+              mt: 2,
               backgroundColor: '#e3f2fd', 
               borderRadius: 2,
               border: '1px solid #bbdefb'
@@ -1339,7 +1381,11 @@ export default function Family() {
         </MenuItem>
         <Divider />
         <MenuItem onClick={() => {
-          setNewPhone(phone || '');
+          // استخراج الرقم المحلي من الرقم الكامل
+          const currentPhone = phone || '';
+          const localPhone = currentPhone.startsWith('+964') ? 
+            '0' + currentPhone.substring(4) : currentPhone;
+          setNewPhone(localPhone);
           setPhoneModalOpen(true);
           handleSettingsClose();
         }}>
