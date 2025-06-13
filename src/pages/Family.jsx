@@ -661,9 +661,28 @@ export default function Family() {
               component="label"
               startIcon={avatarUploading ? <CircularProgress size={16} /> : <PhotoCameraIcon />}
               disabled={avatarUploading}
-              sx={{ borderRadius: 2 }}
+              sx={{ 
+                borderRadius: 2,
+                px: { xs: 2, sm: 3 },
+                py: { xs: 1, sm: 1.5 },
+                fontSize: { xs: '0.875rem', sm: '1rem' },
+                fontWeight: 600,
+                minWidth: { xs: 120, sm: 140 },
+                '& .MuiButton-startIcon': {
+                  marginLeft: { xs: '8px', sm: '12px' },
+                  marginRight: '0px',
+                  '& > svg': {
+                    fontSize: { xs: '18px', sm: '20px' }
+                  }
+                }
+              }}
             >
-              {avatarUploading ? 'جاري الرفع...' : 'اختر صورة'}
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                {avatarUploading ? 'جاري الرفع...' : 'اختر صورة'}
+              </Box>
+              <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+                {avatarUploading ? 'رفع...' : 'صورة'}
+              </Box>
               <input
                 type="file"
                 hidden
