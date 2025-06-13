@@ -17,7 +17,7 @@ import {
 
 // استيرادات Firebase
 import { doc, getDoc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../firebase/config';
 
 import { useNavigate } from 'react-router-dom';
@@ -78,6 +78,89 @@ export default function Family() {
     setSnackbarSeverity(severity);
     setSnackbarOpen(true);
   }, []);
+
+  // دالة حذف الصورة القديمة من Firebase Storage
+  const deleteOldAvatar = async (oldAvatarUrl) => {
+    if (!oldAvatarUrl || !oldAvatarUrl.includes('firebase')) {
+      return true;
+    }
+    
+    try {
+      const url = new URL(oldAvatarUrl);
+      const pathSegments = url.pathname.split('/');
+      const encodedPath = pathSegments[pathSegments.length - 1];
+      const filePath = decodeURIComponent(encodedPath.split('?')[0]);
+      
+      console.log('🗑️ حذف الصورة القديمة:', filePath);
+      
+      const oldAvatarRef = ref(storage, filePath);
+      await deleteObject(oldAvatarRef);
+      
+      console.log('✅ تم حذف الصورة القديمة بنجاح');
+      return true;
+    } catch (error) {
+      console.error('❌ خطأ في حذف الصورة القديمة:', error);
+      return false;
+    }
+  };
+
+  // دالة حساب العمر بالتاريخ الميلادي
+  const calculateAge = (birthdate) => {
+    if (!birthdate) return '';
+    
+    try {
+      const birth = new Date(birthdate);
+      const today = new Date();
+      
+      if (isNaN(birth.getTime())) return '';
+      
+      let age = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+      }
+      
+      if (age === 0) {
+        const monthsDiff = today.getMonth() - birth.getMonth() + 
+                         (12 * (today.getFullYear() - birth.getFullYear()));
+        
+        if (monthsDiff < 1) {
+          const daysDiff = Math.floor((today - birth) / (1000 * 60 * 60 * 24));
+          return `${daysDiff} يوم`;
+        } else {
+          return `${monthsDiff} شهر`;
+        }
+      }
+      
+      return `${age} سنة`;
+    } catch (error) {
+      console.error('خطأ في حساب العمر:', error);
+      return '';
+    }
+  };
+
+  // دالة تنسيق التاريخ الميلادي
+  const formatGregorianDate = (birthdate) => {
+    if (!birthdate) return '';
+    
+    try {
+      const date = new Date(birthdate);
+      if (isNaN(date.getTime())) return '';
+      
+      const options = {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        calendar: 'gregory'
+      };
+      
+      return date.toLocaleDateString('ar-SA', options);
+    } catch (error) {
+      console.error('خطأ في تنسيق التاريخ:', error);
+      return birthdate;
+    }
+  };
 
   // تحميل بيانات العائلة مع تشخيص مُحسن للصور
   const loadFamily = useCallback(async () => {
@@ -233,6 +316,13 @@ export default function Family() {
       // التحقق من وجود storage
       if (!storage) {
         throw new Error('Firebase Storage غير مُهيأ');
+      }
+      
+      // 🗑️ حذف الصورة القديمة أولاً إذا كانت موجودة
+      const oldAvatarUrl = form.avatar;
+      if (oldAvatarUrl && oldAvatarUrl.trim() !== '') {
+        console.log('🗑️ حذف الصورة القديمة أولاً...');
+        await deleteOldAvatar(oldAvatarUrl);
       }
       
       // إنشاء اسم ملف فريد
@@ -425,8 +515,17 @@ export default function Family() {
       return;
     }
 
+    // العثور على العضو المراد حذفه
+    const memberToDelete = members.find(m => m.id === deleteMemberId);
+
     setLoading(true);
     try {
+      // 🗑️ حذف صورة العضو إذا كانت موجودة
+      if (memberToDelete?.avatar) {
+        console.log('🗑️ حذف صورة العضو المحذوف...');
+        await deleteOldAvatar(memberToDelete.avatar);
+      }
+      
       await deleteDoc(doc(db, 'users', uid, 'family', deleteMemberId));
       await loadFamily();
       showSnackbar('✅ تم حذف العضو بنجاح');
@@ -851,12 +950,30 @@ export default function Family() {
             sx={{ mb: 2, borderRadius: 2 }}
           />
 
-          {/* تاريخ الميلاد */}
+          {/* العمر والتاريخ الميلادي */}
           {member.birthdate && (
-            <Box display="flex" alignItems="center" justifyContent="center" gap={1} mb={1}>
-              <CakeIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-              <Typography variant="body2" color="text.secondary">
-                {new Date(member.birthdate).toLocaleDateString('ar-SA')}
+            <Box sx={{ mt: 1 }}>
+              <Typography 
+                variant="body2" 
+                color="text.secondary"
+                sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  gap: 1,
+                  mb: 1
+                }}
+              >
+                <CakeIcon fontSize="small" />
+                {calculateAge(member.birthdate)}
+              </Typography>
+              
+              <Typography 
+                variant="caption" 
+                color="text.secondary"
+                sx={{ fontSize: '0.75rem' }}
+              >
+                ولد في: {formatGregorianDate(member.birthdate)}
               </Typography>
             </Box>
           )}
