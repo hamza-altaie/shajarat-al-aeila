@@ -27,18 +27,33 @@ const PhoneLogin = () => {
   useEffect(() => {
     const checkStatus = async () => {
       try {
+        // استيراد دالة فحص Firebase بشكل صحيح
         const { checkFirebaseStatus } = await import('../firebase/config');
+        
+        if (typeof checkFirebaseStatus !== 'function') {
+          throw new Error('checkFirebaseStatus is not a function');
+        }
+        
         const status = checkFirebaseStatus();
         setFirebaseStatus(status);
         
         if (!status.isInitialized) {
           setMessage('❌ خطأ في تهيئة Firebase. يرجى التحقق من الإعدادات.');
-        } else if (status.config.isDemoConfig) {
+        } else if (status.config?.isDemoConfig) {
           setMessage('⚠️ يتم استخدام إعدادات تجريبية. يرجى تحديث ملف .env');
+        } else {
+          setMessage(''); // مسح أي رسائل خطأ سابقة
         }
       } catch (error) {
         console.error('خطأ في فحص Firebase:', error);
-        setFirebaseStatus({ isInitialized: false, error: error.message });
+        
+        // إعداد حالة افتراضية في حالة فشل الفحص
+        setFirebaseStatus({ 
+          isInitialized: false, 
+          error: error.message || 'فشل في فحص حالة Firebase'
+        });
+        
+        setMessage('⚠️ تحذير: قد تكون هناك مشكلة في إعدادات Firebase');
       }
     };
     

@@ -1250,14 +1250,15 @@ export default function Family() {
             أدخل رقم الهاتف الجديد (مثال: 07xxxxxxxx)
           </Typography>
           
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-            {/* كود الدولة الثابت */}
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', direction: 'ltr' }}>
+            {/* كود الدولة على اليسار */}
             <TextField
               label="كود الدولة"
               value="+964"
               disabled
               sx={{ 
                 width: 100,
+                order: 1,
                 '& .MuiInputBase-input': {
                   textAlign: 'center',
                   fontWeight: 'bold'
@@ -1272,13 +1273,14 @@ export default function Family() {
               value={newPhone}
               onChange={(e) => setNewPhone(e.target.value)}
               fullWidth
-              placeholder="07xxxxxxxx"
+              placeholder="7xxxxxxxx"
               inputProps={{
                 maxLength: 11,
                 style: { direction: 'ltr', textAlign: 'left' }
               }}
-              helperText="أدخل الرقم بصيغة 07xxxxxxxx"
+              helperText="مثال: 7701234567 أو 07701234567"
               sx={{ 
+                order: 2,
                 '& .MuiInputBase-input': {
                   direction: 'ltr',
                   textAlign: 'left'
@@ -1286,24 +1288,6 @@ export default function Family() {
               }}
             />
           </Box>
-          
-          {/* عرض الرقم النهائي فقط إذا كان الإدخال صحيحاً */}
-          {newPhone && newPhone.startsWith('07') && newPhone.length >= 10 && (
-            <Box 
-              sx={{ 
-                p: 2, 
-                mt: 2,
-                backgroundColor: '#e8f5e8', 
-                borderRadius: 2,
-                border: '1px solid #4caf50'
-              }}
-            >
-              <Typography variant="body2" color="success.main" sx={{ fontWeight: 'bold' }}>
-                📱 الرقم النهائي: +964{newPhone.substring(1)}
-              </Typography>
-            </Box>
-          )}
-          
           <Box 
             sx={{ 
               p: 2, 
@@ -1334,7 +1318,18 @@ export default function Family() {
             variant="contained"
             sx={{ 
               borderRadius: 2,
-              minWidth: 120
+              minWidth: { xs: 100, sm: 120 },
+              px: { xs: 2, sm: 3 },
+              py: 1,
+              gap: { xs: 1, sm: 1.5 },
+              fontSize: { xs: '0.875rem', sm: '1rem' },
+              '& .MuiButton-startIcon': {
+                marginLeft: { xs: '8px', sm: '12px' },
+                marginRight: '0px',
+                '& > svg': {
+                  fontSize: { xs: '18px', sm: '20px' }
+                }
+              }
             }}
             startIcon={<PhoneIphoneIcon />}
           >
@@ -1342,7 +1337,6 @@ export default function Family() {
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* نافذة حذف العضو */}
       <Dialog
         open={deleteDialogOpen}
