@@ -1,4 +1,4 @@
-// src/pages/Family.jsx - النسخة الكاملة المُصححة
+// src/pages/Family.jsx - الكود الكامل النهائي مع إصلاح شامل للصور
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container, TextField, Button, Typography, Paper, Box, IconButton, 
@@ -79,7 +79,7 @@ export default function Family() {
     setSnackbarOpen(true);
   }, []);
 
-  // تحميل بيانات العائلة
+  // تحميل بيانات العائلة مع تشخيص مُحسن للصور
   const loadFamily = useCallback(async () => {
     if (!uid) {
       console.warn('⚠️ UID غير موجود، إعادة توجيه للتسجيل');
@@ -94,9 +94,13 @@ export default function Family() {
       const familyCollection = collection(db, 'users', uid, 'family');
       const snapshot = await getDocs(familyCollection);
       
+      console.log('📊 عدد المستندات المُحملة:', snapshot.docs.length);
+      
       const familyData = snapshot.docs.map(doc => {
         const data = doc.data();
-        return {
+        console.log('📄 بيانات خام من قاعدة البيانات:', data);
+        
+        const member = {
           id: doc.id || data.id,
           firstName: data.firstName || '',
           fatherName: data.fatherName || '',
@@ -104,12 +108,38 @@ export default function Family() {
           surname: data.surname || '',
           relation: data.relation || '',
           birthdate: data.birthdate || '',
-          avatar: data.avatar || ''
+          avatar: data.avatar || '', // 🔥 التأكد من تحميل رابط الصورة
+          parentId: data.parentId || '',
+          manualParentName: data.manualParentName || '',
+          createdAt: data.createdAt || '',
+          updatedAt: data.updatedAt || ''
         };
+        
+        console.log('👤 عضو مُعالج:', {
+          name: member.firstName,
+          avatar: member.avatar,
+          hasAvatar: !!member.avatar && member.avatar.trim() !== ''
+        });
+        
+        return member;
       }).filter(member => member.id && member.firstName);
+
+      console.log('📊 جميع البيانات المُحملة:', familyData);
+      console.log('🖼️ تفاصيل الصور:');
+      familyData.forEach(member => {
+        console.log(`  - ${member.firstName}: ${member.avatar ? '✅ يحتوي على صورة' : '❌ لا يحتوي على صورة'}`);
+        if (member.avatar) {
+          console.log(`    الرابط: ${member.avatar}`);
+        }
+      });
 
       setMembers(familyData);
       console.log('✅ تم تحميل بيانات العائلة:', familyData.length, 'فرد');
+      
+      // فحص إضافي للصور
+      const membersWithAvatars = familyData.filter(m => m.avatar && m.avatar.trim() !== '');
+      console.log(`🖼️ الأعضاء الذين لديهم صور: ${membersWithAvatars.length} من ${familyData.length}`);
+      
     } catch (error) {
       console.error('❌ خطأ في تحميل بيانات العائلة:', error);
       
@@ -172,7 +202,7 @@ export default function Family() {
     }
   };
 
-  // معالجة رفع الصورة
+  // معالجة رفع الصورة مع حفظ فوري مُحسن
   const handleAvatarUpload = async (file) => {
     if (!file) {
       console.warn('⚠️ لم يتم اختيار ملف');
@@ -226,6 +256,32 @@ export default function Family() {
       const downloadURL = await getDownloadURL(snapshot.ref);
       
       console.log('✅ تم الحصول على الرابط:', downloadURL);
+      
+      // 🔥 تحديث الحالة فوراً لعرض الصورة
+      setForm(prev => {
+        const updatedForm = { ...prev, avatar: downloadURL };
+        console.log('🖼️ تم تحديث النموذج بالصورة:', updatedForm);
+        console.log('🔗 الرابط المُخزن في النموذج:', downloadURL);
+        return updatedForm;
+      });
+      
+      // 🔥 حفظ الصورة فوراً في قاعدة البيانات إذا كان العضو موجود
+      if (form.id) {
+        console.log('💾 حفظ رابط الصورة فوراً للعضو الموجود:', form.id);
+        try {
+          await setDoc(doc(db, 'users', uid, 'family', form.id), {
+            avatar: downloadURL,
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+          console.log('✅ تم حفظ رابط الصورة بنجاح');
+          
+          // إعادة تحميل البيانات لإظهار الصورة فوراً
+          await loadFamily();
+        } catch (saveError) {
+          console.error('❌ خطأ في حفظ رابط الصورة:', saveError);
+        }
+      }
+      
       showSnackbar('✅ تم رفع الصورة بنجاح', 'success');
       
       return downloadURL;
@@ -257,7 +313,7 @@ export default function Family() {
     }
   };
 
-  // معالجة إرسال النموذج
+  // معالجة إرسال النموذج مع حفظ الصورة المُحسن
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -283,34 +339,52 @@ export default function Family() {
         linkedParentUid = parentMember ? uid : null;
       }
 
+      // 🔥 التأكد من حفظ رابط الصورة بشكل صحيح
       const memberData = {
-        ...form,
+        firstName: form.firstName || '',
+        fatherName: form.fatherName || '',
+        grandfatherName: form.grandfatherName || '',
+        surname: form.surname || '',
+        birthdate: form.birthdate || '',
+        relation: form.relation || '',
+        parentId: form.parentId || '',
+        avatar: form.avatar || '', // 🔥 هذا هو المهم!
+        manualParentName: form.manualParentName || '',
         linkedParentUid,
         updatedAt: new Date().toISOString(),
       };
 
+      console.log('📊 البيانات التي سيتم حفظها:', memberData);
+      console.log('🖼️ رابط الصورة في البيانات:', memberData.avatar);
+      console.log('🖼️ طول رابط الصورة:', memberData.avatar?.length);
+
       // حفظ أو تحديث العضو
       if (form.id) {
+        console.log('🔄 تحديث عضو موجود:', form.id);
         await setDoc(doc(db, 'users', uid, 'family', form.id), memberData, { merge: true });
         showSnackbar('✅ تم تحديث بيانات العضو بنجاح');
       } else {
+        console.log('➕ إضافة عضو جديد');
         const newDocRef = doc(collection(db, 'users', uid, 'family'));
-        await setDoc(newDocRef, { 
+        const newMemberData = { 
           ...memberData, 
           id: newDocRef.id,
           createdAt: new Date().toISOString()
-        });
+        };
+        console.log('📊 بيانات العضو الجديد:', newMemberData);
+        await setDoc(newDocRef, newMemberData);
         showSnackbar('✅ تم إضافة العضو بنجاح');
       }
 
       // إعادة تحميل البيانات وإعادة تعيين النموذج
+      console.log('🔄 إعادة تحميل قائمة الأعضاء...');
       await loadFamily();
       setForm(DEFAULT_FORM);
       setStatus('');
       
       return true;
     } catch (error) {
-      console.error('خطأ في حفظ البيانات:', error);
+      console.error('❌ خطأ في حفظ البيانات:', error);
       const errorMsg = 'حدث خطأ أثناء حفظ البيانات';
       setStatus('❌ ' + errorMsg);
       showSnackbar(errorMsg, 'error');
@@ -326,6 +400,7 @@ export default function Family() {
 
   // معالجة تعديل العضو
   const handleEdit = (member) => {
+    console.log('✏️ تعديل العضو:', member);
     setForm({ ...member });
     setEditModalOpen(true);
   };
@@ -426,11 +501,18 @@ export default function Family() {
               overflow: 'hidden'
             }}
           >
-            {form.avatar ? (
+            {form.avatar && form.avatar.trim() !== '' ? (
               <img 
                 src={form.avatar} 
                 alt="صورة العضو" 
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={(e) => {
+                  console.error('❌ فشل تحميل صورة النموذج:', form.avatar);
+                  e.target.style.display = 'none';
+                }}
+                onLoad={() => {
+                  console.log('✅ تم تحميل صورة النموذج بنجاح:', form.avatar);
+                }}
               />
             ) : (
               <PersonIcon sx={{ fontSize: 40, color: '#2196f3' }} />
@@ -456,14 +538,20 @@ export default function Family() {
                 onChange={async (e) => {
                   const file = e.target.files[0];
                   if (file) {
+                    console.log('📎 تم اختيار ملف:', file.name);
                     const avatarURL = await handleAvatarUpload(file);
                     if (avatarURL) {
-                      setForm(prev => ({ ...prev, avatar: avatarURL }));
+                      console.log('🎉 تم رفع الصورة وتحديث النموذج');
                     }
                   }
                 }}
               />
             </Button>
+            {form.avatar && (
+              <Typography variant="caption" color="success.main" display="block" sx={{ mt: 1 }}>
+                ✅ تم رفع الصورة بنجاح
+              </Typography>
+            )}
           </Box>
         </Box>
       </Paper>
@@ -666,7 +754,7 @@ export default function Family() {
     </Box>
   );
 
-  // عرض كارت العضو
+  // عرض كارت العضو مع عرض صور مُحسن
   const renderMemberCard = (member) => (
     <Grid item xs={12} sm={6} md={4} key={member.id}>
       <Card 
@@ -682,7 +770,7 @@ export default function Family() {
         }}
       >
         <CardContent sx={{ textAlign: 'center', p: 3 }}>
-          {/* صورة العضو */}
+          {/* صورة العضو المُحسنة */}
           <Box
             sx={{
               width: 80,
@@ -694,17 +782,55 @@ export default function Family() {
               justifyContent: 'center',
               margin: '0 auto 16px auto',
               border: '3px solid #2196f3',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              position: 'relative'
             }}
           >
-            {member.avatar ? (
-              <img 
-                src={member.avatar} 
-                alt={member.firstName} 
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
+            {member.avatar && member.avatar.trim() !== '' ? (
+              <>
+                {console.log('🖼️ محاولة عرض صورة العضو:', member.firstName, 'الرابط:', member.avatar)}
+                <img 
+                  src={member.avatar} 
+                  alt={member.firstName} 
+                  style={{ 
+                    width: '100%', 
+                    height: '100%', 
+                    objectFit: 'cover',
+                    display: 'block'
+                  }}
+                  onError={(e) => {
+                    console.error('❌ فشل تحميل صورة العضو:', member.firstName);
+                    console.error('❌ رابط الصورة المُستخدم:', member.avatar);
+                    console.error('❌ تفاصيل الخطأ:', e);
+                    // إخفاء الصورة وإظهار الأيقونة الافتراضية
+                    e.target.style.display = 'none';
+                    e.target.nextElementSibling.style.display = 'flex';
+                  }}
+                  onLoad={() => {
+                    console.log('✅ تم تحميل صورة العضو بنجاح:', member.firstName);
+                    console.log('✅ رابط الصورة:', member.avatar);
+                  }}
+                />
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    display: 'none',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <PersonIcon sx={{ fontSize: 40, color: '#2196f3' }} />
+                </Box>
+              </>
             ) : (
-              <PersonIcon sx={{ fontSize: 40, color: '#2196f3' }} />
+              <>
+                {console.log('❓ لا توجد صورة للعضو:', member.firstName, 'البيانات:', member)}
+                <PersonIcon sx={{ fontSize: 40, color: '#2196f3' }} />
+              </>
             )}
           </Box>
 
@@ -930,6 +1056,34 @@ export default function Family() {
       >
         <AddIcon />
       </Fab>
+
+      {/* نافذة التعديل */}
+      <Dialog
+        open={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="h5" fontWeight="bold">
+              تعديل بيانات العضو
+            </Typography>
+            <IconButton onClick={() => setEditModalOpen(false)}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box component="form" onSubmit={async (e) => {
+            e.preventDefault();
+            const success = await handleSubmit(e);
+            if (success) setEditModalOpen(false);
+          }} sx={{ mt: 2 }}>
+            {renderForm()}
+          </Box>
+        </DialogContent>
+      </Dialog>
 
       {/* نافذة حذف العضو */}
       <Dialog
