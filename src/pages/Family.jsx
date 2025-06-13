@@ -1,4 +1,4 @@
-// src/pages/Family.jsx - نفس الكود تماماً مع إضافة زر عرض الشجرة فقط
+// src/pages/Family.jsx - منظف ومحسن
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container, TextField, Button, Typography, Paper, Box, IconButton, 
@@ -15,13 +15,12 @@ import {
   People as FamilyIcon
 } from '@mui/icons-material';
 
-// استيرادات Firebase
-import { doc, getDoc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../firebase/config';
 
 import { useNavigate } from 'react-router-dom';
-import { validateName, validateBirthdate, validatePhone } from '../hooks/usePhoneAuth';
+import { validateName, validateBirthdate } from '../hooks/usePhoneAuth';
 
 // نموذج البيانات الافتراضي
 const DEFAULT_FORM = {
@@ -39,20 +38,17 @@ const DEFAULT_FORM = {
 
 // علاقات العائلة المتاحة
 const FAMILY_RELATIONS = [
-  { value: 'رب العائلة', label: '👨‍👩‍👧‍👦 رب العائلة', icon: '👨‍👩‍👧‍👦' },
-  { value: 'ابن', label: '👦 ابن', icon: '👦' },
-  { value: 'بنت', label: '👧 بنت', icon: '👧' }
+  { value: 'رب العائلة', label: '👨‍👩‍👧‍👦 رب العائلة' },
+  { value: 'ابن', label: '👦 ابن' },
+  { value: 'بنت', label: '👧 بنت' }
 ];
 
 export default function Family() {
-  // حالات النموذج والبيانات
+  // الحالات الأساسية
   const [form, setForm] = useState(DEFAULT_FORM);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
-  
-  // حالات البحث والتصفية
   const [search, setSearch] = useState('');
   const [filteredMembers, setFilteredMembers] = useState([]);
   
@@ -64,7 +60,7 @@ export default function Family() {
   const [phoneModalOpen, setPhoneModalOpen] = useState(false);
   const [newPhone, setNewPhone] = useState('');
   
-  // حالات الصور والتحديث
+  // حالات الإشعارات والصور
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
@@ -81,11 +77,9 @@ export default function Family() {
     setSnackbarOpen(true);
   }, []);
 
-  // دالة حذف الصورة القديمة من Firebase Storage
+  // دالة حذف الصورة القديمة
   const deleteOldAvatar = async (oldAvatarUrl) => {
-    if (!oldAvatarUrl || !oldAvatarUrl.includes('firebase')) {
-      return true;
-    }
+    if (!oldAvatarUrl?.includes('firebase')) return true;
     
     try {
       const url = new URL(oldAvatarUrl);
@@ -93,20 +87,16 @@ export default function Family() {
       const encodedPath = pathSegments[pathSegments.length - 1];
       const filePath = decodeURIComponent(encodedPath.split('?')[0]);
       
-      console.log('🗑️ حذف الصورة القديمة:', filePath);
-      
       const oldAvatarRef = ref(storage, filePath);
       await deleteObject(oldAvatarRef);
-      
-      console.log('✅ تم حذف الصورة القديمة بنجاح');
       return true;
     } catch (error) {
-      console.error('❌ خطأ في حذف الصورة القديمة:', error);
+      console.error('خطأ في حذف الصورة القديمة:', error);
       return false;
     }
   };
 
-  // دالة حساب العمر بالتاريخ الميلادي
+  // دالة حساب العمر
   const calculateAge = (birthdate) => {
     if (!birthdate) return '';
     
@@ -137,7 +127,6 @@ export default function Family() {
       
       return `${age} سنة`;
     } catch (error) {
-      console.error('خطأ في حساب العمر:', error);
       return '';
     }
   };
@@ -150,42 +139,31 @@ export default function Family() {
       const date = new Date(birthdate);
       if (isNaN(date.getTime())) return '';
       
-      const options = {
+      return date.toLocaleDateString('en-US', {
         year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        calendar: 'gregory'
-      };
-      
-      return date.toLocaleDateString('ar-SA', options);
+        month: 'long', 
+        day: 'numeric'
+      });
     } catch (error) {
-      console.error('خطأ في تنسيق التاريخ:', error);
       return birthdate;
     }
   };
 
-  // تحميل بيانات العائلة مع تشخيص مُحسن للصور
+  // تحميل بيانات العائلة
   const loadFamily = useCallback(async () => {
     if (!uid) {
-      console.warn('⚠️ UID غير موجود، إعادة توجيه للتسجيل');
       navigate('/login');
       return;
     }
 
     setLoading(true);
     try {
-      console.log('📥 تحميل بيانات العائلة للمستخدم:', uid);
-      
       const familyCollection = collection(db, 'users', uid, 'family');
       const snapshot = await getDocs(familyCollection);
       
-      console.log('📊 عدد المستندات المُحملة:', snapshot.docs.length);
-      
       const familyData = snapshot.docs.map(doc => {
         const data = doc.data();
-        console.log('📄 بيانات خام من قاعدة البيانات:', data);
-        
-        const member = {
+        return {
           id: doc.id || data.id,
           firstName: data.firstName || '',
           fatherName: data.fatherName || '',
@@ -193,46 +171,22 @@ export default function Family() {
           surname: data.surname || '',
           relation: data.relation || '',
           birthdate: data.birthdate || '',
-          avatar: data.avatar || '', // 🔥 التأكد من تحميل رابط الصورة
+          avatar: data.avatar || '',
           parentId: data.parentId || '',
           manualParentName: data.manualParentName || '',
           createdAt: data.createdAt || '',
           updatedAt: data.updatedAt || ''
         };
-        
-        console.log('👤 عضو مُعالج:', {
-          name: member.firstName,
-          avatar: member.avatar,
-          hasAvatar: !!member.avatar && member.avatar.trim() !== ''
-        });
-        
-        return member;
       }).filter(member => member.id && member.firstName);
 
-      console.log('📊 جميع البيانات المُحملة:', familyData);
-      console.log('🖼️ تفاصيل الصور:');
-      familyData.forEach(member => {
-        console.log(`  - ${member.firstName}: ${member.avatar ? '✅ يحتوي على صورة' : '❌ لا يحتوي على صورة'}`);
-        if (member.avatar) {
-          console.log(`    الرابط: ${member.avatar}`);
-        }
-      });
-
       setMembers(familyData);
-      console.log('✅ تم تحميل بيانات العائلة:', familyData.length, 'فرد');
-      
-      // فحص إضافي للصور
-      const membersWithAvatars = familyData.filter(m => m.avatar && m.avatar.trim() !== '');
-      console.log(`🖼️ الأعضاء الذين لديهم صور: ${membersWithAvatars.length} من ${familyData.length}`);
       
     } catch (error) {
-      console.error('❌ خطأ في تحميل بيانات العائلة:', error);
+      console.error('خطأ في تحميل بيانات العائلة:', error);
       
       if (error.code === 'permission-denied') {
         showSnackbar('ليس لديك صلاحية للوصول إلى هذه البيانات', 'error');
         navigate('/login');
-      } else if (error.code === 'unavailable') {
-        showSnackbar('الخدمة غير متاحة حالياً، يرجى المحاولة لاحقاً', 'error');
       } else {
         showSnackbar('حدث خطأ أثناء تحميل بيانات العائلة', 'error');
       }
@@ -246,31 +200,31 @@ export default function Family() {
     const errors = {};
     
     if (!validateName(form.firstName)) {
-      errors.firstName = '❌ أدخل الاسم الأول (2-40 حرف، عربي أو إنجليزي)';
+      errors.firstName = 'أدخل الاسم الأول (2-40 حرف، عربي أو إنجليزي)';
     }
     
     if (!validateName(form.fatherName)) {
-      errors.fatherName = '❌ أدخل اسم الأب (2-40 حرف، عربي أو إنجليزي)';
+      errors.fatherName = 'أدخل اسم الأب (2-40 حرف، عربي أو إنجليزي)';
     }
     
     if (!validateName(form.grandfatherName)) {
-      errors.grandfatherName = '❌ أدخل اسم الجد (2-40 حرف، عربي أو إنجليزي)';
+      errors.grandfatherName = 'أدخل اسم الجد (2-40 حرف، عربي أو إنجليزي)';
     }
     
     if (!validateName(form.surname)) {
-      errors.surname = '❌ أدخل اللقب (2-40 حرف، عربي أو إنجليزي)';
+      errors.surname = 'أدخل اللقب (2-40 حرف، عربي أو إنجليزي)';
     }
     
     if (!validateBirthdate(form.birthdate)) {
-      errors.birthdate = '❌ أدخل تاريخ ميلاد صحيح وليس في المستقبل';
+      errors.birthdate = 'أدخل تاريخ ميلاد صحيح وليس في المستقبل';
     }
     
     if (!form.relation) {
-      errors.relation = '❌ اختر القرابة';
+      errors.relation = 'اختر القرابة';
     }
     
     if (form.id && form.parentId === form.id) {
-      errors.parentId = '❌ لا يمكن للفرد أن يكون أبًا لنفسه';
+      errors.parentId = 'لا يمكن للفرد أن يكون أبًا لنفسه';
     }
     
     return errors;
@@ -281,157 +235,89 @@ export default function Family() {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
     
-    // إزالة رسالة الخطأ عند التصحيح
     if (fieldErrors[name]) {
       setFieldErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
-  // معالجة رفع الصورة مع حفظ فوري مُحسن
+  // معالجة رفع الصورة
   const handleAvatarUpload = async (file) => {
-    if (!file) {
-      console.warn('⚠️ لم يتم اختيار ملف');
-      return null;
-    }
+    if (!file) return null;
     
-    console.log('📤 بدء رفع الصورة:', file.name, 'حجم:', file.size);
-    
-    // التحقق من نوع الملف
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!validTypes.includes(file.type)) {
-      console.error('❌ نوع ملف غير مدعوم:', file.type);
-      showSnackbar('❌ نوع الملف غير مدعوم. استخدم JPEG, PNG, أو WebP', 'error');
+      showSnackbar('نوع الملف غير مدعوم. استخدم JPEG, PNG, أو WebP', 'error');
       return null;
     }
     
-    // التحقق من حجم الملف (5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
-      console.error('❌ حجم الملف كبير:', file.size);
-      showSnackbar('❌ حجم الصورة كبير جداً. الحد الأقصى 5MB', 'error');
+      showSnackbar('حجم الصورة كبير جداً. الحد الأقصى 5MB', 'error');
       return null;
     }
 
     setAvatarUploading(true);
     
     try {
-      // التحقق من وجود storage
-      if (!storage) {
-        throw new Error('Firebase Storage غير مُهيأ');
-      }
+      if (!storage) throw new Error('Firebase Storage غير مُهيأ');
       
-      // 🗑️ حذف الصورة القديمة أولاً إذا كانت موجودة
       const oldAvatarUrl = form.avatar;
-      if (oldAvatarUrl && oldAvatarUrl.trim() !== '') {
-        console.log('🗑️ حذف الصورة القديمة أولاً...');
+      if (oldAvatarUrl?.trim()) {
         await deleteOldAvatar(oldAvatarUrl);
       }
       
-      // إنشاء اسم ملف فريد
       const timestamp = Date.now();
       const cleanFileName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
       const fileName = `avatars/${uid}/${timestamp}_${cleanFileName}`;
       
-      console.log('📁 إنشاء مرجع للملف:', fileName);
-      
-      // إنشاء مرجع للملف
       const avatarRef = ref(storage, fileName);
-      
-      console.log('⬆️ رفع الملف...');
-      
-      // رفع الملف
       const snapshot = await uploadBytes(avatarRef, file);
-      console.log('✅ تم رفع الملف بنجاح:', snapshot.metadata.fullPath);
-      
-      // الحصول على رابط التحميل
-      console.log('🔗 الحصول على رابط التحميل...');
       const downloadURL = await getDownloadURL(snapshot.ref);
       
-      console.log('✅ تم الحصول على الرابط:', downloadURL);
+      setForm(prev => ({ ...prev, avatar: downloadURL }));
       
-      // 🔥 تحديث الحالة فوراً لعرض الصورة
-      setForm(prev => {
-        const updatedForm = { ...prev, avatar: downloadURL };
-        console.log('🖼️ تم تحديث النموذج بالصورة:', updatedForm);
-        console.log('🔗 الرابط المُخزن في النموذج:', downloadURL);
-        return updatedForm;
-      });
-      
-      // 🔥 حفظ الصورة فوراً في قاعدة البيانات إذا كان العضو موجود
       if (form.id) {
-        console.log('💾 حفظ رابط الصورة فوراً للعضو الموجود:', form.id);
-        try {
-          await setDoc(doc(db, 'users', uid, 'family', form.id), {
-            avatar: downloadURL,
-            updatedAt: new Date().toISOString()
-          }, { merge: true });
-          console.log('✅ تم حفظ رابط الصورة بنجاح');
-          
-          // إعادة تحميل البيانات لإظهار الصورة فوراً
-          await loadFamily();
-        } catch (saveError) {
-          console.error('❌ خطأ في حفظ رابط الصورة:', saveError);
-        }
+        await setDoc(doc(db, 'users', uid, 'family', form.id), {
+          avatar: downloadURL,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+        
+        await loadFamily();
       }
       
-      showSnackbar('✅ تم رفع الصورة بنجاح', 'success');
-      
+      showSnackbar('تم رفع الصورة بنجاح', 'success');
       return downloadURL;
       
     } catch (error) {
-      console.error('❌ خطأ مفصل في رفع الصورة:', error);
-      
-      // معالجة أنواع مختلفة من الأخطاء
-      let errorMessage = 'فشل رفع الصورة';
-      
-      if (error.code === 'storage/unauthorized') {
-        errorMessage = 'ليس لديك صلاحية لرفع الصور';
-        console.error('❌ خطأ صلاحية:', error);
-      } else if (error.code === 'storage/canceled') {
-        errorMessage = 'تم إلغاء رفع الصورة';
-      } else if (error.code === 'storage/unknown') {
-        errorMessage = 'خطأ غير معروف في الخادم';
-      } else if (error.message.includes('network')) {
-        errorMessage = 'مشكلة في الاتصال بالإنترنت';
-      } else if (error.message.includes('Firebase Storage')) {
-        errorMessage = 'مشكلة في إعدادات Firebase Storage';
-      }
-      
-      showSnackbar(`❌ ${errorMessage}`, 'error');
+      console.error('خطأ في رفع الصورة:', error);
+      showSnackbar('فشل رفع الصورة', 'error');
       return null;
-      
     } finally {
       setAvatarUploading(false);
     }
   };
 
-  // معالجة إرسال النموذج مع حفظ الصورة المُحسن
+  // معالجة إرسال النموذج
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // التحقق من صحة البيانات
     const errors = validateForm();
     setFieldErrors(errors);
     
     if (Object.keys(errors).length > 0) {
-      showSnackbar('❌ يرجى تصحيح الأخطاء أولاً', 'error');
+      showSnackbar('يرجى تصحيح الأخطاء أولاً', 'error');
       return false;
     }
 
     setLoading(true);
-    setStatus('جاري الحفظ...');
 
     try {
-      console.log('💾 حفظ بيانات العضو:', form);
-
-      // تحديد الربط مع الأب
       let linkedParentUid = null;
       if (form.parentId && form.parentId !== 'manual') {
         const parentMember = members.find(m => m.id === form.parentId);
         linkedParentUid = parentMember ? uid : null;
       }
 
-      // 🔥 التأكد من حفظ رابط الصورة بشكل صحيح
       const memberData = {
         firstName: form.firstName || '',
         fatherName: form.fatherName || '',
@@ -440,59 +326,40 @@ export default function Family() {
         birthdate: form.birthdate || '',
         relation: form.relation || '',
         parentId: form.parentId || '',
-        avatar: form.avatar || '', // 🔥 هذا هو المهم!
+        avatar: form.avatar || '',
         manualParentName: form.manualParentName || '',
         linkedParentUid,
         updatedAt: new Date().toISOString(),
       };
 
-      console.log('📊 البيانات التي سيتم حفظها:', memberData);
-      console.log('🖼️ رابط الصورة في البيانات:', memberData.avatar);
-      console.log('🖼️ طول رابط الصورة:', memberData.avatar?.length);
-
-      // حفظ أو تحديث العضو
       if (form.id) {
-        console.log('🔄 تحديث عضو موجود:', form.id);
         await setDoc(doc(db, 'users', uid, 'family', form.id), memberData, { merge: true });
-        showSnackbar('✅ تم تحديث بيانات العضو بنجاح');
+        showSnackbar('تم تحديث بيانات العضو بنجاح');
       } else {
-        console.log('➕ إضافة عضو جديد');
         const newDocRef = doc(collection(db, 'users', uid, 'family'));
         const newMemberData = { 
           ...memberData, 
           id: newDocRef.id,
           createdAt: new Date().toISOString()
         };
-        console.log('📊 بيانات العضو الجديد:', newMemberData);
         await setDoc(newDocRef, newMemberData);
-        showSnackbar('✅ تم إضافة العضو بنجاح');
+        showSnackbar('تم إضافة العضو بنجاح');
       }
 
-      // إعادة تحميل البيانات وإعادة تعيين النموذج
-      console.log('🔄 إعادة تحميل قائمة الأعضاء...');
       await loadFamily();
       setForm(DEFAULT_FORM);
-      setStatus('');
-      
       return true;
     } catch (error) {
-      console.error('❌ خطأ في حفظ البيانات:', error);
-      const errorMsg = 'حدث خطأ أثناء حفظ البيانات';
-      setStatus('❌ ' + errorMsg);
-      showSnackbar(errorMsg, 'error');
+      console.error('خطأ في حفظ البيانات:', error);
+      showSnackbar('حدث خطأ أثناء حفظ البيانات', 'error');
       return false;
     } finally {
       setLoading(false);
     }
   };
 
-  // تحديد رب العائلة
-  const familyHead = members.find(m => m.relation === 'رب العائلة');
-  const isFamilyHead = familyHead && phone === (familyHead.phone || phone);
-
   // معالجة تعديل العضو
   const handleEdit = (member) => {
-    console.log('✏️ تعديل العضو:', member);
     setForm({ ...member });
     setEditModalOpen(true);
   };
@@ -500,8 +367,7 @@ export default function Family() {
   // معالجة حذف العضو
   const handleDeleteConfirmation = (id) => {
     if (!id) {
-      console.warn('⚠️ لا يمكن حذف: id غير معروف');
-      showSnackbar('خطأ: معرف العضو غير موجود', 'error');
+      showSnackbar('معرف العضو غير موجود', 'error');
       return;
     }
     setDeleteMemberId(id);
@@ -513,27 +379,24 @@ export default function Family() {
     setDeleteDialogOpen(false);
     
     if (!deleteMemberId) {
-      showSnackbar('خطأ: لم يتم تحديد العضو المراد حذفه', 'error');
+      showSnackbar('لم يتم تحديد العضو المراد حذفه', 'error');
       return;
     }
 
-    // العثور على العضو المراد حذفه
     const memberToDelete = members.find(m => m.id === deleteMemberId);
 
     setLoading(true);
     try {
-      // 🗑️ حذف صورة العضو إذا كانت موجودة
       if (memberToDelete?.avatar) {
-        console.log('🗑️ حذف صورة العضو المحذوف...');
         await deleteOldAvatar(memberToDelete.avatar);
       }
       
       await deleteDoc(doc(db, 'users', uid, 'family', deleteMemberId));
       await loadFamily();
-      showSnackbar('✅ تم حذف العضو بنجاح');
+      showSnackbar('تم حذف العضو بنجاح');
     } catch (error) {
       console.error('خطأ في الحذف:', error);
-      showSnackbar('❌ حدث خطأ أثناء حذف العضو', 'error');
+      showSnackbar('حدث خطأ أثناء حذف العضو', 'error');
     } finally {
       setLoading(false);
       setDeleteMemberId(null);
@@ -547,32 +410,29 @@ export default function Family() {
   // تغيير رقم الهاتف
   const handlePhoneChange = async () => {
     if (!newPhone.trim()) {
-      showSnackbar('❌ يرجى إدخال رقم الهاتف', 'error');
+      showSnackbar('يرجى إدخال رقم الهاتف', 'error');
       return;
     }
 
-    // التحقق من صحة رقم الهاتف العراقي (فقط الأرقام بعد 07)
     const cleanPhone = newPhone.replace(/[\s\-\(\)]/g, '');
     const phoneRegex = /^07[0-9]{8,9}$/;
     
     if (!phoneRegex.test(cleanPhone)) {
-      showSnackbar('❌ رقم الهاتف غير صحيح. يجب أن يبدأ بـ 07', 'error');
+      showSnackbar('رقم الهاتف غير صحيح. يجب أن يبدأ بـ 07', 'error');
       return;
     }
 
-    // تكوين الرقم الكامل
     const fullPhone = `+964${cleanPhone.substring(1)}`;
 
     try {
       localStorage.setItem('verifiedPhone', fullPhone);
       setPhoneModalOpen(false);
       setNewPhone('');
-      showSnackbar('✅ تم تحديث رقم الهاتف بنجاح');
-      // إعادة تحميل الصفحة لتظهر الرقم الجديد
+      showSnackbar('تم تحديث رقم الهاتف بنجاح');
       window.location.reload();
     } catch (error) {
       console.error('خطأ في تحديث رقم الهاتف:', error);
-      showSnackbar('❌ حدث خطأ أثناء تحديث رقم الهاتف', 'error');
+      showSnackbar('حدث خطأ أثناء تحديث رقم الهاتف', 'error');
     }
   };
 
@@ -613,18 +473,18 @@ export default function Family() {
       <Paper 
         elevation={2} 
         sx={{ 
-          p: 3, 
+          p: { xs: 2, sm: 3 }, 
           mb: 3, 
           borderRadius: 3, 
           background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
           border: '1px solid #e3f2fd'
         }}
       >
-        <Box display="flex" alignItems="center" gap={2}>
+        <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} alignItems="center" gap={2}>
           <Box
             sx={{
-              width: 80,
-              height: 80,
+              width: { xs: 60, sm: 80 },
+              height: { xs: 60, sm: 80 },
               borderRadius: '50%',
               bgcolor: '#e3f2fd',
               display: 'flex',
@@ -634,25 +494,19 @@ export default function Family() {
               overflow: 'hidden'
             }}
           >
-            {form.avatar && form.avatar.trim() !== '' ? (
+            {form.avatar?.trim() ? (
               <img 
                 src={form.avatar} 
                 alt="صورة العضو" 
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                onError={(e) => {
-                  console.error('❌ فشل تحميل صورة النموذج:', form.avatar);
-                  e.target.style.display = 'none';
-                }}
-                onLoad={() => {
-                  console.log('✅ تم تحميل صورة النموذج بنجاح:', form.avatar);
-                }}
+                onError={(e) => e.target.style.display = 'none'}
               />
             ) : (
-              <PersonIcon sx={{ fontSize: 40, color: '#2196f3' }} />
+              <PersonIcon sx={{ fontSize: { xs: 30, sm: 40 }, color: '#2196f3' }} />
             )}
           </Box>
           
-          <Box flex={1}>
+          <Box flex={1} textAlign={{ xs: 'center', sm: 'left' }}>
             <Typography variant="h6" fontWeight="bold" gutterBottom>
               صورة العضو
             </Typography>
@@ -690,11 +544,7 @@ export default function Family() {
                 onChange={async (e) => {
                   const file = e.target.files[0];
                   if (file) {
-                    console.log('📎 تم اختيار ملف:', file.name);
-                    const avatarURL = await handleAvatarUpload(file);
-                    if (avatarURL) {
-                      console.log('🎉 تم رفع الصورة وتحديث النموذج');
-                    }
+                    await handleAvatarUpload(file);
                   }
                 }}
               />
@@ -709,18 +559,14 @@ export default function Family() {
       </Paper>
 
       {/* حقول النموذج */}
-      <Paper elevation={2} sx={{ p: 3, borderRadius: 3 }}>
+      <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3 }}>
         <Typography variant="h6" fontWeight="bold" gutterBottom sx={{ mb: 3 }}>
           بيانات العضو
         </Typography>
         
-        <Box 
-          display="flex" 
-          flexDirection="column" 
-          gap={3}
-        >
-          <Box display="flex" flexWrap="wrap" gap={2}>
-            <Box flex="1" minWidth="300px">
+        <Box display="flex" flexDirection="column" gap={3}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6} md={3}>
               <TextField
                 label="الاسم الأول"
                 name="firstName"
@@ -738,9 +584,9 @@ export default function Family() {
                   ),
                 }}
               />
-            </Box>
+            </Grid>
             
-            <Box flex="1" minWidth="300px">
+            <Grid item xs={12} sm={6} md={3}>
               <TextField
                 label="اسم الأب"
                 name="fatherName"
@@ -751,9 +597,9 @@ export default function Family() {
                 error={!!fieldErrors.fatherName}
                 helperText={fieldErrors.fatherName}
               />
-            </Box>
+            </Grid>
             
-            <Box flex="1" minWidth="300px">
+            <Grid item xs={12} sm={6} md={3}>
               <TextField
                 label="اسم الجد"
                 name="grandfatherName"
@@ -764,9 +610,9 @@ export default function Family() {
                 error={!!fieldErrors.grandfatherName}
                 helperText={fieldErrors.grandfatherName}
               />
-            </Box>
+            </Grid>
             
-            <Box flex="1" minWidth="300px">
+            <Grid item xs={12} sm={6} md={3}>
               <TextField
                 label="اللقب"
                 name="surname"
@@ -777,9 +623,9 @@ export default function Family() {
                 error={!!fieldErrors.surname}
                 helperText={fieldErrors.surname}
               />
-            </Box>
+            </Grid>
             
-            <Box flex="1" minWidth="300px">
+            <Grid item xs={12} sm={6}>
               <TextField
                 type="date"
                 label="تاريخ الميلاد"
@@ -799,9 +645,9 @@ export default function Family() {
                   ),
                 }}
               />
-            </Box>
+            </Grid>
             
-            <Box flex="1" minWidth="300px">
+            <Grid item xs={12} sm={6}>
               <TextField
                 select
                 label="القرابة"
@@ -812,18 +658,27 @@ export default function Family() {
                 size="medium"
                 SelectProps={{ native: true }}
                 error={!!fieldErrors.relation}
-                helperText={fieldErrors.relation}
+                helperText={fieldErrors.relation || " "}
+                InputLabelProps={{ shrink: true }}
+                sx={{
+                  '& .MuiFormHelperText-root': {
+                    minHeight: '20px'
+                  },
+                  '& .MuiSelect-select': {
+                    textAlign: 'right'
+                  }
+                }}
               >
-                <option value="">-- اختر القرابة --</option>
+                <option value="">اختر القرابة</option>
                 {FAMILY_RELATIONS.map((relation) => (
                   <option key={relation.value} value={relation.value}>
                     {relation.label}
                   </option>
                 ))}
               </TextField>
-            </Box>
+              </Grid>
             
-            <Box width="100%">
+            <Grid item xs={12}>
               <TextField
                 select
                 label="يتبع لـ"
@@ -833,9 +688,19 @@ export default function Family() {
                 fullWidth
                 size="medium"
                 SelectProps={{ native: true }}
-                helperText="اختر الأب إذا لم يكن رب العائلة"
+                helperText={fieldErrors.parentId || "اختر الأب إذا لم يكن رب العائلة"}
+                InputLabelProps={{ shrink: true }}
+                sx={{
+                  '& .MuiFormHelperText-root': {
+                    minHeight: '20px',
+                    textAlign: 'right'
+                  },
+                  '& .MuiSelect-select': {
+                    textAlign: 'right'
+                  }
+                }}
               >
-                <option value="">-- لا يتبع لأحد (رب العائلة) --</option>
+                <option value="">لا يتبع لأحد (رب العائلة)</option>
                 {members
                   .filter(m => m.relation === 'رب العائلة' || m.relation === 'ابن')
                   .filter(m => m.id !== form.id)
@@ -846,10 +711,10 @@ export default function Family() {
                   ))}
                 <option value="manual">إضافة أب غير موجود في القائمة</option>
               </TextField>
-            </Box>
+              </Grid>
             
             {form.parentId === 'manual' && (
-              <Box width="100%">
+              <Grid item xs={12}>
                 <TextField
                   label="اسم الأب الكامل"
                   name="manualParentName"
@@ -859,14 +724,14 @@ export default function Family() {
                   size="medium"
                   placeholder="أدخل اسم الأب الكامل"
                 />
-              </Box>
+              </Grid>
             )}
-          </Box>
+          </Grid>
         </Box>
       </Paper>
 
       {/* أزرار الحفظ */}
-      <Box mt={4} display="flex" gap={2}>
+      <Box mt={4} display="flex" flexDirection={{ xs: 'column', sm: 'row' }} gap={2}>
         <Button
           variant="contained"
           type="submit"
@@ -897,7 +762,7 @@ export default function Family() {
             variant="outlined"
             onClick={() => setForm(DEFAULT_FORM)}
             disabled={loading}
-            sx={{ borderRadius: 2 }}
+            sx={{ borderRadius: 2, minWidth: { xs: '100%', sm: 'auto' } }}
           >
             إلغاء التعديل
           </Button>
@@ -906,9 +771,9 @@ export default function Family() {
     </Box>
   );
 
-  // عرض كارت العضو مع عرض صور مُحسن
+  // عرض كارت العضو
   const renderMemberCard = (member) => (
-    <Grid item xs={12} sm={6} md={4} key={member.id}>
+    <Grid item xs={12} sm={6} lg={4} key={member.id}>
       <Card 
         elevation={3}
         sx={{ 
@@ -921,12 +786,12 @@ export default function Family() {
           }
         }}
       >
-        <CardContent sx={{ textAlign: 'center', p: 3 }}>
-          {/* صورة العضو المُحسنة */}
+        <CardContent sx={{ textAlign: 'center', p: { xs: 2, sm: 3 } }}>
+          {/* صورة العضو */}
           <Box
             sx={{
-              width: 80,
-              height: 80,
+              width: { xs: 60, sm: 80 },
+              height: { xs: 60, sm: 80 },
               borderRadius: '50%',
               bgcolor: '#e3f2fd',
               display: 'flex',
@@ -938,56 +803,40 @@ export default function Family() {
               position: 'relative'
             }}
           >
-            {member.avatar && member.avatar.trim() !== '' ? (
-              <>
-                {console.log('🖼️ محاولة عرض صورة العضو:', member.firstName, 'الرابط:', member.avatar)}
-                <img 
-                  src={member.avatar} 
-                  alt={member.firstName} 
-                  style={{ 
-                    width: '100%', 
-                    height: '100%', 
-                    objectFit: 'cover',
-                    display: 'block'
-                  }}
-                  onError={(e) => {
-                    console.error('❌ فشل تحميل صورة العضو:', member.firstName);
-                    console.error('❌ رابط الصورة المُستخدم:', member.avatar);
-                    console.error('❌ تفاصيل الخطأ:', e);
-                    // إخفاء الصورة وإظهار الأيقونة الافتراضية
-                    e.target.style.display = 'none';
-                    e.target.nextElementSibling.style.display = 'flex';
-                  }}
-                  onLoad={() => {
-                    console.log('✅ تم تحميل صورة العضو بنجاح:', member.firstName);
-                    console.log('✅ رابط الصورة:', member.avatar);
-                  }}
-                />
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    display: 'none',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  <PersonIcon sx={{ fontSize: 40, color: '#2196f3' }} />
-                </Box>
-              </>
-            ) : (
-              <>
-                {console.log('❓ لا توجد صورة للعضو:', member.firstName, 'البيانات:', member)}
-                <PersonIcon sx={{ fontSize: 40, color: '#2196f3' }} />
-              </>
-            )}
+            {member.avatar?.trim() ? (
+              <img 
+                src={member.avatar} 
+                alt={member.firstName} 
+                style={{ 
+                  width: '100%', 
+                  height: '100%', 
+                  objectFit: 'cover',
+                  display: 'block'
+                }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextElementSibling.style.display = 'flex';
+                }}
+              />
+            ) : null}
+            <Box
+              sx={{
+                position: member.avatar?.trim() ? 'absolute' : 'static',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: member.avatar?.trim() ? 'none' : 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <PersonIcon sx={{ fontSize: { xs: 30, sm: 40 }, color: '#2196f3' }} />
+            </Box>
           </Box>
 
           {/* اسم العضو */}
-          <Typography variant="h6" fontWeight="bold" gutterBottom>
+          <Typography variant="h6" fontWeight="bold" gutterBottom fontSize={{ xs: '1.1rem', sm: '1.25rem' }}>
             {`${member.firstName} ${member.fatherName}`}
           </Typography>
           
@@ -1003,7 +852,7 @@ export default function Family() {
             sx={{ mb: 2, borderRadius: 2 }}
           />
 
-          {/* العمر والتاريخ الميلادي */}
+          {/* العمر والتاريخ */}
           {member.birthdate && (
             <Box sx={{ mt: 1 }}>
               <Typography 
@@ -1055,10 +904,10 @@ export default function Family() {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
-      {/* الهيدر مع زر عرض الشجرة المحسن */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
-        <Box>
-          <Typography variant="h3" fontWeight="bold" gutterBottom>
+      {/* الهيدر */}
+      <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" mb={4} gap={2}>
+        <Box textAlign={{ xs: 'center', sm: 'left' }}>
+          <Typography variant="h3" fontWeight="bold" gutterBottom fontSize={{ xs: '2rem', sm: '3rem' }}>
             🏠 إدارة العائلة
           </Typography>
           <Typography variant="h6" color="text.secondary">
@@ -1067,7 +916,6 @@ export default function Family() {
         </Box>
 
         <Box display="flex" gap={2} alignItems="center">
-          {/* زر عرض الشجرة محسن للجوال */}
           <Button
             variant="contained"
             color="success"
@@ -1143,7 +991,7 @@ export default function Family() {
       </Grid>
 
       {/* قسم إضافة عضو جديد */}
-      <Paper elevation={3} sx={{ p: 4, mb: 4, borderRadius: 3 }}>
+      <Paper elevation={3} sx={{ p: { xs: 2, sm: 4 }, mb: 4, borderRadius: 3 }}>
         <Typography variant="h5" fontWeight="bold" gutterBottom sx={{ mb: 3 }}>
           إضافة عضو جديد
         </Typography>
@@ -1151,31 +999,15 @@ export default function Family() {
         <Box component="form" onSubmit={handleSubmit}>
           {renderForm()}
         </Box>
-        
-        {status && (
-          <Typography 
-            variant="body1" 
-            sx={{ 
-              mt: 2, 
-              p: 2, 
-              backgroundColor: status.includes('❌') ? '#ffebee' : '#e8f5e8',
-              borderRadius: 2,
-              textAlign: 'center'
-            }}
-          >
-            {status}
-          </Typography>
-        )}
       </Paper>
 
       {/* قسم قائمة الأفراد */}
-      <Paper elevation={3} sx={{ p: 4, borderRadius: 3 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Paper elevation={3} sx={{ p: { xs: 2, sm: 4 }, borderRadius: 3 }}>
+        <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" mb={3} gap={2}>
           <Typography variant="h5" fontWeight="bold">
             قائمة أفراد العائلة ({filteredMembers.length})
           </Typography>
           
-          {/* شريط البحث */}
           <TextField
             size="small"
             placeholder="البحث في الأفراد..."
@@ -1188,7 +1020,7 @@ export default function Family() {
                 </InputAdornment>
               ),
             }}
-            sx={{ minWidth: 250 }}
+            sx={{ minWidth: { xs: '100%', sm: 250 } }}
           />
         </Box>
 
@@ -1230,7 +1062,7 @@ export default function Family() {
         )}
       </Paper>
 
-      {/* زر عائم لإضافة عضو سريع */}
+      {/* زر عائم */}
       <Fab
         color="primary"
         aria-label="إضافة"
@@ -1239,6 +1071,7 @@ export default function Family() {
           bottom: 24,
           left: 24,
           zIndex: 1000,
+          display: { xs: 'flex', sm: 'none' }
         }}
         onClick={() => {
           setForm(DEFAULT_FORM);
@@ -1254,6 +1087,7 @@ export default function Family() {
         onClose={() => setEditModalOpen(false)}
         maxWidth="md"
         fullWidth
+        fullScreen={window.innerWidth < 600}
       >
         <DialogTitle>
           <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -1300,7 +1134,6 @@ export default function Family() {
           </Typography>
           
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', direction: 'ltr' }}>
-            {/* كود الدولة على اليسار */}
             <TextField
               label="كود الدولة"
               value="+964"
@@ -1315,7 +1148,6 @@ export default function Family() {
               }}
             />
             
-            {/* حقل إدخال الرقم */}
             <TextField
               autoFocus
               label="رقم الهاتف"
@@ -1408,7 +1240,7 @@ export default function Family() {
         </DialogActions>
       </Dialog>
 
-      {/* قائمة الإعدادات - بدون زر عرض الشجرة */}
+      {/* قائمة الإعدادات */}
       <Menu
         anchorEl={settingsAnchor}
         open={Boolean(settingsAnchor)}
@@ -1425,7 +1257,6 @@ export default function Family() {
         </MenuItem>
         <Divider />
         <MenuItem onClick={() => {
-          // استخراج الرقم المحلي من الرقم الكامل
           const currentPhone = phone || '';
           const localPhone = currentPhone.startsWith('+964') ? 
             '0' + currentPhone.substring(4) : currentPhone;
