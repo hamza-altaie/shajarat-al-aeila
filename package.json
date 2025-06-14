@@ -18,6 +18,8 @@
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^7.1.1",
     "@mui/material": "^7.1.1",
+    "cytoscape": "^3.32.0",
+    "cytoscape-dagre": "^2.5.0",
     "firebase": "^11.9.1",
     "html2canvas": "^1.4.1",
     "react": "^19.1.0",
