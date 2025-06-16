@@ -1,6 +1,6 @@
 // src/components/FamilyTreeAdvanced.jsx - النسخة المُصححة
-import React, { useState, useEffect, useCallback } from 'react';
-import Tree from 'react-d3-tree';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import * as d3 from 'd3';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Button, Typography, Alert, Snackbar, CircularProgress, 
@@ -27,6 +27,7 @@ export default function FamilyTreeAdvanced() {
   // ===========================================================================
   
   const [showExtendedTree, setShowExtendedTree] = useState(false);
+  const familyChartRef = useRef(null);
   const [selectedNode, setSelectedNode] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(0.6);
   
@@ -688,193 +689,249 @@ export default function FamilyTreeAdvanced() {
   // عرض العقدة
   // ===========================================================================
 
-  const renderNodeElement = useCallback(({ nodeDatum }) => {
-    const person = nodeDatum.attributes;
-    const isExtended = person?.isExtended || false;
-    const isMultiRole = person?.isMultiRole || false;
-    const roles = person?.roles || [person?.relation || 'عضو'];
-    
-    const getNodeColors = () => {
-      if (roles.includes('رب العائلة')) {
-        return {
-          primary: '#2e7d32',
-          light: '#4caf50',
-          bg: '#e8f5e8'
-        };
+  // أضف هذه الدالة قبل useEffect
+  const renderFamilyChart = useCallback(() => {
+  if (!familyChartRef.current) return;
+  
+  const currentTreeData = showExtendedTree ? extendedTreeData : simpleTreeData;
+  if (!currentTreeData) return;
+  
+  // تنظيف الحاوي
+  d3.select(familyChartRef.current).selectAll("*").remove();
+  
+  // إعدادات الشجرة
+  const width = familyChartRef.current.clientWidth || 1200;
+  const height = familyChartRef.current.clientHeight || 800;
+  
+  // إنشاء SVG
+  const svg = d3.select(familyChartRef.current)
+    .append("svg")
+    .attr("width", width)
+    .attr("height", height)
+    .style("font-family", "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif");
+  
+  // إضافة التدرجات والظلال
+  const defs = svg.append("defs");
+  
+  // تدرج للوالد
+  const parentGradient = defs.append("linearGradient")
+    .attr("id", "parentGradient")
+    .attr("x1", "0%").attr("y1", "0%")
+    .attr("x2", "100%").attr("y2", "100%");
+  parentGradient.append("stop").attr("offset", "0%").style("stop-color", "#4caf50");
+  parentGradient.append("stop").attr("offset", "100%").style("stop-color", "#2e7d32");
+  
+  // تدرج للأطفال
+  const childGradient = defs.append("linearGradient")
+    .attr("id", "childGradient")
+    .attr("x1", "0%").attr("y1", "0%")
+    .attr("x2", "100%").attr("y2", "100%");
+  childGradient.append("stop").attr("offset", "0%").style("stop-color", "#2196f3");
+  childGradient.append("stop").attr("offset", "100%").style("stop-color", "#1565c0");
+  
+  // ظل
+  const shadow = defs.append("filter")
+    .attr("id", "shadow")
+    .attr("x", "-20%").attr("y", "-20%")
+    .attr("width", "140%").attr("height", "140%");
+  shadow.append("feDropShadow")
+    .attr("dx", "0").attr("dy", "4")
+    .attr("stdDeviation", "4")
+    .attr("flood-color", "rgba(0,0,0,0.2)");
+  
+  // clipPath للصور الدائرية
+  const clipPath = defs.append("clipPath")
+    .attr("id", "circleClip");
+  clipPath.append("circle")
+    .attr("cx", 0)
+    .attr("cy", 0)
+    .attr("r", 18);
+  
+  // مجموعة للرسم مع zoom
+  const g = svg.append("g");
+  
+  // إعداد التكبير/التصغير
+  const zoom = d3.zoom()
+    .scaleExtent([0.1, 3])
+    .on("zoom", (event) => {
+      g.attr("transform", event.transform);
+    });
+  
+  svg.call(zoom);
+  
+  // إعداد شجرة D3
+  const treeLayout = d3.tree()
+    .size([width * 1.5, height - 150])
+    .separation((a, b) => {
+      if (a.parent === b.parent) {
+        return 6;
+      } else {
+        return 8;
       }
-      if (isExtended) {
-        return {
-          primary: '#f57c00',
-          light: '#ff9800',
-          bg: '#fff3e0'
-        };
-      }
-      return {
-        primary: '#1976d2',
-        light: '#42a5f5',
-        bg: '#e3f2fd'
-      };
-    };
+    });
+  
+  // تحويل البيانات
+  const root = d3.hierarchy(currentTreeData);
+  const treeData = treeLayout(root);
+  
+  // رسم الخطوط
+  g.selectAll(".link")
+    .data(treeData.links())
+    .enter()
+    .append("path")
+    .attr("class", "link")
+    .attr("d", d3.linkVertical()
+      .x(d => d.x)
+      .y(d => d.y)
+    )
+    .style("fill", "none")
+    .style("stroke", "#64b5f6")
+    .style("stroke-width", "2px")
+    .style("opacity", "0.8");
+  
+  // رسم العقد
+  const nodes = g.selectAll(".node")
+    .data(treeData.descendants())
+    .enter()
+    .append("g")
+    .attr("class", "node")
+    .attr("transform", d => `translate(${d.x},${d.y})`)
+    .style("cursor", "pointer")
+    .on("click", (event, d) => {
+      handleNodeClick(d.data);
+    });
+  
+  // مستطيلات العقد
+  nodes.append("rect")
+    .attr("width", 200)
+    .attr("height", 80)
+    .attr("x", -100)
+    .attr("y", -40)
+    .attr("rx", 12)
+    .style("fill", d => {
+      const relation = d.data.attributes?.relation || '';
+      return relation === 'رب العائلة' ? "url(#parentGradient)" : "url(#childGradient)";
+    })
+    .style("stroke", d => {
+      const relation = d.data.attributes?.relation || '';
+      return relation === 'رب العائلة' ? "#2e7d32" : "#1565c0";
+    })
+    .style("stroke-width", "2px")
+    .style("filter", "url(#shadow)");
+  
+  // دائرة خلفية للصورة
+  nodes.append("circle")
+    .attr("cx", -60)
+    .attr("cy", -10)
+    .attr("r", 20)
+    .style("fill", "white")
+    .style("stroke", d => {
+      const relation = d.data.attributes?.relation || '';
+      return relation === 'رب العائلة' ? "#2e7d32" : "#1565c0";
+    })
+    .style("stroke-width", "2px");
+  
+  // مجموعة للصورة
+  const imageGroups = nodes.append("g")
+    .attr("transform", "translate(-60, -10)");
+  
+  // الصورة الحقيقية
+  imageGroups.each(function(d) {
+    const group = d3.select(this);
+    const hasAvatar = d.data.attributes?.avatar && 
+                     d.data.attributes.avatar !== '/boy.png' && 
+                     d.data.attributes.avatar.trim() !== '';
     
-    const colors = getNodeColors();
-    
-    const getDisplayName = (name) => {
-      if (!name || name === 'غير محدد') return 'غير محدد';
-      const words = name.trim().split(' ');
-      if (words.length <= 2) return name;
-      return `${words[0]} ${words[1]}`;
-    };
-    
-    return (
-      <g>
-        <defs>
-          <linearGradient id={`grad-${nodeDatum.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="100%" stopColor={colors.bg} />
-          </linearGradient>
-          
-          <filter id={`shadow-${nodeDatum.id}`}>
-            <feDropShadow dx="0" dy="4" stdDeviation="8" floodColor="rgba(0,0,0,0.12)"/>
-          </filter>
-        </defs>
-        
-        <rect
-          width="280"
-          height="160"
-          x="-140"
-          y="-80"
-          rx="16"
-          fill={`url(#grad-${nodeDatum.id})`}
-          stroke={colors.primary}
-          strokeWidth="2"
-          style={{ 
-            cursor: 'pointer',
-            filter: `url(#shadow-${nodeDatum.id})`
-          }}
-          onClick={() => handleNodeClick(nodeDatum)}
-        />
-        
-        {isMultiRole && (
-          <g>
-            <circle
-              cx="-110"
-              cy="-60"
-              r="16"
-              fill={colors.primary}
-              stroke="white"
-              strokeWidth="2"
-            />
-            <text
-              x="-110"
-              y="-55"
-              textAnchor="middle"
-              style={{
-                fontSize: '12px',
-                fill: 'white',
-                fontWeight: '600'
-              }}
-            >
-              {roles.length}
-            </text>
-          </g>
-        )}
-        
-        <circle
-          cx="0"
-          cy="-25"
-          r="35"
-          fill="white"
-          stroke={colors.primary}
-          strokeWidth="3"
-        />
-        
-        <image
-          href={nodeDatum.avatar || '/boy.png'}
-          x="-30"
-          y="-55"
-          width="60"
-          height="60"
-          clipPath="circle(30px at 30px 30px)"
-          style={{ cursor: 'pointer' }}
-          onClick={() => handleNodeClick(nodeDatum)}
-        />
-        
-        <rect
-          x="-130"
-          y="25"
-          width="260"
-          height="45"
-          rx="8"
-          fill="rgba(255,255,255,0.9)"
-          stroke="rgba(0,0,0,0.06)"
-          strokeWidth="1"
-        />
-        
-        <text
-          x="0"
-          y="42"
-          textAnchor="middle"
-          style={{
-            fontSize: '16px',
-            fontWeight: '600',
-            fill: '#333',
-            cursor: 'pointer'
-          }}
-          onClick={() => handleNodeClick(nodeDatum)}
-        >
-          {getDisplayName(nodeDatum.name)}
-        </text>
-        
-        <rect
-          x="-60"
-          y="50"
-          width="120"
-          height="20"
-          rx="10"
-          fill={colors.primary}
-          opacity="0.1"
-        />
-        
-        <text
-          x="0"
-          y="62"
-          textAnchor="middle"
-          style={{
-            fontSize: '12px',
-            fill: colors.primary,
-            fontWeight: '500'
-          }}
-        >
-          {isMultiRole ? roles.slice(0,2).join(' + ') : roles[0]}
-        </text>
-        
-        {nodeDatum.children && nodeDatum.children.length > 0 && (
-          <g>
-            <circle
-              cx="110"
-              cy="-60"
-              r="16"
-              fill="#4caf50"
-              stroke="white"
-              strokeWidth="2"
-            />
-            <text
-              x="110"
-              y="-55"
-              textAnchor="middle"
-              style={{
-                fontSize: '11px',
-                fill: 'white',
-                fontWeight: '600'
-              }}
-            >
-              {nodeDatum.children.length}
-            </text>
-          </g>
-        )}
-      </g>
-    );
-  }, [handleNodeClick]);
+    if (hasAvatar) {
+      console.log('عرض صورة لـ:', d.data.name, 'مسار الصورة:', d.data.attributes.avatar);
+      
+      group.append("image")
+        .attr("x", -18)
+        .attr("y", -18)
+        .attr("width", 36)
+        .attr("height", 36)
+        .attr("href", d.data.attributes.avatar)
+        .attr("clip-path", "url(#circleClip)")
+        .style("object-fit", "cover")
+        .on("error", function() {
+          console.log('فشل تحميل الصورة لـ:', d.data.name);
+          // في حالة فشل تحميل الصورة، اعرض الأيقونة
+          d3.select(this).remove();
+          group.append("text")
+            .attr("x", 0)
+            .attr("y", 5)
+            .attr("text-anchor", "middle")
+            .style("font-size", "16px")
+            .text(() => {
+              const relation = d.data.attributes?.relation || '';
+              return relation === 'رب العائلة' ? '👑' : 
+                     relation === 'ابن' ? '👦' : 
+                     relation === 'بنت' ? '👧' : '👤';
+            });
+        });
+    } else {
+      // عرض الأيقونة
+      group.append("text")
+        .attr("x", 0)
+        .attr("y", 5)
+        .attr("text-anchor", "middle")
+        .style("font-size", "16px")
+        .text(() => {
+          const relation = d.data.attributes?.relation || '';
+          return relation === 'رب العائلة' ? '👑' : 
+                 relation === 'ابن' ? '👦' : 
+                 relation === 'بنت' ? '👧' : '👤';
+        });
+    }
+  });
+  
+  // الاسم
+  nodes.append("text")
+    .attr("x", 0)
+    .attr("y", -20)
+    .attr("text-anchor", "middle")
+    .style("font-size", "13px")
+    .style("font-weight", "bold")
+    .style("fill", "white")
+    .text(d => {
+      const name = d.data.name || 'غير محدد';
+      return name.length > 16 ? name.substring(0, 16) + '...' : name;
+    });
+  
+  // العلاقة
+  nodes.append("text")
+    .attr("x", 0)
+    .attr("y", 0)
+    .attr("text-anchor", "middle")
+    .style("font-size", "11px")
+    .style("fill", "rgba(255,255,255,0.9)")
+    .text(d => d.data.attributes?.relation || 'عضو');
+  
+  // عداد الأطفال
+  nodes.filter(d => d.children && d.children.length > 0)
+    .append("circle")
+    .attr("cx", 70)
+    .attr("cy", -25)
+    .attr("r", 12)
+    .style("fill", "#ff9800")
+    .style("stroke", "white")
+    .style("stroke-width", "2px");
+  
+  nodes.filter(d => d.children && d.children.length > 0)
+    .append("text")
+    .attr("x", 70)
+    .attr("y", -20)
+    .attr("text-anchor", "middle")
+    .style("font-size", "10px")
+    .style("fill", "white")
+    .style("font-weight", "bold")
+    .text(d => d.children.length);
+  
+  // موضع ابتدائي
+  const initialTransform = d3.zoomIdentity.translate(width / 3, 100).scale(0.6);
+  svg.call(zoom.transform, initialTransform);
+  
+}, [showExtendedTree, extendedTreeData, simpleTreeData, handleNodeClick]);
 
   // ===========================================================================
   // تأثيرات ودورة الحياة
@@ -911,6 +968,19 @@ export default function FamilyTreeAdvanced() {
     }
   }, [uid]);
 
+
+  useEffect(() => {
+  const currentTreeData = showExtendedTree ? extendedTreeData : simpleTreeData;
+  
+  if (currentTreeData && familyChartRef.current) {
+    const timer = setTimeout(() => {
+      renderFamilyChart();
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }
+}, [showExtendedTree, extendedTreeData, simpleTreeData, renderFamilyChart]);
+
   // ===========================================================================
   // عرض الشجرة
   // ===========================================================================
@@ -934,35 +1004,16 @@ export default function FamilyTreeAdvanced() {
         }}
       >
         {currentTreeData ? (
-          <Tree
-            data={currentTreeData}
-            orientation="vertical"
-            translate={{ x: window.innerWidth / 2, y: 120 }}
-            zoomable
-            zoom={zoomLevel}
-            collapsible={false}
-            pathFunc="step"
-            separation={{ 
-              siblings: showExtendedTree ? 2.2 : 1.8,
-              nonSiblings: showExtendedTree ? 3 : 2.5 
-            }}
-            nodeSize={{ 
-              x: showExtendedTree ? 350 : 300,
-              y: 220 
-            }}
-            renderCustomNodeElement={renderNodeElement}
-            styles={{
-              links: {
-                stroke: showExtendedTree ? '#ff9800' : '#2196f3',
-                strokeWidth: 2,
-                strokeDasharray: showExtendedTree ? '5,5' : 'none'
-              }
-            }}
-            onNodeClick={handleNodeClick}
-            enableLegacyTransitions={false}
-            transitionDuration={500}
-            scaleExtent={{ min: 0.1, max: 2 }}
-          />
+          <div 
+          ref={familyChartRef}
+          style={{
+            width: '100%',
+            height: '100%',
+            position: 'absolute',
+            top: 0,
+            left: 0
+          }}
+        />
         ) : (
           <Box
             display="flex"
