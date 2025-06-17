@@ -1,41 +1,37 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-// Firebase imports - استيراد صحيح بناءً على config
+// Firebase imports - الاستيرادات الحقيقية
 import { db } from '../firebase/config';
 import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 
-// Auth context - استيراد صحيح
+// Auth context - الاستيراد الحقيقي
 import { useAuth } from '../AuthContext';
 
 // 🎨 مكون الكرت الجميل مثل Balkan
 const FamilyCard = ({ person, onClick, isSelected, style, searchQuery }) => {
   const getCardColor = () => {
-    // تحديد اللون حسب الدور والجنس
     if (person?.relation === 'رب العائلة') {
       return {
-        bg: 'linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)', // أخضر لرب العائلة
+        bg: 'linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)',
         border: '#1b5e20'
       };
     }
     
     if (person?.gender === 'male' || person?.relation === 'ابن') {
       return {
-        bg: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)', // أزرق للذكور
+        bg: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
         border: '#1565c0'
       };
     }
     
     return {
-      bg: 'linear-gradient(135deg, #f57c00 0%, #ff9800 100%)', // برتقالي للإناث
+      bg: 'linear-gradient(135deg, #f57c00 0%, #ff9800 100%)',
       border: '#ef6c00'
     };
   };
 
-  // التحقق من وجود البيانات
-  if (!person || !style) {
-    return null;
-  }
+  if (!person || !style) return null;
 
   const colors = getCardColor();
   const displayName = person.name || 
@@ -45,7 +41,6 @@ const FamilyCard = ({ person, onClick, isSelected, style, searchQuery }) => {
   const age = person.birthDate ? 
     new Date().getFullYear() - new Date(person.birthDate).getFullYear() : null;
 
-  // تمييز النص المطابق للبحث
   const highlightText = (text, query) => {
     if (!query || !text) return text;
     try {
@@ -55,7 +50,6 @@ const FamilyCard = ({ person, onClick, isSelected, style, searchQuery }) => {
           <span key={i} style={{ backgroundColor: 'yellow', color: 'black' }}>{part}</span> : part
       );
     } catch (error) {
-      console.warn('خطأ في تمييز النص:', error);
       return text;
     }
   };
@@ -63,13 +57,7 @@ const FamilyCard = ({ person, onClick, isSelected, style, searchQuery }) => {
   const handleClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    try {
-      if (onClick && typeof onClick === 'function') {
-        onClick(person);
-      }
-    } catch (error) {
-      console.error('خطأ في معالج النقر:', error);
-    }
+    if (onClick) onClick(person);
   };
 
   return (
@@ -248,21 +236,17 @@ const FamilyCard = ({ person, onClick, isSelected, style, searchQuery }) => {
   );
 };
 
-// 🔗 مكون الروابط بين الكروت - محسن
+// 🔗 مكون الروابط بين الكروت
 const FamilyConnection = ({ from, to, isHighlighted }) => {
-  // التحقق من وجود البيانات
   if (!from || !to || typeof from.x !== 'number' || typeof from.y !== 'number' || 
       typeof to.x !== 'number' || typeof to.y !== 'number') {
     return null;
   }
 
-  // نقاط الاتصال الصحيحة
-  const x1 = from.x; // مركز الكرت الأب
-  const y1 = from.y + 50; // أسفل الكرت الأب
-  const x2 = to.x; // مركز الكرت الطفل
-  const y2 = to.y - 50; // أعلى الكرت الطفل
-  
-  // نقطة منتصف للانحناء
+  const x1 = from.x;
+  const y1 = from.y + 50;
+  const x2 = to.x;
+  const y2 = to.y - 50;
   const midY = y1 + (y2 - y1) / 2;
 
   return (
@@ -277,7 +261,6 @@ const FamilyConnection = ({ from, to, isHighlighted }) => {
         zIndex: 50
       }}
     >
-      {/* الخط الرئيسي */}
       <path
         d={`M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`}
         stroke={isHighlighted ? '#4caf50' : '#ffffff'}
@@ -290,7 +273,6 @@ const FamilyConnection = ({ from, to, isHighlighted }) => {
         }}
       />
       
-      {/* نقاط الاتصال */}
       <circle
         cx={x1}
         cy={y1}
@@ -311,48 +293,6 @@ const FamilyConnection = ({ from, to, isHighlighted }) => {
         style={{ 
           transition: 'all 0.3s ease',
           filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))'
-        }}
-      />
-      
-      {/* خط عمودي إضافي لوضوح أكبر */}
-      <line
-        x1={x1}
-        y1={y1}
-        x2={x1}
-        y2={midY}
-        stroke={isHighlighted ? '#4caf50' : '#ffffff'}
-        strokeWidth={isHighlighted ? 3 : 2}
-        opacity={0.6}
-        style={{
-          transition: 'all 0.3s ease'
-        }}
-      />
-      
-      {/* خط أفقي */}
-      <line
-        x1={x1}
-        y1={midY}
-        x2={x2}
-        y2={midY}
-        stroke={isHighlighted ? '#4caf50' : '#ffffff'}
-        strokeWidth={isHighlighted ? 3 : 2}
-        opacity={0.6}
-        style={{
-          transition: 'all 0.3s ease'
-        }}
-      />
-      
-      {/* خط عمودي للطفل */}
-      <line
-        x1={x2}
-        y1={midY}
-        x2={x2}
-        y2={y2}
-        stroke={isHighlighted ? '#4caf50' : '#ffffff'}
-        strokeWidth={isHighlighted ? 3 : 2}
-        opacity={0.6}
-        style={{
-          transition: 'all 0.3s ease'
         }}
       />
     </svg>
@@ -472,17 +412,7 @@ const TreeControls = ({
         ].map((btn, index) => (
           <button
             key={index}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              try {
-                if (btn.onClick && typeof btn.onClick === 'function') {
-                  btn.onClick();
-                }
-              } catch (error) {
-                console.error('خطأ في زر التحكم:', error);
-              }
-            }}
+            onClick={() => btn.onClick && btn.onClick()}
             disabled={isLoading}
             title={btn.title}
             style={{
@@ -523,9 +453,9 @@ const TreeControls = ({
 );
 
 // 🌳 المكون الرئيسي للشجرة
-const FamilyTreeAdvanced = () => {
+export default function FamilyTreeAdvanced() {
   const navigate = useNavigate();
-  const { userId: uid } = useAuth();
+  const { userId: uid } = useAuth(); // الاستخدام الحقيقي للـ Auth
   
   // الحالات الأساسية
   const [familyData, setFamilyData] = useState([]);
@@ -540,18 +470,43 @@ const FamilyTreeAdvanced = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   
+  // إعدادات الشجرة والأداء
+  const [treeSettings] = useState({
+    maxDepth: 15,
+    maxPersonsPerLevel: 50,
+    maxTotalPersons: 2000,
+    enableSmartLimits: true,
+    showDepthWarning: true,
+    autoOptimize: true
+  });
+  
+  const [performanceMetrics, setPerformanceMetrics] = useState({
+    loadTime: 0,
+    personCount: 0,
+    maxDepthReached: 0,
+    memoryUsage: 0
+  });
+
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState('info');
+  
   const containerRef = useRef(null);
 
-  // دوال مساعدة لتنظيف البيانات
+  // ===========================================================================
+  // دوال مساعدة لمعالجة البيانات - من الكود الأصلي
+  // ===========================================================================
+
   const sanitizeMemberData = useCallback((member) => {
     if (!member) return null;
     
     return {
       ...member,
-      firstName: member.firstName || '',
-      fatherName: member.fatherName || '',
-      grandfatherName: member.grandfatherName || '',
-      relation: member.relation || 'عضو',
+      firstName: member.firstName?.trim() || '',
+      fatherName: member.fatherName?.trim() || '',
+      grandfatherName: member.grandfatherName?.trim() || '',
+      surname: member.surname?.trim() || '',
+      relation: member.relation?.trim() || 'عضو',
       avatar: member.avatar || null,
       birthDate: member.birthDate || null,
       name: member.name || `${member.firstName || ''} ${member.fatherName || ''}`.trim() || 'غير محدد',
@@ -559,16 +514,312 @@ const FamilyTreeAdvanced = () => {
     };
   }, []);
 
+  const buildFullName = useCallback((person) => {
+    if (!person) return 'غير محدد';
+    
+    const parts = [
+      person.firstName,
+      person.fatherName,
+      person.grandfatherName,
+      person.surname
+    ].filter(part => part && part.trim() !== '');
+    
+    return parts.length > 0 ? parts.join(' ').trim() : 'غير محدد';
+  }, []);
+
   const findFamilyHead = useCallback((members) => {
     if (!members || !Array.isArray(members)) return null;
     
-    return members.find(member => 
-      member?.relation === 'رب العائلة' || 
-      member?.isHead === true
-    ) || members[0] || null;
+    const head = members.find(m => m.relation === 'رب العائلة');
+    if (head) return head;
+    
+    const sorted = [...members].sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0);
+      const dateB = new Date(b.createdAt || 0);
+      return dateA - dateB;
+    });
+    
+    return sorted[0] || members[0];
   }, []);
 
-  // تحميل الشجرة البسيطة
+  // مراقبة الأداء أثناء بناء الشجرة
+  const monitorPerformance = useCallback((metrics) => {
+    setPerformanceMetrics(prev => ({
+      ...prev,
+      ...metrics
+    }));
+    
+    // تحذيرات تلقائية
+    if (metrics.personCount > 1000) {
+      showSnackbar('⚠️ الشجرة كبيرة - قد يتأثر الأداء', 'warning');
+    }
+    
+    if (metrics.maxDepthReached > 12) {
+      showSnackbar('📏 تم الوصول لعمق كبير في الشجرة', 'info');
+    }
+    
+    if (metrics.loadTime > 10000) { // 10 ثواني
+      showSnackbar('🐌 التحميل بطيء - فكر في تقليل العمق', 'warning');
+    }
+  }, []);
+
+  // ===========================================================================
+  // 🔥 بناء الشجرة الهرمية الصحيحة - المحرك الجديد!
+  // ===========================================================================
+
+  const buildHierarchicalTree = useCallback((members, headMember) => {
+    if (!headMember || !members || !Array.isArray(members)) return [];
+
+    const processedIds = new Set();
+
+    // 🎯 الدالة الأساسية لبناء العقد - محسنة للتخطيط الهرمي الصحيح
+    const buildPersonNode = (person, level = 0, parentId = null) => {
+      if (!person || processedIds.has(person.globalId)) return null;
+      if (level > treeSettings.maxDepth) return null;
+      if (parentId && person.globalId === parentId) return null; // منع الدائرة المرجعية
+      
+      processedIds.add(person.globalId);
+
+      // 🔍 البحث عن الأطفال المباشرين فقط - هذا هو المفتاح!
+      const directChildren = members.filter(member => 
+        member && 
+        member.fatherName === person.firstName && 
+        member.grandfatherName === person.fatherName &&
+        member.globalId !== person.globalId &&
+        (member.relation === 'ابن' || member.relation === 'بنت') &&
+        !processedIds.has(member.globalId)
+      );
+
+      // 🏗️ بناء عقد الأطفال تكرارياً
+      const childNodes = directChildren
+        .map(child => buildPersonNode(child, level + 1, person.globalId))
+        .filter(Boolean);
+
+      const node = {
+        ...person,
+        level,
+        childrenCount: childNodes.length,
+        children: childNodes,
+        name: buildFullName(person)
+      };
+
+      return node;
+    };
+
+    const rootNode = buildPersonNode(headMember);
+    
+    // 📊 حساب المقاييس
+    const metrics = {
+      personCount: processedIds.size,
+      maxDepthReached: 0
+    };
+    
+    // حساب العمق الأقصى
+    const calculateMaxDepth = (node, currentDepth = 0) => {
+      metrics.maxDepthReached = Math.max(metrics.maxDepthReached, currentDepth);
+      if (node && node.children) {
+        node.children.forEach(child => calculateMaxDepth(child, currentDepth + 1));
+      }
+    };
+    
+    if (rootNode) {
+      calculateMaxDepth(rootNode);
+    }
+    
+    setPerformanceMetrics(prev => ({ ...prev, ...metrics }));
+    
+    return rootNode ? [rootNode] : [];
+  }, [treeSettings.maxDepth, buildFullName]);
+
+  // ===========================================================================
+  // 🏛️ بناء الشجرة الموسعة الذكية - من الكود الأصلي محسن
+  // ===========================================================================
+
+  const buildExtendedTreeStructure = useCallback(async (allMembers, headMember) => {
+    console.log('🏗️ بناء الشجرة الموسعة الذكية...');
+    
+    if (!headMember || !allMembers || !Array.isArray(allMembers)) {
+      throw new Error('لم يتم العثور على البيانات المطلوبة');
+    }
+
+    const processedPersons = new Set();
+    const globalPersonMap = new Map();
+
+    // الخطوة 1: إنشاء خريطة شاملة للأشخاص - إصلاح النسب
+    allMembers.forEach(member => {
+      // استخدام globalId بدلاً من الاسم لتجنب الخلط بين الأشخاص
+      const personKey = member.globalId;
+      
+      if (!globalPersonMap.has(personKey)) {
+        globalPersonMap.set(personKey, {
+          ...member,
+          roles: [member.relation], 
+          families: [member.familyUid], 
+          isMultiRole: false,
+          originalFamily: member.familyUid
+        });
+      } else {
+        const existingPerson = globalPersonMap.get(personKey);
+        existingPerson.roles.push(member.relation);
+        if (!existingPerson.families.includes(member.familyUid)) {
+          existingPerson.families.push(member.familyUid);
+        }
+        existingPerson.isMultiRole = true;
+        
+        if (member.relation === 'رب العائلة') {
+          existingPerson.globalId = member.globalId;
+          existingPerson.familyUid = member.familyUid;
+          existingPerson.primaryFamily = member.familyUid;
+        }
+      }
+    });
+
+    console.log('🗺️ تم إنشاء خريطة الأشخاص');
+
+    // الخطوة 2: بناء الهيكل الهرمي - إصلاح منطق الربط
+    const buildPersonNode = (person, depth = 0, parentId = null) => {
+      const personKey = person.globalId; // استخدام globalId
+      
+      // فحص الحدود الذكية
+      if (processedPersons.has(personKey)) {
+        return null;
+      }
+      
+      if (depth > treeSettings.maxDepth) {
+        console.log(`⚠️ توقف عند العمق ${depth}`);
+        return null;
+      }
+      
+      if (processedPersons.size > treeSettings.maxTotalPersons) {
+        console.log(`⚠️ تجاوز الحد الأقصى للأشخاص`);
+        return null;
+      }
+      
+      if (parentId && person.globalId === parentId) {
+        console.log(`🚫 منع الدائرة المرجعية`);
+        return null;
+      }
+      
+      processedPersons.add(personKey);
+      const globalPerson = globalPersonMap.get(personKey);
+      
+      const node = {
+        name: buildFullName(person),
+        id: person.globalId,
+        avatar: person.avatar || null,
+        level: depth,
+        childrenCount: 0,
+        children: [],
+        ...person,
+        roles: globalPerson.roles,
+        isMultiRole: globalPerson.isMultiRole,
+        familyUids: globalPerson.families,
+        isExtended: person.familyUid !== uid,
+        treeType: 'extended',
+        familyLevel: person.level || 0,
+        generationDepth: depth,
+        primaryRole: globalPerson.roles.includes('رب العائلة') ? 'رب العائلة' : globalPerson.roles[0]
+      };
+
+      // إضافة الأطفال المباشرين فقط - إصلاح منطق البحث
+      const directChildren = allMembers.filter(member => 
+        member && 
+        member.fatherName === person.firstName && 
+        member.grandfatherName === person.fatherName &&
+        member.familyUid === person.familyUid && // نفس العائلة فقط لتجنب الخلط
+        member.globalId !== person.globalId &&
+        (member.relation === 'ابن' || member.relation === 'بنت') &&
+        !processedPersons.has(member.globalId)
+      );
+
+      directChildren.forEach(child => {
+        const childNode = buildPersonNode(child, depth + 1, person.globalId);
+        if (childNode) {
+          node.children.push(childNode);
+        }
+      });
+      
+      node.childrenCount = node.children.length;
+      return node;
+    };
+
+    // بناء الشجرة من الجذر
+    let maxDepthReached = 0;
+    let totalPersonsProcessed = 0;
+    
+    const rootNode = buildPersonNode(headMember);
+    
+    totalPersonsProcessed = processedPersons.size;
+    
+    // حساب العمق الأقصى
+    const calculateMaxDepth = (node, currentDepth = 0) => {
+      maxDepthReached = Math.max(maxDepthReached, currentDepth);
+      if (node && node.children) {
+        node.children.forEach(child => calculateMaxDepth(child, currentDepth + 1));
+      }
+    };
+    
+    if (rootNode) {
+      calculateMaxDepth(rootNode);
+    }
+    
+    const metrics = {
+      personCount: totalPersonsProcessed,
+      maxDepthReached,
+      familyCount: [...new Set(allMembers.map(m => m.familyUid))].length
+    };
+    
+    console.log(`📊 المقاييس: ${metrics.personCount} شخص، عمق أقصى: ${metrics.maxDepthReached}`);
+    
+    return { treeData: rootNode ? [rootNode] : [], metrics };
+  }, [treeSettings.maxDepth, treeSettings.maxTotalPersons, buildFullName, uid]);
+
+  // ===========================================================================
+  // 📐 حساب المواضع الهرمية - محرك التخطيط الجديد
+  // ===========================================================================
+
+  const calculateHierarchicalLayout = useCallback((data) => {
+    if (!data || !Array.isArray(data) || data.length === 0) return [];
+    
+    const layout = [];
+    
+    // 🎯 توزيع العقد بشكل هرمي صحيح
+    const layoutNode = (node, x, y, level, siblingIndex = 0, totalSiblings = 1) => {
+      if (!node) return;
+      
+      // إضافة العقدة الحالية
+      layout.push({
+        ...node,
+        x: x,
+        y: y,
+        level: level
+      });
+
+      // ترتيب الأطفال
+      if (node.children && node.children.length > 0) {
+        const childrenCount = node.children.length;
+        const childrenSpacing = 450; // المسافة بين الأطفال - زيادة لتجنب التراكب
+        const childrenWidth = (childrenCount - 1) * childrenSpacing;
+        const startX = x - (childrenWidth / 2);
+        const childY = y + 250; // المسافة العمودية بين الأجيال - زيادة
+
+        node.children.forEach((child, index) => {
+          const childX = startX + (index * childrenSpacing);
+          layoutNode(child, childX, childY, level + 1, index, childrenCount);
+        });
+      }
+    };
+
+    // بدء التخطيط من الجذر
+    layoutNode(data[0], 600, 200, 0);
+
+    return layout;
+  }, []);
+
+  // ===========================================================================
+  // تحميل البيانات - مدمج مع Firebase الحقيقي
+  // ===========================================================================
+
   const loadSimpleTree = useCallback(async () => {
     if (!uid) return;
     
@@ -577,6 +828,8 @@ const FamilyTreeAdvanced = () => {
       setLoadingStage('جاري تحميل عائلتك...');
       setError(null);
 
+      console.log('🌳 تحميل الشجرة العادية...');
+      
       const familySnapshot = await getDocs(collection(db, 'users', uid, 'family'));
       const members = [];
       
@@ -606,10 +859,12 @@ const FamilyTreeAdvanced = () => {
         return;
       }
 
-      const treeData = convertToTreeFormat(members, head);
+      // 🎯 استخدام المحرك الجديد!
+      const treeData = buildHierarchicalTree(members, head);
       setFamilyData(treeData || []);
       
       console.log(`✅ تم تحميل ${members.length} فرد من العائلة`);
+      showSnackbar(`تم تحميل عائلتك: ${members.length} أفراد`, 'success');
       
     } catch (error) {
       console.error('خطأ في تحميل الشجرة البسيطة:', error);
@@ -619,265 +874,217 @@ const FamilyTreeAdvanced = () => {
       setIsLoading(false);
       setLoadingStage('');
     }
-  }, [uid, sanitizeMemberData, findFamilyHead]);
+  }, [uid, sanitizeMemberData, findFamilyHead, buildHierarchicalTree]);
 
-  // تحميل الشجرة الموسعة - تحميل حقيقي للعائلات المرتبطة
+  // ===========================================================================
+  // تحميل الشجرة الموسعة - كامل من الكود الأصلي
+  // ===========================================================================
+
   const loadExtendedTree = useCallback(async () => {
     if (!uid) return;
-    
-    try {
-      setIsLoading(true);
-      setLoadingStage('جاري تحميل الشجرة الموسعة...');
-      setError(null);
 
-      // الخطوة 1: تحميل العائلة الأساسية
-      const mainFamilySnapshot = await getDocs(collection(db, 'users', uid, 'family'));
-      const allMembers = [];
+    console.log('🏛️ تحميل الشجرة الموسعة...');
+    
+    const startTime = Date.now();
+    setIsLoading(true);
+    setError(null);
+    setLoadingStage('البحث عن الجذر الأساسي...');
+
+    try {
+      const rootUid = await findFamilyRoot(uid);
+      setLoadingStage('جمع العائلات المرتبطة...');
       
-      // إضافة أفراد العائلة الأساسية
-      mainFamilySnapshot.forEach(doc => {
-        const memberData = sanitizeMemberData({ 
-          ...doc.data(), 
-          id: doc.id,
-          globalId: `${uid}_${doc.id}`,
-          familyUid: uid,
-          isExtended: false, // العائلة الأساسية
-          level: 0
+      const allFamilies = await collectAllLinkedFamilies(rootUid);
+      setLoadingStage('بناء الشجرة الموسعة الذكية...');
+      
+      // جمع جميع الأعضاء من جميع العائلات
+      const allMembers = [];
+      allFamilies.forEach(family => {
+        family.members.forEach(member => {
+          allMembers.push({
+            ...member,
+            familyUid: family.uid,
+            level: family.level,
+            parentFamilyUid: family.parentFamilyUid
+          });
         });
-        
-        if (memberData && memberData.firstName && memberData.firstName.trim() !== '') {
-          allMembers.push(memberData);
-        }
       });
 
-      // الخطوة 2: البحث عن العائلات المرتبطة
-      setLoadingStage('البحث عن العائلات المرتبطة...');
-      
-      const usersSnapshot = await getDocs(collection(db, 'users'));
-      const linkedFamilyIds = new Set();
-      
-      // البحث عن الروابط
-      for (const userDoc of usersSnapshot.docs) {
-        const userData = userDoc.data();
-        const userId = userDoc.id;
-        
-        if (userId === uid) continue;
-        
-        // التحقق من الربط المباشر
-        if (userData.linkedToFamilyHead === uid) {
-          linkedFamilyIds.add(userId);
-        }
-        
-        // التحقق من الروابط في linkedFamilies
-        const linkedFamilies = userData.linkedFamilies || [];
-        const hasLink = linkedFamilies.some(link => 
-          link.targetFamilyUid === uid && 
-          (link.linkType === 'child-parent' || link.linkType === 'parent-child')
-        );
-        
-        if (hasLink) {
-          linkedFamilyIds.add(userId);
-        }
-        
-        // التحقق من الربط العكسي
-        const currentUserData = await getDoc(doc(db, 'users', uid));
-        if (currentUserData.exists()) {
-          const currentLinks = currentUserData.data().linkedFamilies || [];
-          const hasReverseLink = currentLinks.some(link => 
-            link.targetFamilyUid === userId
-          );
-          
-          if (hasReverseLink) {
-            linkedFamilyIds.add(userId);
-          }
-        }
+      // البحث عن رب العائلة الجذر
+      const rootFamily = allFamilies.find(f => f.uid === rootUid);
+      if (!rootFamily || !rootFamily.head) {
+        throw new Error('لم يتم العثور على العائلة الجذر');
       }
 
-      // الخطوة 3: تحميل بيانات العائلات المرتبطة
-      setLoadingStage(`تحميل ${linkedFamilyIds.size} عائلة مرتبطة...`);
+      const { treeData, metrics } = await buildExtendedTreeStructure(allMembers, rootFamily.head);
       
-      let extendedMembersCount = 0;
-      for (const linkedFamilyId of linkedFamilyIds) {
-        try {
-          const linkedFamilySnapshot = await getDocs(collection(db, 'users', linkedFamilyId, 'family'));
-          
-          linkedFamilySnapshot.forEach(doc => {
-            const memberData = sanitizeMemberData({ 
-              ...doc.data(), 
-              id: doc.id,
-              globalId: `${linkedFamilyId}_${doc.id}`,
-              familyUid: linkedFamilyId,
-              isExtended: true, // عائلة مرتبطة
-              level: 1
-            });
-            
-            if (memberData && memberData.firstName && memberData.firstName.trim() !== '') {
-              allMembers.push(memberData);
-              extendedMembersCount++;
-            }
-          });
-        } catch (error) {
-          console.warn(`خطأ في تحميل العائلة ${linkedFamilyId}:`, error);
-        }
-      }
-
-      // الخطوة 4: إنشاء الشجرة الموسعة
-      if (allMembers.length === 0) {
-        setError('لا توجد أفراد في الشجرة الموسعة');
-        setFamilyData([]);
-        return;
-      }
-
-      // البحث عن رب العائلة الأساسية
-      const head = allMembers.find(member => 
-        member.familyUid === uid && 
-        (member.relation === 'رب العائلة' || member.isHead === true)
-      ) || allMembers.find(member => member.familyUid === uid);
-
-      if (!head) {
-        setError('لم يتم العثور على رب العائلة');
-        setFamilyData([]);
-        return;
-      }
-
-      // بناء الشجرة الموسعة مع ربط العائلات
-      const extendedTreeData = buildExtendedTreeStructure(allMembers, head);
-      setFamilyData(extendedTreeData || []);
+      // تسجيل المقاييس
+      const endTime = Date.now();
+      const finalMetrics = {
+        ...metrics,
+        loadTime: endTime - startTime
+      };
       
-      console.log(`✅ تم تحميل الشجرة الموسعة: ${allMembers.length} فرد (${extendedMembersCount} من العائلات المرتبطة)`);
+      monitorPerformance(finalMetrics);
       
+      setLoadingStage('اكتمل التحميل الموسع');
+      setFamilyData(treeData || []);
+      
+      console.log(`✅ تم تحميل الشجرة الموسعة: ${allFamilies.length} عائلة`);
+      showSnackbar(`تم تحميل الشجرة الموسعة: ${allFamilies.length} عائلة، ${metrics.personCount} شخص`, 'success');
+
     } catch (error) {
-      console.error('خطأ في تحميل الشجرة الموسعة:', error);
-      setError('فشل في تحميل الشجرة الموسعة');
-      setFamilyData([]);
+      console.error('❌ خطأ في تحميل الشجرة الموسعة:', error);
+      setError(error.message);
+      showSnackbar('فشل في تحميل الشجرة الموسعة', 'error');
     } finally {
       setIsLoading(false);
       setLoadingStage('');
     }
-  }, [uid, sanitizeMemberData]);
+  }, [uid, buildExtendedTreeStructure, monitorPerformance]);
 
-  // دالة بناء الشجرة الموسعة
-  const buildExtendedTreeStructure = useCallback((allMembers, headMember) => {
-    if (!headMember || !allMembers || !Array.isArray(allMembers)) return [];
+  // ===========================================================================
+  // دوال مساعدة للشجرة الموسعة - من الكود الأصلي
+  // ===========================================================================
 
-    const processedIds = new Set();
-
-    const buildPersonNode = (person, level = 0) => {
-      if (!person || processedIds.has(person.globalId)) return null;
-      processedIds.add(person.globalId);
-
-      // البحث عن الأطفال في نفس العائلة
-      const directChildren = allMembers.filter(member => 
-        member && 
-        member.familyUid === person.familyUid &&
-        member.fatherName === person.firstName && 
-        member.grandfatherName === person.fatherName &&
-        member.globalId !== person.globalId &&
-        (member.relation === 'ابن' || member.relation === 'بنت')
-      );
-
-      // البحث عن العائلات المرتبطة كأطفال
-      const linkedChildren = allMembers.filter(member => 
-        member && 
-        member.familyUid !== person.familyUid &&
-        member.isExtended &&
-        member.relation === 'رب العائلة' &&
-        !processedIds.has(member.globalId)
-      );
-
-      // دمج الأطفال
-      const allChildren = [...directChildren, ...linkedChildren];
-
-      const childNodes = allChildren
-        .map(child => buildPersonNode(child, level + 1))
-        .filter(Boolean);
-
-      const node = {
-        ...person,
-        level,
-        childrenCount: childNodes.length,
-        children: childNodes
-      };
-
-      return node;
-    };
-
-    const rootNode = buildPersonNode(headMember);
-    return rootNode ? [rootNode] : [];
-  }, []);
-
-  // تحويل البيانات إلى صيغة شجرة
-  const convertToTreeFormat = useCallback((members, headMember) => {
-    if (!headMember || !members || !Array.isArray(members)) return [];
-
-    const processedIds = new Set();
-
-    const buildPersonNode = (person, level = 0) => {
-      if (!person || processedIds.has(person.globalId)) return null;
-      processedIds.add(person.globalId);
-
-      const children = members.filter(member => 
-        member && 
-        member.fatherName === person.firstName && 
-        member.grandfatherName === person.fatherName &&
-        member.globalId !== person.globalId &&
-        (member.relation === 'ابن' || member.relation === 'بنت')
-      );
-
-      const childNodes = children
-        .map(child => buildPersonNode(child, level + 1))
-        .filter(Boolean);
-
-      const node = {
-        ...person,
-        level,
-        childrenCount: childNodes.length,
-        children: childNodes
-      };
-
-      return node;
-    };
-
-    const rootNode = buildPersonNode(headMember);
-    return rootNode ? [rootNode] : [];
-  }, []);
-
-  // حساب المواضع للعقد
-  const calculateLayout = useCallback((data) => {
-    if (!data || !Array.isArray(data)) return [];
+  const findFamilyRoot = async (startUid) => {
+    console.log('🔍 البحث عن جذر القبيلة من:', startUid);
     
-    const layout = [];
-    
-    const processNode = (node, x, y, level) => {
-      if (!node) return;
+    let currentUid = startUid;
+    let maxDepth = 10;
+    const visited = new Set();
+
+    while (maxDepth > 0 && !visited.has(currentUid)) {
+      visited.add(currentUid);
       
-      layout.push({
-        ...node,
-        x: x || 600,
-        y: y || 200,
-        level: level || 0
-      });
-
-      if (node.children && Array.isArray(node.children) && node.children.length > 0) {
-        const childrenWidth = node.children.length * 350;
-        const startX = x - (childrenWidth / 2) + 175;
+      try {
+        const userDoc = await getDoc(doc(db, 'users', currentUid));
+        if (!userDoc.exists()) break;
         
-        node.children.forEach((child, index) => {
-          if (child) {
-            const childX = startX + (index * 350);
-            const childY = y + 200;
-            processNode(child, childX, childY, level + 1);
-          }
-        });
+        const userData = userDoc.data();
+        const linkedToHead = userData.linkedToFamilyHead;
+        
+        if (!linkedToHead || linkedToHead === currentUid) {
+          console.log('🏛️ جذر القبيلة:', currentUid);
+          return currentUid;
+        }
+        
+        console.log(`⬆️ الانتقال من ${currentUid} إلى ${linkedToHead}`);
+        currentUid = linkedToHead;
+        maxDepth--;
+      } catch (error) {
+        console.error(`خطأ في فحص ${currentUid}:`, error);
+        break;
       }
-    };
+    }
+    
+    console.log('🏛️ اعتماد', startUid, 'كجذر');
+    return startUid;
+  };
 
-    if (data.length > 0 && data[0]) {
-      processNode(data[0], 600, 200, 0);
+  const collectAllLinkedFamilies = async (rootUid) => {
+    const allFamilies = new Map();
+    const toProcess = [{ uid: rootUid, level: 0, parentUid: null }];
+    const processed = new Set();
+
+    while (toProcess.length > 0) {
+      const { uid, level, parentUid } = toProcess.shift();
+      
+      if (processed.has(uid)) continue;
+      processed.add(uid);
+
+      try {
+        const familyData = await loadFamilyData(uid, level, parentUid);
+        if (familyData) {
+          allFamilies.set(uid, familyData);
+          console.log(`👨‍👩‍👧‍👦 عائلة ${uid}`);
+          
+          const linkedChildren = await findLinkedChildren(uid);
+          linkedChildren.forEach(childUid => {
+            if (!processed.has(childUid)) {
+              toProcess.push({ uid: childUid, level: level + 1, parentUid: uid });
+            }
+          });
+        }
+      } catch (error) {
+        console.error(`خطأ في معالجة العائلة ${uid}:`, error);
+      }
     }
 
-    return layout;
-  }, []);
+    return Array.from(allFamilies.values());
+  };
+
+  const loadFamilyData = async (familyUid, level, parentUid) => {
+    try {
+      const familySnapshot = await getDocs(collection(db, 'users', familyUid, 'family'));
+      const members = [];
+      
+      familySnapshot.forEach(doc => {
+        const memberData = sanitizeMemberData({ 
+          ...doc.data(), 
+          id: doc.id,
+          globalId: `${familyUid}_${doc.id}`,
+          familyUid,
+          level,
+          parentFamilyUid: parentUid
+        });
+        
+        if (memberData.firstName && memberData.firstName.trim() !== '') {
+          members.push(memberData);
+        }
+      });
+
+      if (members.length > 0) {
+        const head = findFamilyHead(members);
+        
+        return {
+          uid: familyUid,
+          level,
+          parentFamilyUid: parentUid,
+          members,
+          head
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error(`خطأ في تحميل عائلة ${familyUid}:`, error);
+      return null;
+    }
+  };
+
+  const findLinkedChildren = async (parentUid) => {
+    try {
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const children = [];
+      
+      for (const userDoc of usersSnapshot.docs) {
+        const userData = userDoc.data();
+        const userId = userDoc.id;
+        
+        if (userId === parentUid) continue;
+        
+        if (userData.linkedToFamilyHead === parentUid) {
+          children.push(userId);
+        }
+        
+        const linkedFamilies = userData.linkedFamilies || [];
+        const hasLink = linkedFamilies.some(link => 
+          link.targetFamilyUid === parentUid && 
+          (link.linkType === 'child-parent' || link.linkType === 'parent-child')
+        );
+        
+        if (hasLink && !children.includes(userId)) {
+          children.push(userId);
+        }
+      }
+      
+      return children;
+    } catch (error) {
+      console.error('خطأ في البحث عن الأطفال:', error);
+      return [];
+    }
+  };
 
   // البحث في الأشخاص
   const filteredData = familyData.filter(person =>
@@ -885,10 +1092,10 @@ const FamilyTreeAdvanced = () => {
     person.name.toLowerCase().includes((searchQuery || '').toLowerCase())
   );
 
-  // حساب التخطيط
-  const layoutData = calculateLayout(searchQuery ? filteredData : familyData);
+  // حساب التخطيط النهائي
+  const layoutData = calculateHierarchicalLayout(searchQuery ? filteredData : familyData);
 
-  // حساب الروابط
+  // حساب الروابط بين العقد
   const connections = [];
   const addConnections = (node) => {
     if (!node || !node.children || !Array.isArray(node.children)) return;
@@ -920,6 +1127,13 @@ const FamilyTreeAdvanced = () => {
     generations: layoutData.length > 0 ? Math.max(...layoutData.map(p => (p && p.level) || 0)) + 1 : 0
   };
 
+  // دوال مساعدة
+  const showSnackbar = useCallback((message, severity = 'info') => {
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
+  }, []);
+
   // معالجات الأحداث
   const handlePersonClick = useCallback((person) => {
     if (!person) return;
@@ -943,8 +1157,10 @@ const FamilyTreeAdvanced = () => {
 
   const handleRefresh = useCallback(() => {
     if (showExtended) {
+      setFamilyData([]);
       loadExtendedTree();
     } else {
+      setFamilyData([]);
       loadSimpleTree();
     }
   }, [showExtended, loadExtendedTree, loadSimpleTree]);
@@ -965,9 +1181,8 @@ const FamilyTreeAdvanced = () => {
     }
   }, [loadExtendedTree, loadSimpleTree]);
 
-  // ✅ معالجات السحب والإفلات للـ Pan
+  // معالجات السحب والإفلات
   const handleMouseDown = useCallback((e) => {
-    // تجاهل النقر على الكروت أو أدوات التحكم
     if (e.target.closest('.family-card') || e.target.closest('.tree-controls')) {
       return;
     }
@@ -992,14 +1207,13 @@ const FamilyTreeAdvanced = () => {
     setIsDragging(false);
   }, []);
 
-  // ✅ معالج التكبير بعجلة الماوس
   const handleWheel = useCallback((e) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
     setZoom(prev => Math.max(0.5, Math.min(2, prev + delta)));
   }, []);
 
-  // ✅ إضافة مستمعات الأحداث
+  // إضافة مستمعات الأحداث
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -1143,7 +1357,7 @@ const FamilyTreeAdvanced = () => {
         </div>
       )}
 
-      {/* منطقة الشجرة */}
+      {/* منطقة الشجرة - المحرك المخصص! */}
       {!error && layoutData.length > 0 && (
         <div
           style={{
@@ -1212,8 +1426,13 @@ const FamilyTreeAdvanced = () => {
             </p>
           )}
           {selectedPerson.isExtended && (
-            <p style={{ margin: '0 0 16px 0', color: '#9c27b0', fontSize: 12, fontWeight: 600 }}>
+            <p style={{ margin: '0 0 8px 0', color: '#9c27b0', fontSize: 12, fontWeight: 600 }}>
               🔗 من الشجرة الموسعة
+            </p>
+          )}
+          {selectedPerson.childrenCount > 0 && (
+            <p style={{ margin: '0 0 16px 0', color: '#4caf50', fontSize: 12, fontWeight: 600 }}>
+              👶 {selectedPerson.childrenCount} أطفال
             </p>
           )}
           <div style={{ display: 'flex', gap: 8 }}>
@@ -1231,13 +1450,7 @@ const FamilyTreeAdvanced = () => {
               onMouseEnter={(e) => e.target.style.background = '#1565c0'}
               onMouseLeave={(e) => e.target.style.background = '#1976d2'}
               onClick={() => {
-                // ✅ إصلاح التنقل - عدم استخدام member ID الذي لا يوجد
-                try {
-                  // بدلاً من الذهاب لصفحة غير موجودة، نعرض معلومات أكثر
-                  alert(`تفاصيل ${selectedPerson.name}:\nالعلاقة: ${selectedPerson.relation}\nالعائلة: ${selectedPerson.familyUid}`);
-                } catch (error) {
-                  console.error('خطأ في عرض التفاصيل:', error);
-                }
+                showSnackbar(`تفاصيل ${selectedPerson.name}: ${selectedPerson.relation}`, 'info');
               }}
             >
               ✏️ تفاصيل
@@ -1302,13 +1515,7 @@ const FamilyTreeAdvanced = () => {
             لم يتم العثور على أفراد في العائلة
           </p>
           <button
-            onClick={() => {
-              try {
-                navigate('/family');
-              } catch (error) {
-                console.error('خطأ في التنقل:', error);
-              }
-            }}
+            onClick={() => navigate('/family')}
             style={{
               background: '#1976d2',
               color: 'white',
@@ -1320,6 +1527,42 @@ const FamilyTreeAdvanced = () => {
             }}
           >
             إدارة العائلة
+          </button>
+        </div>
+      )}
+
+      {/* Snackbar للرسائل */}
+      {snackbarOpen && (
+        <div style={{
+          position: 'fixed',
+          bottom: 20,
+          left: 20,
+          background: snackbarSeverity === 'error' ? '#f44336' : 
+                      snackbarSeverity === 'warning' ? '#ff9800' : 
+                      snackbarSeverity === 'success' ? '#4caf50' : '#2196f3',
+          color: 'white',
+          padding: '12px 20px',
+          borderRadius: 8,
+          zIndex: 10000,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10
+        }}>
+          <span>{snackbarMessage}</span>
+          <button
+            onClick={() => setSnackbarOpen(false)}
+            style={{
+              background: 'rgba(255,255,255,0.2)',
+              border: 'none',
+              color: 'white',
+              padding: '4px 8px',
+              borderRadius: 4,
+              cursor: 'pointer',
+              fontSize: 12
+            }}
+          >
+            ✖
           </button>
         </div>
       )}
@@ -1344,6 +1587,4 @@ const FamilyTreeAdvanced = () => {
       </style>
     </div>
   );
-};
-
-export default FamilyTreeAdvanced;
+}
