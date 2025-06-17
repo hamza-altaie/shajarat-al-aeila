@@ -1,7 +1,7 @@
 // src/hooks/useEnhancedFamilyTree.js
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { db } from '../../firebase/config';
 
 /**
  * Hook محسن لإدارة شجرة العائلة مع ميزات D3.js المتقدمة
