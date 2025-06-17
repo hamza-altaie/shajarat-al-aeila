@@ -645,10 +645,9 @@ export default function FamilyTreeAdvanced() {
     const processedPersons = new Set();
     const globalPersonMap = new Map();
 
-    // الخطوة 1: إنشاء خريطة شاملة للأشخاص - إصلاح النسب
+    // الخطوة 1: إنشاء خريطة شاملة للأشخاص
     allMembers.forEach(member => {
-      // استخدام globalId بدلاً من الاسم لتجنب الخلط بين الأشخاص
-      const personKey = member.globalId;
+      const personKey = `${member.firstName}_${member.fatherName}_${member.grandfatherName}`;
       
       if (!globalPersonMap.has(personKey)) {
         globalPersonMap.set(personKey, {
@@ -661,9 +660,7 @@ export default function FamilyTreeAdvanced() {
       } else {
         const existingPerson = globalPersonMap.get(personKey);
         existingPerson.roles.push(member.relation);
-        if (!existingPerson.families.includes(member.familyUid)) {
-          existingPerson.families.push(member.familyUid);
-        }
+        existingPerson.families.push(member.familyUid);
         existingPerson.isMultiRole = true;
         
         if (member.relation === 'رب العائلة') {
@@ -676,9 +673,9 @@ export default function FamilyTreeAdvanced() {
 
     console.log('🗺️ تم إنشاء خريطة الأشخاص');
 
-    // الخطوة 2: بناء الهيكل الهرمي - إصلاح منطق الربط
+    // الخطوة 2: بناء الهيكل الهرمي
     const buildPersonNode = (person, depth = 0, parentId = null) => {
-      const personKey = person.globalId; // استخدام globalId
+      const personKey = `${person.firstName}_${person.fatherName}_${person.grandfatherName}`;
       
       // فحص الحدود الذكية
       if (processedPersons.has(personKey)) {
@@ -708,7 +705,7 @@ export default function FamilyTreeAdvanced() {
         id: person.globalId,
         avatar: person.avatar || null,
         level: depth,
-        childrenCount: 0,
+        childrenCount: 0, // سيتم حسابه لاحقاً
         children: [],
         ...person,
         roles: globalPerson.roles,
@@ -721,15 +718,14 @@ export default function FamilyTreeAdvanced() {
         primaryRole: globalPerson.roles.includes('رب العائلة') ? 'رب العائلة' : globalPerson.roles[0]
       };
 
-      // إضافة الأطفال المباشرين فقط - إصلاح منطق البحث
+      // إضافة الأطفال المباشرين فقط
       const directChildren = allMembers.filter(member => 
         member && 
         member.fatherName === person.firstName && 
         member.grandfatherName === person.fatherName &&
-        member.familyUid === person.familyUid && // نفس العائلة فقط لتجنب الخلط
         member.globalId !== person.globalId &&
         (member.relation === 'ابن' || member.relation === 'بنت') &&
-        !processedPersons.has(member.globalId)
+        !processedPersons.has(`${member.firstName}_${member.fatherName}_${member.grandfatherName}`)
       );
 
       directChildren.forEach(child => {
@@ -798,10 +794,10 @@ export default function FamilyTreeAdvanced() {
       // ترتيب الأطفال
       if (node.children && node.children.length > 0) {
         const childrenCount = node.children.length;
-        const childrenSpacing = 450; // المسافة بين الأطفال - زيادة لتجنب التراكب
+        const childrenSpacing = 350; // المسافة بين الأطفال
         const childrenWidth = (childrenCount - 1) * childrenSpacing;
         const startX = x - (childrenWidth / 2);
-        const childY = y + 250; // المسافة العمودية بين الأجيال - زيادة
+        const childY = y + 200; // المسافة العمودية بين الأجيال
 
         node.children.forEach((child, index) => {
           const childX = startX + (index * childrenSpacing);
