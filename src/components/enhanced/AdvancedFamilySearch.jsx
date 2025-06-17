@@ -1,277 +1,556 @@
-// src/components/enhanced/AdvancedFamilySearch.jsx
-import React, { useState, useMemo } from 'react';
-import {
-  Box,
-  TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Chip,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemAvatar,
-  Avatar,
-  Paper,
-  Typography,
-  IconButton,
-  Collapse
-} from '@mui/material';
-import {
-  Search,
-  FilterList,
-  ExpandMore,
-  ExpandLess,
-  Person
-} from '@mui/icons-material';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 
 const AdvancedFamilySearch = ({ 
-  familyData = [], 
-  treeStatistics = {},
-  onPersonSelect,
-  onHighlightPath 
+  treeData, 
+  onPersonSelect, 
+  onHighlightPath,
+  familyData = [] 
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchType, setSearchType] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchType, setSearchType] = useState('name');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [selectedGeneration, setSelectedGeneration] = useState('all');
   const [selectedRelation, setSelectedRelation] = useState('all');
   const [selectedFamily, setSelectedFamily] = useState('all');
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const inputRef = useRef(null);
 
-  const { relations = [], generations = [] } = treeStatistics;
+  // جمع جميع الأشخاص من الشجرة
+  const allPersons = useMemo(() => {
+    if (!treeData) return [];
 
-  // نتائج البحث المفلترة
-  const searchResults = useMemo(() => {
-    let results = [...familyData];
+    const persons = [];
+    
+    const collectPersons = (node, depth = 0, path = []) => {
+      if (!node) return;
 
-    // فلترة النص
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      results = results.filter(person => {
-        const fullName = [
-          person.firstName,
-          person.fatherName, 
-          person.grandfatherName,
-          person.surname
-        ].filter(Boolean).join(' ').toLowerCase();
+      persons.push({
+        ...node,
+        depth,
+        path: [...path, node.name],
+        searchKey: `${node.name} ${node.fullName || ''} ${node.relation || ''} ${node.phone || ''}`.toLowerCase()
+      });
 
+      if (node.children) {
+        node.children.forEach(child => 
+          collectPersons(child, depth + 1, [...path, node.name])
+        );
+      }
+    };
+
+    collectPersons(treeData);
+    return persons;
+  }, [treeData]);
+
+  // احصائيات الشجرة
+  const treeStats = useMemo(() => {
+    const relations = new Set();
+    const generations = new Set();
+    const families = new Set();
+
+    allPersons.forEach(person => {
+      if (person.relation) relations.add(person.relation);
+      generations.add(person.depth);
+      if (person.familyUid) families.add(person.familyUid);
+    });
+
+    return {
+      relations: Array.from(relations),
+      generations: Array.from(generations).sort((a, b) => a - b),
+      families: Array.from(families)
+    };
+  }, [allPersons]);
+
+  // فلترة النتائج
+  const filteredResults = useMemo(() => {
+    if (!searchTerm.trim() && selectedGeneration === 'all' && 
+        selectedRelation === 'all' && selectedFamily === 'all') {
+      return [];
+    }
+
+    return allPersons.filter(person => {
+      // فلترة النص
+      const matchesText = !searchTerm.trim() || (() => {
         switch (searchType) {
           case 'name':
-            return fullName.includes(query);
+            return person.name?.toLowerCase().includes(searchTerm.toLowerCase());
           case 'relation':
-            return person.relation?.toLowerCase().includes(query);
+            return person.relation?.toLowerCase().includes(searchTerm.toLowerCase());
           case 'phone':
-            return person.phone?.includes(searchQuery);
+            return person.phone?.includes(searchTerm);
           case 'all':
           default:
-            return fullName.includes(query) || 
-                   person.relation?.toLowerCase().includes(query) ||
-                   person.phone?.includes(searchQuery);
+            return person.searchKey.includes(searchTerm.toLowerCase());
         }
-      });
-    }
+      })();
 
-    // فلترة الجيل
-    if (selectedGeneration !== 'all') {
-      results = results.filter(person => 
-        (person.generation || 0) === parseInt(selectedGeneration)
-      );
-    }
+      // فلترة الجيل
+      const matchesGeneration = selectedGeneration === 'all' || 
+        person.depth === parseInt(selectedGeneration);
 
-    // فلترة العلاقة
-    if (selectedRelation !== 'all') {
-      results = results.filter(person => person.relation === selectedRelation);
-    }
+      // فلترة العلاقة
+      const matchesRelation = selectedRelation === 'all' || 
+        person.relation === selectedRelation;
 
-    // فلترة العائلة (إذا كان هناك عائلات متعددة)
-    if (selectedFamily !== 'all') {
-      results = results.filter(person => person.familyId === selectedFamily);
-    }
+      // فلترة العائلة
+      const matchesFamily = selectedFamily === 'all' || 
+        person.familyUid === selectedFamily;
 
-    return results;
-  }, [familyData, searchQuery, searchType, selectedGeneration, selectedRelation, selectedFamily]);
+      return matchesText && matchesGeneration && matchesRelation && matchesFamily;
+    });
+  }, [allPersons, searchTerm, searchType, selectedGeneration, selectedRelation, selectedFamily]);
 
-  // بناء الاسم الكامل
-  const buildFullName = (person) => {
-    const parts = [
-      person.firstName,
-      person.fatherName,
-      person.grandfatherName,
-      person.surname
-    ].filter(part => part && part.trim() !== '');
+  // اقتراحات سريعة
+  const quickSuggestions = useMemo(() => {
+    if (!searchTerm.trim() || searchTerm.length < 2) return [];
     
-    return parts.length > 0 ? parts.join(' ') : 'غير محدد';
+    return allPersons
+      .filter(person => person.searchKey.includes(searchTerm.toLowerCase()))
+      .slice(0, 8)
+      .map(person => ({
+        text: person.name,
+        type: 'person',
+        data: person
+      }));
+  }, [allPersons, searchTerm]);
+
+  // معالجة الضغط على المفاتيح
+  const handleKeyDown = (e) => {
+    if (!showSuggestions || quickSuggestions.length === 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightedIndex(prev => 
+          prev < quickSuggestions.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightedIndex(prev => 
+          prev > 0 ? prev - 1 : quickSuggestions.length - 1
+        );
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (highlightedIndex >= 0 && quickSuggestions[highlightedIndex]) {
+          selectPerson(quickSuggestions[highlightedIndex].data);
+        }
+        break;
+      case 'Escape':
+        setShowSuggestions(false);
+        setHighlightedIndex(-1);
+        break;
+    }
   };
 
-  // معالج اختيار الشخص
-  const handlePersonClick = (person) => {
-    onPersonSelect?.(person);
+  // اختيار شخص
+  const selectPerson = (person) => {
+    setSearchTerm(person.name);
+    setShowSuggestions(false);
+    setHighlightedIndex(-1);
     
-    // تسليط الضوء على المسار إذا كان متاحاً
-    if (onHighlightPath) {
-      // هنا يمكن إضافة منطق بناء المسار
-      onHighlightPath([person.id]);
+    if (onPersonSelect) {
+      onPersonSelect(person);
     }
+    
+    if (onHighlightPath) {
+      onHighlightPath(person.path);
+    }
+  };
+
+  // مسح البحث
+  const clearSearch = () => {
+    setSearchTerm('');
+    setSelectedGeneration('all');
+    setSelectedRelation('all');
+    setSelectedFamily('all');
+    setShowSuggestions(false);
+    setHighlightedIndex(-1);
+  };
+
+  // فقدان التركيز
+  const handleBlur = () => {
+    setTimeout(() => setShowSuggestions(false), 200);
   };
 
   return (
-    <Box>
-      {/* شريط البحث الرئيسي */}
-      <Box display="flex" gap={1} mb={2}>
-        <TextField
-          fullWidth
-          placeholder="ابحث في العائلة..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          InputProps={{
-            startAdornment: <Search sx={{ color: 'text.secondary', mr: 1 }} />
+    <div style={{ 
+      background: 'white', 
+      borderRadius: '12px', 
+      boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+      padding: '20px',
+      maxWidth: '500px',
+      position: 'relative'
+    }}>
+      {/* عنوان البحث */}
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        marginBottom: '16px',
+        gap: '8px'
+      }}>
+        <span style={{ fontSize: '20px' }}>🔍</span>
+        <h3 style={{ margin: 0, color: '#333' }}>البحث في شجرة العائلة</h3>
+      </div>
+
+      {/* حقل البحث الرئيسي */}
+      <div style={{ position: 'relative', marginBottom: '16px' }}>
+        <input
+          ref={inputRef}
+          type="text"
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setShowSuggestions(true);
+            setHighlightedIndex(-1);
+          }}
+          onKeyDown={handleKeyDown}
+          onFocus={() => setShowSuggestions(true)}
+          onBlur={handleBlur}
+          placeholder="ابحث عن شخص..."
+          style={{
+            width: '100%',
+            padding: '12px 40px 12px 12px',
+            border: '2px solid #e0e0e0',
+            borderRadius: '8px',
+            fontSize: '16px',
+            outline: 'none',
+            transition: 'border-color 0.3s',
+            fontFamily: 'Cairo, Arial, sans-serif'
           }}
         />
         
-        <FormControl sx={{ minWidth: 120 }}>
-          <InputLabel>نوع البحث</InputLabel>
-          <Select
-            value={searchType}
-            onChange={(e) => setSearchType(e.target.value)}
-            label="نوع البحث"
+        {searchTerm && (
+          <button
+            onClick={clearSearch}
+            style={{
+              position: 'absolute',
+              left: '8px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              fontSize: '18px',
+              cursor: 'pointer',
+              color: '#999'
+            }}
           >
-            <MenuItem value="all">الكل</MenuItem>
-            <MenuItem value="name">الاسم</MenuItem>
-            <MenuItem value="relation">العلاقة</MenuItem>
-            <MenuItem value="phone">الهاتف</MenuItem>
-          </Select>
-        </FormControl>
+            ✕
+          </button>
+        )}
 
-        <IconButton 
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          sx={{ ml: 1 }}
-        >
-          <FilterList />
-          {showAdvanced ? <ExpandLess /> : <ExpandMore />}
-        </IconButton>
-      </Box>
-
-      {/* البحث المتقدم */}
-      <Collapse in={showAdvanced}>
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            فلترة متقدمة
-          </Typography>
-          
-          <Box display="flex" gap={2} flexWrap="wrap">
-            {/* فلترة الجيل */}
-            <FormControl sx={{ minWidth: 120 }}>
-              <InputLabel>الجيل</InputLabel>
-              <Select
-                value={selectedGeneration}
-                onChange={(e) => setSelectedGeneration(e.target.value)}
-                label="الجيل"
-              >
-                <MenuItem value="all">جميع الأجيال</MenuItem>
-                {generations.map(gen => (
-                  <MenuItem key={gen} value={gen}>
-                    الجيل {gen + 1}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            {/* فلترة العلاقة */}
-            <FormControl sx={{ minWidth: 120 }}>
-              <InputLabel>العلاقة</InputLabel>
-              <Select
-                value={selectedRelation}
-                onChange={(e) => setSelectedRelation(e.target.value)}
-                label="العلاقة"
-              >
-                <MenuItem value="all">جميع العلاقات</MenuItem>
-                {relations.map(relation => (
-                  <MenuItem key={relation} value={relation}>
-                    {relation}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-        </Paper>
-      </Collapse>
-
-      {/* عرض النتائج */}
-      <Box>
-        {/* إحصائيات النتائج */}
-        <Box display="flex" alignItems="center" gap={2} mb={2}>
-          <Typography variant="body2" color="text.secondary">
-            {searchResults.length} نتيجة من أصل {familyData.length}
-          </Typography>
-          
-          {searchQuery && (
-            <Chip
-              label={`"${searchQuery}"`}
-              size="small"
-              onDelete={() => setSearchQuery('')}
-              color="primary"
-              variant="outlined"
-            />
-          )}
-        </Box>
-
-        {/* قائمة النتائج */}
-        <Paper sx={{ maxHeight: 400, overflow: 'auto' }}>
-          <List>
-            {searchResults.map((person) => (
-              <ListItem
-                key={person.id}
-                button
-                onClick={() => handlePersonClick(person)}
-                sx={{
-                  '&:hover': {
-                    backgroundColor: 'action.hover'
-                  }
+        {/* اقتراحات سريعة */}
+        {showSuggestions && quickSuggestions.length > 0 && (
+          <div style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            background: 'white',
+            border: '1px solid #ddd',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 1000,
+            maxHeight: '200px',
+            overflowY: 'auto'
+          }}>
+            {quickSuggestions.map((suggestion, index) => (
+              <div
+                key={index}
+                onClick={() => selectPerson(suggestion.data)}
+                style={{
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  backgroundColor: index === highlightedIndex ? '#f0f0f0' : 'transparent',
+                  borderBottom: index < quickSuggestions.length - 1 ? '1px solid #eee' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
                 }}
               >
-                <ListItemAvatar>
-                  <Avatar src={person.avatar}>
-                    <Person />
-                  </Avatar>
-                </ListItemAvatar>
-                
-                <ListItemText
-                  primary={buildFullName(person)}
-                  secondary={
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        {person.relation}
-                      </Typography>
-                      {person.phone && (
-                        <Typography variant="caption" color="text.secondary">
-                          📱 {person.phone}
-                        </Typography>
-                      )}
-                    </Box>
-                  }
-                />
-                
-                <Chip
-                  label={`الجيل ${(person.generation || 0) + 1}`}
-                  size="small"
-                  variant="outlined"
-                />
-              </ListItem>
+                <span>👤</span>
+                <div>
+                  <div style={{ fontWeight: 'bold' }}>{suggestion.data.name}</div>
+                  <div style={{ fontSize: '12px', color: '#666' }}>
+                    {suggestion.data.relation} - الجيل {suggestion.data.depth + 1}
+                  </div>
+                </div>
+              </div>
             ))}
-            
-            {searchResults.length === 0 && searchQuery && (
-              <ListItem>
-                <ListItemText
-                  primary="لم يتم العثور على نتائج"
-                  secondary="جرب تغيير مصطلح البحث أو الفلاتر"
-                />
-              </ListItem>
+          </div>
+        )}
+      </div>
+
+      {/* نوع البحث */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        {[
+          { value: 'all', label: 'الكل', icon: '🔍' },
+          { value: 'name', label: 'الاسم', icon: '👤' },
+          { value: 'relation', label: 'العلاقة', icon: '👨‍👩‍👧‍👦' },
+          { value: 'phone', label: 'الهاتف', icon: '📞' }
+        ].map(type => (
+          <button
+            key={type.value}
+            onClick={() => setSearchType(type.value)}
+            style={{
+              padding: '6px 12px',
+              border: searchType === type.value ? '2px solid #2196F3' : '1px solid #ddd',
+              borderRadius: '20px',
+              background: searchType === type.value ? '#e3f2fd' : 'white',
+              cursor: 'pointer',
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <span>{type.icon}</span>
+            {type.label}
+          </button>
+        ))}
+      </div>
+
+      {/* البحث المتقدم */}
+      <div style={{ marginBottom: '16px' }}>
+        <button
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#2196F3',
+            cursor: 'pointer',
+            fontSize: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+        >
+          <span>{showAdvanced ? '🔼' : '🔽'}</span>
+          بحث متقدم
+        </button>
+
+        {showAdvanced && (
+          <div style={{ 
+            marginTop: '12px', 
+            padding: '16px', 
+            background: '#f8f9fa', 
+            borderRadius: '8px',
+            display: 'grid',
+            gap: '12px'
+          }}>
+            {/* فلترة الجيل */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold', fontSize: '14px' }}>
+                الجيل:
+              </label>
+              <select
+                value={selectedGeneration}
+                onChange={(e) => setSelectedGeneration(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '6px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px'
+                }}
+              >
+                <option value="all">جميع الأجيال</option>
+                {treeStats.generations.map(gen => (
+                  <option key={gen} value={gen}>الجيل {gen + 1}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* فلترة العلاقة */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold', fontSize: '14px' }}>
+                العلاقة:
+              </label>
+              <select
+                value={selectedRelation}
+                onChange={(e) => setSelectedRelation(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '6px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px'
+                }}
+              >
+                <option value="all">جميع العلاقات</option>
+                {treeStats.relations.map(relation => (
+                  <option key={relation} value={relation}>{relation}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* فلترة العائلة */}
+            {familyData.length > 1 && (
+              <div>
+                <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold', fontSize: '14px' }}>
+                  العائلة:
+                </label>
+                <select
+                  value={selectedFamily}
+                  onChange={(e) => setSelectedFamily(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '6px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px'
+                  }}
+                >
+                  <option value="all">جميع العائلات</option>
+                  {familyData.map(family => (
+                    <option key={family.uid} value={family.uid}>
+                      {family.familyName || `عائلة ${family.head?.firstName || 'غير محدد'}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
             )}
-          </List>
-        </Paper>
-      </Box>
-    </Box>
+          </div>
+        )}
+      </div>
+
+      {/* نتائج البحث */}
+      {filteredResults.length > 0 && (
+        <div style={{ marginTop: '16px' }}>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            marginBottom: '12px'
+          }}>
+            <h4 style={{ margin: 0, color: '#333' }}>
+              النتائج ({filteredResults.length})
+            </h4>
+            {filteredResults.length > 10 && (
+              <span style={{ fontSize: '12px', color: '#666' }}>
+                عرض أول 10 نتائج
+              </span>
+            )}
+          </div>
+
+          <div style={{ 
+            maxHeight: '300px', 
+            overflowY: 'auto',
+            border: '1px solid #eee',
+            borderRadius: '8px'
+          }}>
+            {filteredResults.slice(0, 10).map((person, index) => (
+              <div
+                key={person.id || index}
+                onClick={() => selectPerson(person)}
+                style={{
+                  padding: '12px',
+                  borderBottom: index < Math.min(filteredResults.length, 10) - 1 ? '1px solid #eee' : 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+              >
+                <div style={{ 
+                  width: '40px', 
+                  height: '40px', 
+                  borderRadius: '50%',
+                  background: person.isHead ? 'linear-gradient(45deg, #FF6B6B, #4ECDC4)' : 
+                             person.relation === 'بنت' ? '#F8BBD9' : '#4FC3F7',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  fontWeight: 'bold'
+                }}>
+                  {person.isHead ? '👑' : person.relation === 'بنت' ? '👩' : '👨'}
+                </div>
+                
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 'bold', fontSize: '16px' }}>
+                    {person.name}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#666' }}>
+                    {person.relation} • الجيل {person.depth + 1}
+                    {person.phone && ` • ${person.phone}`}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#999' }}>
+                    المسار: {person.path.join(' ← ')}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* رسالة عدم وجود نتائج */}
+      {searchTerm && filteredResults.length === 0 && (
+        <div style={{ 
+          textAlign: 'center', 
+          padding: '20px',
+          color: '#666',
+          background: '#f8f9fa',
+          borderRadius: '8px',
+          marginTop: '16px'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '8px' }}>🔍</div>
+          <div>لم يتم العثور على نتائج</div>
+          <div style={{ fontSize: '14px', marginTop: '4px' }}>
+            جرب تغيير كلمات البحث أو المرشحات
+          </div>
+        </div>
+      )}
+
+      {/* احصائيات سريعة */}
+      {!searchTerm && (
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(3, 1fr)', 
+          gap: '8px',
+          marginTop: '16px'
+        }}>
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '8px',
+            background: '#e3f2fd',
+            borderRadius: '6px'
+          }}>
+            <div style={{ fontWeight: 'bold', color: '#1976d2' }}>
+              {allPersons.length}
+            </div>
+            <div style={{ fontSize: '12px', color: '#666' }}>أشخاص</div>
+          </div>
+          
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '8px',
+            background: '#f3e5f5',
+            borderRadius: '6px'
+          }}>
+            <div style={{ fontWeight: 'bold', color: '#7b1fa2' }}>
+              {treeStats.generations.length}
+            </div>
+            <div style={{ fontSize: '12px', color: '#666' }}>أجيال</div>
+          </div>
+          
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '8px',
+            background: '#e8f5e8',
+            borderRadius: '6px'
+          }}>
+            <div style={{ fontWeight: 'bold', color: '#388e3c' }}>
+              {treeStats.families.length}
+            </div>
+            <div style={{ fontSize: '12px', color: '#666' }}>عائلات</div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
