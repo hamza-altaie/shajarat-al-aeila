@@ -3,6 +3,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
 import { getFirestore, connectFirestoreEmulator, doc, getDoc } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
 
 // إعدادات Firebase
 const firebaseConfig = {
@@ -41,6 +42,7 @@ if (getApps().length === 0) {
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+export const functions = getFunctions(app);
 
 // إعدادات المحاكي للتطوير المحلي (اختياري)
 if (import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
