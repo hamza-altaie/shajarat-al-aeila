@@ -339,11 +339,20 @@ export default function FamilyTreeAdvanced() {
       }
     });
 
-    // تحديد التكبير الأولي
+    // حساب تموضع الشجرة بدقة ليكون مركزها في منتصف الحاوية
+    let minX = Infinity, maxX = -Infinity;
+    root.descendants().forEach(d => {
+      if (d.x < minX) minX = d.x;
+      if (d.x > maxX) maxX = d.x;
+    });
+    const treeWidth = maxX - minX;
+    // توسيط أدق مع مراعاة التكبير
+    const centerX = (width / 2 - ((minX + maxX) / 2) * zoomLevel);
+    // زيادة المسافة من الأعلى (مثلاً 180 بدلاً من 60)
+    const centerY = 180; // يمكنك تعديل الرقم حسب الحاجة
     const initialTransform = d3.zoomIdentity
-      .translate(width / 2, 60)
+      .translate(centerX, centerY)
       .scale(zoomLevel);
-    
     svg.transition()
       .duration(750)
       .call(zoom.transform, initialTransform);

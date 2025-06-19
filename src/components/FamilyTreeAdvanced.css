@@ -62,6 +62,9 @@
   overflow: hidden;
   border-radius: var(--family-card-radius-small);
   background: transparent;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
 }
 
 .family-tree-chart-container svg {
@@ -71,6 +74,8 @@
   background: transparent;
   transition: var(--family-transition-normal);
   border-radius: 8px;
+  margin: 0 auto;
+  display: block;
 }
 
 .family-tree-chart-container svg:active {
