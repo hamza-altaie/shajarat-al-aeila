@@ -215,13 +215,13 @@ export default function FamilyTreeAdvanced() {
 
     // إعداد بيانات الشجرة
     const root = d3.hierarchy(data);
+    // زيادة المسافة الأفقية فقط، وتقليل المسافة الرأسية
     const treeLayout = d3.tree()
-      .size([width - 100, height - 120])
+      .size([width - 100, height - 220]) // تقليل الارتفاع
       .separation((a, b) => {
-      const siblingDistance = showExtendedTree ? 6 : 5;
-      const nonSiblingDistance = showExtendedTree ? 8 : 7;
-      return a.parent === b.parent ? siblingDistance : nonSiblingDistance;
-    }); 
+        // مسافة أفقية أكبر، رأسية أقل
+        return a.parent === b.parent ? 4.5 : 5.2;
+      }); 
 
     treeLayout(root);
 
@@ -234,10 +234,8 @@ export default function FamilyTreeAdvanced() {
       .attr("d", d => {
           const source = d.source;
           const target = d.target;
-          
           const midY = source.y + (target.y - source.y) / 2;
-          const radius = 20; // زيادة نصف القطر للانحناء الأجمل
-          
+          const radius = 18;
           return `M${source.x},${source.y}
                   L${source.x},${midY - radius}
                   Q${source.x},${midY} ${source.x + (target.x > source.x ? radius : -radius)},${midY}
@@ -245,17 +243,17 @@ export default function FamilyTreeAdvanced() {
                   Q${target.x},${midY} ${target.x},${midY + radius}
                   L${target.x},${target.y}`;
         })
-      .style("stroke", showExtendedTree ? "#8b5cf6" : "#6366f1")
-      .style("stroke-width", showExtendedTree ? 4 : 3)
+      .style("stroke", "#cbd5e1")
+      .style("stroke-width", 2)
       .style("stroke-linecap", "round")
       .style("stroke-linejoin", "round")
-      .style("opacity", 0)
-      .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.2))")
-      .style("stroke-dasharray", showExtendedTree ? "10,5" : "none")
+      .style("opacity", 0.85)
+      .style("filter", "none")
+      .style("stroke-dasharray", "none")
       .transition()
       .duration(800)
       .delay((d, i) => i * 50)
-      .style("opacity", 0.8);
+      .style("opacity", 1);
 
     // رسم العقد
     const nodes = g.selectAll(".node")
