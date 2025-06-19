@@ -1,33 +1,43 @@
-/* انسخ هذا الكود ووضعه في ملف FamilyTreeAdvanced.css */
+/* ملف CSS عصري لكاردات شجرة العائلة - نسخة للتركيب المباشر */
 
 .family-tree-advanced-root {
-  /* متغيرات الألوان */
-  --family-primary: #2e7d32;
-  --family-secondary: #1565c0;
-  --family-success: #4caf50;
-  --family-warning: #ff9800;
-  --family-error: #f44336;
+  /* متغيرات الألوان العصرية */
+  --family-primary: #6366f1;
+  --family-secondary: #8b5cf6;
+  --family-accent: #06b6d4;
+  --family-success: #10b981;
+  --family-warning: #f59e0b;
+  --family-error: #ef4444;
   
-  /* خلفيات */
-  --family-bg-simple: linear-gradient(135deg, #e3f2fd 0%, #f1f8e9 100%);
-  --family-bg-extended: linear-gradient(135deg, #f3e5f5 0%, #e1f5fe 100%);
+  /* خلفيات زجاجية وشفافة */
+  --family-bg-simple: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  --family-bg-extended: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #3730a3 100%);
+  --family-bg-glass: rgba(30, 41, 59, 0.8);
+  --family-bg-card: rgba(255, 255, 255, 0.05);
   
-  /* ظلال */
-  --family-shadow-light: 0 2px 4px rgba(0,0,0,0.12);
-  --family-shadow-medium: 0 4px 8px rgba(0,0,0,0.15);
-  --family-shadow-heavy: 0 8px 24px rgba(0,0,0,0.2);
+  /* ألوان النصوص */
+  --family-text-primary: #f8fafc;
+  --family-text-secondary: #cbd5e1;
+  --family-text-muted: #94a3b8;
+  
+  /* ظلال عصرية */
+  --family-shadow-light: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --family-shadow-medium: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --family-shadow-heavy: 0 20px 40px rgba(99, 102, 241, 0.3);
+  --family-shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.3);
   
   /* خطوط */
   --family-font-primary: "Cairo", "Roboto", "Helvetica Neue", Arial, sans-serif;
   
-  /* أبعاد */
-  --family-card-width: 300px;
-  --family-card-height: 110px;
-  --family-card-radius: 18px;
+  /* أبعاد محدثة */
+  --family-card-width: 320px;
+  --family-card-height: 180px;
+  --family-card-radius: 20px;
+  --family-card-radius-small: 12px;
   
-  /* انتقالات */
-  --family-transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  --family-transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  /* انتقالات سلسة */
+  --family-transition-fast: all 0.2s ease;
+  --family-transition-normal: all 0.4s cubic-bezier(0.23, 1, 0.320, 1);
   
   width: 100%;
   height: 100%;
@@ -35,19 +45,22 @@
   direction: rtl;
   text-align: right;
   background: var(--family-bg-simple);
-  transition: background var(--family-transition-normal);
+  transition: var(--family-transition-normal);
+  position: relative;
+  overflow: hidden;
 }
 
 .family-tree-advanced-root.extended {
   background: var(--family-bg-extended);
 }
 
+/* حاوي الشجرة الرئيسي */
 .family-tree-chart-container {
   width: 100%;
   height: 100%;
   position: relative;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: var(--family-card-radius-small);
   background: transparent;
 }
 
@@ -56,7 +69,7 @@
   user-select: none;
   font-family: var(--family-font-primary);
   background: transparent;
-  transition: all var(--family-transition-normal);
+  transition: var(--family-transition-normal);
   border-radius: 8px;
 }
 
@@ -64,12 +77,24 @@
   cursor: grabbing;
 }
 
+/* العقد الأساسية */
 .family-tree-chart-container .node {
-  transition: all var(--family-transition-normal);
+  transition: var(--family-transition-normal);
   cursor: pointer;
   transform-origin: center;
+  position: relative;
 }
 
+/* كارت العضو الجديد */
+.family-node-card {
+  border-radius: var(--family-card-radius);
+  filter: var(--family-shadow-glass);
+  transition: var(--family-transition-normal);
+  backdrop-filter: blur(20px);
+  position: relative;
+}
+
+/* تأثيرات الهوفر الجديدة */
 .family-tree-chart-container .node:hover rect {
   transform: translateY(-3px) scale(1.02) !important;
   filter: brightness(1.08) drop-shadow(0 12px 32px rgba(0,0,0,0.18)) !important;
@@ -79,27 +104,31 @@
   transform: translateY(-1px) scale(0.98) !important;
 }
 
-.family-node-card {
-  border-radius: var(--family-card-radius);
-  filter: var(--family-shadow-medium);
-  transition: all var(--family-transition-normal);
-}
-
+/* أنواع مختلفة من الكاردات */
 .family-node-card.parent {
   stroke: var(--family-primary);
   stroke-width: 3px;
+  fill: rgba(99, 102, 241, 0.1);
 }
 
 .family-node-card.child {
-  stroke: var(--family-secondary);
+  stroke: var(--family-success);
   stroke-width: 3px;
+  fill: rgba(16, 185, 129, 0.1);
 }
 
+.family-node-card.spouse {
+  stroke: var(--family-warning);
+  stroke-width: 3px;
+  fill: rgba(245, 158, 11, 0.1);
+}
+
+/* خلفية الصورة الشخصية */
 .family-avatar-background {
   fill: white;
   stroke-width: 3px;
   filter: var(--family-shadow-light);
-  transition: all var(--family-transition-normal);
+  transition: var(--family-transition-normal);
 }
 
 .family-avatar-background.parent {
@@ -107,11 +136,18 @@
 }
 
 .family-avatar-background.child {
-  stroke: var(--family-secondary);
+  stroke: var(--family-success);
 }
 
+.family-avatar-background.spouse {
+  stroke: var(--family-warning);
+}
+
+/* الصورة الشخصية */
 .family-avatar-image {
-  transition: all var(--family-transition-normal);
+  transition: var(--family-transition-normal);
+  border-radius: 50%;
+  filter: brightness(1) contrast(1);
 }
 
 .family-tree-chart-container .node:hover .family-avatar-image {
@@ -119,13 +155,16 @@
   transform: scale(1.05);
 }
 
+/* أيقونة الصورة الشخصية */
 .family-avatar-icon {
   text-anchor: middle;
   dominant-baseline: central;
-  transition: all var(--family-transition-normal);
-  font-size: 20px;
+  transition: var(--family-transition-normal);
+  font-size: 24px;
+  fill: var(--family-primary);
 }
 
+/* النصوص */
 .family-tree-chart-container text {
   font-family: var(--family-font-primary);
   text-rendering: optimizeLegibility;
@@ -137,57 +176,64 @@
   text-anchor: start;
 }
 
+/* اسم العضو */
 .family-name-text {
-  font-size: 15px;
-  font-weight: 600;
-  fill: white;
+  font-size: 16px;
+  font-weight: 700;
+  fill: var(--family-text-primary);
   filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.5));
+  transition: var(--family-transition-fast);
 }
 
 .family-name-text.secondary-line {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   opacity: 0.95;
 }
 
+/* نص العلاقة */
 .family-relation-text {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
-  fill: white;
+  fill: var(--family-text-secondary);
   filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.4));
   opacity: 0.9;
 }
 
+/* معلومات إضافية */
 .family-info-text {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 400;
-  fill: white;
+  fill: var(--family-text-muted);
   filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.3));
   opacity: 0.8;
 }
 
+/* خطوط الاتصال */
 .family-tree-chart-container .link {
   fill: none;
-  stroke: #64b5f6;
+  stroke: var(--family-primary);
   stroke-width: 3px;
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: 0.7;
-  transition: all var(--family-transition-normal);
+  opacity: 0.6;
+  transition: var(--family-transition-normal);
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
 }
 
 .family-tree-chart-container .link:hover {
-  stroke: var(--family-secondary);
-  stroke-width: 5px;
+  stroke: var(--family-accent);
+  stroke-width: 4px;
   opacity: 1;
-  filter: drop-shadow(0 2px 8px rgba(33, 150, 243, 0.4));
+  filter: drop-shadow(0 4px 8px rgba(6, 182, 212, 0.4));
 }
 
+/* الشارات */
 .family-badge {
   stroke: white;
   stroke-width: 2px;
   filter: var(--family-shadow-light);
-  transition: all var(--family-transition-normal);
+  transition: var(--family-transition-normal);
   cursor: pointer;
 }
 
@@ -197,11 +243,15 @@
 }
 
 .family-badge.children {
-  fill: #e91e63;
+  fill: var(--family-success);
 }
 
 .family-badge.extended {
-  fill: #9c27b0;
+  fill: var(--family-secondary);
+}
+
+.family-badge.spouse {
+  fill: var(--family-warning);
 }
 
 .family-badge-text {
@@ -216,11 +266,39 @@
   filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
 }
 
-/* Responsive */
+/* تأثيرات الإضاءة للعقد المحددة */
+.family-tree-chart-container .node.selected rect {
+  stroke: var(--family-accent) !important;
+  stroke-width: 4px !important;
+  filter: drop-shadow(0 0 15px var(--family-accent)) !important;
+}
+
+/* أزرار التفاعل */
+.card-actions {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: var(--family-transition-normal);
+}
+
+.family-tree-chart-container .node:hover .card-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.action-btn {
+  cursor: pointer;
+  transition: var(--family-transition-fast);
+}
+
+.action-btn:hover {
+  transform: scale(1.1);
+}
+
+/* الاستجابة للأجهزة المحمولة */
 @media (max-width: 768px) {
   .family-tree-advanced-root {
-    --family-card-width: 260px;
-    --family-card-height: 90px;
+    --family-card-width: 280px;
+    --family-card-height: 160px;
   }
   
   .family-name-text {
@@ -228,14 +306,18 @@
   }
   
   .family-relation-text {
-    font-size: 11px;
+    font-size: 12px;
+  }
+  
+  .family-info-text {
+    font-size: 10px;
   }
 }
 
 @media (max-width: 480px) {
   .family-tree-advanced-root {
-    --family-card-width: 240px;
-    --family-card-height: 80px;
+    --family-card-width: 260px;
+    --family-card-height: 140px;
   }
   
   .family-name-text {
@@ -243,16 +325,76 @@
   }
   
   .family-relation-text {
-    font-size: 10px;
+    font-size: 11px;
+  }
+  
+  .family-info-text {
+    font-size: 9px;
   }
 }
 
-/* تقليل الحركة */
+/* تقليل الحركة للمستخدمين الذين يفضلون ذلك */
 @media (prefers-reduced-motion: reduce) {
   .family-tree-chart-container *,
   .family-tree-chart-container .node,
   .family-tree-chart-container .link,
-  .family-badge {
+  .family-badge,
+  .family-node-card {
     transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* تحسينات الوصولية */
+.family-tree-chart-container .node:focus {
+  outline: 2px solid var(--family-primary);
+  outline-offset: 4px;
+}
+
+/* تأثيرات خاصة للوضع المظلم */
+@media (prefers-color-scheme: dark) {
+  .family-tree-advanced-root {
+    --family-text-primary: #f1f5f9;
+    --family-text-secondary: #e2e8f0;
+    --family-text-muted: #cbd5e1;
+  }
+}
+
+/* تحسينات الأداء */
+.family-tree-chart-container * {
+  will-change: transform, opacity;
+}
+
+/* إضافة تأثير النبض للعناصر المهمة */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.family-badge.important {
+  animation: pulse 2s infinite;
+}
+
+/* تأثيرات تدرج الألوان */
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* تحسينات الطباعة */
+@media print {
+  .family-tree-advanced-root {
+    background: white !important;
+    color: black !important;
+  }
+  
+  .family-node-card {
+    stroke: black !important;
+  }
+  
+  .family-name-text,
+  .family-relation-text,
+  .family-info-text {
+    fill: black !important;
   }
 }
