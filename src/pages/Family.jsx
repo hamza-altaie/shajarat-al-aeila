@@ -240,9 +240,7 @@ export default function Family() {
     setForm(prev => ({ ...prev, [name]: value }));
     
     // إعادة تعيين حالة نجاح رفع الصورة عند تغيير أي حقل
-    if (avatarUploadSuccess) {
-      setAvatarUploadSuccess(false);
-    }
+    const [avatarUploadSuccess, setAvatarUploadSuccess] = useState(false);
     
     if (fieldErrors[name]) {
       setFieldErrors(prev => ({ ...prev, [name]: '' }));
