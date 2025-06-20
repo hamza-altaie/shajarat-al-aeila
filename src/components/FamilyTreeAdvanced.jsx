@@ -65,6 +65,9 @@ export default function FamilyTreeAdvanced() {
   const [loadingStage, setLoadingStage] = useState('');
   const [loadingProgress, setLoadingProgress] = useState(0);
   
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResultNode, setSearchResultNode] = useState(null);
+  
   const uid = localStorage.getItem('verifiedUid');
   const navigate = useNavigate();
   
@@ -272,7 +275,17 @@ export default function FamilyTreeAdvanced() {
       const nodeGroup = d3.select(this);
       const nodeData = d.data.attributes || d.data;
       const uniqueId = nodeData.id || nodeData.globalId || Math.random().toString(36).substring(7);
-      
+      // إضافة خاصية highlightMatch بناءً على البحث
+      let highlightMatch = false;
+      if (searchQuery && searchQuery.length > 1) {
+        const q = searchQuery.trim();
+        if (
+          (nodeData.name && nodeData.name.includes(q)) ||
+          (nodeData.firstName && nodeData.firstName.includes(q))
+        ) {
+          highlightMatch = true;
+        }
+      }
       try {
         const foreignObject = nodeGroup.append("foreignObject")
           .attr("width", 350)
@@ -301,36 +314,35 @@ export default function FamilyTreeAdvanced() {
         if (reactElement) {
           const root = createRoot(reactElement);
           reactRootsRef.current.set(uniqueId, root);
-          
-          // تحديد نوع العضو
-          const isParent = nodeData.relation?.includes('رب العائلة') || 
-                          nodeData.relation === 'parent' ||
-                          nodeData.relation === 'الأب' ||
-                          nodeData.relation === 'الأم';
-          
-          const isChild = nodeData.relation === 'ابن' || 
-                         nodeData.relation === 'بنت' || 
-                         nodeData.relation === 'child' ||
-                         nodeData.relation === 'الابن' ||
-                         nodeData.relation === 'الابنة';
-          
-          const isSpouse = nodeData.relation === 'زوج' || 
-                          nodeData.relation === 'زوجة' || 
-                          nodeData.relation === 'spouse' ||
-                          nodeData.relation === 'الزوج' ||
-                          nodeData.relation === 'الزوجة';
-
           root.render(
             <ModernFamilyNodeHTML 
               nodeDatum={{
                 ...nodeData,
                 name: nodeData.name || buildFullName(nodeData),
-                isExtended: showExtendedTree && nodeData.isExtended
+                isExtended: showExtendedTree && nodeData.isExtended,
+                highlightMatch // تمرير خاصية التمييز
               }}
               onNodeClick={handleNodeClick}
-              isParent={isParent}
-              isChild={isChild}
-              isSpouse={isSpouse}
+              isParent={
+                nodeData.relation?.includes('رب العائلة') || 
+                nodeData.relation === 'parent' ||
+                nodeData.relation === 'الأب' ||
+                nodeData.relation === 'الأم'
+              }
+              isChild={
+                nodeData.relation === 'ابن' || 
+                nodeData.relation === 'بنت' || 
+                nodeData.relation === 'child' ||
+                nodeData.relation === 'الابن' ||
+                nodeData.relation === 'الابنة'
+              }
+              isSpouse={
+                nodeData.relation === 'زوج' || 
+                nodeData.relation === 'زوجة' || 
+                nodeData.relation === 'spouse' ||
+                nodeData.relation === 'الزوج' ||
+                nodeData.relation === 'الزوجة'
+              }
             />
           );
         }
@@ -1102,6 +1114,23 @@ export default function FamilyTreeAdvanced() {
           <Chip label={`${Math.round(zoomLevel * 100)}%`} size="small" onClick={handleResetZoom} sx={{ minWidth: 60 }} />
           <IconButton size="small" onClick={handleZoomOut} disabled={loading}><ZoomOut /></IconButton>
           <IconButton size="small" onClick={handleRefresh} disabled={loading}><Refresh /></IconButton>
+          {/* حقل البحث */}
+          <input
+            type="text"
+            placeholder="ابحث عن شخص..."
+            style={{
+              padding: '6px 12px',
+              borderRadius: 8,
+              border: '1px solid #ccc',
+              fontFamily: 'Cairo, sans-serif',
+              fontSize: 15,
+              marginRight: 12,
+              minWidth: 180
+            }}
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            disabled={loading}
+          />
         </Box>
 
         <Box display="flex" justifyContent="center" sx={{ mb: 1 }}>
@@ -1144,6 +1173,80 @@ export default function FamilyTreeAdvanced() {
       </Box>
     </Paper>
   );
+
+  // دالة البحث وتكبير الكاميرا على الشخص
+  const focusOnPerson = useCallback((query) => {
+    if (!query || (!simpleTreeData && !extendedTreeData)) return;
+    const treeData = showExtendedTree ? extendedTreeData : simpleTreeData;
+    let foundNode = null;
+    function traverse(node) {
+      if (!node) return;
+      if (
+        (node.name && node.name.includes(query)) ||
+        (node.firstName && node.firstName.includes(query))
+      ) {
+        foundNode = node;
+        return;
+      }
+      if (node.children) {
+        for (const child of node.children) {
+          traverse(child);
+          if (foundNode) return;
+        }
+      }
+    }
+    traverse(treeData);
+    if (foundNode && svgRef.current && containerRef.current) {
+      setSearchResultNode(foundNode);
+      // تكبير الكاميرا على الشخص
+      const svg = d3.select(svgRef.current);
+      const container = containerRef.current;
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      // ابحث عن العقدة في D3 hierarchy
+      const root = d3.hierarchy(treeData);
+      let d3Node = null;
+      root.each(d => {
+        if (
+          (d.data.name && d.data.name === foundNode.name) ||
+          (d.data.firstName && d.data.firstName === foundNode.firstName)
+        ) {
+          d3Node = d;
+        }
+      });
+      if (d3Node) {
+        const zoom = d3.zoom().scaleExtent([0.1, 3]);
+        const g = svg.select('g');
+        const scale = 1.2;
+        const centerX = width / 2 - d3Node.x * scale;
+        const centerY = height / 2 - d3Node.y * scale;
+        svg.transition().duration(900).call(
+          zoom.transform,
+          d3.zoomIdentity.translate(centerX, centerY).scale(scale)
+        );
+        // وميض أو تمييز
+        d3.selectAll('.node').classed('search-highlight', false);
+        g.selectAll('.node').filter(d => d === d3Node).classed('search-highlight', true);
+        // إضافة التمييز على الكارد نفسه
+        g.selectAll('.node').filter(d => d === d3Node).select('foreignObject > div > div').classed('search-highlight', true);
+      }
+    } else {
+      setSearchResultNode(null);
+    }
+  }, [showExtendedTree, simpleTreeData, extendedTreeData]);
+
+  // تنفيذ البحث عند تغيير searchQuery
+  useEffect(() => {
+    if (searchQuery.length > 1) {
+      focusOnPerson(searchQuery);
+    } else {
+      setSearchResultNode(null);
+      if (svgRef.current) {
+        d3.selectAll('.node').classed('search-highlight', false);
+        d3.selectAll('.node foreignObject > div > div').classed('search-highlight', false);
+      }
+    }
+  }, [searchQuery, focusOnPerson]);
 
   return (
     <Box className="family-tree-advanced-root" sx={{ width: '100vw', height: '100vh', fontFamily: 'Cairo, sans-serif' }}>

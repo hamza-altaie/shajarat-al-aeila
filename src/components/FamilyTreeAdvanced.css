@@ -403,3 +403,11 @@
     fill: black !important;
   }
 }
+
+.family-tree-chart-container .node.search-highlight > div,
+.family-tree-chart-container .node.search-highlight {
+  box-shadow: 0 0 0 5px #ffeb3b, 0 4px 18px 2px rgba(0,0,0,0.07) !important;
+  border-color: #ffeb3b !important;
+  z-index: 10;
+  transition: box-shadow 0.4s, border-color 0.4s;
+}

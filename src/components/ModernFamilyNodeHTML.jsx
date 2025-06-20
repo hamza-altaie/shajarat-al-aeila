@@ -13,18 +13,18 @@ const ModernFamilyNodeHTML = ({
   const getNodeColors = () => {
     if (nodeDatum.gender === 'male' || nodeDatum.relation === 'ابن' || nodeDatum.relation === 'ولد') {
       return {
-        primary: '#03a9f4', // سماوي
-        border: '#bdbdbd', // رصاصي
-        bg: '#03a9f4',
+        primary: '#03a9f4',
+        border: '#bdbdbd',
+        bg: 'linear-gradient(135deg, #4fc3f7 0%, #0288d1 100%)',
         text: '#fff',
         subText: '#e3e3e3'
       };
     }
     if (nodeDatum.gender === 'female' || nodeDatum.relation === 'بنت' || nodeDatum.relation === 'ابنة') {
       return {
-        primary: '#ff9800', // برتقالي
-        border: '#bdbdbd', // رصاصي
-        bg: '#ff9800',
+        primary: '#ff9800',
+        border: '#bdbdbd',
+        bg: 'linear-gradient(135deg, #ffb347 0%, #ff5e62 100%)',
         text: '#fff',
         subText: '#fbe9e7'
       };
@@ -32,12 +32,15 @@ const ModernFamilyNodeHTML = ({
     return {
       primary: '#6366f1',
       border: '#bdbdbd',
-      bg: '#fff',
+      bg: 'linear-gradient(135deg, #e0e0e0 0%, #bdbdbd 100%)',
       text: '#222',
       subText: '#888'
     };
   };
   const colors = getNodeColors();
+
+  // تمييز البحث
+  const highlight = nodeDatum.highlightMatch;
   
   // تحديد النوع للتصنيف
   const getNodeType = () => {
@@ -94,7 +97,7 @@ const ModernFamilyNodeHTML = ({
         borderRadius: '14px',
         background: colors.bg,
         border: `2.5px solid ${colors.border}`,
-        boxShadow: '0 4px 18px 2px rgba(0,0,0,0.07)',
+        boxShadow: highlight ? '0 0 0 5px #ffeb3b, 0 4px 18px 2px rgba(0,0,0,0.07)' : '0 4px 18px 2px rgba(0,0,0,0.07)',
         position: 'relative',
         cursor: 'pointer',
         fontFamily: 'Cairo, sans-serif',
@@ -105,10 +108,11 @@ const ModernFamilyNodeHTML = ({
         margin: '12px',
         backgroundClip: 'padding-box',
         overflow: 'visible',
-        zIndex: 2
+        zIndex: 2,
+        transition: 'box-shadow 0.4s, border-color 0.4s'
       }}
       onClick={e => { e.stopPropagation(); onNodeClick && onNodeClick(nodeDatum); }}
-      className="modern-family-node-html"
+      className="modern-family-node-html family-node-card"
     >
       {/* صورة */}
       <div style={{
