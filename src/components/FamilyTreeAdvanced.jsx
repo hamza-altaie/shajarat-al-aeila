@@ -23,8 +23,6 @@ import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import ExtendedFamilyLinking from './ExtendedFamilyLinking';
 import ModernFamilyNodeHTML from './ModernFamilyNodeHTML';
 import './FamilyTreeAdvanced.css';
-import { useSearchZoom } from '../hooks/useSearchZoom';
-import { SearchBar } from './SearchBar';
 
 export default function FamilyTreeAdvanced() {
   // ===========================================================================
@@ -74,9 +72,6 @@ export default function FamilyTreeAdvanced() {
   const svgRef = useRef(null);
   const containerRef = useRef(null);
   const reactRootsRef = useRef(new Map());
-
-  const {searchQuery: hookSearchQuery, setSearchQuery: setHookSearchQuery, searchResults: hookSearchResults, searchAndZoom: hookSearchAndZoom, resetView, manualZoom, clearHighlights
-} = useSearchZoom(svgRef, showExtendedTree ? extendedTreeData : simpleTreeData);
 
   // إعداد البحث المحلي
   const [searchQuery, setSearchQuery] = useState('');
@@ -877,61 +872,82 @@ export default function FamilyTreeAdvanced() {
 
   // دالة البحث المحلية
   const performSearch = useCallback((query) => {
-    if (!query || query.trim().length < 2) {
-      setSearchResults([]);
-      return [];
-    }
+  console.log('🔍 بحث محلي عن:', query);
+  
+  if (!query || query.trim().length < 2) {
+    setSearchResults([]);
+    return [];
+  }
 
-    const treeData = showExtendedTree ? extendedTreeData : simpleTreeData;
-    if (!treeData) return [];
+  const treeData = showExtendedTree ? extendedTreeData : simpleTreeData;
+  if (!treeData) {
+    console.warn('❌ لا توجد بيانات شجرة للبحث فيها');
+    return [];
+  }
 
-    const results = [];
-    const normalizedQuery = query.toLowerCase().trim();
+  const results = [];
+  const normalizedQuery = query.toLowerCase().trim();
+  
+  console.log('📊 البحث في بيانات الشجرة...');
+  
+  function searchInNode(node, depth = 0) {
+    if (!node) return;
     
-    function searchInNode(node, depth = 0) {
-      if (!node) return;
-      
-      const name = node.name || node.attributes?.name || '';
-      const firstName = node.attributes?.firstName || '';
-      const relation = node.attributes?.relation || node.relation || '';
-      
-      if (name.toLowerCase().includes(normalizedQuery) || 
-          firstName.toLowerCase().includes(normalizedQuery)) {
-        results.push({
-          node: node,
-          type: 'name',
-          score: 3,
-          depth: depth
-        });
-      } else if (relation.toLowerCase().includes(normalizedQuery)) {
-        results.push({
-          node: node,
-          type: 'relation', 
-          score: 2,
-          depth: depth
-        });
-      }
-      
-      if (node.children) {
-        node.children.forEach(child => searchInNode(child, depth + 1));
-      }
+    // استخراج البيانات من مصادر متعددة
+    const name = node.name || node.attributes?.name || '';
+    const firstName = node.attributes?.firstName || '';
+    const relation = node.attributes?.relation || node.relation || '';
+    
+    console.log(`  فحص: ${name} (${relation})`);
+    
+    // فحص التطابق في الاسم
+    if (name.toLowerCase().includes(normalizedQuery) || 
+        firstName.toLowerCase().includes(normalizedQuery)) {
+      results.push({
+        node: node,
+        type: 'name',
+        score: 3,
+        depth: depth
+      });
+      console.log(`  ✅ مطابقة اسم: ${name}`);
+    } 
+    // فحص التطابق في العلاقة
+    else if (relation.toLowerCase().includes(normalizedQuery)) {
+      results.push({
+        node: node,
+        type: 'relation', 
+        score: 2,
+        depth: depth
+      });
+      console.log(`  ✅ مطابقة علاقة: ${relation}`);
     }
     
-    searchInNode(treeData);
-    
-    // ترتيب النتائج
-    results.sort((a, b) => b.score - a.score || a.depth - b.depth);
-    
-    setSearchResults(results);
-    return results;
-  }, [showExtendedTree, extendedTreeData, simpleTreeData]);
+    // البحث في الأطفال
+    if (node.children && Array.isArray(node.children)) {
+      node.children.forEach(child => searchInNode(child, depth + 1));
+    }
+  }
+  
+  searchInNode(treeData);
+  
+  // ترتيب النتائج
+  results.sort((a, b) => b.score - a.score || a.depth - b.depth);
+  
+  console.log(`📊 تم العثور على ${results.length} نتيجة`);
+  
+  setSearchResults(results);
+  return results;
+}, [showExtendedTree, extendedTreeData, simpleTreeData]);
+  
   
   // دالة البحث والزووم المحسنة للعمل مع D3
-  const handleSearchAndZoom = useCallback((selectedResult) => {
-  if (!selectedResult) return;
+const handleSearchAndZoom = useCallback((selectedResult) => {
+  console.log('🎯 تفعيل البحث والزووم:', selectedResult);
   
-  const searchName = selectedResult.node?.name || selectedResult.node?.attributes?.name || '';
-  console.log('🎯 البحث عن:', searchName);
+  if (!selectedResult) {
+    console.warn('❌ لا توجد نتيجة');
+    return;
+  }
   
   if (!svgRef.current) {
     console.warn('❌ SVG غير متاح');
@@ -941,113 +957,228 @@ export default function FamilyTreeAdvanced() {
   const svg = d3.select(svgRef.current);
   const g = svg.select('g');
   
-  console.log('🔍 البحث في العقد...');
+  // استخراج اسم الشخص للبحث
+  let targetName = '';
   
-  // البحث عن العقدة
-  let targetElement = null;
-  let targetData = null;
+  if (typeof selectedResult === 'string') {
+    targetName = selectedResult;
+  } else if (selectedResult.node) {
+    targetName = selectedResult.node.name || selectedResult.node.attributes?.name || '';
+  } else {
+    targetName = selectedResult.name || selectedResult.attributes?.name || '';
+  }
+  
+  console.log('🔍 البحث عن:', targetName);
+  
+  if (!targetName || targetName.trim().length === 0) {
+    console.warn('❌ اسم فارغ للبحث');
+    return;
+  }
+  
+  // البحث في العقد الموجودة في DOM
+  let foundNode = null;
+  let foundData = null;
   
   g.selectAll('.node').each(function(d) {
     const nodeName = d.data?.name || d.data?.attributes?.name || '';
-    console.log('فحص:', nodeName);
+    console.log('🔎 فحص العقدة:', nodeName);
     
-    if (nodeName && searchName && nodeName.includes(searchName.substring(0, 8))) {
-      targetElement = d3.select(this);
-      targetData = d;
-      console.log('✅ وجدت العقدة!');
+    // البحث بالتطابق الجزئي
+    if (nodeName && (
+      nodeName === targetName ||
+      nodeName.includes(targetName) ||
+      targetName.includes(nodeName)
+    )) {
+      foundNode = d3.select(this);
+      foundData = d;
+      console.log('✅ تم العثور على العقدة:', nodeName);
+      return; // توقف عند أول مطابقة
     }
   });
   
-  if (targetElement && targetData) {
-    console.log('📷 بدء الحركة إلى:', { x: targetData.x, y: targetData.y });
+  if (!foundNode || !foundData) {
+    console.error('❌ لم يتم العثور على العقدة في DOM');
     
-    // حساب الحركة
-    const container = svgRef.current.getBoundingClientRect();
-    const scale = 1.5;
-    const newX = container.width / 2 - targetData.x * scale;
-    const newY = container.height / 2 - targetData.y * scale;
+    // طباعة جميع العقد المتاحة للتشخيص
+    console.log('📋 العقد المتاحة:');
+    g.selectAll('.node').each(function(d, i) {
+      const name = d.data?.name || d.data?.attributes?.name || 'بدون اسم';
+      console.log(`  ${i + 1}: ${name}`);
+    });
     
-    console.log('🎬 تطبيق التحويل:', { newX, newY, scale });
-    
-    // تحريك الكاميرا
-    g.transition()
-      .duration(2000)
-      .ease(d3.easeCubicInOut)
-      .attr('transform', `translate(${newX}, ${newY}) scale(${scale})`)
-      .on('start', () => {
-        console.log('🎬 بدأت الحركة');
-        showSnackbar('🎯 جاري التركيز...', 'info');
-      })
-      .on('end', () => {
-        console.log('✅ انتهت الحركة');
-        
-        // تمييز العقدة
-        targetElement.classed('search-highlight', true);
-        
-        const innerDiv = targetElement.select('foreignObject > div');
-        if (!innerDiv.empty()) {
-          innerDiv.style('border', '5px solid #ffeb3b')
-                  .style('background', 'rgba(255, 235, 59, 0.3)')
-                  .style('border-radius', '15px')
-                  .style('transform', 'scale(1.1)');
-        }
-        
-        showSnackbar(`🎯 تم التركيز على ${searchName}`, 'success');
-      });
-  } else {
-    console.warn('❌ لم أجد العقدة');
-    showSnackbar('❌ لم يتم العثور على الشخص', 'error');
+    return;
   }
   
-}, [showSnackbar]);
+  // الحصول على أبعاد الحاوية
+  const containerRect = svgRef.current.getBoundingClientRect();
+  const centerX = containerRect.width / 2;
+  const centerY = containerRect.height / 2;
+  
+  // إعداد الزووم
+  const zoomBehavior = d3.zoom()
+    .scaleExtent([0.1, 3])
+    .on('zoom', (event) => {
+      g.attr('transform', event.transform);
+    });
+  
+  // تطبيق الزووم على SVG
+  svg.call(zoomBehavior);
+  
+  // حساب الموقع المطلوب
+  const targetScale = 1.8; // مستوى التكبير
+  const nodeX = foundData.x || 0;
+  const nodeY = foundData.y || 0;
+  
+  // حساب التحويل للوسط
+  const translateX = centerX - nodeX * targetScale;
+  const translateY = centerY - nodeY * targetScale;
+  
+  console.log('📐 إحداثيات التحويل:', {
+    nodeX, nodeY, translateX, translateY, targetScale
+  });
+  
+  // تطبيق الزووم مع الأنيميشن
+  svg.transition()
+    .duration(1200)
+    .ease(d3.easeCubicInOut)
+    .call(
+      zoomBehavior.transform,
+      d3.zoomIdentity.translate(translateX, translateY).scale(targetScale)
+    )
+    .on('start', () => {
+      console.log('🎬 بدء أنيميشن الزووم');
+    })
+    .on('end', () => {
+      console.log('✅ اكتمل أنيميشن الزووم');
+      
+      // تمييز العقدة المستهدفة
+      g.selectAll('.node').style('filter', null);
+      foundNode
+        .style('filter', 'drop-shadow(0 0 15px #ffeb3b) drop-shadow(0 0 25px #ff9800)')
+        .transition()
+        .duration(300)
+        .style('transform', 'scale(1.1)')
+        .transition()
+        .duration(300)
+        .style('transform', 'scale(1.0)');
+      
+      // إزالة التمييز بعد 4 ثوانٍ
+      setTimeout(() => {
+        foundNode.style('filter', null).style('transform', null);
+      }, 4000);
+    });
+    
+}, [svgRef]);
 
-  // تنفيذ البحث عند تغيير searchQuery مع الزوم التلقائي
-  useEffect(() => {
-  if (searchQuery && searchQuery.length > 1) {
-    console.log('🔍 بحث تلقائي:', searchQuery);
-    performSearch(searchQuery);
-    // إزالة الزوم التلقائي لتجنب التداخل
-  } else {
-    setSearchResults([]);
-    // مسح التمييز
-    if (svgRef.current) {
-      const svg = d3.select(svgRef.current);
-      const g = svg.select('g');
-      g.selectAll('.node').classed('search-highlight focus-zoom', false);
-      g.selectAll('.node foreignObject > div')
-        .classed('search-highlight', false)
-        .style('transform', null)
-        .style('border', null)
-        .style('box-shadow', null)
-        .style('background', null);
-    }
+
+
+const highlightFoundNode = useCallback((nodeElement) => {
+  if (!nodeElement || !svgRef.current) return;
+  
+  const svg = d3.select(svgRef.current);
+  const g = svg.select('g');
+  
+  // إزالة أي تمييز سابق
+  g.selectAll('.node').classed('search-highlight', false);
+  g.selectAll('.search-highlight-border').remove();
+  
+  // إضافة تمييز جديد
+  nodeElement.classed('search-highlight', true);
+  
+  const nodeRect = nodeElement.select('foreignObject');
+  if (!nodeRect.empty()) {
+    const bbox = nodeRect.node().getBBox();
+    
+    const highlightRect = nodeElement
+      .insert('rect', ':first-child')
+      .attr('class', 'search-highlight-border')
+      .attr('x', bbox.x - 5)
+      .attr('y', bbox.y - 5)
+      .attr('width', bbox.width + 10)
+      .attr('height', bbox.height + 10)
+      .attr('fill', 'none')
+      .attr('stroke', '#ffeb3b')
+      .attr('stroke-width', 3)
+      .attr('rx', 8);
+    
+    // تأثير النبض
+    highlightRect
+      .transition()
+      .duration(500)
+      .attr('stroke', '#ff9800')
+      .attr('stroke-width', 4)
+      .transition()
+      .duration(500)
+      .attr('stroke', '#4caf50')
+      .on('end', function() {
+        setTimeout(() => {
+          d3.select(this).transition().duration(1000).style('opacity', 0).remove();
+          nodeElement.classed('search-highlight', false);
+        }, 2000);
+      });
   }
-}, [searchQuery, performSearch]);
+  
+}, [svgRef]);
+
+
+
+const handleResetView = useCallback(() => {
+  if (!svgRef.current) return;
+  
+  console.log('🔄 إعادة تعيين الرؤية');
+  
+  const svg = d3.select(svgRef.current);
+  const g = svg.select('g');
+  
+  // مسح أي تمييز
+  g.selectAll('.node').classed('search-highlight', false);
+  g.selectAll('.search-highlight-border').remove();
+  g.selectAll('.node').style('filter', null).style('transform', null);
+  
+  // إعداد الزووم
+  const zoomBehavior = d3.zoom()
+    .scaleExtent([0.1, 3])
+    .on('zoom', (event) => {
+      g.attr('transform', event.transform);
+    });
+  
+  svg.call(zoomBehavior);
+  
+  // إعادة تعيين الرؤية للوضع الأساسي
+  svg.transition()
+    .duration(750)
+    .ease(d3.easeCubicInOut)
+    .call(
+      zoomBehavior.transform,
+      d3.zoomIdentity.translate(0, 0).scale(0.6)
+    );
+  
+  // مسح البحث
+  setSearchQuery('');
+  setSearchResults([]);
+  
+  console.log('✅ تم إعادة تعيين الرؤية');
+  
+}, [svgRef]);
 
 
 
   const handleSelectSearchResult = useCallback((result, resultBox) => {
   if (!result) return;
   
-  // الحصول على اسم الشخص
+  console.log('📷 تم اختيار نتيجة البحث:', result);
+  
   const personName = result.node?.name || result.node?.attributes?.name || '';
-  
-  console.log('📷 تشغيل كاميرا الزوم لنتيجة البحث:', personName);
-  
-  // إخفاء قائمة النتائج
+  setSearchQuery(personName);
   setSearchResults([]);
   
-  // إخفاء صندوق النتائج
   if (resultBox) {
     resultBox.style.display = 'none';
   }
   
-  // تشغيل أنيميشن الكاميرا بعد تأخير قصير
   setTimeout(() => {
-    if (personName) {
-      handleSearchAndZoom(personName);
-    }
-  }, 150);
+    handleSearchAndZoom(result);
+  }, 100);
   
 }, [handleSearchAndZoom]);
 
@@ -1253,7 +1384,7 @@ export default function FamilyTreeAdvanced() {
           <Chip label={`${Math.round(zoomLevel * 100)}%`} size="small" onClick={handleResetZoom} sx={{ minWidth: 60 }} />
           <IconButton size="small" onClick={handleZoomOut} disabled={loading}><ZoomOut /></IconButton>
           <IconButton size="small" onClick={handleRefresh} disabled={loading}><Refresh /></IconButton>
-          <IconButton size="small" onClick={resetView} disabled={loading} title="إعادة تعيين الرؤية">
+          <IconButton size="small" onClick={handleResetView} disabled={loading} title="إعادة تعيين الرؤية">
             <Refresh />
           </IconButton>
           <IconButton size="small" onClick={() => {
@@ -1351,28 +1482,24 @@ export default function FamilyTreeAdvanced() {
                     <Box
                       key={index}
                       onClick={() => {
-  console.log('🖱️ تم النقر على النتيجة:', result);
-  console.log('📋 بيانات العقدة:', result.node);
-  
-  // تحديث شريط البحث
-  const nodeName = result.node.name || result.node.attributes?.name || '';
-  setSearchQuery(nodeName);
-  
-  // إخفاء النتائج
-  setSearchResults([]);
-  
-  console.log('⏰ بدء setTimeout للزوم');
-  
-  // تشغيل أنيميشن الكاميرا
-  setTimeout(() => {
-    console.log('🎯 تشغيل handleSearchAndZoom مع:', result);
-    try {
-      handleSearchAndZoom(result);
-    } catch (error) {
-      console.error('❌ خطأ في handleSearchAndZoom:', error);
-    }
-  }, 150);
-}}
+                        console.log('🖱️ تم النقر على النتيجة:', result);
+                        console.log('📋 بيانات العقدة:', result.node);
+                        
+                        // تحديث شريط البحث
+                        const nodeName = result.node?.name || result.node?.attributes?.name || '';
+                        setSearchQuery(nodeName);
+                        
+                        // إخفاء النتائج
+                        setSearchResults([]);
+                        
+                        console.log('⏰ بدء الزووم بعد تأخير قصير');
+                        
+                        // تشغيل الزووم مع تأخير قصير
+                        setTimeout(() => {
+                          console.log('🎯 تشغيل handleSearchAndZoom');
+                          handleSearchAndZoom(result);
+                        }, 200);
+                      }}
                       sx={{
                         p: 2,
                         cursor: 'pointer',
