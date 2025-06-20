@@ -23,6 +23,7 @@ import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import ExtendedFamilyLinking from './ExtendedFamilyLinking';
 import ModernFamilyNodeHTML from './ModernFamilyNodeHTML';
 import './FamilyTreeAdvanced.css';
+import { useSearchZoom } from '../hooks/useSearchZoom';
 
 export default function FamilyTreeAdvanced() {
   // ===========================================================================
@@ -77,6 +78,9 @@ export default function FamilyTreeAdvanced() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
 
+  // Hook للبحث والزووم
+  const currentTreeData = showExtendedTree ? extendedTreeData : simpleTreeData;
+  const searchZoomHook = useSearchZoom(svgRef, currentTreeData);
   // ===========================================================================
   // دوال مساعدة
   // ===========================================================================
@@ -941,184 +945,93 @@ export default function FamilyTreeAdvanced() {
   
   
   // دالة البحث والزووم المحسنة للعمل مع D3
-const handleSearchAndZoom = useCallback((selectedResult) => {
-  console.log('🎯 تفعيل البحث والزووم:', selectedResult);
+  const handleSearchAndZoom = useCallback((selectedResult) => {
+  console.log('🎯 تشغيل الزووم البسيط:', selectedResult);
   
-  if (!selectedResult) {
-    console.warn('❌ لا توجد نتيجة');
+  if (!selectedResult || !svgRef.current) {
+    console.warn('❌ لا توجد نتيجة أو SVG');
     return;
   }
-  
-  if (!svgRef.current) {
-    console.warn('❌ SVG غير متاح');
-    return;
-  }
-  
+
   const svg = d3.select(svgRef.current);
   const g = svg.select('g');
   
-  // استخراج اسم الشخص للبحث
-  let targetName = '';
-  
-  if (typeof selectedResult === 'string') {
-    targetName = selectedResult;
-  } else if (selectedResult.node) {
-    targetName = selectedResult.node.name || selectedResult.node.attributes?.name || '';
-  } else {
-    targetName = selectedResult.name || selectedResult.attributes?.name || '';
-  }
+  // استخراج اسم الشخص
+  const targetName = selectedResult.node?.name || 
+                     selectedResult.node?.attributes?.name || 
+                     selectedResult.name || '';
   
   console.log('🔍 البحث عن:', targetName);
   
-  if (!targetName || targetName.trim().length === 0) {
-    console.warn('❌ اسم فارغ للبحث');
+  if (!targetName?.trim()) {
+    console.warn('❌ اسم فارغ');
     return;
   }
   
-  // البحث في العقد الموجودة في DOM
+  // البحث في العقد
   let foundNode = null;
   let foundData = null;
   
   g.selectAll('.node').each(function(d) {
     const nodeName = d.data?.name || d.data?.attributes?.name || '';
-    console.log('🔎 فحص العقدة:', nodeName);
     
-    // البحث بالتطابق الجزئي
-    if (nodeName && (
-      nodeName === targetName ||
-      nodeName.includes(targetName) ||
-      targetName.includes(nodeName)
-    )) {
+    if (nodeName && nodeName.toLowerCase().includes(targetName.toLowerCase())) {
       foundNode = d3.select(this);
       foundData = d;
-      console.log('✅ تم العثور على العقدة:', nodeName);
-      return; // توقف عند أول مطابقة
+      console.log('✅ عثرت على:', nodeName);
+      return false; // توقف عند أول مطابقة
     }
   });
   
-  if (!foundNode || !foundData) {
-    console.error('❌ لم يتم العثور على العقدة في DOM');
-    
-    // طباعة جميع العقد المتاحة للتشخيص
-    console.log('📋 العقد المتاحة:');
-    g.selectAll('.node').each(function(d, i) {
-      const name = d.data?.name || d.data?.attributes?.name || 'بدون اسم';
-      console.log(`  ${i + 1}: ${name}`);
-    });
-    
+  if (!foundNode) {
+    console.error('❌ لم أجد العقدة');
     return;
   }
   
-  // الحصول على أبعاد الحاوية
+  // إعداد الزووم
   const containerRect = svgRef.current.getBoundingClientRect();
   const centerX = containerRect.width / 2;
   const centerY = containerRect.height / 2;
   
-  // إعداد الزووم
   const zoomBehavior = d3.zoom()
     .scaleExtent([0.1, 3])
-    .on('zoom', (event) => {
-      g.attr('transform', event.transform);
-    });
+    .on('zoom', (event) => g.attr('transform', event.transform));
   
-  // تطبيق الزووم على SVG
   svg.call(zoomBehavior);
   
-  // حساب الموقع المطلوب
-  const targetScale = 1.8; // مستوى التكبير
+  // حساب الموقع
+  const scale = 1.8;
   const nodeX = foundData.x || 0;
   const nodeY = foundData.y || 0;
+  const translateX = centerX - (nodeX * scale);
+  const translateY = centerY - (nodeY * scale);
   
-  // حساب التحويل للوسط
-  const translateX = centerX - nodeX * targetScale;
-  const translateY = centerY - nodeY * targetScale;
-  
-  console.log('📐 إحداثيات التحويل:', {
-    nodeX, nodeY, translateX, translateY, targetScale
-  });
-  
-  // تطبيق الزووم مع الأنيميشن
+  // تطبيق الزووم
   svg.transition()
-    .duration(1200)
+    .duration(900)
     .ease(d3.easeCubicInOut)
-    .call(
-      zoomBehavior.transform,
-      d3.zoomIdentity.translate(translateX, translateY).scale(targetScale)
-    )
-    .on('start', () => {
-      console.log('🎬 بدء أنيميشن الزووم');
-    })
-    .on('end', () => {
-      console.log('✅ اكتمل أنيميشن الزووم');
-      
-      // تمييز العقدة المستهدفة
-      g.selectAll('.node').style('filter', null);
-      foundNode
-        .style('filter', 'drop-shadow(0 0 15px #ffeb3b) drop-shadow(0 0 25px #ff9800)')
-        .transition()
-        .duration(300)
-        .style('transform', 'scale(1.1)')
-        .transition()
-        .duration(300)
-        .style('transform', 'scale(1.0)');
-      
-      // إزالة التمييز بعد 4 ثوانٍ
-      setTimeout(() => {
-        foundNode.style('filter', null).style('transform', null);
-      }, 4000);
-    });
+    .call(zoomBehavior.transform, d3.zoomIdentity.translate(translateX, translateY).scale(scale));
+  
+  // تمييز العقدة
+  setTimeout(() => {
+    g.selectAll('.node').classed('search-highlight', false);
+    g.selectAll('.node foreignObject > div').style('border', null).style('box-shadow', null);
     
-}, [svgRef]);
-
-
-
-const highlightFoundNode = useCallback((nodeElement) => {
-  if (!nodeElement || !svgRef.current) return;
-  
-  const svg = d3.select(svgRef.current);
-  const g = svg.select('g');
-  
-  // إزالة أي تمييز سابق
-  g.selectAll('.node').classed('search-highlight', false);
-  g.selectAll('.search-highlight-border').remove();
-  
-  // إضافة تمييز جديد
-  nodeElement.classed('search-highlight', true);
-  
-  const nodeRect = nodeElement.select('foreignObject');
-  if (!nodeRect.empty()) {
-    const bbox = nodeRect.node().getBBox();
+    foundNode.classed('search-highlight', true);
+    const nodeDiv = foundNode.select('foreignObject > div');
     
-    const highlightRect = nodeElement
-      .insert('rect', ':first-child')
-      .attr('class', 'search-highlight-border')
-      .attr('x', bbox.x - 5)
-      .attr('y', bbox.y - 5)
-      .attr('width', bbox.width + 10)
-      .attr('height', bbox.height + 10)
-      .attr('fill', 'none')
-      .attr('stroke', '#ffeb3b')
-      .attr('stroke-width', 3)
-      .attr('rx', 8);
-    
-    // تأثير النبض
-    highlightRect
-      .transition()
-      .duration(500)
-      .attr('stroke', '#ff9800')
-      .attr('stroke-width', 4)
-      .transition()
-      .duration(500)
-      .attr('stroke', '#4caf50')
-      .on('end', function() {
-        setTimeout(() => {
-          d3.select(this).transition().duration(1000).style('opacity', 0).remove();
-          nodeElement.classed('search-highlight', false);
-        }, 2000);
-      });
-  }
+    if (!nodeDiv.empty()) {
+      nodeDiv
+        .style('border', '3px solid #ffeb3b')
+        .style('box-shadow', '0 0 20px rgba(255, 235, 59, 0.8)')
+        .transition().duration(500)
+        .style('border', '3px solid #4caf50')
+        .style('box-shadow', '0 0 20px rgba(76, 175, 80, 0.8)');
+    }
+  }, 100);
   
-}, [svgRef]);
+  console.log('✅ تم الزووم بنجاح!');
+}, []);
 
 
 
@@ -1161,26 +1074,6 @@ const handleResetView = useCallback(() => {
   
 }, [svgRef]);
 
-
-
-  const handleSelectSearchResult = useCallback((result, resultBox) => {
-  if (!result) return;
-  
-  console.log('📷 تم اختيار نتيجة البحث:', result);
-  
-  const personName = result.node?.name || result.node?.attributes?.name || '';
-  setSearchQuery(personName);
-  setSearchResults([]);
-  
-  if (resultBox) {
-    resultBox.style.display = 'none';
-  }
-  
-  setTimeout(() => {
-    handleSearchAndZoom(result);
-  }, 100);
-  
-}, [handleSearchAndZoom]);
 
   // ===========================================================================
   // واجهة المستخدم
@@ -1482,11 +1375,10 @@ const handleResetView = useCallback(() => {
                     <Box
                       key={index}
                       onClick={() => {
-                        console.log('🖱️ تم النقر على النتيجة:', result);
-                        console.log('📋 بيانات العقدة:', result.node);
+                        console.log('🖱️ تم النقر على النتيجة المحسنة:', result);
                         
                         // تحديث شريط البحث
-                        const nodeName = result.node?.name || result.node?.attributes?.name || '';
+                        const nodeName = result.node?.name || result.node?.data?.name || result.node?.attributes?.name || '';
                         setSearchQuery(nodeName);
                         
                         // إخفاء النتائج
@@ -1498,7 +1390,7 @@ const handleResetView = useCallback(() => {
                         setTimeout(() => {
                           console.log('🎯 تشغيل handleSearchAndZoom');
                           handleSearchAndZoom(result);
-                        }, 200);
+                        }, 150);
                       }}
                       sx={{
                         p: 2,

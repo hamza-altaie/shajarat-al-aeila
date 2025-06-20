@@ -9,6 +9,26 @@ export const useSearchZoom = (svgRef, treeData) => {
   const zoomBehavior = useRef(null);
 
   /**
+   * مسح التمييز - تم نقلها لأعلى لتجنب مشكلة الاستدعاء قبل التعريف
+   */
+  const clearHighlights = useCallback(() => {
+    if (!svgRef.current) return;
+
+    const svg = d3.select(svgRef.current);
+    const g = svg.select('g');
+
+    g.selectAll('.node').classed('search-highlight', false);
+    g.selectAll('.node foreignObject > div').classed('search-highlight', false);
+    g.selectAll('.node rect, .node .family-node-card')
+      .transition()
+      .duration(200)
+      .attr('stroke', null)
+      .attr('stroke-width', null);
+
+    setHighlightedNode(null);
+  }, [svgRef]);
+
+  /**
    * دالة البحث المحسنة
    */
   const searchInTree = useCallback((query) => {
@@ -25,18 +45,21 @@ export const useSearchZoom = (svgRef, treeData) => {
     const searchInNode = (node) => {
       const matches = [];
       
-      // البحث في الاسم
-      const nameMatch = node.name?.toLowerCase().includes(normalizedQuery) ||
-                       node.data?.name?.toLowerCase().includes(normalizedQuery) ||
-                       node.firstName?.toLowerCase().includes(normalizedQuery);
+      // البحث في الاسم مع التحقق من null/undefined
+      const nameMatch = (node.name?.toLowerCase() || '').includes(normalizedQuery) ||
+                       (node.data?.name?.toLowerCase() || '').includes(normalizedQuery) ||
+                       (node.firstName?.toLowerCase() || '').includes(normalizedQuery) ||
+                       (node.attributes?.name?.toLowerCase() || '').includes(normalizedQuery);
       
       // البحث في العلاقة
-      const relationMatch = node.relation?.toLowerCase().includes(normalizedQuery) ||
-                           node.data?.relation?.toLowerCase().includes(normalizedQuery);
+      const relationMatch = (node.relation?.toLowerCase() || '').includes(normalizedQuery) ||
+                           (node.data?.relation?.toLowerCase() || '').includes(normalizedQuery) ||
+                           (node.attributes?.relation?.toLowerCase() || '').includes(normalizedQuery);
       
       // البحث في الموقع
-      const locationMatch = node.location?.toLowerCase().includes(normalizedQuery) ||
-                           node.data?.location?.toLowerCase().includes(normalizedQuery);
+      const locationMatch = (node.location?.toLowerCase() || '').includes(normalizedQuery) ||
+                           (node.data?.location?.toLowerCase() || '').includes(normalizedQuery) ||
+                           (node.attributes?.location?.toLowerCase() || '').includes(normalizedQuery);
       
       if (nameMatch || relationMatch || locationMatch) {
         matches.push({
@@ -47,7 +70,7 @@ export const useSearchZoom = (svgRef, treeData) => {
       }
       
       // البحث المتكرر في الأطفال
-      if (node.children) {
+      if (node.children && Array.isArray(node.children)) {
         node.children.forEach(child => {
           matches.push(...searchInNode(child));
         });
@@ -63,74 +86,19 @@ export const useSearchZoom = (svgRef, treeData) => {
     
     setSearchResults(results);
     return results;
-  }, [treeData]);
-
-  /**
-   * دالة الزووم إلى شخص محدد
-   */
-  const zoomToPerson = useCallback((targetNode, duration = 900) => {
-    if (!svgRef.current || !targetNode) return;
-
-    const svg = d3.select(svgRef.current);
-    const g = svg.select('g');
-    
-    if (!zoomBehavior.current) {
-      zoomBehavior.current = d3.zoom()
-        .scaleExtent([0.1, 3])
-        .on('zoom', (event) => {
-          g.attr('transform', event.transform);
-        });
-      
-      svg.call(zoomBehavior.current);
-    }
-
-    // البحث عن العقدة في DOM
-    const nodeElement = g.selectAll('.node')
-      .filter(d => d === targetNode || 
-                   d.data?.globalId === targetNode.data?.globalId ||
-                   d.data?.name === targetNode.data?.name);
-
-    if (nodeElement.empty()) {
-      console.warn('لم يتم العثور على العقدة في DOM');
-      return;
-    }
-
-    // الحصول على موقع العقدة
-    const nodeData = nodeElement.datum();
-    const containerRect = svgRef.current.getBoundingClientRect();
-    
-    // حساب الموقع المركزي
-    const scale = 1.5; // مستوى الزووم
-    const centerX = containerRect.width / 2 - nodeData.x * scale;
-    const centerY = containerRect.height / 2 - nodeData.y * scale;
-
-    // تطبيق التحويل مع الأنيميشن
-    svg.transition()
-      .duration(duration)
-      .ease(d3.easeCubicInOut)
-      .call(
-        zoomBehavior.current.transform,
-        d3.zoomIdentity.translate(centerX, centerY).scale(scale)
-      );
-
-    // تمييز العقدة
-    highlightNode(nodeElement);
-    setHighlightedNode(targetNode);
-
-  }, [svgRef]);
+  }, [treeData, clearHighlights]);
 
   /**
    * دالة تمييز العقدة
    */
   const highlightNode = useCallback((nodeElement) => {
-    if (!svgRef.current) return;
+    if (!svgRef.current || !nodeElement || nodeElement.empty()) return;
 
     const svg = d3.select(svgRef.current);
     const g = svg.select('g');
 
     // إزالة التمييز السابق
-    g.selectAll('.node').classed('search-highlight', false);
-    g.selectAll('.node foreignObject > div').classed('search-highlight', false);
+    clearHighlights();
 
     // إضافة التمييز الجديد
     nodeElement.classed('search-highlight', true);
@@ -149,27 +117,109 @@ export const useSearchZoom = (svgRef, treeData) => {
       .duration(300)
       .attr('stroke', '#ffeb3b');
 
-  }, [svgRef]);
+  }, [svgRef, clearHighlights]);
 
   /**
-   * مسح التمييز
+   * دالة الزووم إلى شخص محدد - محسنة
    */
-  const clearHighlights = useCallback(() => {
-    if (!svgRef.current) return;
+  const zoomToPerson = useCallback((targetNode, duration = 900) => {
+    console.log('🎯 بدء zoomToPerson:', targetNode);
+    
+    if (!svgRef.current || !targetNode) {
+      console.warn('❌ لا يوجد SVG أو عقدة مستهدفة');
+      return;
+    }
 
     const svg = d3.select(svgRef.current);
     const g = svg.select('g');
+    
+    // إعداد سلوك الزووم إذا لم يكن موجوداً
+    if (!zoomBehavior.current) {
+      console.log('⚙️ إعداد سلوك الزووم');
+      zoomBehavior.current = d3.zoom()
+        .scaleExtent([0.1, 3])
+        .on('zoom', (event) => {
+          g.attr('transform', event.transform);
+        });
+      
+      svg.call(zoomBehavior.current);
+    }
 
-    g.selectAll('.node').classed('search-highlight', false);
-    g.selectAll('.node foreignObject > div').classed('search-highlight', false);
-    g.selectAll('.node rect, .node .family-node-card')
-      .transition()
-      .duration(200)
-      .attr('stroke', null)
-      .attr('stroke-width', null);
+    // البحث عن العقدة في DOM بطرق متعددة
+    let nodeElement = null;
+    
+    // الطريقة الأولى: البحث بالمطابقة المباشرة
+    nodeElement = g.selectAll('.node')
+      .filter(d => {
+        return d === targetNode || 
+               d.data === targetNode ||
+               d.data === targetNode.data ||
+               (d.data?.globalId && targetNode.data?.globalId && d.data.globalId === targetNode.data.globalId) ||
+               (d.data?.name && targetNode.data?.name && d.data.name === targetNode.data.name) ||
+               (d.data?.name && targetNode.name && d.data.name === targetNode.name);
+      });
 
-    setHighlightedNode(null);
-  }, [svgRef]);
+    // الطريقة الثانية: البحث بالاسم إذا فشلت الأولى
+    if (nodeElement.empty()) {
+      const targetName = targetNode.name || targetNode.data?.name || targetNode.attributes?.name;
+      
+      if (targetName) {
+        console.log('🔍 البحث بالاسم:', targetName);
+        nodeElement = g.selectAll('.node')
+          .filter(d => {
+            const nodeName = d.data?.name || d.data?.attributes?.name || d.name;
+            return nodeName === targetName || 
+                   (nodeName && nodeName.includes(targetName)) ||
+                   (targetName && targetName.includes(nodeName));
+          });
+      }
+    }
+
+    if (nodeElement.empty()) {
+      console.error('❌ لم يتم العثور على العقدة في DOM');
+      
+      // طباعة العقد المتاحة للتشخيص
+      console.log('📋 العقد المتاحة:');
+      g.selectAll('.node').each(function(d, i) {
+        const name = d.data?.name || d.data?.attributes?.name || d.name || 'بدون اسم';
+        console.log(`  ${i + 1}: ${name}`, d);
+      });
+      
+      return;
+    }
+
+    // الحصول على موقع العقدة
+    const nodeData = nodeElement.datum();
+    const containerRect = svgRef.current.getBoundingClientRect();
+    
+    console.log('📍 موقع العقدة:', nodeData.x, nodeData.y);
+    console.log('📏 أبعاد الحاوية:', containerRect.width, containerRect.height);
+    
+    // حساب الموقع المركزي
+    const scale = 1.8; // مستوى الزووم المحسن
+    const centerX = containerRect.width / 2 - nodeData.x * scale;
+    const centerY = containerRect.height / 2 - nodeData.y * scale;
+
+    console.log(`🎯 الزووم إلى: x=${centerX}, y=${centerY}, scale=${scale}`);
+
+    // تطبيق التحويل مع الأنيميشن
+    svg.transition()
+      .duration(duration)
+      .ease(d3.easeCubicInOut)
+      .call(
+        zoomBehavior.current.transform,
+        d3.zoomIdentity.translate(centerX, centerY).scale(scale)
+      );
+
+    // تمييز العقدة بعد تأخير قصير
+    setTimeout(() => {
+      highlightNode(nodeElement);
+      setHighlightedNode(targetNode);
+    }, 100);
+
+    console.log('✅ تم تطبيق الزووم بنجاح');
+
+  }, [svgRef, highlightNode]);
 
   /**
    * البحث والزووم المدمج
@@ -190,9 +240,20 @@ export const useSearchZoom = (svgRef, treeData) => {
    * إعادة تعيين الرؤية
    */
   const resetView = useCallback(() => {
-    if (!svgRef.current || !zoomBehavior.current) return;
+    if (!svgRef.current) return;
 
     const svg = d3.select(svgRef.current);
+    
+    // إعداد الزووم إذا لم يكن موجوداً
+    if (!zoomBehavior.current) {
+      zoomBehavior.current = d3.zoom()
+        .scaleExtent([0.1, 3])
+        .on('zoom', (event) => {
+          svg.select('g').attr('transform', event.transform);
+        });
+      
+      svg.call(zoomBehavior.current);
+    }
     
     clearHighlights();
     
@@ -201,7 +262,7 @@ export const useSearchZoom = (svgRef, treeData) => {
       .ease(d3.easeCubicInOut)
       .call(
         zoomBehavior.current.transform,
-        d3.zoomIdentity
+        d3.zoomIdentity.translate(0, 0).scale(0.8)
       );
       
     setSearchQuery('');
