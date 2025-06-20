@@ -7,12 +7,12 @@ import {
   Box, Button, Typography, Alert, Snackbar, CircularProgress, 
   Chip, IconButton, Tooltip, Paper, LinearProgress, 
   Dialog, DialogTitle, DialogContent, DialogActions, Divider, 
-  FormControlLabel, Switch
+  FormControlLabel, Switch, TextField, InputAdornment
 } from '@mui/material';
 import {
   AccountTree, Groups, Edit, Person, Close, 
   ZoomIn, ZoomOut, Refresh, Warning, Link as LinkIcon, 
-  PersonAdd
+  PersonAdd, Search as SearchIcon
 } from '@mui/icons-material';
 
 // استيرادات Firebase
@@ -1238,21 +1238,94 @@ export default function FamilyTreeAdvanced() {
           }} disabled={loading} title="مسح التمييز">
             <Close />
           </IconButton>
-          {/* شريط البحث المحسن */}
-          <SearchBar
-            onSearch={(query) => {
-              setSearchQuery(query);
-              performSearch(query);
-            }}
-            onSelectResult={(node) => {
-              const nodeName = node.data?.name || node.name || '';
-              setSearchQuery(nodeName);
-              handleSearchAndZoom(nodeName);
-            }}
-            searchResults={searchResults}
-            placeholder="البحث في شجرة العائلة..."
-            sx={{ minWidth: 300, mx: 1 }}
-          />
+          {/* شريط البحث المبسط */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TextField
+              size="small"
+              value={searchQuery}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSearchQuery(value);
+                performSearch(value);
+              }}
+              placeholder="ابحث عن شخص..."
+              variant="outlined"
+              sx={{
+                minWidth: 250,
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  borderRadius: 2,
+                  fontFamily: 'Cairo, sans-serif'
+                }
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon color="action" />
+                  </InputAdornment>
+                ),
+                endAdornment: searchQuery && (
+                  <InputAdornment position="end">
+                    <IconButton 
+                      size="small" 
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSearchResults([]);
+                        if (svgRef.current) {
+                          d3.selectAll('.node').classed('search-highlight', false);
+                        }
+                      }}
+                    >
+                      <Close />
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+            />
+            
+            {/* عرض عدد النتائج */}
+            {searchResults.length > 0 && (
+              <Chip 
+                label={`${searchResults.length} نتيجة`} 
+                size="small" 
+                color="primary"
+                variant="outlined"
+              />
+            )}
+            
+            {/* قائمة النتائج المبسطة */}
+            {searchQuery.length > 1 && searchResults.length > 0 && (
+              <Box sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, mt: 1 }}>
+                <Paper sx={{ maxHeight: 200, overflow: 'auto', backgroundColor: 'rgba(255,255,255,0.95)' }}>
+                  {searchResults.slice(0, 5).map((result, index) => (
+                    <Box
+                      key={index}
+                      onClick={() => {
+                        const nodeName = result.node.name || result.node.attributes?.name || '';
+                        setSearchQuery(nodeName);
+                        handleSearchAndZoom(nodeName);
+                        setSearchResults([]);
+                      }}
+                      sx={{
+                        p: 2,
+                        cursor: 'pointer',
+                        borderBottom: '1px solid #eee',
+                        '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' },
+                        fontFamily: 'Cairo, sans-serif'
+                      }}
+                    >
+                      <Typography variant="body2" fontWeight="bold">
+                        {result.node.name || result.node.attributes?.name || 'غير محدد'}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {result.node.attributes?.relation || result.node.relation || 'عضو'}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Paper>
+              </Box>
+            )}
+          </Box>
         </Box>
 
         <Box display="flex" justifyContent="center" sx={{ mb: 1 }}>
