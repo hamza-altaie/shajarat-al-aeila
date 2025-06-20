@@ -23,6 +23,8 @@ import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import ExtendedFamilyLinking from './ExtendedFamilyLinking';
 import ModernFamilyNodeHTML from './ModernFamilyNodeHTML';
 import './FamilyTreeAdvanced.css';
+import { useSearchZoom } from '../hooks/useSearchZoom';
+import { SearchBar } from './SearchBar';
 
 export default function FamilyTreeAdvanced() {
   // ===========================================================================
@@ -65,9 +67,6 @@ export default function FamilyTreeAdvanced() {
   const [loadingStage, setLoadingStage] = useState('');
   const [loadingProgress, setLoadingProgress] = useState(0);
   
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResultNode, setSearchResultNode] = useState(null);
-  
   const uid = localStorage.getItem('verifiedUid');
   const navigate = useNavigate();
   
@@ -75,6 +74,13 @@ export default function FamilyTreeAdvanced() {
   const svgRef = useRef(null);
   const containerRef = useRef(null);
   const reactRootsRef = useRef(new Map());
+
+  const {searchQuery: hookSearchQuery, setSearchQuery: setHookSearchQuery, searchResults: hookSearchResults, searchAndZoom: hookSearchAndZoom, resetView, manualZoom, clearHighlights
+} = useSearchZoom(svgRef, showExtendedTree ? extendedTreeData : simpleTreeData);
+
+  // إعداد البحث المحلي
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
 
   // ===========================================================================
   // دوال مساعدة
@@ -128,12 +134,10 @@ export default function FamilyTreeAdvanced() {
   }, []);
 
   const handleNodeClick = useCallback((nodeData) => {
-   
-    
     if (nodeData.action === 'edit') {
-      console.log('تعديل الشخص:', nodeData.name);
+      // console.log('تعديل الشخص:', nodeData.name);
     } else if (nodeData.action === 'view') {
-      console.log('عرض تفاصيل الشخص:', nodeData.name);
+      // console.log('عرض تفاصيل الشخص:', nodeData.name);
     }
     
     setSelectedNode(nodeData);
@@ -192,7 +196,7 @@ export default function FamilyTreeAdvanced() {
       try {
         root.unmount();
       } catch (e) {
-        console.warn('تنظيف React root:', e.message);
+        // تنظيف صامت
       }
     });
     reactRootsRef.current.clear();
@@ -347,7 +351,7 @@ export default function FamilyTreeAdvanced() {
           );
         }
       } catch (error) {
-        console.error('❌ خطأ في إنشاء العقدة:', error);
+        // خطأ صامت في إنشاء العقدة
       }
     });
 
@@ -369,9 +373,7 @@ export default function FamilyTreeAdvanced() {
       .duration(750)
       .call(zoom.transform, initialTransform);
 
-    console.log('✅ تم رسم الشجرة بنجاح');
-
-  }, [showExtendedTree, zoomLevel, handleNodeClick, buildFullName]);
+  }, [showExtendedTree, zoomLevel, handleNodeClick, buildFullName, searchQuery]);
 
   // مراقبة الأداء
   const monitorPerformance = useCallback((metrics) => {
@@ -395,11 +397,8 @@ export default function FamilyTreeAdvanced() {
 
   const loadSimpleTree = useCallback(async () => {
     if (!uid) {
-      console.warn('⚠️ لا يوجد معرف مستخدم');
       return;
     }
-
-    console.log('🌳 بدء تحميل الشجرة العادية...');
     
     setLoading(true);
     setError(null);
@@ -425,8 +424,6 @@ export default function FamilyTreeAdvanced() {
         }
       });
 
-      console.log('📋 أعضاء العائلة المحملة:', familyMembers.length);
-
       setLoadingProgress(60);
       setLoadingStage('بناء الشجرة...');
 
@@ -445,11 +442,9 @@ export default function FamilyTreeAdvanced() {
         loadTime: 1000
       });
       
-      console.log(`✅ تم تحميل الشجرة العادية: ${familyMembers.length} أفراد`);
       showSnackbar(`✅ تم تحميل عائلتك: ${familyMembers.length} أفراد`, 'success');
 
     } catch (error) {
-      console.error('❌ خطأ في تحميل الشجرة:', error);
       setError(error.message);
       showSnackbar('❌ فشل في تحميل الشجرة', 'error');
     } finally {
@@ -458,8 +453,6 @@ export default function FamilyTreeAdvanced() {
   }, [uid, showSnackbar, monitorPerformance]);
 
   const buildSimpleTreeStructure = (familyMembers) => {
-    console.log('🏗️ بناء هيكل الشجرة العادية...');
-    
     if (!familyMembers || familyMembers.length === 0) {
       return null;
     }
@@ -511,8 +504,6 @@ export default function FamilyTreeAdvanced() {
   const loadExtendedTree = useCallback(async () => {
     if (!uid) return;
 
-    console.log('🏛️ بدء تحميل الشجرة الموسعة الحقيقية...');
-    
     const startTime = Date.now();
     setLoading(true);
     setError(null);
@@ -548,15 +539,13 @@ export default function FamilyTreeAdvanced() {
               allFamiliesData.push(familyData);
             }
           } catch (error) {
-            console.warn(`⚠️ تعذر تحميل العائلة ${familyUid}:`, error.message);
+            // تعذر تحميل العائلة - متابعة صامتة
           }
         }
       }
       
       setLoadingProgress(70);
       setLoadingStage('بناء الشجرة الموسعة...');
-      
-      console.log(`📊 إجمالي العائلات: ${allFamiliesData.length}`);
       
       // الخطوة 4: بناء الشجرة الموسعة
       const extendedTree = buildExtendedTreeStructure(allFamiliesData, uid);
@@ -580,11 +569,9 @@ export default function FamilyTreeAdvanced() {
       
       setExtendedTreeData(extendedTree);
       
-      console.log(`✅ تم تحميل الشجرة الموسعة: ${allFamiliesData.length} عائلة، ${totalPersons} شخص`);
       showSnackbar(`🏛️ تم تحميل ${allFamiliesData.length} عائلة بـ ${totalPersons} شخص`, 'success');
 
     } catch (error) {
-      console.error('❌ خطأ في تحميل الشجرة الموسعة:', error);
       setError(error.message);
       showSnackbar('❌ فشل في تحميل الشجرة الموسعة', 'error');
     } finally {
@@ -595,8 +582,6 @@ export default function FamilyTreeAdvanced() {
   // دالة تحميل بيانات عائلة واحدة
   const loadFamilyData = async (familyUid) => {
     try {
-      console.log(`📥 تحميل بيانات العائلة: ${familyUid}`);
-      
       const familySnapshot = await getDocs(collection(db, 'users', familyUid, 'family'));
       const members = [];
       
@@ -617,8 +602,6 @@ export default function FamilyTreeAdvanced() {
       if (members.length > 0) {
         const head = findFamilyHead(members);
         
-        console.log(`✅ تم تحميل عائلة ${familyUid}: ${members.length} أفراد`);
-        
         return {
           uid: familyUid,
           members,
@@ -629,7 +612,6 @@ export default function FamilyTreeAdvanced() {
       
       return null;
     } catch (error) {
-      console.error(`❌ خطأ في تحميل عائلة ${familyUid}:`, error);
       return null;
     }
   };
@@ -637,8 +619,6 @@ export default function FamilyTreeAdvanced() {
   // دالة البحث عن جميع العائلات المرتبطة
   const findAllLinkedFamilies = async (startUid) => {
     try {
-      console.log(`🔍 البحث عن العائلات المرتبطة بـ ${startUid}`);
-      
       const linkedFamilyUids = new Set([startUid]);
       
       // البحث في بيانات المستخدم الحالي
@@ -683,20 +663,15 @@ export default function FamilyTreeAdvanced() {
       });
       
       const result = Array.from(linkedFamilyUids);
-      console.log(`🔗 تم العثور على ${result.length} عائلة مرتبطة:`, result);
-      
       return result;
       
     } catch (error) {
-      console.error('❌ خطأ في البحث عن العائلات المرتبطة:', error);
       return [startUid]; // إرجاع العائلة الحالية فقط في حالة الخطأ
     }
   };
 
   // دالة بناء الشجرة الموسعة
   const buildExtendedTreeStructure = (allFamiliesData, rootFamilyUid) => {
-    console.log('🏗️ بناء هيكل الشجرة الموسعة...');
-    
     if (!allFamiliesData || allFamiliesData.length === 0) {
       return null;
     }
@@ -704,11 +679,8 @@ export default function FamilyTreeAdvanced() {
     // العثور على العائلة الجذر
     const rootFamily = allFamiliesData.find(f => f.uid === rootFamilyUid) || allFamiliesData[0];
     if (!rootFamily || !rootFamily.head) {
-      console.warn('⚠️ لم يتم العثور على العائلة الجذر');
       return null;
     }
-
-    console.log('👑 العائلة الجذر:', rootFamily.head.firstName);
 
     // بناء العقدة الجذر
     const rootNode = {
@@ -753,8 +725,6 @@ export default function FamilyTreeAdvanced() {
       );
 
       if (childFamily) {
-        console.log(`🔗 تم العثور على عائلة فرعية لـ ${buildFullName(child)}`);
-        
         const grandChildren = childFamily.members.filter(m => 
           (m.relation === 'ابن' || m.relation === 'بنت') &&
           m.globalId !== childFamily.head.globalId
@@ -824,7 +794,6 @@ export default function FamilyTreeAdvanced() {
       rootNode.children.push(familyNode);
     });
 
-    console.log(`✅ تم بناء الشجرة الموسعة: ${rootNode.children.length} فرع رئيسي`);
     return rootNode;
   };
 
@@ -852,10 +821,9 @@ export default function FamilyTreeAdvanced() {
         const userData = userDoc.data();
         const linked = userData.linkedFamilies || [];
         setLinkedFamilies(linked);
-        console.log('🔗 العائلات المرتبطة:', linked.length);
       }
     } catch (error) {
-      console.error('❌ خطأ في تحميل العائلات المرتبطة:', error);
+      // خطأ صامت في تحميل العائلات المرتبطة
     }
   }, [uid]);
 
@@ -865,12 +833,10 @@ export default function FamilyTreeAdvanced() {
 
   useEffect(() => {
     if (!uid) {
-      console.warn('⚠️ لا يوجد معرف مستخدم، إعادة توجيه للتسجيل');
       navigate('/login');
       return;
     }
 
-    console.log('🚀 بدء تحميل البيانات للمستخدم:', uid);
     loadSimpleTree();
     loadLinkedFamilies();
   }, [uid, navigate, loadSimpleTree, loadLinkedFamilies]);
@@ -879,7 +845,6 @@ export default function FamilyTreeAdvanced() {
     if (!uid) return;
     
     if (showExtendedTree && !extendedTreeData) {
-      console.log('🔄 تحميل الشجرة الموسعة للمرة الأولى');
       loadExtendedTree();
     }
   }, [showExtendedTree, uid, extendedTreeData, loadExtendedTree]);
@@ -888,7 +853,6 @@ export default function FamilyTreeAdvanced() {
   useEffect(() => {
     const currentTreeData = showExtendedTree ? extendedTreeData : simpleTreeData;
     if (currentTreeData && svgRef.current && containerRef.current) {
-      console.log('🎨 بدء رسم الشجرة...');
       const timer = setTimeout(() => {
         drawTreeWithD3(currentTreeData);
       }, 200);
@@ -900,17 +864,165 @@ export default function FamilyTreeAdvanced() {
   // تنظيف عند إلغاء التحميل
   useEffect(() => {
     return () => {
-      console.log('🧹 تنظيف المكونات عند الإلغاء');
       reactRootsRef.current.forEach(root => {
         try {
           root.unmount();
         } catch (e) {
-          console.warn('تنظيف React root:', e.message);
+          // تنظيف صامت
         }
       });
       reactRootsRef.current.clear();
     };
   }, []);
+
+  // دالة البحث المحلية
+  const performSearch = useCallback((query) => {
+    if (!query || query.trim().length < 2) {
+      setSearchResults([]);
+      return [];
+    }
+
+    const treeData = showExtendedTree ? extendedTreeData : simpleTreeData;
+    if (!treeData) return [];
+
+    const results = [];
+    const normalizedQuery = query.toLowerCase().trim();
+    
+    function searchInNode(node, depth = 0) {
+      if (!node) return;
+      
+      const name = node.name || node.attributes?.name || '';
+      const firstName = node.attributes?.firstName || '';
+      const relation = node.attributes?.relation || node.relation || '';
+      
+      if (name.toLowerCase().includes(normalizedQuery) || 
+          firstName.toLowerCase().includes(normalizedQuery)) {
+        results.push({
+          node: node,
+          type: 'name',
+          score: 3,
+          depth: depth
+        });
+      } else if (relation.toLowerCase().includes(normalizedQuery)) {
+        results.push({
+          node: node,
+          type: 'relation', 
+          score: 2,
+          depth: depth
+        });
+      }
+      
+      if (node.children) {
+        node.children.forEach(child => searchInNode(child, depth + 1));
+      }
+    }
+    
+    searchInNode(treeData);
+    
+    // ترتيب النتائج
+    results.sort((a, b) => b.score - a.score || a.depth - b.depth);
+    
+    setSearchResults(results);
+    return results;
+  }, [showExtendedTree, extendedTreeData, simpleTreeData]);
+  // دالة البحث والزووم المحسنة للعمل مع D3
+  const handleSearchAndZoom = useCallback((query) => {
+    if (!query || (!simpleTreeData && !extendedTreeData)) return;
+    
+    const treeData = showExtendedTree ? extendedTreeData : simpleTreeData;
+    let foundNode = null;
+    
+    function traverse(node) {
+      if (!node) return;
+      const name = node.name || node.attributes?.name || '';
+      const firstName = node.attributes?.firstName || '';
+      
+      if (name.toLowerCase().includes(query.toLowerCase()) ||
+          firstName.toLowerCase().includes(query.toLowerCase())) {
+        foundNode = node;
+        return;
+      }
+      if (node.children) {
+        for (const child of node.children) {
+          traverse(child);
+          if (foundNode) return;
+        }
+      }
+    }
+    
+    traverse(treeData);
+    
+    if (foundNode && svgRef.current && containerRef.current) {
+      // البحث عن العقدة في D3 hierarchy
+      const svg = d3.select(svgRef.current);
+      const container = containerRef.current;
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      
+      const root = d3.hierarchy(treeData);
+      let d3Node = null;
+      
+      root.each(d => {
+        const dName = d.data.name || d.data.attributes?.name || '';
+        const foundName = foundNode.name || foundNode.attributes?.name || '';
+        
+        if (dName === foundName || d.data.id === foundNode.id) {
+          d3Node = d;
+        }
+      });
+      
+      if (d3Node) {
+        // التحقق من صحة البيانات قبل الزووم
+        if (!d3Node || isNaN(d3Node.x) || isNaN(d3Node.y)) {
+          return;
+        }
+        
+        // إنشاء zoom behavior جديد
+        const zoom = d3.zoom().scaleExtent([0.1, 3]);
+        const g = svg.select('g');
+        
+        // حساب الموقع المطلوب
+        const scale = 1.5;
+        const centerX = width / 2 - d3Node.x * scale;
+        const centerY = height / 2 - d3Node.y * scale;
+        
+        // تطبيق الزووم مع أنيميشن سلس
+        svg.transition()
+          .duration(1200)
+          .ease(d3.easeCubicInOut)
+          .call(
+            zoom.transform,
+            d3.zoomIdentity.translate(centerX, centerY).scale(scale)
+          );
+        
+        // إضافة التمييز
+        d3.selectAll('.node').classed('search-highlight', false);
+        g.selectAll('.node').filter(d => d === d3Node).classed('search-highlight', true);
+        
+        // تمييز الكارد أيضاً
+        setTimeout(() => {
+          g.selectAll('.node').filter(d => d === d3Node)
+            .select('foreignObject > div > div')
+            .classed('search-highlight', true);
+        }, 200);
+      }
+    }
+  }, [showExtendedTree, simpleTreeData, extendedTreeData]);
+
+  // تنفيذ البحث عند تغيير searchQuery
+  useEffect(() => {
+    if (searchQuery.length > 1) {
+      performSearch(searchQuery);
+      handleSearchAndZoom(searchQuery);
+    } else {
+      setSearchResults([]);
+      // مسح التمييز
+      if (svgRef.current) {
+        d3.selectAll('.node').classed('search-highlight', false);
+        d3.selectAll('.node foreignObject > div > div').classed('search-highlight', false);
+      }
+    }
+  }, [searchQuery, performSearch, handleSearchAndZoom]);
 
   // ===========================================================================
   // واجهة المستخدم
@@ -1114,22 +1226,32 @@ export default function FamilyTreeAdvanced() {
           <Chip label={`${Math.round(zoomLevel * 100)}%`} size="small" onClick={handleResetZoom} sx={{ minWidth: 60 }} />
           <IconButton size="small" onClick={handleZoomOut} disabled={loading}><ZoomOut /></IconButton>
           <IconButton size="small" onClick={handleRefresh} disabled={loading}><Refresh /></IconButton>
-          {/* حقل البحث */}
-          <input
-            type="text"
-            placeholder="ابحث عن شخص..."
-            style={{
-              padding: '6px 12px',
-              borderRadius: 8,
-              border: '1px solid #ccc',
-              fontFamily: 'Cairo, sans-serif',
-              fontSize: 15,
-              marginRight: 12,
-              minWidth: 180
+          <IconButton size="small" onClick={resetView} disabled={loading} title="إعادة تعيين الرؤية">
+            <Refresh />
+          </IconButton>
+          <IconButton size="small" onClick={() => {
+            setSearchQuery('');
+            if (svgRef.current) {
+              d3.selectAll('.node').classed('search-highlight', false);
+              d3.selectAll('.node foreignObject > div > div').classed('search-highlight', false);
+            }
+          }} disabled={loading} title="مسح التمييز">
+            <Close />
+          </IconButton>
+          {/* شريط البحث المحسن */}
+          <SearchBar
+            onSearch={(query) => {
+              setSearchQuery(query);
+              performSearch(query);
             }}
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            disabled={loading}
+            onSelectResult={(node) => {
+              const nodeName = node.data?.name || node.name || '';
+              setSearchQuery(nodeName);
+              handleSearchAndZoom(nodeName);
+            }}
+            searchResults={searchResults}
+            placeholder="البحث في شجرة العائلة..."
+            sx={{ minWidth: 300, mx: 1 }}
           />
         </Box>
 
@@ -1173,80 +1295,6 @@ export default function FamilyTreeAdvanced() {
       </Box>
     </Paper>
   );
-
-  // دالة البحث وتكبير الكاميرا على الشخص
-  const focusOnPerson = useCallback((query) => {
-    if (!query || (!simpleTreeData && !extendedTreeData)) return;
-    const treeData = showExtendedTree ? extendedTreeData : simpleTreeData;
-    let foundNode = null;
-    function traverse(node) {
-      if (!node) return;
-      if (
-        (node.name && node.name.includes(query)) ||
-        (node.firstName && node.firstName.includes(query))
-      ) {
-        foundNode = node;
-        return;
-      }
-      if (node.children) {
-        for (const child of node.children) {
-          traverse(child);
-          if (foundNode) return;
-        }
-      }
-    }
-    traverse(treeData);
-    if (foundNode && svgRef.current && containerRef.current) {
-      setSearchResultNode(foundNode);
-      // تكبير الكاميرا على الشخص
-      const svg = d3.select(svgRef.current);
-      const container = containerRef.current;
-      const width = container.clientWidth;
-      const height = container.clientHeight;
-      // ابحث عن العقدة في D3 hierarchy
-      const root = d3.hierarchy(treeData);
-      let d3Node = null;
-      root.each(d => {
-        if (
-          (d.data.name && d.data.name === foundNode.name) ||
-          (d.data.firstName && d.data.firstName === foundNode.firstName)
-        ) {
-          d3Node = d;
-        }
-      });
-      if (d3Node) {
-        const zoom = d3.zoom().scaleExtent([0.1, 3]);
-        const g = svg.select('g');
-        const scale = 1.2;
-        const centerX = width / 2 - d3Node.x * scale;
-        const centerY = height / 2 - d3Node.y * scale;
-        svg.transition().duration(900).call(
-          zoom.transform,
-          d3.zoomIdentity.translate(centerX, centerY).scale(scale)
-        );
-        // وميض أو تمييز
-        d3.selectAll('.node').classed('search-highlight', false);
-        g.selectAll('.node').filter(d => d === d3Node).classed('search-highlight', true);
-        // إضافة التمييز على الكارد نفسه
-        g.selectAll('.node').filter(d => d === d3Node).select('foreignObject > div > div').classed('search-highlight', true);
-      }
-    } else {
-      setSearchResultNode(null);
-    }
-  }, [showExtendedTree, simpleTreeData, extendedTreeData]);
-
-  // تنفيذ البحث عند تغيير searchQuery
-  useEffect(() => {
-    if (searchQuery.length > 1) {
-      focusOnPerson(searchQuery);
-    } else {
-      setSearchResultNode(null);
-      if (svgRef.current) {
-        d3.selectAll('.node').classed('search-highlight', false);
-        d3.selectAll('.node foreignObject > div > div').classed('search-highlight', false);
-      }
-    }
-  }, [searchQuery, focusOnPerson]);
 
   return (
     <Box className="family-tree-advanced-root" sx={{ width: '100vw', height: '100vh', fontFamily: 'Cairo, sans-serif' }}>

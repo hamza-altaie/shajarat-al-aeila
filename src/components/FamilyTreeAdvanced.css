@@ -76,6 +76,8 @@
   border-radius: 8px;
   margin: 0 auto;
   display: block;
+  /* تحسين الأنيميشن للـ SVG */
+  will-change: transform;
 }
 
 .family-tree-chart-container svg:active {
@@ -88,6 +90,7 @@
   cursor: pointer;
   transform-origin: center;
   position: relative;
+  will-change: transform, opacity;
 }
 
 /* كارت العضو الجديد */
@@ -299,6 +302,173 @@
   transform: scale(1.1);
 }
 
+/* =================================================================== */
+/* 🎯 تحسينات البحث والزووم - الإصدار المحسن */
+/* =================================================================== */
+
+/* تمييز البحث الأساسي */
+.search-highlight {
+  position: relative;
+  z-index: 100 !important;
+}
+
+/* تمييز العقدة في SVG */
+.family-tree-chart-container .node.search-highlight {
+  z-index: 100;
+  position: relative;
+}
+
+/* تمييز الكارد */
+.family-tree-chart-container .node.search-highlight rect,
+.family-tree-chart-container .node.search-highlight .family-node-card {
+  stroke: #ffeb3b !important;
+  stroke-width: 4px !important;
+  filter: drop-shadow(0 0 20px #ffeb3b) drop-shadow(0 0 40px rgba(255, 235, 59, 0.6)) !important;
+  transform: scale(1.08) !important;
+}
+
+/* تمييز منطقة المحتوى */
+.family-tree-chart-container .node.search-highlight foreignObject > div {
+  background: rgba(255, 235, 59, 0.1) !important;
+  border: 3px solid #ffeb3b !important;
+  border-radius: 15px !important;
+  box-shadow: 
+    0 0 30px rgba(255, 235, 59, 0.8),
+    inset 0 0 20px rgba(255, 235, 59, 0.2) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+/* تأثير النبض المحسن */
+@keyframes searchPulse {
+  0%, 100% { 
+    transform: scale(1.08);
+    filter: drop-shadow(0 0 20px #ffeb3b) drop-shadow(0 0 40px rgba(255, 235, 59, 0.6));
+  }
+  50% { 
+    transform: scale(1.12);
+    filter: drop-shadow(0 0 30px #ffeb3b) drop-shadow(0 0 60px rgba(255, 235, 59, 0.8));
+  }
+}
+
+.family-tree-chart-container .node.search-highlight rect,
+.family-tree-chart-container .node.search-highlight .family-node-card {
+  animation: searchPulse 2s infinite ease-in-out;
+}
+
+/* تأثير الهالة المتحركة */
+@keyframes glowRing {
+  0%, 100% { 
+    box-shadow: 
+      0 0 20px rgba(255, 235, 59, 0.8),
+      0 0 40px rgba(255, 235, 59, 0.6),
+      0 0 60px rgba(255, 235, 59, 0.4);
+  }
+  50% { 
+    box-shadow: 
+      0 0 30px rgba(255, 235, 59, 1),
+      0 0 60px rgba(255, 235, 59, 0.8),
+      0 0 90px rgba(255, 235, 59, 0.6);
+  }
+}
+
+.family-tree-chart-container .node.search-highlight foreignObject > div {
+  animation: glowRing 2s infinite ease-in-out;
+}
+
+/* تحسين أنيميشن الزووم للـ SVG */
+.family-tree-chart-container svg {
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* تأثير الزووم السلس للعقد */
+.family-tree-chart-container .node {
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* تأثير ظهور العقد المتدرج */
+@keyframes nodeAppear {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.family-tree-chart-container .node.search-found {
+  animation: nodeAppear 0.6s ease-out;
+}
+
+/* تأثير التركيز البطيء */
+@keyframes focusZoom {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1.08);
+  }
+}
+
+.family-tree-chart-container .node.search-highlight.focus-zoom {
+  animation: focusZoom 0.8s ease-out;
+}
+
+/* تحسين الأداء للأنيميشن */
+.family-tree-chart-container .node.search-highlight,
+.family-tree-chart-container .node.search-highlight * {
+  will-change: transform, opacity, filter;
+}
+
+/* إزالة التمييز بسلاسة */
+.family-tree-chart-container .node.search-highlight.fade-out {
+  animation: fadeOut 0.5s ease-in-out forwards;
+}
+
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* تأثير الخلفية المضيئة */
+.family-tree-chart-container .node.search-highlight::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: -10px;
+  background: radial-gradient(circle, rgba(255, 235, 59, 0.3) 0%, transparent 70%);
+  border-radius: 50%;
+  z-index: -1;
+  animation: backgroundGlow 2s infinite ease-in-out;
+}
+
+@keyframes backgroundGlow {
+  0%, 100% { 
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+}
+
+/* =================================================================== */
+/* تحسينات إضافية */
+/* =================================================================== */
+
 /* الاستجابة للأجهزة المحمولة */
 @media (max-width: 768px) {
   .family-tree-advanced-root {
@@ -316,6 +486,12 @@
   
   .family-info-text {
     font-size: 10px;
+  }
+  
+  /* تقليل تأثيرات الأنيميشن على الأجهزة المحمولة */
+  .family-tree-chart-container .node.search-highlight rect,
+  .family-tree-chart-container .node.search-highlight .family-node-card {
+    animation-duration: 3s;
   }
 }
 
@@ -344,7 +520,8 @@
   .family-tree-chart-container .node,
   .family-tree-chart-container .link,
   .family-badge,
-  .family-node-card {
+  .family-node-card,
+  .search-highlight {
     transition: none !important;
     animation: none !important;
   }
@@ -402,12 +579,10 @@
   .family-info-text {
     fill: black !important;
   }
-}
-
-.family-tree-chart-container .node.search-highlight > div,
-.family-tree-chart-container .node.search-highlight {
-  box-shadow: 0 0 0 5px #ffeb3b, 0 4px 18px 2px rgba(0,0,0,0.07) !important;
-  border-color: #ffeb3b !important;
-  z-index: 10;
-  transition: box-shadow 0.4s, border-color 0.4s;
+  
+  /* إخفاء تأثيرات البحث في الطباعة */
+  .search-highlight {
+    animation: none !important;
+    filter: none !important;
+  }
 }
