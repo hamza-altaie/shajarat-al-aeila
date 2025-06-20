@@ -10,8 +10,8 @@
   --family-error: #ef4444;
   
   /* خلفيات زجاجية وشفافة */
-  --family-bg-simple: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
-  --family-bg-extended: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #3730a3 100%);
+  --family-bg-simple: #fff;
+  --family-bg-extended: #fff;
   --family-bg-glass: rgba(30, 41, 59, 0.8);
   --family-bg-card: rgba(255, 255, 255, 0.05);
   
@@ -44,14 +44,14 @@
   font-family: var(--family-font-primary);
   direction: rtl;
   text-align: right;
-  background: var(--family-bg-simple);
+  background: #fff !important;
   transition: var(--family-transition-normal);
   position: relative;
   overflow: hidden;
 }
 
 .family-tree-advanced-root.extended {
-  background: var(--family-bg-extended);
+  background: #fff !important;
 }
 
 /* حاوي الشجرة الرئيسي */

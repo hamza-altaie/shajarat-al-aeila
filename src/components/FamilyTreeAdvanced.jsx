@@ -918,9 +918,7 @@ export default function FamilyTreeAdvanced() {
           right: 0,
           bottom: 0,
           overflow: 'hidden',
-          background: showExtendedTree 
-            ? 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #3730a3 100%)'
-            : 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
+          background: '#fff', // خلفية بيضاء دائماً
           fontFamily: 'Cairo, sans-serif'
         }}
       >
@@ -1148,9 +1146,8 @@ export default function FamilyTreeAdvanced() {
   );
 
   return (
-    <Box sx={{ width: '100vw', height: '100vh', fontFamily: 'Cairo, sans-serif' }}>
+    <Box className="family-tree-advanced-root" sx={{ width: '100vw', height: '100vh', fontFamily: 'Cairo, sans-serif' }}>
       {renderToolbar()}
-      
       <Box sx={{ position: 'absolute', top: 140, left: 0, right: 0, bottom: 0 }}>
         {renderTreeView()}
       </Box>

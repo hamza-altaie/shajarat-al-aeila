@@ -9,14 +9,34 @@ const ModernFamilyNodeHTML = ({
   isSpouse = false 
 }) => {
   
-  // ألوان أبسط
-  const getNodeColors = () => ({
-    primary: '#6366f1',
-    border: '#e0e0e0',
-    bg: '#fff',
-    text: '#222',
-    subText: '#888'
-  });
+  // ألوان حسب النوع
+  const getNodeColors = () => {
+    if (nodeDatum.gender === 'male' || nodeDatum.relation === 'ابن' || nodeDatum.relation === 'ولد') {
+      return {
+        primary: '#03a9f4', // سماوي
+        border: '#bdbdbd', // رصاصي
+        bg: '#03a9f4',
+        text: '#fff',
+        subText: '#e3e3e3'
+      };
+    }
+    if (nodeDatum.gender === 'female' || nodeDatum.relation === 'بنت' || nodeDatum.relation === 'ابنة') {
+      return {
+        primary: '#ff9800', // برتقالي
+        border: '#bdbdbd', // رصاصي
+        bg: '#ff9800',
+        text: '#fff',
+        subText: '#fbe9e7'
+      };
+    }
+    return {
+      primary: '#6366f1',
+      border: '#bdbdbd',
+      bg: '#fff',
+      text: '#222',
+      subText: '#888'
+    };
+  };
   const colors = getNodeColors();
   
   // تحديد النوع للتصنيف
@@ -73,7 +93,7 @@ const ModernFamilyNodeHTML = ({
         minHeight: '90px',
         borderRadius: '14px',
         background: colors.bg,
-        border: `1.5px solid ${colors.border}`,
+        border: `2.5px solid ${colors.border}`,
         boxShadow: '0 4px 18px 2px rgba(0,0,0,0.07)',
         position: 'relative',
         cursor: 'pointer',
@@ -82,7 +102,7 @@ const ModernFamilyNodeHTML = ({
         display: 'flex',
         alignItems: 'center',
         padding: '10px 12px',
-        margin: '12px', // زيادة المسافة بين الكروت
+        margin: '12px',
         backgroundClip: 'padding-box',
         overflow: 'visible',
         zIndex: 2
