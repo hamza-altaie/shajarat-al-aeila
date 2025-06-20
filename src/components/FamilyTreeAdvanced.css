@@ -586,3 +586,20 @@
     filter: none !important;
   }
 }
+
+
+/* تأثير النبض للشخص المُختار */
+@keyframes pulse {
+  0%, 100% { 
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% { 
+    transform: scale(1.05);
+    filter: brightness(1.2);
+  }
+}
+
+.search-highlight {
+  z-index: 1000 !important;
+}
