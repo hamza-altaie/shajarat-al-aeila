@@ -72,12 +72,10 @@
   user-select: none;
   font-family: var(--family-font-primary);
   background: transparent;
-  transition: var(--family-transition-normal);
   border-radius: 8px;
   margin: 0 auto;
   display: block;
-  /* تحسين الأنيميشن للـ SVG */
-  will-change: transform;
+  /* إزالة transition و will-change نهائيًا */
 }
 
 .family-tree-chart-container svg:active {
@@ -86,11 +84,10 @@
 
 /* العقد الأساسية */
 .family-tree-chart-container .node {
-  transition: var(--family-transition-normal);
   cursor: pointer;
   transform-origin: center;
   position: relative;
-  will-change: transform, opacity;
+  /* إزالة transition و will-change نهائيًا */
 }
 
 /* كارت العضو الجديد */
@@ -352,7 +349,7 @@
 
 .family-tree-chart-container .node.search-highlight rect,
 .family-tree-chart-container .node.search-highlight .family-node-card {
-  animation: searchPulse 2s infinite ease-in-out;
+  animation: none !important;
 }
 
 /* تأثير الهالة المتحركة */
@@ -372,7 +369,7 @@
 }
 
 .family-tree-chart-container .node.search-highlight foreignObject > div {
-  animation: glowRing 2s infinite ease-in-out;
+  animation: none !important;
 }
 
 /* تحسين أنيميشن الزووم للـ SVG */
@@ -415,7 +412,7 @@
 }
 
 .family-tree-chart-container .node.search-highlight.focus-zoom {
-  animation: focusZoom 0.8s ease-out;
+  animation: none !important;
 }
 
 /* تحسين الأداء للأنيميشن */

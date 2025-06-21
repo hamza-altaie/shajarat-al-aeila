@@ -216,12 +216,37 @@ export default function FamilyTreeAdvanced() {
 
     // إعداد بيانات الشجرة
     const root = d3.hierarchy(data);
-    // زيادة المسافة الأفقية فقط، وتقليل المسافة الرأسية
+    // حساب عمق الشجرة (عدد الأجيال)
+    let maxDepth = 1;
+    let generationCounts = {};
+    let maxBreadth = 1;
+    root.each(d => {
+      if (d.depth > maxDepth) maxDepth = d.depth;
+      generationCounts[d.depth] = (generationCounts[d.depth] || 0) + 1;
+      if (generationCounts[d.depth] > maxBreadth) maxBreadth = generationCounts[d.depth];
+    });
+
+    // تمييز بين الشجرة العادية والموسعة
+    let verticalGap, dynamicHeight, horizontalGap, dynamicWidth;
+    if (showExtendedTree) {
+      // الشجرة الموسعة: مساحة رأسية أكبر لكن ليست مبالغ فيها، ومسافة أفقية أكبر
+      verticalGap = 80; // تقليلها قليلاً
+      horizontalGap = 220; // زيادة المسافة الأفقية بين العقد
+      dynamicHeight = Math.max(verticalGap * maxDepth, 350);
+      dynamicWidth = Math.max(horizontalGap * maxBreadth, width - 100);
+    } else {
+      verticalGap = 55;
+      horizontalGap = 180;
+      dynamicHeight = Math.max(verticalGap * maxDepth, 180);
+      dynamicWidth = width - 100;
+    }
+
+    // إعداد تخطيط الشجرة مع توزيع أفقي متساوٍ تماماً (بدون أي تراكب)
     const treeLayout = d3.tree()
-      .size([width - 100, height - 220]) // تقليل الارتفاع
+      .size([dynamicWidth, dynamicHeight])
       .separation((a, b) => {
-        // مسافة أفقية أكبر، رأسية أقل
-        return a.parent === b.parent ? 4.5 : 5.2;
+        // توزيع أفقي متساوٍ تماماً بين جميع العقد في نفس الجيل (1)
+        return 1;
       }); 
 
     treeLayout(root);
@@ -250,11 +275,7 @@ export default function FamilyTreeAdvanced() {
       .style("stroke-linejoin", "round")
       .style("opacity", 0.85)
       .style("filter", "none")
-      .style("stroke-dasharray", "none")
-      .transition()
-      .duration(800)
-      .delay((d, i) => i * 50)
-      .style("opacity", 1);
+      .style("stroke-dasharray", "none"); // إزالة أي transition
 
     // رسم العقد
     const nodes = g.selectAll(".node")
@@ -262,11 +283,7 @@ export default function FamilyTreeAdvanced() {
       .enter().append("g")
       .attr("class", "node")
       .attr("transform", d => `translate(${d.x},${d.y})`)
-      .style("opacity", 0)
-      .transition()
-      .duration(600)
-      .delay((d, i) => i * 100)
-      .style("opacity", 1);
+      .style("opacity", 1); // إزالة transition
 
     // إضافة محتوى العقد
     nodes.each(function(d) {
@@ -1179,7 +1196,7 @@ const handleResetView = useCallback(() => {
                       color: showExtendedTree ? '#8b5cf6' : '#6366f1',
                       '&:hover': { 
                         borderColor: showExtendedTree ? '#7c3aed' : '#4f46e5',
-                        backgroundColor: showExtendedTree ? 'rgba(139, 92, 246, 0.1)' : 'rgba(99, 102, 241, 0.1)'
+                        backgroundColor: showExtendedTree ? 'rgba(139, 92, 246, 0.1)' : 'rgba(99, 102,241, 0.1)'
                       },
                       fontFamily: 'Cairo, sans-serif'
                     }}
