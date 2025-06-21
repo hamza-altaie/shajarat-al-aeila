@@ -366,6 +366,37 @@ export default function FamilyTreeAdvanced() {
       }
     });
 
+    // بعد توزيع العقد، نعيد ضبط مواضع العقد أفقياً بحيث لا تتقاطع أي عقدة مع أخرى في نفس المستوى
+    // نستخدم خوارزمية بسيطة: لكل مستوى (depth)، نرتب العقد حسب x ونمنع أي تداخل
+    const nodesByDepth = {};
+    root.each(d => {
+      if (!nodesByDepth[d.depth]) nodesByDepth[d.depth] = [];
+      nodesByDepth[d.depth].push(d);
+    });
+    Object.values(nodesByDepth).forEach(nodes => {
+      nodes.sort((a, b) => a.x - b.x);
+      for (let i = 1; i < nodes.length; i++) {
+        const prev = nodes[i - 1];
+        const curr = nodes[i];
+        // إذا كان هناك تداخل أو تقاطع بين الكروت، نحرك العقدة الحالية يميناً
+        const minDistance = 340; // عرض الكارت + هامش (يمكنك ضبطها حسب حجم الكارت)
+        if (curr.x - prev.x < minDistance) {
+          const shift = minDistance - (curr.x - prev.x);
+          curr.x += shift;
+          // إعادة ضبط x لجميع الأبناء أيضاً
+          function shiftChildren(node, delta) {
+            if (node.children && node.children.length > 0) {
+              node.children.forEach(child => {
+                child.x += delta;
+                shiftChildren(child, delta);
+              });
+            }
+          }
+          shiftChildren(curr, shift);
+        }
+      }
+    });
+
     // حساب تموضع الشجرة بدقة ليكون مركزها في منتصف الحاوية
     // تم تعطيل التوسيط التلقائي عند كل رسم بناءً على طلب المستخدم
     // let minX = Infinity, maxX = -Infinity;
