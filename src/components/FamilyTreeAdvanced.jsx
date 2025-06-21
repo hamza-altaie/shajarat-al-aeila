@@ -187,37 +187,32 @@ export default function FamilyTreeAdvanced() {
   const drawTreeWithD3 = useCallback((data) => {
     if (!data || !svgRef.current || !containerRef.current) return;
 
-    const container = containerRef.current;
+    // 🚫 ممنوع أي تحريك أو توسيط أو زووم تلقائي هنا إطلاقًا
+    // إعادة تعيين أي transform/zoom على svg وg لمنع أي تحريك متراكم
+    // هذا يضمن أن الشجرة دائمًا تبدأ من الوضع الافتراضي بدون أي تحريك
     const svg = d3.select(svgRef.current);
-    
-    // تنظيف المحتوى السابق
-    reactRootsRef.current.forEach(root => {
-      try {
-        root.unmount();
-      } catch (e) {
-        // تنظيف صامت
-      }
-    });
-    reactRootsRef.current.clear();
-    
-    svg.selectAll("*").remove();
+    svg.attr('transform', null); // إلغاء أي transform على svg
+    svg.property('__zoom', d3.zoomIdentity); // إعادة تعيين حالة الزووم الداخلية
+    svg.selectAll('*').remove(); // تنظيف svg
 
     // إعداد الأبعاد
+    const container = containerRef.current;
     const width = container.clientWidth;
     const height = container.clientHeight;
+    svg.attr('width', width).attr('height', height).style('background', 'transparent');
 
-    svg.attr("width", width).attr("height", height).style("background", "transparent");
+    // إنشاء مجموعة g جديدة
+    const g = svg.append('g');
+    g.attr('transform', null); // إلغاء أي transform على g
 
-    const g = svg.append("g");
-
-    // إعداد الـ zoom
+    // إعداد الـ zoom بدون أي تحريك افتراضي
     const zoom = d3.zoom()
       .scaleExtent([0.1, 3])
-      .on("zoom", (event) => {
-        g.attr("transform", event.transform);
+      .on('zoom', (event) => {
+        g.attr('transform', event.transform);
       });
-
     svg.call(zoom);
+    svg.property('__zoom', d3.zoomIdentity); // إعادة تعيين حالة الزووم الداخلية بعد call
 
     // إعداد بيانات الشجرة
     const root = d3.hierarchy(data);
@@ -355,22 +350,21 @@ export default function FamilyTreeAdvanced() {
     });
 
     // حساب تموضع الشجرة بدقة ليكون مركزها في منتصف الحاوية
-    let minX = Infinity, maxX = -Infinity;
-    root.descendants().forEach(d => {
-      if (d.x < minX) minX = d.x;
-      if (d.x > maxX) maxX = d.x;
-    });
-    const treeWidth = maxX - minX;
-    // توسيط أدق مع مراعاة التكبير
-    const centerX = (width / 2 - ((minX + maxX) / 2) * zoomLevel);
-    // زيادة المسافة من الأعلى (مثلاً 180 بدلاً من 60)
-    const centerY = 180; // يمكنك تعديل الرقم حسب الحاجة
-    const initialTransform = d3.zoomIdentity
-      .translate(centerX, centerY)
-      .scale(zoomLevel);
-    svg.transition()
-      .duration(750)
-      .call(zoom.transform, initialTransform);
+    // تم تعطيل التوسيط التلقائي عند كل رسم بناءً على طلب المستخدم
+    // let minX = Infinity, maxX = -Infinity;
+    // root.descendants().forEach(d => {
+    //   if (d.x < minX) minX = d.x;
+    //   if (d.x > maxX) maxX = d.x;
+    // });
+    // const treeWidth = maxX - minX;
+    // const centerX = (width / 2 - ((minX + maxX) / 2) * zoomLevel);
+    // const centerY = 180;
+    // const initialTransform = d3.zoomIdentity
+    //   .translate(centerX, centerY)
+    //   .scale(zoomLevel);
+    // svg.transition()
+    //   .duration(750)
+    //   .call(zoom.transform, initialTransform);
 
   }, [showExtendedTree, zoomLevel, handleNodeClick, buildFullName, searchQuery]);
 
@@ -442,6 +436,8 @@ export default function FamilyTreeAdvanced() {
       });
       
       showSnackbar(`✅ تم تحميل عائلتك: ${familyMembers.length} أفراد`, 'success');
+
+      // تم حذف استدعاء resetView التلقائي بعد التحميل بناءً على طلب المستخدم
 
     } catch (error) {
       setError(error.message);
@@ -569,6 +565,8 @@ export default function FamilyTreeAdvanced() {
       setExtendedTreeData(extendedTree);
       
       showSnackbar(`🏛️ تم تحميل ${allFamiliesData.length} عائلة بـ ${totalPersons} شخص`, 'success');
+
+      // تم حذف استدعاء resetView التلقائي بعد التحميل الموسع بناءً على طلب المستخدم
 
     } catch (error) {
       setError(error.message);
@@ -946,6 +944,8 @@ export default function FamilyTreeAdvanced() {
   
   // دالة البحث والزووم المحسنة للعمل مع D3
   const handleSearchAndZoom = useCallback((selectedResult) => {
+  // هذه الدالة هي الوحيدة المسموح لها بتحريك الشجرة (zoom/center)
+  // لا يوجد أي تحريك أو توسيط تلقائي في أي مكان آخر
   console.log('🎯 تشغيل الزووم البسيط:', selectedResult);
   
   if (!selectedResult || !svgRef.current) {
@@ -1037,41 +1037,20 @@ export default function FamilyTreeAdvanced() {
 
 const handleResetView = useCallback(() => {
   if (!svgRef.current) return;
-  
-  console.log('🔄 إعادة تعيين الرؤية');
-  
+  // ممنوع أي تحريك أو توسيط أو zoom هنا إطلاقًا
+  // فقط مسح البحث والتمييز
+  // إعادة تعيين أي transform/zoom على svg وg لإرجاع الشجرة للوضع الافتراضي
   const svg = d3.select(svgRef.current);
   const g = svg.select('g');
-  
-  // مسح أي تمييز
+  svg.attr('transform', null); // إلغاء أي transform على svg
+  svg.property('__zoom', d3.zoomIdentity); // إعادة تعيين حالة الزووم الداخلية
+  g.attr('transform', null); // إلغاء أي transform على g
   g.selectAll('.node').classed('search-highlight', false);
   g.selectAll('.search-highlight-border').remove();
   g.selectAll('.node').style('filter', null).style('transform', null);
-  
-  // إعداد الزووم
-  const zoomBehavior = d3.zoom()
-    .scaleExtent([0.1, 3])
-    .on('zoom', (event) => {
-      g.attr('transform', event.transform);
-    });
-  
-  svg.call(zoomBehavior);
-  
-  // إعادة تعيين الرؤية للوضع الأساسي
-  svg.transition()
-    .duration(750)
-    .ease(d3.easeCubicInOut)
-    .call(
-      zoomBehavior.transform,
-      d3.zoomIdentity.translate(0, 0).scale(0.6)
-    );
-  
-  // مسح البحث
   setSearchQuery('');
   setSearchResults([]);
-  
-  console.log('✅ تم إعادة تعيين الرؤية');
-  
+  console.log('✅ تم إعادة تعيين الرؤية (بدون تحريك)');
 }, [svgRef]);
 
 
@@ -1277,14 +1256,14 @@ const handleResetView = useCallback(() => {
           <Chip label={`${Math.round(zoomLevel * 100)}%`} size="small" onClick={handleResetZoom} sx={{ minWidth: 60 }} />
           <IconButton size="small" onClick={handleZoomOut} disabled={loading}><ZoomOut /></IconButton>
           <IconButton size="small" onClick={handleRefresh} disabled={loading}><Refresh /></IconButton>
-          <IconButton size="small" onClick={handleResetView} disabled={loading} title="إعادة تعيين الرؤية">
+          <IconButton size="small" onClick={searchZoomHook.resetView} disabled={loading} title="إعادة تعيين الرؤية">
             <Refresh />
           </IconButton>
           <IconButton size="small" onClick={() => {
             setSearchQuery('');
             if (svgRef.current) {
               d3.selectAll('.node').classed('search-highlight', false);
-              d3.selectAll('.node foreignObject > div > div').classed('search-highlight', false);
+              d3.selectAll('.node foreignObject > div').classed('search-highlight', false);
             }
           }} disabled={loading} title="مسح التمييز">
             <Close />
@@ -1326,7 +1305,7 @@ const handleResetView = useCallback(() => {
                         if (svgRef.current) {
                           const svg = d3.select(svgRef.current);
                           const g = svg.select('g');
-                          g.selectAll('.node').classed('search-highlight focus-zoom', false);
+                          g.selectAll('.node').classed('search-highlight', false);
                           g.selectAll('.node foreignObject > div')
                             .classed('search-highlight', false)
                             .style('transform', null)
@@ -1389,7 +1368,7 @@ const handleResetView = useCallback(() => {
                         // تشغيل الزووم مع تأخير قصير
                         setTimeout(() => {
                           console.log('🎯 تشغيل handleSearchAndZoom');
-                          handleSearchAndZoom(result);
+                          searchZoomHook.searchAndZoom(result.node?.name || result.node?.attributes?.name || result.name || '');
                         }, 150);
                       }}
                       sx={{
