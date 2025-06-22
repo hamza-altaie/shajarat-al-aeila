@@ -234,7 +234,7 @@ export default function FamilyTreeAdvanced() {
     // إعداد تخطيط الشجرة مع توزيع أفقي متساوٍ تماماً (بدون أي تراكب)
     const treeLayout = d3.tree()
       .size([dynamicWidth, dynamicHeight])
-      .separation((a, b) => {
+      .separation(() => {
         // توزيع أفقي متساوٍ تماماً بين جميع العقد في نفس الجيل (1)
         return 1;
       }); 
