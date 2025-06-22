@@ -37,16 +37,6 @@ export default function FamilyTreeAdvanced() {
   const [linkedFamilies, setLinkedFamilies] = useState([]);
   const [showLinkingPanel, setShowLinkingPanel] = useState(false);
 
-  // إعدادات الشجرة
-  const [treeSettings] = useState({
-    maxDepth: 15,
-    maxPersonsPerLevel: 50,
-    maxTotalPersons: 2000,
-    enableSmartLimits: true,
-    showDepthWarning: true,
-    autoOptimize: true
-  });
-  
   const [performanceMetrics, setPerformanceMetrics] = useState({
     loadTime: 0,
     personCount: 0,
