@@ -130,7 +130,7 @@ export default function Family() {
       }
       
       return `${age} سنة`;
-    } catch (error) {
+    } catch {
       return '';
     }
   };
