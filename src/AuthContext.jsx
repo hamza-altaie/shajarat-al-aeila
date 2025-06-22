@@ -3,6 +3,7 @@ import { auth, db } from './firebase/config';  // ✅ استيراد صحيح
 import { onAuthStateChanged, signOut } from 'firebase/auth';  // ✅ استيراد صحيح
 import { doc, getDoc, setDoc } from 'firebase/firestore';  // ✅ استيراد صحيح
 import { fetchUserData } from './userService'; // استيراد الدالة من ملف الخدمات
+import { useRequireAuth, usePermissions } from './hooks/authHooks';
 
 // إنشاء Context للمصادقة
 export const AuthContext = createContext({
@@ -276,28 +277,4 @@ export const useAuth = () => {
   }
   
   return context;
-};
-
-// Hook للتحقق من المصادقة
-export const useRequireAuth = () => {
-  const { isAuthenticated, loading } = useAuth();
-  
-  return {
-    isAuthenticated,
-    loading,
-    isReady: !loading && isAuthenticated
-  };
-};
-
-// Hook للتحقق من الصلاحيات
-export const usePermissions = () => {
-  const { hasPermission, userData } = useAuth();
-  
-  return {
-    hasPermission,
-    canDeleteMembers: hasPermission('DELETE_MEMBERS'),
-    canEditFamily: hasPermission('EDIT_FAMILY'),
-    canInviteMembers: hasPermission('INVITE_MEMBERS'),
-    isFamilyHead: userData?.isFamilyRoot === true,
-  };
 };
