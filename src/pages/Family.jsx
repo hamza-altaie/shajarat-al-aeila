@@ -148,8 +148,8 @@ export default function Family() {
         month: 'long', 
         day: 'numeric'
       });
-    } catch (error) {
-      return birthdate;
+    } catch {
+      return birthdate; // Removed unused 'error' variable
     }
   };
 
@@ -421,7 +421,7 @@ export default function Family() {
       return;
     }
 
-    const cleanPhone = newPhone.replace(/[\s\-\(\)]/g, '');
+    const cleanPhone = newPhone.replace(/[\s\-()]/g, ''); // Fixed unnecessary escape characters
     const phoneRegex = /^07[0-9]{8,9}$/;
     
     if (!phoneRegex.test(cleanPhone)) {

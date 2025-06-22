@@ -394,14 +394,14 @@ export class AdvancedFamilyGraph {
     
     const familiesByLevel = new Map();
     this.families.forEach(family => {
-      const level = family.level || 0;
-      if (!familiesByLevel.has(level)) {
-        familiesByLevel.set(level, []);
+      const familyLevel = family.level || 0;
+      if (!familiesByLevel.has(familyLevel)) {
+        familiesByLevel.set(familyLevel, []);
       }
-      familiesByLevel.get(level).push(family);
+      familiesByLevel.get(familyLevel).push(family);
     });
     
-    for (const [level, families] of familiesByLevel) {
+    for (const [familyLevel, families] of familiesByLevel) {
       for (const family of families) {
         if (family.parentFamilyUid) {
           await this.linkFamilyToParent(family, family.parentFamilyUid);
@@ -618,7 +618,7 @@ export class AdvancedFamilyGraph {
       childrenArray.forEach(child => {
         const childNode = buildTreeNode(child, depth + 1);
         if (childNode) {
-          node.children.push(childNode);
+          children.push(childNode);
         }
       });
       
@@ -627,98 +627,48 @@ export class AdvancedFamilyGraph {
     
     const treeData = buildTreeNode(rootPerson);
     
-    console.log(`✅ تم إنشاء شجرة هرمية تضم ${visited.size} شخص`);
-    
+    console.log('✅ تم إنشاء بيانات الشجرة الهرمية');
     return treeData;
-  }
-
-  /**
-   * حساب الجيل للشخص
-   */
-  calculateGeneration(memberData) {
-    const tribalLevel = memberData.tribalLevel || 0;
-    
-    if (memberData.relation === 'رب العائلة') {
-      return tribalLevel;
-    } else {
-      return tribalLevel + 1;
-    }
-  }
-
-  /**
-   * بناء الاسم الكامل
-   */
-  buildFullName(memberData) {
-    const parts = [
-      memberData.firstName,
-      memberData.fatherName,
-      memberData.grandfatherName,
-      memberData.surname
-    ].filter(Boolean);
-    
-    return parts.join(' ').trim() || 'غير محدد';
   }
 
   /**
    * إحصائيات القبيلة
    */
   getTribalStatistics() {
-    const persons = Array.from(this.nodes.values());
-    const families = Array.from(this.families.values());
+    const totalNodes = this.nodes.size;
+    const totalEdges = this.edges.size;
+    const totalFamilies = this.families.size;
     
     return {
-      overview: {
-        totalPersons: persons.length,
-        totalFamilies: families.length,
-        tribalLevels: Math.max(...families.map(f => f.level || 0)) + 1,
-        generations: new Set(persons.map(p => p.calculatedGeneration || 0)).size
-      },
-      generations: this.getGenerationDistribution(persons),
-      families: families.map(f => ({
-        uid: f.uid,
-        level: f.level,
-        memberCount: f.members.length,
-        headName: f.head?.name || 'غير محدد'
-      })),
-      relations: this.getRelationDistribution(persons)
+      totalNodes,
+      totalEdges,
+      totalFamilies,
+      averageDegree: totalEdges / (totalNodes || 1),
+      depth: this.calculateMaxDepth()
     };
   }
 
   /**
-   * الحصول على إحصائيات متقدمة
+   * حساب أقصى عمق للشجرة
    */
-  getAdvancedStatistics() {
-    return this.getTribalStatistics();
-  }
-
-  /**
-   * توزيع الأجيال
-   */
-  getGenerationDistribution(persons) {
-    const distribution = {};
-    persons.forEach(person => {
-      const generation = person.calculatedGeneration || person.generation || 0;
-      distribution[generation] = (distribution[generation] || 0) + 1;
+  calculateMaxDepth() {
+    let maxDepth = 0;
+    
+    this.families.forEach(family => {
+      if (family.level > maxDepth) {
+        maxDepth = family.level;
+      }
     });
-    return distribution;
+    
+    return maxDepth;
   }
 
   /**
-   * توزيع العلاقات
-   */
-  getRelationDistribution(persons) {
-    const distribution = {};
-    persons.forEach(person => {
-      const relation = person.relation || 'غير محدد';
-      distribution[relation] = (distribution[relation] || 0) + 1;
-    });
-    return distribution;
-  }
-
-  /**
-   * مسح جميع البيانات
+   * مسح البيانات الحالية
    */
   clear() {
+    console.log('🧹 مسح البيانات الحالية...');
+    
     this.nodes.clear();
     this.edges.clear();
     this.families.clear();
@@ -728,71 +678,8 @@ export class AdvancedFamilyGraph {
     this.relationIndex.clear();
     this.cache.clear();
     this.loadedFamilies.clear();
+    this.optimized = false;
     
-    this.metadata = {
-      totalNodes: 0,
-      totalEdges: 0,
-      maxDepth: 0,
-      lastUpdated: Date.now(),
-      loadingStats: {
-        totalLoadTime: 0,
-        averageQueryTime: 0,
-        cacheHitRate: 0
-      }
-    };
-  }
-
-  // ===== للتوافق مع النظام القديم =====
-  
-  /**
-   * دالة للتوافق مع Hook القديم
-   */
-  async loadExtendedFamilies(userUid, options = {}) {
-    console.log('🔄 تم استدعاء loadExtendedFamilies - إعادة توجيه إلى loadCompleteTribalTree');
-    return await this.loadCompleteTribalTree(userUid, options);
-  }
-
-  /**
-   * إنشاء بيانات شجرة بسيطة
-   */
-  generateTreeData(rootPersonId = null) {
-    if (!rootPersonId) {
-      rootPersonId = this.selectOptimalRoot();
-    }
-    
-    if (!rootPersonId) {
-      console.warn('⚠️ لم يتم العثور على جذر مناسب للشجرة');
-      return null;
-    }
-    
-    return this.generateTribalTreeData({ uid: rootPersonId.split('_')[0] });
-  }
-
-  /**
-   * اختيار أفضل جذر للشجرة
-   */
-  selectOptimalRoot() {
-    let bestRoot = null;
-    let maxScore = -1;
-    
-    this.nodes.forEach((person, personId) => {
-      let score = 0;
-      
-      score += person.children.size * 15;
-      if (person.relation === 'رب العائلة') score += 100;
-      score += (person.generation || 0) * 10;
-      if (person.birthDate) score += 10;
-      if (person.avatar && person.avatar !== '/boy.png') score += 10;
-      score += person.importance || 0;
-      
-      if (score > maxScore) {
-        maxScore = score;
-        bestRoot = personId;
-      }
-    });
-    
-    return bestRoot;
+    console.log('✅ تم مسح البيانات الحالية');
   }
 }
-
-export default AdvancedFamilyGraph;
