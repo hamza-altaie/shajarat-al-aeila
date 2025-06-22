@@ -2,6 +2,7 @@ import React, { createContext, useEffect, useState, useCallback } from 'react';
 import { auth, db } from './firebase/config';  // ✅ استيراد صحيح
 import { onAuthStateChanged, signOut } from 'firebase/auth';  // ✅ استيراد صحيح
 import { doc, getDoc, setDoc } from 'firebase/firestore';  // ✅ استيراد صحيح
+import { fetchUserData } from './userService'; // استيراد الدالة من ملف الخدمات
 
 // إنشاء Context للمصادقة
 export const AuthContext = createContext({
@@ -15,24 +16,6 @@ export const AuthContext = createContext({
   refreshUserData: () => {},
   clearError: () => {}
 });
-
-// نقل الوظائف غير المتعلقة بالمكونات إلى ملف منفصل
-export const fetchUserData = async (uid) => {
-  try {
-    const userRef = doc(db, 'users', uid);
-    const userSnap = await getDoc(userRef);
-
-    if (userSnap.exists()) {
-      return userSnap.data();
-    } else {
-      console.warn('لا توجد بيانات للمستخدم في Firestore');
-      return null;
-    }
-  } catch (err) {
-    console.error('خطأ في جلب بيانات المستخدم:', err);
-    throw new Error('فشل في جلب بيانات المستخدم');
-  }
-};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -140,7 +123,7 @@ export const AuthProvider = ({ children }) => {
     });
 
     return () => unsubscribe();
-  }, [validateLocalStorage, fetchUserData, updateLastLogin, clearLocalStorage]);
+  }, [validateLocalStorage, updateLastLogin, clearLocalStorage]);
 
   // تسجيل الدخول
   const login = useCallback(async (user, additionalData = {}) => {

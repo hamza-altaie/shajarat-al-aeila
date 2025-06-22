@@ -14,7 +14,7 @@ import {
 import { db } from '../firebase/config';
 import { 
   collection, getDocs, doc, getDoc, setDoc, updateDoc, 
-  query, orderBy, where 
+  query, orderBy 
 } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 
@@ -64,105 +64,6 @@ export default function FamilySelectionPage() {
 
     fetchFamilyHeads();
   }, []); // ✅ إصلاح تحذيرات React Hooks
-
-  // تحميل أرباب العوائل المسجلين
-  const loadFamilyHeads = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      
-      // جلب جميع المستخدمين
-      const usersSnapshot = await getDocs(collection(db, 'users'));
-      const heads = [];
-      
-      for (const userDoc of usersSnapshot.docs) {
-        const userData = userDoc.data();
-        const userId = userDoc.id;
-        
-        // تخطي المستخدم الحالي
-        if (userId === uid) continue;
-        
-        // محاولة جلب بيانات العائلة للحصول على الاسم الحقيقي
-        try {
-          const familySnapshot = await getDocs(collection(db, 'users', userId, 'family'));
-          let displayName = 'رب عائلة';
-          let familyName = 'عائلة غير محددة';
-          
-          // البحث عن رب العائلة في family collection
-          let familyHead = null;
-          familySnapshot.docs.forEach(doc => {
-            const memberData = doc.data();
-            if (memberData.relation === 'رب العائلة') {
-              familyHead = memberData;
-            }
-          });
-          
-          // بناء الاسم من بيانات العائلة
-          if (familyHead) {
-            const firstName = familyHead.firstName || '';
-            const fatherName = familyHead.fatherName || '';
-            const grandfatherName = familyHead.grandfatherName || '';
-            const surname = familyHead.surname || '';
-            
-            displayName = `${firstName} ${fatherName}`.trim() || firstName || 'رب العائلة';
-            
-            if (surname) {
-              familyName = `🏠 عائلة ${surname}`;
-            } else if (grandfatherName) {
-              familyName = `🏠 عائلة ${grandfatherName}`;
-            } else if (firstName) {
-              familyName = `🏠 عائلة ${firstName}`;
-            }
-          } else {
-            // إذا لم يوجد رب عائلة، استخدم بيانات المستخدم
-            if (userData.firstName) {
-              displayName = userData.firstName;
-              familyName = `🏠 عائلة ${userData.firstName}`;
-            } else {
-              const phoneEnd = userData.phone ? userData.phone.slice(-4) : '0000';
-              displayName = `العضو ${phoneEnd}`;
-              familyName = `🏠 العائلة ${phoneEnd}`;
-            }
-          }
-          
-          heads.push({
-            id: userId,
-            name: displayName,
-            familyName: familyName,
-            phone: userData.phone,
-            createdAt: userData.createdAt,
-            membersCount: familySnapshot.docs.length,
-            avatar: familyHead?.avatar || userData.avatar
-          });
-          
-          console.log('تمت إضافة عائلة:', displayName, familyName);
-          
-        } catch (familyError) {
-          console.error('خطأ في جلب بيانات العائلة:', familyError);
-          // fallback للبيانات الأساسية
-          const phoneEnd = userData.phone ? userData.phone.slice(-4) : '0000';
-          heads.push({
-            id: userId,
-            name: `العضو ${phoneEnd}`,
-            familyName: `🏠 العائلة ${phoneEnd}`,
-            phone: userData.phone,
-            createdAt: userData.createdAt,
-            membersCount: 0,
-            avatar: userData.avatar
-          });
-        }
-      }
-      
-      setFamilyHeads(heads);
-      console.log('تم تحميل العوائل:', heads);
-      
-    } catch (error) {
-      console.error('خطأ في تحميل أرباب العوائل:', error);
-      setError('حدث خطأ في تحميل البيانات');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // ربط المستخدم بعائلة موجودة
   const linkToExistingFamily = async () => {

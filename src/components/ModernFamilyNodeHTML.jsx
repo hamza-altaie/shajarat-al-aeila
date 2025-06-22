@@ -41,36 +41,6 @@ const ModernFamilyNodeHTML = ({
 
   // تمييز البحث
   const highlight = nodeDatum.highlightMatch;
-  
-  // تحديد الدور
-  const getRole = () => {
-    if (isParent) return 'الوالد';
-    if (isChild) return 'الابن/الابنة';
-    if (isSpouse) return 'الزوج/الزوجة';
-    return nodeDatum.relation || 'عضو';
-  };
-
-  // اختصار الأسماء الطويلة
-  const getDisplayName = (name) => {
-    if (!name || name === 'غير محدد') return 'غير محدد';
-    return name.length > 20 ? name.substring(0, 18) + '...' : name;
-  };
-
-  // إصلاح تحذيرات React Hooks
-  const handleNodeClick = (nodeId) => {
-    console.log(`تم النقر على العقدة: ${nodeId}`);
-    onNodeClick(nodeId);
-  };
-
-  const handleEditClick = (nodeId) => {
-    console.log(`تم تحرير العقدة: ${nodeId}`);
-    // تنفيذ منطق التحرير
-  };
-
-  const handleViewClick = (nodeId) => {
-    console.log(`عرض تفاصيل العقدة: ${nodeId}`);
-    // تنفيذ منطق العرض
-  };
 
   return (
     <div

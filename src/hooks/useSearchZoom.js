@@ -292,12 +292,13 @@ export const useSearchZoom = (svgRef, treeData) => {
 
   // تنظيف المستمعين عند إلغاء التحميل
   useEffect(() => {
+    const svgRefCopy = svgRef.current;
     return () => {
-      if (zoomBehavior.current && svgRef.current) {
-        d3.select(svgRef.current).on('.zoom', null);
+      if (zoomBehavior.current && svgRefCopy) {
+        d3.select(svgRefCopy).on('.zoom', null);
       }
     };
-  }, [svgRef]);
+  }, []);
 
   return {
     searchQuery,

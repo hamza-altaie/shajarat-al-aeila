@@ -92,9 +92,6 @@ export default function usePhoneAuth() {
       // إنشاء reCAPTCHA جديد مع إعدادات محسنة
       window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         size: 'invisible',
-        callback: (response) => {
-          console.log('✅ تم حل reCAPTCHA بنجاح');
-        },
         'expired-callback': () => {
           console.warn('⚠️ انتهت صلاحية reCAPTCHA');
           setMessage('❌ انتهت صلاحية التحقق، يرجى المحاولة مرة أخرى');
