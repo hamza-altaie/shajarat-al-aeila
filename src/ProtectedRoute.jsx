@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { AuthContext } from './AuthContext.jsx';
+import { AuthContext } from './contexts/AuthContext';
 import { CircularProgress, Box, Typography, Alert, Button } from '@mui/material';
 import { Refresh as RefreshIcon } from '@mui/icons-material';
 

@@ -1,22 +1,9 @@
-import React, { createContext, useEffect, useState, useCallback } from 'react';
-import { auth, db } from './firebase/config';  // ✅ استيراد صحيح
-import { onAuthStateChanged, signOut } from 'firebase/auth';  // ✅ استيراد صحيح
-import { doc, getDoc, setDoc } from 'firebase/firestore';  // ✅ استيراد صحيح
-import { fetchUserData } from './userService'; // استيراد الدالة من ملف الخدمات
-import { useRequireAuth, usePermissions } from './hooks/authHooks';
-
-// إنشاء Context للمصادقة
-export const AuthContext = createContext({
-  user: null,
-  loading: true,
-  error: null,
-  isAuthenticated: false,
-  userData: null,
-  login: () => {},
-  logout: () => {},
-  refreshUserData: () => {},
-  clearError: () => {}
-});
+import React, { useEffect, useState, useCallback } from 'react';
+import { auth, db } from './firebase/config';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { fetchUserData } from './userService';
+import { AuthContext } from './contexts/AuthContext';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -32,12 +19,11 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       setError(err.message);
     }
-  }, []); // ✅ إصلاح تحذيرات React Hooks
+  }, []);
 
-  // تحديث آخر تسجيل دخول
   const updateLastLogin = useCallback(async (uid) => {
     try {
-      const userRef = doc(db, 'users', uid);  // ✅ استخدام db من config
+      const userRef = doc(db, 'users', uid);
       await setDoc(userRef, {
         lastLogin: new Date().toISOString(),
       }, { merge: true });
@@ -46,7 +32,6 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // التحقق من صحة البيانات المحلية
   const validateLocalStorage = useCallback((currentUser) => {
     const storedPhone = localStorage.getItem('verifiedPhone');
     const storedUid = localStorage.getItem('verifiedUid');
@@ -65,7 +50,6 @@ export const AuthProvider = ({ children }) => {
     return true;
   }, []);
 
-  // تنظيف البيانات المحلية
   const clearLocalStorage = useCallback(() => {
     localStorage.removeItem('verifiedPhone');
     localStorage.removeItem('verifiedUid');
@@ -73,9 +57,8 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
   }, []);
 
-  // مراقبة حالة المصادقة
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {  // ✅ استخدام auth من config
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       try {
         setError(null);
         setUser(currentUser);
@@ -99,7 +82,7 @@ export const AuthProvider = ({ children }) => {
                 linkedParentUid: '',
               };
               
-              await setDoc(doc(db, 'users', currentUser.uid), newUserData);  // ✅ استخدام db من config
+              await setDoc(doc(db, 'users', currentUser.uid), newUserData);
               setUserData(newUserData);
               setIsAuthenticated(true);
             }
@@ -126,7 +109,6 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, [validateLocalStorage, updateLastLogin, clearLocalStorage]);
 
-  // تسجيل الدخول
   const login = useCallback(async (user, additionalData = {}) => {
     try {
       setError(null);
@@ -135,7 +117,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('verifiedUid', user.uid);
       localStorage.setItem('verifiedPhone', user.phoneNumber);
 
-      const userRef = doc(db, 'users', user.uid);  // ✅ استخدام db من config
+      const userRef = doc(db, 'users', user.uid);
       const userSnap = await getDoc(userRef);
 
       let userData;
@@ -173,13 +155,12 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // تسجيل الخروج
   const logout = useCallback(async () => {
     try {
       setError(null);
       setLoading(true);
 
-      await signOut(auth);  // ✅ استخدام auth من config
+      await signOut(auth);
       
       clearLocalStorage();
       setUser(null);
@@ -194,17 +175,15 @@ export const AuthProvider = ({ children }) => {
     }
   }, [clearLocalStorage]);
 
-  // مسح رسائل الخطأ
   const clearError = useCallback(() => {
     setError(null);
-  }, []); // ✅ إصلاح تحذيرات React Hooks
+  }, []);
 
-  // تحديث بيانات المستخدم في Context
   const updateUserData = useCallback(async (newData) => {
     if (!user?.uid) return false;
 
     try {
-      const userRef = doc(db, 'users', user.uid);  // ✅ استخدام db من config
+      const userRef = doc(db, 'users', user.uid);
       const updatedData = {
         ...userData,
         ...newData,
@@ -222,7 +201,6 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user?.uid, userData]);
 
-  // التحقق من صلاحية المستخدم لإجراء معين
   const hasPermission = useCallback((permission) => {
     if (!userData) return false;
 
@@ -238,7 +216,6 @@ export const AuthProvider = ({ children }) => {
     }
   }, [userData]);
 
-  // قيم Context
   const contextValue = {
     user,
     loading,
@@ -266,15 +243,4 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   );
-};
-
-// Hook مخصص لاستخدام Context
-export const useAuth = () => {
-  const context = React.useContext(AuthContext);
-  
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  
-  return context;
 };
