@@ -1,6 +1,14 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { resolve } from 'path'
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+// إصلاح أخطاء no-undef
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// إصلاح تحذيرات process
+process.env.NODE_ENV = process.env.NODE_ENV || 'development';
+
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -9,7 +17,11 @@ export default defineConfig({
       fastRefresh: true,
     })
   ],
-  
+
+  define: {
+    'process.env': process.env // ✅ إصلاح تحذيرات process
+  },
+
   // إعدادات الخادم
   server: {
     port: 5173,
@@ -25,7 +37,7 @@ export default defineConfig({
   
   // إعدادات البناء
   build: {
-    outDir: 'dist',
+    outDir: resolve(__dirname, 'dist'),
     assetsDir: 'assets',
     sourcemap: true,
     minify: 'terser',

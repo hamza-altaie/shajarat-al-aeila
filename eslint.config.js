@@ -15,6 +15,11 @@ export default [
         ecmaFeatures: { jsx: true },
         sourceType: 'module',
       },
+      env: {
+        node: true,
+        browser: true,
+        es6: true,
+      },
     },
     plugins: {
       'react-hooks': reactHooks,
@@ -24,10 +29,10 @@ export default [
       ...js.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
-      'react-refresh/only-export-components': [
-        'warn',
-        { allowConstantExport: true },
-      ],
+      'react-hooks/exhaustive-deps': 'warn',
+      'react-refresh/only-export-components': 'warn',
+      'no-useless-escape': 'error',
+      'no-case-declarations': 'error',
     },
   },
 ]

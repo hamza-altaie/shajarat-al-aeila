@@ -32,34 +32,23 @@ export const validateBirthdate = (date) => {
   return true;
 };
 
+// إصلاح أخطاء no-useless-escape
 export const validatePhone = (phone) => {
   if (!phone || typeof phone !== 'string') return false;
-  
-  const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+
+  const cleanPhone = phone.replace(/[\s\-()]/g, '');
   const iraqiPhoneRegex = /^\+9647[0-9]{8,9}$/;
-  
+
   return iraqiPhoneRegex.test(cleanPhone);
 };
 
 export const formatPhoneNumber = (phone) => {
   const cleanPhone = phone.replace(/[^\d+]/g, '');
-  
+
   if (cleanPhone.startsWith('07')) {
     return '+964' + cleanPhone.substring(1);
   }
-  
-  if (cleanPhone.startsWith('7') && cleanPhone.length === 9) {
-    return '+964' + cleanPhone;
-  }
-  
-  if (cleanPhone.startsWith('7') && cleanPhone.length === 10) {
-    return '+964' + cleanPhone;
-  }
-  
-  if (cleanPhone.startsWith('+964')) {
-    return cleanPhone;
-  }
-  
+
   return cleanPhone;
 };
 
@@ -354,3 +343,21 @@ export default function usePhoneAuth() {
     formatPhoneNumber,
   };
 }
+
+// إضافة دالة sendVerificationCode المفقودة
+export const sendVerificationCode = async (phoneNumber, recaptchaContainerId) => {
+  try {
+    const recaptchaVerifier = new RecaptchaVerifier(recaptchaContainerId, {
+      size: 'invisible',
+      callback: () => {
+        console.log('تم التحقق من reCAPTCHA بنجاح');
+      }
+    }, auth);
+
+    const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+    return confirmationResult;
+  } catch (error) {
+    console.error('خطأ أثناء إرسال رمز التحقق:', error);
+    throw error;
+  }
+};

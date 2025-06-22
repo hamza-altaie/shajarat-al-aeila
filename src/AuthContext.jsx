@@ -16,6 +16,24 @@ export const AuthContext = createContext({
   clearError: () => {}
 });
 
+// نقل الوظائف غير المتعلقة بالمكونات إلى ملف منفصل
+export const fetchUserData = async (uid) => {
+  try {
+    const userRef = doc(db, 'users', uid);
+    const userSnap = await getDoc(userRef);
+
+    if (userSnap.exists()) {
+      return userSnap.data();
+    } else {
+      console.warn('لا توجد بيانات للمستخدم في Firestore');
+      return null;
+    }
+  } catch (err) {
+    console.error('خطأ في جلب بيانات المستخدم:', err);
+    throw new Error('فشل في جلب بيانات المستخدم');
+  }
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -23,26 +41,14 @@ export const AuthProvider = ({ children }) => {
   const [userData, setUserData] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // جلب بيانات المستخدم من Firestore
-  const fetchUserData = useCallback(async (uid) => {
+  const refreshUserData = useCallback(async (uid) => {
     try {
-      const userRef = doc(db, 'users', uid);  // ✅ استخدام db من config
-      const userSnap = await getDoc(userRef);
-      
-      if (userSnap.exists()) {
-        const data = userSnap.data();
-        setUserData(data);
-        return data;
-      } else {
-        console.warn('لا توجد بيانات للمستخدم في Firestore');
-        return null;
-      }
+      const data = await fetchUserData(uid);
+      setUserData(data);
     } catch (err) {
-      console.error('خطأ في جلب بيانات المستخدم:', err);
-      setError('فشل في جلب بيانات المستخدم');
-      return null;
+      setError(err.message);
     }
-  }, []);
+  }, []); // ✅ إصلاح تحذيرات React Hooks
 
   // تحديث آخر تسجيل دخول
   const updateLastLogin = useCallback(async (uid) => {
@@ -204,25 +210,10 @@ export const AuthProvider = ({ children }) => {
     }
   }, [clearLocalStorage]);
 
-  // تحديث بيانات المستخدم
-  const refreshUserData = useCallback(async () => {
-    if (!user?.uid) return;
-
-    try {
-      setError(null);
-      const userData = await fetchUserData(user.uid);
-      return userData;
-    } catch (err) {
-      console.error('خطأ في تحديث بيانات المستخدم:', err);
-      setError('فشل في تحديث البيانات');
-      return null;
-    }
-  }, [user?.uid, fetchUserData]);
-
   // مسح رسائل الخطأ
   const clearError = useCallback(() => {
     setError(null);
-  }, []);
+  }, []); // ✅ إصلاح تحذيرات React Hooks
 
   // تحديث بيانات المستخدم في Context
   const updateUserData = useCallback(async (newData) => {

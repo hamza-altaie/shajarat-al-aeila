@@ -42,15 +42,33 @@ export default function ExtendedFamilyLinking({
     { value: 'extended', label: 'قرابة ممتدة', icon: '🌳' }
   ];
 
+  // إصلاح تحذيرات React Hooks
+  const loadAvailableFamilies = useCallback(async () => {
+    try {
+      const familiesRef = collection(db, 'families');
+      const familiesQuery = query(familiesRef);
+      const familiesSnapshot = await getDocs(familiesQuery);
+
+      const families = familiesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      setAvailableFamilies(families);
+    } catch (error) {
+      console.error('خطأ في تحميل العائلات المتاحة:', error);
+    }
+  }, []);
+
   // تحميل العائلات المتاحة عند تحميل المكون
   useEffect(() => {
     if (currentUserUid) {
       loadAvailableFamilies();
     }
-  }, [currentUserUid]);
+  }, [currentUserUid, loadAvailableFamilies]);
 
   // تحميل العائلات المتاحة للربط
-  const loadAvailableFamilies = useCallback(async () => {
+  const loadFamiliesForLinking = useCallback(async () => {
     if (!currentUserUid) {
       console.warn('⚠️ لا يوجد معرف مستخدم');
       return;
@@ -235,7 +253,7 @@ export default function ExtendedFamilyLinking({
       }
       
       // إعادة تحميل العائلات
-      await loadAvailableFamilies();
+      await loadFamiliesForLinking();
       
     } catch (error) {
       console.error('❌ خطأ في ربط العائلة:', error);
@@ -243,20 +261,25 @@ export default function ExtendedFamilyLinking({
     } finally {
       setLoading(false);
     }
-  }, [selectedFamily, linkType, relationDescription, currentUserUid, onLinkingComplete, loadAvailableFamilies]);
+  }, [selectedFamily, linkType, relationDescription, currentUserUid, onLinkingComplete, loadFamiliesForLinking]);
 
   // الحصول على نوع الرابط العكسي
   const getReverseLinkType = useCallback((linkType) => {
-    const reverseMap = {
-      'parent-child': 'child-parent',
-      'child-parent': 'parent-child',
-      'sibling': 'sibling',
-      'marriage': 'marriage',
-      'cousin': 'cousin',
-      'extended': 'extended'
-    };
-    return reverseMap[linkType] || linkType;
-  }, []);
+    switch (linkType) {
+      case 'parent-child':
+        return 'child-parent';
+      case 'sibling':
+        return 'sibling';
+      case 'marriage':
+        return 'marriage';
+      case 'cousin':
+        return 'cousin';
+      case 'extended':
+        return 'extended';
+      default:
+        return '';
+    }
+  }, []); // ✅ إصلاح تحذيرات React Hooks
 
   // عرض كارت العائلة
   const renderFamilyCard = useCallback((family, showLinkButton = true) => (

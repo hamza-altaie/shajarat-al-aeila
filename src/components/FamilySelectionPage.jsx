@@ -46,8 +46,24 @@ export default function FamilySelectionPage() {
   ];
 
   useEffect(() => {
-    loadFamilyHeads();
-  }, []);
+    const fetchFamilyHeads = async () => {
+      try {
+        const familyHeadsRef = collection(db, 'family_heads');
+        const familyHeadsQuery = query(familyHeadsRef, orderBy('name'));
+        const familyHeadsSnapshot = await getDocs(familyHeadsQuery);
+
+        const heads = familyHeadsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setFamilyHeads(heads);
+      } catch (error) {
+        console.error('خطأ أثناء تحميل رؤوس العائلة:', error);
+        setError('حدث خطأ أثناء تحميل رؤوس العائلة');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFamilyHeads();
+  }, []); // ✅ إصلاح تحذيرات React Hooks
 
   // تحميل أرباب العوائل المسجلين
   const loadFamilyHeads = async () => {

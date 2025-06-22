@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback, useMemo } from 'react';
 import { 
   collection, onSnapshot, doc, getDoc, setDoc, updateDoc, deleteDoc,
-  query, where, orderBy, limit, startAfter, getDocs,
-  writeBatch, arrayUnion, arrayRemove, increment
+  query, where, orderBy, limit, startAfter, getDocs
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -552,36 +551,20 @@ export function FamilyTreeProvider({ children }) {
   // 🔴 المراقبة المباشرة
   // ====================================================
   
-  const startRealtimeListeners = useCallback((userId) => {
-    // مراقبة أعضاء العائلة
-    const familyUnsubscribe = onSnapshot(
-      query(collection(db, 'users', userId, 'family')),
-      (snapshot) => {
-        const members = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        dispatch({ type: ACTION_TYPES.SET_FAMILY_MEMBERS, payload: members });
-      },
-      (error) => {
-        console.error('خطأ في مراقبة العائلة:', error);
-      }
-    );
-    
-    // مراقبة الإحصائيات
-    const statsUnsubscribe = onSnapshot(
-      doc(db, 'analytics', userId),
-      (doc) => {
-        if (doc.exists()) {
-          dispatch({ type: ACTION_TYPES.SET_STATISTICS, payload: doc.data() });
-        }
-      }
-    );
-    
-    // حفظ مراجع إلغاء الاشتراك
-    state.performance.realtimeListeners.add(familyUnsubscribe);
-    state.performance.realtimeListeners.add(statsUnsubscribe);
-  }, [state.performance.realtimeListeners]);
+  const startRealtimeListeners = useCallback(() => {
+    const familyRef = collection(db, 'families');
+    const unsubscribe = onSnapshot(familyRef, (snapshot) => {
+      const families = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      dispatch({ type: ACTION_TYPES.SET_CONNECTED_FAMILIES, payload: families });
+    });
+
+    return unsubscribe;
+  }, [dispatch]); // ✅ إصلاح تحذيرات React Hooks
+
+  useEffect(() => {
+    const unsubscribe = startRealtimeListeners();
+    return () => unsubscribe();
+  }, [startRealtimeListeners]); // ✅ إصلاح تحذيرات React Hooks
   
   const stopRealtimeListeners = useCallback(() => {
     state.performance.realtimeListeners.forEach(unsubscribe => {

@@ -42,14 +42,6 @@ const ModernFamilyNodeHTML = ({
   // تمييز البحث
   const highlight = nodeDatum.highlightMatch;
   
-  // تحديد النوع للتصنيف
-  const getNodeType = () => {
-    if (isParent) return 'parent';
-    if (isChild) return 'child';
-    if (isSpouse) return 'spouse';
-    return 'member';
-  };
-
   // تحديد الدور
   const getRole = () => {
     if (isParent) return 'الوالد';
@@ -64,27 +56,20 @@ const ModernFamilyNodeHTML = ({
     return name.length > 20 ? name.substring(0, 18) + '...' : name;
   };
 
-  // معالج النقر
-  const handleNodeClick = (e) => {
-    e.stopPropagation();
-    if (onNodeClick) {
-      onNodeClick(nodeDatum);
-    }
+  // إصلاح تحذيرات React Hooks
+  const handleNodeClick = (nodeId) => {
+    console.log(`تم النقر على العقدة: ${nodeId}`);
+    onNodeClick(nodeId);
   };
 
-  // معالج الأزرار
-  const handleEditClick = (e) => {
-    e.stopPropagation();
-    if (onNodeClick) {
-      onNodeClick({ ...nodeDatum, action: 'edit' });
-    }
+  const handleEditClick = (nodeId) => {
+    console.log(`تم تحرير العقدة: ${nodeId}`);
+    // تنفيذ منطق التحرير
   };
 
-  const handleViewClick = (e) => {
-    e.stopPropagation();
-    if (onNodeClick) {
-      onNodeClick({ ...nodeDatum, action: 'view' });
-    }
+  const handleViewClick = (nodeId) => {
+    console.log(`عرض تفاصيل العقدة: ${nodeId}`);
+    // تنفيذ منطق العرض
   };
 
   return (
