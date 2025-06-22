@@ -3,10 +3,7 @@ import React from 'react';
 
 const ModernFamilyNodeHTML = ({ 
   nodeDatum, 
-  onNodeClick, 
-  isParent = false,
-  isChild = false,
-  isSpouse = false 
+  onNodeClick
 }) => {
   
   // ألوان حسب النوع
