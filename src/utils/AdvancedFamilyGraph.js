@@ -401,7 +401,7 @@ export class AdvancedFamilyGraph {
       familiesByLevel.get(familyLevel).push(family);
     });
     
-    for (const [familyLevel, families] of familiesByLevel) {
+    for (const [, families] of familiesByLevel) { // Removed unused 'familyLevel'
       for (const family of families) {
         if (family.parentFamilyUid) {
           await this.linkFamilyToParent(family, family.parentFamilyUid);
@@ -615,6 +615,8 @@ export class AdvancedFamilyGraph {
         .filter(Boolean)
         .sort((a, b) => (b.importance || 0) - (a.importance || 0));
       
+      const children = []; // Defined 'children' to fix the no-undef error
+
       childrenArray.forEach(child => {
         const childNode = buildTreeNode(child, depth + 1);
         if (childNode) {
