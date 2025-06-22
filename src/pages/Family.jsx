@@ -238,10 +238,7 @@ export default function Family() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
-    
-    // إعادة تعيين حالة نجاح رفع الصورة عند تغيير أي حقل
-    const [avatarUploadSuccess, setAvatarUploadSuccess] = useState(false);
-    
+
     if (fieldErrors[name]) {
       setFieldErrors(prev => ({ ...prev, [name]: '' }));
     }

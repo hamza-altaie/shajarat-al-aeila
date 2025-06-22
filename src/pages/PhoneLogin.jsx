@@ -15,8 +15,7 @@ const PhoneLogin = () => {
     loading,
     confirmationLoading,
     sendCode,
-    verifyCode,
-    formatPhoneNumber
+    verifyCode
   } = usePhoneAuth();
 
   const [timer, setTimer] = useState(0);
