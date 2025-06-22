@@ -52,7 +52,6 @@ export default function FamilyTreeAdvanced() {
   const [simpleTreeData, setSimpleTreeData] = useState(null);
   const [extendedTreeData, setExtendedTreeData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [loadingStage, setLoadingStage] = useState('');
   const [loadingProgress, setLoadingProgress] = useState(0);
   
@@ -351,7 +350,7 @@ export default function FamilyTreeAdvanced() {
             />
           );
         }
-      } catch (error) {
+      } catch {
         // خطأ صامت في إنشاء العقدة
       }
     });
@@ -432,7 +431,6 @@ export default function FamilyTreeAdvanced() {
     }
     
     setLoading(true);
-    setError(null);
     setLoadingStage('تحميل عائلتك...');
     setLoadingProgress(0);
 
@@ -477,8 +475,8 @@ export default function FamilyTreeAdvanced() {
 
       // تم حذف استدعاء resetView التلقائي بعد التحميل بناءً على طلب المستخدم
 
-    } catch (error) {
-      setError(error.message);
+    } catch {
+      setError('فشل في تحميل الشجرة');
       showSnackbar('❌ فشل في تحميل الشجرة', 'error');
     } finally {
       setLoading(false);
@@ -539,7 +537,6 @@ export default function FamilyTreeAdvanced() {
 
     const startTime = Date.now();
     setLoading(true);
-    setError(null);
     setLoadingStage('البحث عن العائلات المرتبطة...');
     setLoadingProgress(0);
 
@@ -571,7 +568,7 @@ export default function FamilyTreeAdvanced() {
             if (familyData && familyData.members.length > 0) {
               allFamiliesData.push(familyData);
             }
-          } catch (error) {
+          } catch {
             // تعذر تحميل العائلة - متابعة صامتة
           }
         }
@@ -606,8 +603,8 @@ export default function FamilyTreeAdvanced() {
 
       // تم حذف استدعاء resetView التلقائي بعد التحميل الموسع بناءً على طلب المستخدم
 
-    } catch (error) {
-      setError(error.message);
+    } catch {
+      setError('فشل في تحميل الشجرة الموسعة');
       showSnackbar('❌ فشل في تحميل الشجرة الموسعة', 'error');
     } finally {
       setLoading(false);
@@ -646,7 +643,7 @@ export default function FamilyTreeAdvanced() {
       }
       
       return null;
-    } catch (error) {
+    } catch {
       return null;
     }
   };
@@ -700,7 +697,7 @@ export default function FamilyTreeAdvanced() {
       const result = Array.from(linkedFamilyUids);
       return result;
       
-    } catch (error) {
+    } catch {
       return [startUid]; // إرجاع العائلة الحالية فقط في حالة الخطأ
     }
   };
@@ -857,7 +854,7 @@ export default function FamilyTreeAdvanced() {
         const linked = userData.linkedFamilies || [];
         setLinkedFamilies(linked);
       }
-    } catch (error) {
+    } catch {
       // خطأ صامت في تحميل العائلات المرتبطة
     }
   }, [uid]);
@@ -1160,29 +1157,6 @@ const handleResetView = useCallback(() => {
                 <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', fontFamily: 'Cairo, sans-serif' }}>
                   {Math.round(loadingProgress)}% مكتمل
                 </Typography>
-              </Box>
-            ) : error ? (
-              <Box textAlign="center">
-                <Warning sx={{ fontSize: 100, color: '#ef4444', mb: 2 }} />
-                <Typography variant="h4" sx={{ color: '#ef4444', mb: 1, fontFamily: 'Cairo, sans-serif' }}>
-                  حدث خطأ
-                </Typography>
-                <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.7)', mb: 3, fontFamily: 'Cairo, sans-serif' }}>
-                  {error}
-                </Typography>
-                <Button
-                  variant="contained"
-                  sx={{ 
-                    backgroundColor: showExtendedTree ? '#8b5cf6' : '#6366f1',
-                    '&:hover': { backgroundColor: showExtendedTree ? '#7c3aed' : '#4f46e5' },
-                    fontFamily: 'Cairo, sans-serif'
-                  }}
-                  onClick={handleRefresh}
-                  startIcon={<Refresh />}
-                  size="large"
-                >
-                  إعادة تحميل
-                </Button>
               </Box>
             ) : (
               <Box textAlign="center">
