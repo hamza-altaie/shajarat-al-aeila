@@ -15,11 +15,6 @@ export default [
         ecmaFeatures: { jsx: true },
         sourceType: 'module',
       },
-      env: {
-        node: true,
-        browser: true,
-        es6: true,
-      },
     },
     plugins: {
       'react-hooks': reactHooks,
