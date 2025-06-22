@@ -1,5 +1,5 @@
 // src/utils/AdvancedFamilyGraph.js - إضافة الدالة المفقودة
-import { collection, getDocs, query, where, orderBy, limit, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 export class AdvancedFamilyGraph {
