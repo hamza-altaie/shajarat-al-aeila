@@ -261,7 +261,7 @@ export default function ExtendedFamilyLinking({
     } finally {
       setLoading(false);
     }
-  }, [selectedFamily, linkType, relationDescription, currentUserUid, onLinkingComplete, loadFamiliesForLinking]);
+  }, [selectedFamily, linkType, relationDescription, currentUserUid, onLinkingComplete, loadFamiliesForLinking, getReverseLinkType]);
 
   // الحصول على نوع الرابط العكسي
   const getReverseLinkType = useCallback((linkType) => {
