@@ -298,7 +298,7 @@ export const useSearchZoom = (svgRef, treeData) => {
         d3.select(svgRefCopy).on('.zoom', null);
       }
     };
-  }, []);
+  }, [svgRef]);
 
   return {
     searchQuery,
