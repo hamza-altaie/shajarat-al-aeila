@@ -86,7 +86,8 @@ export const useSearchZoom = (svgRef, treeData) => {
   const highlightNode = useCallback((nodeElement) => {
     if (!svgRef.current || !nodeElement || nodeElement.empty()) return;
 
-    const svg = d3.select(svgRef.current);
+    // إزالة تعريف المتغير غير المستخدم
+    d3.select(svgRef.current);
 
     // إزالة التمييز السابق
     clearHighlights();
