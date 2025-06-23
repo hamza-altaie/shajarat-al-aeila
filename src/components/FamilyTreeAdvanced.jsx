@@ -1255,22 +1255,12 @@ const handleResetView = useCallback(() => {
         )}
         
         <Box display="flex" justifyContent="center" gap={1} flexWrap="wrap" sx={{ mb: 2 }}>
-          <Button variant="outlined" size="small" onClick={() => navigate('/family')} disabled={loading} startIcon={<Edit />}>
-            إدارة
-          </Button>
           <Button variant="contained" size="small" onClick={() => navigate('/family')} disabled={loading} startIcon={<PersonAdd />}>
             إضافة
           </Button>
           <Button variant="outlined" size="small" onClick={() => setShowLinkingPanel(true)} disabled={loading} startIcon={<LinkIcon />}>
             ربط
           </Button>
-          <IconButton size="small" onClick={handleZoomIn} disabled={loading}><ZoomIn /></IconButton>
-          <Chip label={`${Math.round(zoomLevel * 100)}%`} size="small" onClick={handleResetZoom} sx={{ minWidth: 60 }} />
-          <IconButton size="small" onClick={handleZoomOut} disabled={loading}><ZoomOut /></IconButton>
-          <IconButton size="small" onClick={handleRefresh} disabled={loading}><Refresh /></IconButton>
-          <IconButton size="small" onClick={searchZoomHook.resetView} disabled={loading} title="إعادة تعيين الرؤية">
-            <Refresh />
-          </IconButton>
           <IconButton size="small" onClick={() => {
             setSearchQuery('');
             if (svgRef.current) {
