@@ -8,14 +8,14 @@ export const someSharedFunction2 = () => {
   // Implementation...
 };
 
-export function familyTreeReducer(state, action) {
+export function familyTreeReducer() {
   // Implementation...
 }
 
-export function initializeUser(userId) {
+export function initializeUser() {
   // Implementation...
 }
 
-export function updateUserSettings(settings) {
+export function updateUserSettings() {
   // Implementation...
 }

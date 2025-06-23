@@ -8,11 +8,11 @@ export const useSharedHook2 = () => {
   // Implementation...
 };
 
-export function useSmartCache(key, fetchFunction, dependencies = [], ttl = 300000) {
+export function useSmartCache(key, fetchFunction) {
   // Implementation...
 }
 
-export function useAdvancedSearch(initialQuery = '', delay = 500) {
+export function useAdvancedSearch() {
   // Implementation...
 }
 
