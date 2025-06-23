@@ -282,7 +282,7 @@ export default function PrivacyPolicy() {
               </Typography>
               
               <Typography variant="body2" color="text.secondary">
-                البريد الإلكتروني: support@family-tree-app.com
+                البريد الإلكتروني: Hamza.Altaie@gmail.com
               </Typography>
             </CardContent>
           </Card>
