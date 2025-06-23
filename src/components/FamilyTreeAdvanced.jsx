@@ -142,14 +142,6 @@ export default function FamilyTreeAdvanced() {
     }
   }, [showExtendedTree]);
 
-  const handleZoomIn = useCallback(() => {
-    setZoomLevel(prev => Math.min(prev + 0.2, 3));
-  }, []);
-
-  const handleZoomOut = useCallback(() => {
-    setZoomLevel(prev => Math.max(prev - 0.2, 0.1));
-  }, []);
-
   const handleResetZoom = useCallback(() => {
     setZoomLevel(0.6);
   }, []);
