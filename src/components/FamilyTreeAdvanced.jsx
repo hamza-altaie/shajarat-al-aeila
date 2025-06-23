@@ -32,7 +32,7 @@ export default function FamilyTreeAdvanced() {
   
   const [showExtendedTree, setShowExtendedTree] = useState(false);
   const [selectedNode, setSelectedNode] = useState(null);
-  const [zoomLevel, setZoomLevel] = useState(0.6);
+  const [zoomLevel] = useState(0.6);
   
   const [linkedFamilies, setLinkedFamilies] = useState([]);
   const [showLinkingPanel, setShowLinkingPanel] = useState(false);
