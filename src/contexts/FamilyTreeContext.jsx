@@ -6,7 +6,8 @@ import {
 import { db } from '../firebase/config';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { calculateAverageAge, findMostCommonRelation, calculateGenerationSpread } from './sharedConstants';
-import { useSharedHook1, useSharedHook2 } from './sharedHooks';
+import { useSmartCache, useAdvancedSearch, useFamilyStatistics, useBatchOperations } from './sharedHooks';
+import { familyTreeReducer, initializeUser, updateUserSettings } from './sharedFunctions';
 
 // =======================================================
 // 🏗️ نظام إدارة الحالة المتقدم لشجرة العائلة
@@ -567,7 +568,7 @@ export function FamilyTreeProvider({ children }) {
     });
 
     return unsubscribe;
-  }, [dispatch]);
+  }, [dispatch, startRealtimeListeners]);
 
   useEffect(() => {
     const unsubscribe = startRealtimeListeners();
@@ -818,7 +819,7 @@ export function useSmartCache(key, fetchFunction, dependencies = [], ttl = 30000
     if (isExpired && !isLoading) {
       fetchData();
     }
-  }, [...dependencies, isExpired, isLoading, fetchData]);
+  }, [isExpired, isLoading, fetchData]);
   
   return {
     data: cachedValue,
