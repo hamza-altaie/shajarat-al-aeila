@@ -32,7 +32,6 @@ export default function FamilyTreeAdvanced() {
   
   const [showExtendedTree, setShowExtendedTree] = useState(false);
   const [selectedNode, setSelectedNode] = useState(null);
-  const [zoomLevel] = useState(0.6);
   
   const [linkedFamilies, setLinkedFamilies] = useState([]);
   const [showLinkingPanel, setShowLinkingPanel] = useState(false);
@@ -85,18 +84,18 @@ export default function FamilyTreeAdvanced() {
     };
   };
 
-  const buildFullName = (person) => {
+  const buildFullName = useCallback((person) => {
     if (!person) return 'غير محدد';
-    
+
     const parts = [
-      person.firstName,
-      person.fatherName,
-      person.grandfatherName,
-      person.surname
+        person.firstName,
+        person.fatherName,
+        person.grandfatherName,
+        person.surname
     ].filter(part => part && part.trim() !== '');
-    
+
     return parts.length > 0 ? parts.join(' ').trim() : 'غير محدد';
-  };
+  }, []);
 
   const findFamilyHead = (members) => {
     const head = members.find(m => m.relation === 'رب العائلة');
