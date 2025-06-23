@@ -860,29 +860,7 @@ export function useSmartCache(key, fetchFunction, dependencies = [], ttl = 30000
 // 🛠️ دوال مساعدة للإحصائيات
 // ====================================================
 
-function findMostCommonRelation(stats) {
-  if (!stats.familyStats || !stats.familyStats.relations) return null;
-
-  const relations = stats.familyStats.relations;
-  let maxCount = 0;
-  let mostCommon = null;
-  
-  Object.entries(relations).forEach(([relation, count]) => {
-    if (count > maxCount) {
-      maxCount = count;
-      mostCommon = relation;
-    }
-  });
-  
-  return mostCommon;
-}
-
-function calculateGenerationSpread(stats) {
-  if (!stats.familyStats || !stats.familyStats.generations) return 0;
-  
-  const generations = Object.keys(stats.familyStats.generations).map(Number);
-  return Math.max(...generations) - Math.min(...generations);
-}
+// Removed duplicate 'calculateGenerationSpread' function
 
 // ====================================================
 // 🎨 Hook للثيم والمظهر
