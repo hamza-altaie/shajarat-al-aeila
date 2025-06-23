@@ -573,41 +573,13 @@ export function FamilyTreeProvider({ children }) {
     return () => unsubscribe();
   }, [startRealtimeListeners]);
 
-  // Move constants and helper functions to a new file to resolve Fast Refresh warnings
-  const isLoading = false;
-  const cachedValue = null;
-  const setIsLoading = () => {};
-  const setError = () => {};
-  const fetchFunction = async () => {};
-
-  const fetchData = useCallback(async () => {
-    if (isLoading) return cachedValue;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const result = await fetchFunction();
-      return result;
-    } catch (err) {
-      setError(err);
-      return cachedValue;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []); // Removed unnecessary dependencies
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]); // Added missing dependency
-
   const stopRealtimeListeners = useCallback(() => {
     state.performance.realtimeListeners.forEach(unsubscribe => {
       unsubscribe();
     });
     state.performance.realtimeListeners.clear();
   }, [state.performance.realtimeListeners]);
-  
+
   // ====================================================
   // 🧹 تنظيف الموارد
   // ====================================================
