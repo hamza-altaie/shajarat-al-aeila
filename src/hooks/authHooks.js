@@ -11,7 +11,7 @@ export const useRequireAuth = () => {
 };
 
 export const usePermissions = () => {
-  const { hasPermission, userData } = useAuth();
+  const { hasPermission } = useAuth();
 
   return {
     hasPermission,
