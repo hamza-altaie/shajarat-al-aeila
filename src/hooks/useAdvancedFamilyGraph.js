@@ -230,7 +230,7 @@ export default function useAdvancedFamilyGraph(options = {}) {
     if (!familyGraph.nodes.size) return null;
 
     return familyGraph.getAdvancedStatistics();
-  }, [familyGraph, familyGraph.nodes.size]);
+  }, [familyGraph]);
 
   const isReady = useMemo(() => {
     return !loading && !error && familyGraph.nodes.size > 0;
