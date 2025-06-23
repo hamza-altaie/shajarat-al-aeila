@@ -6,7 +6,7 @@ import {
 import { db } from '../firebase/config';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { calculateAverageAge, findMostCommonRelation, calculateGenerationSpread } from './sharedConstants';
-import { useSmartCache, useFamilyStatistics, useBatchOperations } from './sharedHooks';
+import { useSmartCache, useFamilyStatistics } from './sharedHooks';
 import { initializeUser, updateUserSettings } from './sharedFunctions';
 
 // =======================================================
@@ -675,102 +675,16 @@ export function useFamilyTree() {
 // 🎯 Hooks متخصصة للأداء
 // ====================================================
 
-// Hook للإحصائيات مع تحديث تلقائي
-export function useFamilyStatistics() {
-  const { familyStatistics, loadStatistics, familyMembersCount } = useFamilyTree();
-  
-  useEffect(() => {
-    if (familyMembersCount > 0 && !familyStatistics) {
-      loadStatistics();
-    }
-  }, [familyMembersCount, familyStatistics, loadStatistics]);
-  
-  const computedStats = useMemo(() => {
-    if (!familyStatistics) return null;
-    
-    return {
-      ...familyStatistics,
-      averageAge: calculateAverageAge(familyStatistics),
-      mostCommonRelation: findMostCommonRelation(familyStatistics),
-      generationSpread: calculateGenerationSpread(familyStatistics)
-    };
-  }, [familyStatistics]);
-  
-  return computedStats;
-}
-
-// Hook للعمليات المجمعة
-export function useBatchOperations() {
-  const { addFamilyMember, updateFamilyMember, removeFamilyMember } = useFamilyTree();
-  const [batchQueue, setBatchQueue] = useState([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  
-  const addToBatch = useCallback((operation, data) => {
-    setBatchQueue(prev => [...prev, { operation, data, id: Date.now() }]);
-  }, []);
-  
-  const processBatch = useCallback(async () => {
-    if (batchQueue.length === 0) return;
-    
-    setIsProcessing(true);
-    
-    try {
-      const results = await Promise.allSettled(
-        batchQueue.map(({ operation, data }) => {
-          switch (operation) {
-            case 'add':
-              return addFamilyMember(data);
-            case 'update':
-              return updateFamilyMember(data.id, data);
-            case 'remove':
-              return removeFamilyMember(data.id);
-            default:
-              return Promise.reject(new Error('Unknown operation'));
-          }
-        })
-      );
-      
-      const successful = results.filter(r => r.status === 'fulfilled').length;
-      const failed = results.filter(r => r.status === 'rejected').length;
-      
-      console.log(`✅ Batch completed: ${successful} successful, ${failed} failed`);
-      
-      setBatchQueue([]);
-      
-      return { successful, failed, results };
-      
-    } catch (error) {
-      console.error('❌ Batch processing error:', error);
-      throw error;
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [batchQueue, addFamilyMember, updateFamilyMember, removeFamilyMember]);
-  
-  const clearBatch = useCallback(() => {
-    setBatchQueue([]);
-  }, []);
-  
-  return {
-    batchQueue,
-    isProcessing,
-    addToBatch,
-    processBatch,
-    clearBatch,
-    batchSize: batchQueue.length
-  };
-}
-
 // Hook للذاكرة المؤقتة الذكية
 export function useSmartCache(key, fetchFunction, dependencies = [], ttl = 300000) { // 5 minutes default
   const { cache, cacheTimestamps } = useFamilyTree();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  
+
   const cachedValue = cache.get(key);
   const cachedTimestamp = cacheTimestamps.get(key);
   const isExpired = cachedTimestamp ? (Date.now() - cachedTimestamp) > ttl : true;
-  
+
   const fetchData = useCallback(async () => {
     if (isLoading) return cachedValue;
 
@@ -788,13 +702,13 @@ export function useSmartCache(key, fetchFunction, dependencies = [], ttl = 30000
       setIsLoading(false);
     }
   }, [fetchFunction, isLoading, cachedValue]);
-  
+
   useEffect(() => {
     if (isExpired && !isLoading) {
       fetchData();
     }
   }, [isExpired, isLoading, fetchData]);
-  
+
   return {
     data: cachedValue,
     isLoading,
@@ -803,10 +717,6 @@ export function useSmartCache(key, fetchFunction, dependencies = [], ttl = 30000
     refetch: fetchData
   };
 }
-
-// ====================================================
-// 🛠️ دوال مساعدة للإحصائيات
-// ====================================================
 
 // ====================================================
 // 🎨 Hook للثيم والمظهر
@@ -914,5 +824,69 @@ export function useNotifications() {
     requestPermission,
     sendNotification,
     toggleNotifications
+  };
+}
+
+// ====================================================
+// 🛠️ دوال العمليات الدفعة
+// ====================================================
+export function useBatchOperations() {
+  const { addFamilyMember, updateFamilyMember, removeFamilyMember } = useFamilyTree();
+  const [batchQueue, setBatchQueue] = useState([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const addToBatch = useCallback((operation, data) => {
+    setBatchQueue(prev => [...prev, { operation, data, id: Date.now() }]);
+  }, []);
+
+  const processBatch = useCallback(async () => {
+    if (batchQueue.length === 0) return;
+
+    setIsProcessing(true);
+
+    try {
+      const results = await Promise.allSettled(
+        batchQueue.map(({ operation, data }) => {
+          switch (operation) {
+            case 'add':
+              return addFamilyMember(data);
+            case 'update':
+              return updateFamilyMember(data.id, data);
+            case 'remove':
+              return removeFamilyMember(data.id);
+            default:
+              return Promise.reject(new Error('Unknown operation'));
+          }
+        })
+      );
+
+      const successful = results.filter(r => r.status === 'fulfilled').length;
+      const failed = results.filter(r => r.status === 'rejected').length;
+
+      console.log(`✅ Batch completed: ${successful} successful, ${failed} failed`);
+
+      setBatchQueue([]);
+
+      return { successful, failed, results };
+
+    } catch (error) {
+      console.error('❌ Batch processing error:', error);
+      throw error;
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [batchQueue, addFamilyMember, updateFamilyMember, removeFamilyMember]);
+
+  const clearBatch = useCallback(() => {
+    setBatchQueue([]);
+  }, []);
+
+  return {
+    batchQueue,
+    isProcessing,
+    addToBatch,
+    processBatch,
+    clearBatch,
+    batchSize: batchQueue.length
   };
 }
