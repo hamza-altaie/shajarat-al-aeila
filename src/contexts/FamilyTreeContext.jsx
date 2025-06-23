@@ -5,8 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { calculateAverageAge, findMostCommonRelation, calculateGenerationSpread } from './FamilyTreeHelpers';
-import { useTheme, usePWA } from './helpers';
+import { calculateAverageAge, findMostCommonRelation, calculateGenerationSpread } from './sharedConstants';
 
 // =======================================================
 // 🏗️ نظام إدارة الحالة المتقدم لشجرة العائلة
