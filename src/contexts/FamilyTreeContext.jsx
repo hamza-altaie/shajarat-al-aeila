@@ -7,7 +7,7 @@ import { db } from '../firebase/config';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { calculateAverageAge, findMostCommonRelation, calculateGenerationSpread } from './sharedConstants';
 import { useSmartCache, useAdvancedSearch, useFamilyStatistics, useBatchOperations } from './sharedHooks';
-import { familyTreeReducer, initializeUser, updateUserSettings } from './sharedFunctions';
+import { initializeUser, updateUserSettings } from './sharedFunctions';
 
 // =======================================================
 // 🏗️ نظام إدارة الحالة المتقدم لشجرة العائلة
@@ -121,167 +121,164 @@ const initialState = {
   }
 };
 
-// مخفض الحالة المتقدم
-function familyTreeReducer(state, action) {
-  switch (action.type) {
-    case ACTION_TYPES.SET_LOADING:
-      return {
-        ...state,
-        loading: action.payload
-      };
-
-    case ACTION_TYPES.SET_ERROR:
-      return {
-        ...state,
-        error: action.payload,
-        loading: false
-      };
-
-    case ACTION_TYPES.CLEAR_ERROR:
-      return {
-        ...state,
-        error: null
-      };
-
-    case ACTION_TYPES.SET_USER:
-      return {
-        ...state,
-        user: action.payload,
-        initialized: true
-      };
-
-    case ACTION_TYPES.UPDATE_USER:
-      return {
-        ...state,
-        user: { ...state.user, ...action.payload }
-      };
-
-    case ACTION_TYPES.CLEAR_USER:
-      return {
-        ...initialState
-      };
-
-    case ACTION_TYPES.SET_FAMILY_MEMBERS: {
-      const membersMap = new Map();
-      action.payload.forEach(member => {
-        membersMap.set(member.id, member);
-      });
-      return {
-        ...state,
-        familyMembers: membersMap
-      };
-    }
-
-    case ACTION_TYPES.ADD_FAMILY_MEMBER: {
-      const newMembersMap = new Map(state.familyMembers);
-      newMembersMap.set(action.payload.id, action.payload);
-      return {
-        ...state,
-        familyMembers: newMembersMap
-      };
-    }
-
-    case ACTION_TYPES.UPDATE_FAMILY_MEMBER: {
-      const updatedMembersMap = new Map(state.familyMembers);
-      const existingMember = updatedMembersMap.get(action.payload.id);
-      if (existingMember) {
-        updatedMembersMap.set(action.payload.id, { ...existingMember, ...action.payload });
-      }
-      return {
-        ...state,
-        familyMembers: updatedMembersMap
-      };
-    }
-
-    case ACTION_TYPES.REMOVE_FAMILY_MEMBER: {
-      const filteredMembersMap = new Map(state.familyMembers);
-      filteredMembersMap.delete(action.payload);
-      return {
-        ...state,
-        familyMembers: filteredMembersMap
-      };
-    }
-
-    case ACTION_TYPES.SET_CONNECTED_FAMILIES: {
-      const connectedMap = new Map();
-      action.payload.forEach(family => {
-        connectedMap.set(family.id, family);
-      });
-      return {
-        ...state,
-        connectedFamilies: connectedMap
-      };
-    }
-
-    case ACTION_TYPES.SET_SEARCH_RESULTS:
-      return {
-        ...state,
-        searchResults: action.payload,
-        searchHistory: action.query ? 
-          [...new Set([action.query, ...state.searchHistory.slice(0, 4)])] : 
-          state.searchHistory
-      };
-
-    case ACTION_TYPES.SET_SEARCH_FILTERS:
-      return {
-        ...state,
-        searchFilters: { ...state.searchFilters, ...action.payload }
-      };
-
-    case ACTION_TYPES.CLEAR_SEARCH:
-      return {
-        ...state,
-        searchResults: [],
-        searchFilters: initialState.searchFilters
-      };
-
-    case ACTION_TYPES.SET_STATISTICS:
-      return {
-        ...state,
-        familyStatistics: action.payload
-      };
-
-    case ACTION_TYPES.SET_CACHE: {
-      const newCache = new Map(state.cache);
-      const newTimestamps = new Map(state.cacheTimestamps);
-      newCache.set(action.key, action.payload);
-      newTimestamps.set(action.key, Date.now());
-      return {
-        ...state,
-        cache: newCache,
-        cacheTimestamps: newTimestamps
-      };
-    }
-
-    case ACTION_TYPES.CLEAR_CACHE:
-      return {
-        ...state,
-        cache: new Map(),
-        cacheTimestamps: new Map()
-      };
-
-    case ACTION_TYPES.SET_SETTINGS:
-      return {
-        ...state,
-        userSettings: { ...state.userSettings, ...action.payload }
-      };
-
-    case ACTION_TYPES.SET_SUGGESTIONS:
-      return {
-        ...state,
-        suggestions: action.payload
-      };
-
-    default:
-      return state;
-  }
-}
-
 // ======================================================
 // 🎯 مزود السياق الرئيسي
 // ======================================================
 export function FamilyTreeProvider({ children }) {
-  const [state, dispatch] = useReducer(familyTreeReducer, initialState);
+  const [state, dispatch] = useReducer((state, action) => {
+    switch (action.type) {
+      case ACTION_TYPES.SET_LOADING:
+        return {
+          ...state,
+          loading: action.payload
+        };
+
+      case ACTION_TYPES.SET_ERROR:
+        return {
+          ...state,
+          error: action.payload,
+          loading: false
+        };
+
+      case ACTION_TYPES.CLEAR_ERROR:
+        return {
+          ...state,
+          error: null
+        };
+
+      case ACTION_TYPES.SET_USER:
+        return {
+          ...state,
+          user: action.payload,
+          initialized: true
+        };
+
+      case ACTION_TYPES.UPDATE_USER:
+        return {
+          ...state,
+          user: { ...state.user, ...action.payload }
+        };
+
+      case ACTION_TYPES.CLEAR_USER:
+        return {
+          ...initialState
+        };
+
+      case ACTION_TYPES.SET_FAMILY_MEMBERS: {
+        const membersMap = new Map();
+        action.payload.forEach(member => {
+          membersMap.set(member.id, member);
+        });
+        return {
+          ...state,
+          familyMembers: membersMap
+        };
+      }
+
+      case ACTION_TYPES.ADD_FAMILY_MEMBER: {
+        const newMembersMap = new Map(state.familyMembers);
+        newMembersMap.set(action.payload.id, action.payload);
+        return {
+          ...state,
+          familyMembers: newMembersMap
+        };
+      }
+
+      case ACTION_TYPES.UPDATE_FAMILY_MEMBER: {
+        const updatedMembersMap = new Map(state.familyMembers);
+        const existingMember = updatedMembersMap.get(action.payload.id);
+        if (existingMember) {
+          updatedMembersMap.set(action.payload.id, { ...existingMember, ...action.payload });
+        }
+        return {
+          ...state,
+          familyMembers: updatedMembersMap
+        };
+      }
+
+      case ACTION_TYPES.REMOVE_FAMILY_MEMBER: {
+        const filteredMembersMap = new Map(state.familyMembers);
+        filteredMembersMap.delete(action.payload);
+        return {
+          ...state,
+          familyMembers: filteredMembersMap
+        };
+      }
+
+      case ACTION_TYPES.SET_CONNECTED_FAMILIES: {
+        const connectedMap = new Map();
+        action.payload.forEach(family => {
+          connectedMap.set(family.id, family);
+        });
+        return {
+          ...state,
+          connectedFamilies: connectedMap
+        };
+      }
+
+      case ACTION_TYPES.SET_SEARCH_RESULTS:
+        return {
+          ...state,
+          searchResults: action.payload,
+          searchHistory: action.query ? 
+            [...new Set([action.query, ...state.searchHistory.slice(0, 4)])] : 
+            state.searchHistory
+        };
+
+      case ACTION_TYPES.SET_SEARCH_FILTERS:
+        return {
+          ...state,
+          searchFilters: { ...state.searchFilters, ...action.payload }
+        };
+
+      case ACTION_TYPES.CLEAR_SEARCH:
+        return {
+          ...state,
+          searchResults: [],
+          searchFilters: initialState.searchFilters
+        };
+
+      case ACTION_TYPES.SET_STATISTICS:
+        return {
+          ...state,
+          familyStatistics: action.payload
+        };
+
+      case ACTION_TYPES.SET_CACHE: {
+        const newCache = new Map(state.cache);
+        const newTimestamps = new Map(state.cacheTimestamps);
+        newCache.set(action.key, action.payload);
+        newTimestamps.set(action.key, Date.now());
+        return {
+          ...state,
+          cache: newCache,
+          cacheTimestamps: newTimestamps
+        };
+      }
+
+      case ACTION_TYPES.CLEAR_CACHE:
+        return {
+          ...state,
+          cache: new Map(),
+          cacheTimestamps: new Map()
+        };
+
+      case ACTION_TYPES.SET_SETTINGS:
+        return {
+          ...state,
+          userSettings: { ...state.userSettings, ...action.payload }
+        };
+
+      case ACTION_TYPES.SET_SUGGESTIONS:
+        return {
+          ...state,
+          suggestions: action.payload
+        };
+
+      default:
+        return state;
+    }
+  }, initialState);
   const functions = getFunctions();
   
   // ====================================================

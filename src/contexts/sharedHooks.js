@@ -8,7 +8,7 @@ export const useSharedHook2 = () => {
   // Implementation...
 };
 
-export function useSmartCache(key, fetchFunction) {
+export function useSmartCache() {
   // Implementation...
 }
 
