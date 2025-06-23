@@ -565,12 +565,12 @@ export function FamilyTreeProvider({ children }) {
     });
 
     return unsubscribe;
-  }, [dispatch, startRealtimeListeners]); // ✅ إصلاح تحذيرات React Hooks
+  }, [dispatch]);
 
   useEffect(() => {
     const unsubscribe = startRealtimeListeners();
     return () => unsubscribe();
-  }, [startRealtimeListeners]); // ✅ إصلاح تحذيرات React Hooks
+  }, [startRealtimeListeners]);
   
   const stopRealtimeListeners = useCallback(() => {
     state.performance.realtimeListeners.forEach(unsubscribe => {
