@@ -374,24 +374,7 @@ export default function FamilyTreeAdvanced() {
       }
     });
 
-    // حساب تموضع الشجرة بدقة ليكون مركزها في منتصف الحاوية
-    // تم تعطيل التوسيط التلقائي عند كل رسم بناءً على طلب المستخدم
-    // let minX = Infinity, maxX = -Infinity;
-    // root.descendants().forEach(d => {
-    //   if (d.x < minX) minX = d.x;
-    //   if (d.x > maxX) maxX = d.x;
-    // });
-    // const treeWidth = maxX - minX;
-    // const centerX = (width / 2 - ((minX + maxX) / 2) * zoomLevel);
-    // const centerY = 180;
-    // const initialTransform = d3.zoomIdentity
-    //   .translate(centerX, centerY)
-    //   .scale(zoomLevel);
-    // svg.transition()
-    //   .duration(750)
-    //   .call(zoom.transform, initialTransform);
-
-  }, [showExtendedTree, zoomLevel, handleNodeClick, buildFullName, searchQuery]);
+  }, [showExtendedTree, handleNodeClick, buildFullName, searchQuery]);
 
   // مراقبة الأداء
   const monitorPerformance = useCallback((metrics) => {
@@ -884,14 +867,14 @@ export default function FamilyTreeAdvanced() {
   // تنظيف عند إلغاء التحميل
   useEffect(() => {
     return () => {
-      reactRootsRef.current.forEach(root => {
-        try {
-          root.unmount();
-        } catch (e) {
-          // تنظيف صامت
-        }
-      });
-      reactRootsRef.current.clear();
+        reactRootsRef.current.forEach(root => {
+            try {
+                root.unmount();
+            } catch {
+                // Silent cleanup
+            }
+        });
+        reactRootsRef.current.clear();
     };
   }, []);
 
