@@ -571,7 +571,12 @@ export function FamilyTreeProvider({ children }) {
     const unsubscribe = startRealtimeListeners();
     return () => unsubscribe();
   }, [startRealtimeListeners]);
-  
+
+  // Move constants and helper functions to a new file to resolve Fast Refresh warnings
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
   const stopRealtimeListeners = useCallback(() => {
     state.performance.realtimeListeners.forEach(unsubscribe => {
       unsubscribe();
