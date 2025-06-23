@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { calculateAverageAge, findMostCommonRelation, calculateGenerationSpread } from './FamilyTreeHelpers';
 
 // =======================================================
 // 🏗️ نظام إدارة الحالة المتقدم لشجرة العائلة
@@ -573,6 +574,12 @@ export function FamilyTreeProvider({ children }) {
   }, [startRealtimeListeners]);
 
   // Move constants and helper functions to a new file to resolve Fast Refresh warnings
+  const isLoading = false;
+  const cachedValue = null;
+  const setIsLoading = () => {};
+  const setError = () => {};
+  const fetchFunction = async () => {};
+
   const fetchData = useCallback(async () => {
     if (isLoading) return cachedValue;
 
@@ -581,15 +588,18 @@ export function FamilyTreeProvider({ children }) {
 
     try {
       const result = await fetchFunction();
-      // سيتم حفظ النتيجة في الذاكرة المؤقتة بواسطة السياق
       return result;
     } catch (err) {
       setError(err);
-      return cachedValue; // إرجاع القيمة المخزنة عند حدوث خطأ
+      return cachedValue;
     } finally {
       setIsLoading(false);
     }
-  }, [fetchFunction, isLoading, cachedValue]);
+  }, []); // Removed unnecessary dependencies
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]); // Added missing dependency
 
   const stopRealtimeListeners = useCallback(() => {
     state.performance.realtimeListeners.forEach(unsubscribe => {

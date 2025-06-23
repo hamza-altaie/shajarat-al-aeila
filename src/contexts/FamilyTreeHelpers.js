@@ -1,6 +1,6 @@
-// Helper functions and constants moved from FamilyTreeContext.jsx
+// Helper functions for FamilyTreeContext
 
-export const calculateAverageAge = (stats) => {
+export function calculateAverageAge(stats) {
   if (!stats.familyStats || !stats.familyStats.members) return 0;
 
   const membersWithAge = stats.familyStats.members.filter(m => m.birthDate);
@@ -12,9 +12,9 @@ export const calculateAverageAge = (stats) => {
   }, 0);
 
   return Math.round(totalAge / membersWithAge.length);
-};
+}
 
-export const findMostCommonRelation = (stats) => {
+export function findMostCommonRelation(stats) {
   if (!stats.familyStats || !stats.familyStats.relations) return null;
 
   const relations = stats.familyStats.relations;
@@ -29,11 +29,11 @@ export const findMostCommonRelation = (stats) => {
   });
 
   return mostCommon;
-};
+}
 
-export const calculateGenerationSpread = (stats) => {
+export function calculateGenerationSpread(stats) {
   if (!stats.familyStats || !stats.familyStats.generations) return 0;
 
   const generations = Object.keys(stats.familyStats.generations).map(Number);
   return Math.max(...generations) - Math.min(...generations);
-};
+}
