@@ -859,7 +859,7 @@ export default function FamilyTreeAdvanced() {
 
     loadSimpleTree();
     loadLinkedFamilies();
-  }, [uid, navigate, loadSimpleTree, loadLinkedFamilies]);
+  }, [uid, navigate, loadSimpleTree, loadLinkedFamilies, loadExtendedTree]);
 
   useEffect(() => {
     if (!uid) return;
