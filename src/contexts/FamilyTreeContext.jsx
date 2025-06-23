@@ -838,25 +838,19 @@ export function useSmartCache(key, fetchFunction, dependencies = [], ttl = 30000
 // ====================================================
 // 🎨 Hook للثيم والمظهر
 // ====================================================
-export function useTheme() {
+export function useCustomTheme() {
   const { userSettings, updateUserSettings } = useFamilyTree();
-  
+
   const toggleTheme = useCallback(() => {
     const newTheme = userSettings.theme === 'light' ? 'dark' : 'light';
     updateUserSettings({ theme: newTheme });
   }, [userSettings.theme, updateUserSettings]);
-  
+
   const setTheme = useCallback((theme) => {
     updateUserSettings({ theme });
   }, [updateUserSettings]);
-  
-  return {
-    theme: userSettings.theme,
-    isDark: userSettings.theme === 'dark',
-    isLight: userSettings.theme === 'light',
-    toggleTheme,
-    setTheme
-  };
+
+  return { toggleTheme, setTheme };
 }
 
 // ====================================================
