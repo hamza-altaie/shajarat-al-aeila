@@ -6,7 +6,7 @@ import {
 import { db } from '../firebase/config';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { calculateAverageAge, findMostCommonRelation, calculateGenerationSpread } from './sharedConstants';
-import { useSmartCache, useAdvancedSearch, useFamilyStatistics, useBatchOperations } from './sharedHooks';
+import { useSmartCache, useFamilyStatistics, useBatchOperations } from './sharedHooks';
 import { initializeUser, updateUserSettings } from './sharedFunctions';
 
 // =======================================================
@@ -674,29 +674,6 @@ export function useFamilyTree() {
 // ====================================================
 // 🎯 Hooks متخصصة للأداء
 // ====================================================
-
-// Hook للبحث مع debouncing
-export function useAdvancedSearch(initialQuery = '', delay = 500) {
-  const { performAdvancedSearch, searchResults, searchFilters } = useFamilyTree();
-  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
-  
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (debouncedQuery.trim().length >= 2) {
-        performAdvancedSearch(debouncedQuery, searchFilters);
-      }
-    }, delay);
-    
-    return () => clearTimeout(timer);
-  }, [debouncedQuery, searchFilters, performAdvancedSearch, delay]);
-  
-  return {
-    query: debouncedQuery,
-    setQuery: setDebouncedQuery,
-    results: searchResults,
-    isSearching: searchResults.length > 0
-  };
-}
 
 // Hook للإحصائيات مع تحديث تلقائي
 export function useFamilyStatistics() {
