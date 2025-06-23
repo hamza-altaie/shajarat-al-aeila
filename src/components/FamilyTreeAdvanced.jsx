@@ -1255,11 +1255,11 @@ const handleResetView = useCallback(() => {
         )}
         
         <Box display="flex" justifyContent="center" gap={1} flexWrap="wrap" sx={{ mb: 2 }}>
-          <Button variant="contained" size="small" onClick={() => navigate('/family')} disabled={loading} startIcon={<PersonAdd />}>
-            إضافة
-          </Button>
           <Button variant="outlined" size="small" onClick={() => setShowLinkingPanel(true)} disabled={loading} startIcon={<LinkIcon />}>
             ربط
+          </Button>
+          <Button variant="contained" size="small" onClick={() => navigate('/family')} disabled={loading} startIcon={<PersonAdd />}>
+            إضافة
           </Button>
           <IconButton size="small" onClick={() => {
             setSearchQuery('');
