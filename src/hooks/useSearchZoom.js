@@ -16,14 +16,7 @@ export const useSearchZoom = (svgRef, treeData) => {
 
     const svg = d3.select(svgRef.current);
     const g = svg.select('g');
-
-    g.selectAll('.node').classed('search-highlight', false);
-    g.selectAll('.node foreignObject > div').classed('search-highlight', false);
-    g.selectAll('.node rect, .node .family-node-card')
-      .transition()
-      .duration(200)
-      .attr('stroke', null)
-      .attr('stroke-width', null);
+    g.remove();
 
     setHighlightedNode(null);
   }, [svgRef]);
