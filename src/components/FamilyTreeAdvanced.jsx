@@ -1517,7 +1517,9 @@ export default function FamilyTreeAdvanced() {
               </Box>
               {selectedNode.age && <Typography variant="body2" sx={{ mb: 1 }}>العمر: {selectedNode.age} سنة</Typography>}
               {selectedNode.phone && <Typography variant="body2" sx={{ mb: 1 }}>الهاتف: {selectedNode.phone}</Typography>}
-              {selectedNode.location && <Typography variant="body2">المكان: {selectedNode.location}</Typography>}
+              {selectedNode.location && (
+                <Typography variant="body2">المكان: {selectedNode.location}</Typography>
+              )}
             </Box>
           )}
         </DialogContent>
