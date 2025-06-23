@@ -1261,6 +1261,9 @@ const handleResetView = useCallback(() => {
           <Button variant="contained" size="small" onClick={() => navigate('/family')} disabled={loading} startIcon={<PersonAdd />}>
             إضافة
           </Button>
+          <IconButton size="small" onClick={handleRefresh} disabled={loading} title="إعادة تحميل الصفحة">
+            <Refresh />
+          </IconButton>
           <IconButton size="small" onClick={() => {
             setSearchQuery('');
             if (svgRef.current) {
