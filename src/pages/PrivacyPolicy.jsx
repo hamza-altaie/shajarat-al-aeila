@@ -87,7 +87,7 @@ export default function PrivacyPolicy() {
           {/* تنبيه مهم */}
           <Alert severity="info" sx={{ mb: 4 }}>
             <Typography variant="body2">
-              <strong>مهم:</strong> باستخدامك لتطبيق شجرة العائلة، فإنك توافق على هذه السياسة والشروط. 
+              <strong>مهم :</strong> باستخدامك لتطبيق شجرة العائلة، فإنك توافق على هذه السياسة والشروط. 
               يرجى قراءتها بعناية.
             </Typography>
           </Alert>
@@ -102,33 +102,39 @@ export default function PrivacyPolicy() {
               
               <List>
                 <ListItem>
-                  <ListItemIcon>
-                    <PhoneIcon color="primary" />
-                  </ListItemIcon>
                   <ListItemText
+                    primaryTypographyProps={{ align: 'right' }}
+                    secondaryTypographyProps={{ align: 'right' }}
                     primary="رقم الهاتف"
                     secondary="نستخدم رقم هاتفك للتحقق من الهوية وتسجيل الدخول الآمن"
                   />
+                  <ListItemIcon sx={{ order: -1 }}>
+                    <PhoneIcon color="primary" />
+                  </ListItemIcon>
                 </ListItem>
                 
                 <ListItem>
-                  <ListItemIcon>
-                    <VisibilityIcon color="primary" />
-                  </ListItemIcon>
                   <ListItemText
+                    primaryTypographyProps={{ align: 'right' }}
+                    secondaryTypographyProps={{ align: 'right' }}
                     primary="بيانات العائلة"
                     secondary="أسماء أفراد العائلة، تواريخ الميلاد، والعلاقات الأسرية"
                   />
+                  <ListItemIcon sx={{ order: -1 }}>
+                    <VisibilityIcon color="primary" />
+                  </ListItemIcon>
                 </ListItem>
                 
                 <ListItem>
-                  <ListItemIcon>
-                    <ShareIcon color="primary" />
-                  </ListItemIcon>
                   <ListItemText
+                    primaryTypographyProps={{ align: 'right' }}
+                    secondaryTypographyProps={{ align: 'right' }}
                     primary="الصور"
                     secondary="صور أفراد العائلة التي تختار رفعها (اختيارية)"
                   />
+                  <ListItemIcon sx={{ order: -1 }}>
+                    <ShareIcon color="primary" />
+                  </ListItemIcon>
                 </ListItem>
               </List>
             </CardContent>
@@ -144,33 +150,39 @@ export default function PrivacyPolicy() {
               
               <List>
                 <ListItem>
-                  <ListItemIcon>
-                    <SecurityIcon color="success" />
-                  </ListItemIcon>
                   <ListItemText
+                    primaryTypographyProps={{ align: 'right' }}
+                    secondaryTypographyProps={{ align: 'right' }}
                     primary="تشفير البيانات"
                     secondary="جميع بياناتك محفوظة بتقنيات التشفير المتقدمة في خوادم Google Firebase الآمنة"
                   />
+                  <ListItemIcon sx={{ order: -1 }}>
+                    <SecurityIcon color="success" />
+                  </ListItemIcon>
                 </ListItem>
                 
                 <ListItem>
-                  <ListItemIcon>
-                    <ShieldIcon color="success" />
-                  </ListItemIcon>
                   <ListItemText
+                    primaryTypographyProps={{ align: 'right' }}
+                    secondaryTypographyProps={{ align: 'right' }}
                     primary="حماية الوصول"
                     secondary="لا يمكن الوصول لبياناتك إلا من خلال رقم هاتفك المسجل"
                   />
+                  <ListItemIcon sx={{ order: -1 }}>
+                    <ShieldIcon color="success" />
+                  </ListItemIcon>
                 </ListItem>
                 
                 <ListItem>
-                  <ListItemIcon>
-                    <PhoneIcon color="success" />
-                  </ListItemIcon>
                   <ListItemText
+                    primaryTypographyProps={{ align: 'right' }}
+                    secondaryTypographyProps={{ align: 'right' }}
                     primary="التحقق المتقدم"
                     secondary="نستخدم نظام التحقق برسائل SMS مع تقنية reCAPTCHA لمنع الاستخدام غير المصرح"
                   />
+                  <ListItemIcon sx={{ order: -1 }}>
+                    <PhoneIcon color="success" />
+                  </ListItemIcon>
                 </ListItem>
               </List>
             </CardContent>
@@ -186,33 +198,39 @@ export default function PrivacyPolicy() {
               
               <List>
                 <ListItem>
-                  <ListItemIcon>
-                    <DeleteIcon color="error" />
-                  </ListItemIcon>
                   <ListItemText
+                    primaryTypographyProps={{ align: 'right' }}
+                    secondaryTypographyProps={{ align: 'right' }}
                     primary="حذف البيانات"
                     secondary="يمكنك حذف جميع بياناتك نهائياً في أي وقت من خلال إعدادات التطبيق"
                   />
+                  <ListItemIcon sx={{ order: -1 }}>
+                    <DeleteIcon color="error" />
+                  </ListItemIcon>
                 </ListItem>
                 
                 <ListItem>
-                  <ListItemIcon>
-                    <UpdateIcon color="primary" />
-                  </ListItemIcon>
                   <ListItemText
+                    primaryTypographyProps={{ align: 'right' }}
+                    secondaryTypographyProps={{ align: 'right' }}
                     primary="تعديل البيانات"
                     secondary="يمكنك تعديل أو تحديث بياناتك في أي وقت"
                   />
+                  <ListItemIcon sx={{ order: -1 }}>
+                    <UpdateIcon color="primary" />
+                  </ListItemIcon>
                 </ListItem>
                 
                 <ListItem>
-                  <ListItemIcon>
-                    <StorageIcon color="primary" />
-                  </ListItemIcon>
                   <ListItemText
+                    primaryTypographyProps={{ align: 'right' }}
+                    secondaryTypographyProps={{ align: 'right' }}
                     primary="تصدير البيانات"
                     secondary="يمكنك تصدير شجرة عائلتك كصورة أو ملف"
                   />
+                  <ListItemIcon sx={{ order: -1 }}>
+                    <StorageIcon color="primary" />
+                  </ListItemIcon>
                 </ListItem>
               </List>
             </CardContent>
@@ -242,26 +260,36 @@ export default function PrivacyPolicy() {
               <List dense>
                 <ListItem>
                   <ListItemText
+                    primaryTypographyProps={{ align: 'right' }}
+                    secondaryTypographyProps={{ align: 'right' }}
                     primary="• يجب استخدام التطبيق لأغراض شخصية وعائلية فقط"
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
+                    primaryTypographyProps={{ align: 'right' }}
+                    secondaryTypographyProps={{ align: 'right' }}
                     primary="• يحظر استخدام التطبيق لأي أغراض تجارية أو غير قانونية"
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
+                    primaryTypographyProps={{ align: 'right' }}
+                    secondaryTypographyProps={{ align: 'right' }}
                     primary="• يجب أن تكون البيانات المدخلة صحيحة وحقيقية"
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
+                    primaryTypographyProps={{ align: 'right' }}
+                    secondaryTypographyProps={{ align: 'right' }}
                     primary="• نحتفظ بالحق في تعطيل الحسابات المخالفة للشروط"
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
+                    primaryTypographyProps={{ align: 'right' }}
+                    secondaryTypographyProps={{ align: 'right' }}
                     primary="• التطبيق مقدم كما هو دون ضمانات صريحة أو ضمنية"
                   />
                 </ListItem>
