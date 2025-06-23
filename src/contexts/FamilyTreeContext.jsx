@@ -565,7 +565,7 @@ export function FamilyTreeProvider({ children }) {
     });
 
     return unsubscribe;
-  }, [dispatch]); // ✅ إصلاح تحذيرات React Hooks
+  }, [dispatch, startRealtimeListeners]); // ✅ إصلاح تحذيرات React Hooks
 
   useEffect(() => {
     const unsubscribe = startRealtimeListeners();
