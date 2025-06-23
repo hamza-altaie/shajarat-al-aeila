@@ -15,8 +15,7 @@ export const useSearchZoom = (svgRef, treeData) => {
     if (!svgRef.current) return;
 
     const svg = d3.select(svgRef.current);
-    const groupElement = svg.select('g');
-    groupElement.remove();
+    svg.select('g').remove();
 
     setHighlightedNode(null);
   }, [svgRef]);
@@ -88,7 +87,6 @@ export const useSearchZoom = (svgRef, treeData) => {
     if (!svgRef.current || !nodeElement || nodeElement.empty()) return;
 
     const svg = d3.select(svgRef.current);
-    const groupElement = svg.select('g');
 
     // إزالة التمييز السابق
     clearHighlights();
