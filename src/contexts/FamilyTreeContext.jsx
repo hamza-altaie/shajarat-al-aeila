@@ -6,6 +6,7 @@ import {
 import { db } from '../firebase/config';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { calculateAverageAge, findMostCommonRelation, calculateGenerationSpread } from './FamilyTreeHelpers';
+import { useAdvancedSearch, useTheme, usePWA } from './helpers';
 
 // =======================================================
 // 🏗️ نظام إدارة الحالة المتقدم لشجرة العائلة
@@ -817,7 +818,7 @@ export function useSmartCache(key, fetchFunction, dependencies = [], ttl = 30000
     if (isExpired && !isLoading) {
       fetchData();
     }
-  }, [...dependencies, isExpired, isLoading]);
+  }, [...dependencies, isExpired, isLoading, fetchData]);
   
   return {
     data: cachedValue,
