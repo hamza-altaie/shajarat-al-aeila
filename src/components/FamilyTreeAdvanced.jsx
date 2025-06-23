@@ -1233,17 +1233,6 @@ export default function FamilyTreeAdvanced() {
           <IconButton size="small" onClick={handleRefresh} disabled={loading} title="إعادة تحميل الصفحة">
             <Refresh />
           </IconButton>
-          <IconButton size="small" onClick={() => {
-            setSearchQuery('');
-            if (svgRef.current) {
-              d3.selectAll('.node').classed('search-highlight', false);
-              d3.selectAll('.node foreignObject > div').classed('search-highlight', false);
-            }
-          }} disabled={loading} title="مسح التمييز">
-            <Close />
-          </IconButton>
-
-          
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, position: 'relative' }}>
             <TextField
               size="small"
