@@ -860,23 +860,9 @@ export function useSmartCache(key, fetchFunction, dependencies = [], ttl = 30000
 // 🛠️ دوال مساعدة للإحصائيات
 // ====================================================
 
-function calculateAverageAge(stats) {
-  if (!stats.familyStats || !stats.familyStats.members) return 0;
-  
-  const membersWithAge = stats.familyStats.members.filter(m => m.birthDate);
-  if (membersWithAge.length === 0) return 0;
-  
-  const totalAge = membersWithAge.reduce((sum, member) => {
-    const age = new Date().getFullYear() - new Date(member.birthDate).getFullYear();
-    return sum + age;
-  }, 0);
-  
-  return Math.round(totalAge / membersWithAge.length);
-}
-
 function findMostCommonRelation(stats) {
   if (!stats.familyStats || !stats.familyStats.relations) return null;
-  
+
   const relations = stats.familyStats.relations;
   let maxCount = 0;
   let mostCommon = null;
