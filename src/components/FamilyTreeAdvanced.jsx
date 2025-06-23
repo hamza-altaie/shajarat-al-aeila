@@ -142,10 +142,6 @@ export default function FamilyTreeAdvanced() {
     }
   }, [showExtendedTree]);
 
-  const handleResetZoom = useCallback(() => {
-    setZoomLevel(0.6);
-  }, []);
-
   const handleTreeTypeToggle = useCallback((event) => {
     const newValue = event.target.checked;
     setShowExtendedTree(newValue);
