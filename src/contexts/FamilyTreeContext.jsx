@@ -6,6 +6,7 @@ import {
 import { db } from '../firebase/config';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { calculateAverageAge, findMostCommonRelation, calculateGenerationSpread } from './sharedConstants';
+import { someSharedFunction1, someSharedFunction2 } from './sharedFunctions';
 
 // =======================================================
 // 🏗️ نظام إدارة الحالة المتقدم لشجرة العائلة
@@ -831,8 +832,6 @@ export function useSmartCache(key, fetchFunction, dependencies = [], ttl = 30000
 // ====================================================
 // 🛠️ دوال مساعدة للإحصائيات
 // ====================================================
-
-// Removed duplicate 'calculateGenerationSpread' function
 
 // ====================================================
 // 🎨 Hook للثيم والمظهر
