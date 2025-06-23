@@ -6,7 +6,7 @@ import {
 import { db } from '../firebase/config';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { calculateAverageAge, findMostCommonRelation, calculateGenerationSpread } from './sharedConstants';
-import { useSmartCache, useFamilyStatistics } from './sharedHooks';
+import { useFamilyStatistics } from './sharedHooks';
 import { initializeUser, updateUserSettings } from './sharedFunctions';
 
 // =======================================================
