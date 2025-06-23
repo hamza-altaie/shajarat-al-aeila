@@ -856,49 +856,47 @@ export function useCustomTheme() {
 // ====================================================
 // 📱 Hook للتطبيق التقدمي PWA
 // ====================================================
-export function usePWA() {
+export function useCustomPWA() {
   const [isInstallable, setIsInstallable] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstalled, setIsInstalled] = useState(false);
-  
+
   useEffect(() => {
-    // فحص إذا كان التطبيق مثبت
     setIsInstalled(window.matchMedia('(display-mode: standalone)').matches);
-    
-    // مراقبة إمكانية التثبيت
+
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
       setIsInstallable(true);
     };
-    
+
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setIsInstallable(false);
       setDeferredPrompt(null);
     };
-    
+
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
-    
+
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
-  
+
   const installApp = useCallback(async () => {
     if (!deferredPrompt) return false;
-    
+
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    
+
     setDeferredPrompt(null);
     setIsInstallable(false);
-    
+
     return outcome === 'accepted';
   }, [deferredPrompt]);
-  
+
   return {
     isInstallable,
     isInstalled,
