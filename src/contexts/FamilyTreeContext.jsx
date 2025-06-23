@@ -6,7 +6,7 @@ import {
 import { db } from '../firebase/config';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { calculateAverageAge, findMostCommonRelation, calculateGenerationSpread } from './sharedConstants';
-import { someSharedFunction1, someSharedFunction2 } from './sharedFunctions';
+import { useSharedHook1, useSharedHook2 } from './sharedHooks';
 
 // =======================================================
 // 🏗️ نظام إدارة الحالة المتقدم لشجرة العائلة
