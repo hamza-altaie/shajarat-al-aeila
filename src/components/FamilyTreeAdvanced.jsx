@@ -866,14 +866,15 @@ export default function FamilyTreeAdvanced() {
   // تنظيف عند إلغاء التحميل
   useEffect(() => {
     return () => {
-        reactRootsRef.current.forEach(root => {
+        const localReactRoots = reactRootsRef.current;
+        localReactRoots.forEach(root => {
             try {
                 root.unmount();
             } catch {
                 // Silent cleanup
             }
         });
-        reactRootsRef.current.clear();
+        localReactRoots.clear();
     };
   }, []);
 
