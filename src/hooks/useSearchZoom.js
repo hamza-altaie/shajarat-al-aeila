@@ -15,8 +15,8 @@ export const useSearchZoom = (svgRef, treeData) => {
     if (!svgRef.current) return;
 
     const svg = d3.select(svgRef.current);
-    const g = svg.select('g');
-    g.remove();
+    const groupElement = svg.select('g');
+    groupElement.remove();
 
     setHighlightedNode(null);
   }, [svgRef]);
@@ -88,7 +88,7 @@ export const useSearchZoom = (svgRef, treeData) => {
     if (!svgRef.current || !nodeElement || nodeElement.empty()) return;
 
     const svg = d3.select(svgRef.current);
-    const g = svg.select('g');
+    const groupElement = svg.select('g');
 
     // إزالة التمييز السابق
     clearHighlights();
@@ -124,7 +124,7 @@ export const useSearchZoom = (svgRef, treeData) => {
     }
 
     const svg = d3.select(svgRef.current);
-    const g = svg.select('g');
+    const groupElement = svg.select('g');
     
     // إعداد سلوك الزووم إذا لم يكن موجوداً
     if (!zoomBehavior.current) {
@@ -132,7 +132,7 @@ export const useSearchZoom = (svgRef, treeData) => {
       zoomBehavior.current = d3.zoom()
         .scaleExtent([0.1, 3])
         .on('zoom', (event) => {
-          g.attr('transform', event.transform);
+          groupElement.attr('transform', event.transform);
         });
       
       svg.call(zoomBehavior.current);
@@ -142,7 +142,7 @@ export const useSearchZoom = (svgRef, treeData) => {
     let nodeElement = null;
     
     // الطريقة الأولى: البحث بالمطابقة المباشرة
-    nodeElement = g.selectAll('.node')
+    nodeElement = groupElement.selectAll('.node')
       .filter(d => {
         return d === targetNode || 
                d.data === targetNode ||
@@ -158,7 +158,7 @@ export const useSearchZoom = (svgRef, treeData) => {
       
       if (targetName) {
         console.log('🔍 البحث بالاسم:', targetName);
-        nodeElement = g.selectAll('.node')
+        nodeElement = groupElement.selectAll('.node')
           .filter(d => {
             const nodeName = d.data?.name || d.data?.attributes?.name || d.name;
             return nodeName === targetName || 
@@ -173,7 +173,7 @@ export const useSearchZoom = (svgRef, treeData) => {
       
       // طباعة العقد المتاحة للتشخيص
       console.log('📋 العقد المتاحة:');
-      g.selectAll('.node').each(function(d, i) {
+      groupElement.selectAll('.node').each(function(d, i) {
         const name = d.data?.name || d.data?.attributes?.name || d.name || 'بدون اسم';
         console.log(`  ${i + 1}: ${name}`, d);
       });
