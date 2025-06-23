@@ -573,9 +573,23 @@ export function FamilyTreeProvider({ children }) {
   }, [startRealtimeListeners]);
 
   // Move constants and helper functions to a new file to resolve Fast Refresh warnings
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const fetchData = useCallback(async () => {
+    if (isLoading) return cachedValue;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await fetchFunction();
+      // سيتم حفظ النتيجة في الذاكرة المؤقتة بواسطة السياق
+      return result;
+    } catch (err) {
+      setError(err);
+      return cachedValue; // إرجاع القيمة المخزنة عند حدوث خطأ
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchFunction, isLoading, cachedValue]);
 
   const stopRealtimeListeners = useCallback(() => {
     state.performance.realtimeListeners.forEach(unsubscribe => {
@@ -801,10 +815,10 @@ export function useSmartCache(key, fetchFunction, dependencies = [], ttl = 30000
   
   const fetchData = useCallback(async () => {
     if (isLoading) return cachedValue;
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const result = await fetchFunction();
       // سيتم حفظ النتيجة في الذاكرة المؤقتة بواسطة السياق
