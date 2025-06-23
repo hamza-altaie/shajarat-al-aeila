@@ -1062,25 +1062,6 @@ export default function FamilyTreeAdvanced() {
 
 
 
-const handleResetView = useCallback(() => {
-  if (!svgRef.current) return;
-  // ممنوع أي تحريك أو توسيط أو zoom هنا إطلاقًا
-  // فقط مسح البحث والتمييز
-  // إعادة تعيين أي transform/zoom على svg وg لإرجاع الشجرة للوضع الافتراضي
-  const svg = d3.select(svgRef.current);
-  const g = svg.select('g');
-  svg.attr('transform', null); // إلغاء أي transform على svg
-  svg.property('__zoom', d3.zoomIdentity); // إعادة تعيين حالة الزووم الداخلية
-  g.attr('transform', null); // إلغاء أي transform على g
-  g.selectAll('.node').classed('search-highlight', false);
-  g.selectAll('.search-highlight-border').remove();
-  g.selectAll('.node').style('filter', null).style('transform', null);
-  setSearchQuery('');
-  setSearchResults([]);
-  console.log('✅ تم إعادة تعيين الرؤية (بدون تحريك)');
-}, [svgRef]);
-
-
   // ===========================================================================
   // واجهة المستخدم
   // ===========================================================================
