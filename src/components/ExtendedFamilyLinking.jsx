@@ -1,5 +1,5 @@
-// src/components/ExtendedFamilyLinking.jsx - إصلاح مشكلة فك الربط
-import React, { useState, useEffect, useCallback } from 'react';
+// src/components/ExtendedFamilyLinking.jsx - إصلاح مشاكل ESLint
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box, Card, CardContent, Typography, Button, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, Autocomplete, Chip,
@@ -50,14 +50,14 @@ export default function ExtendedFamilyLinking({
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('info');
   
-  // أنواع الروابط المتاحة
-  const linkTypes = [
+  // أنواع الروابط المتاحة - استخدام useMemo لتجنب إعادة الإنشاء
+  const linkTypes = useMemo(() => [
     { value: 'parent-child', label: 'والد - طفل', icon: '👨‍👧‍👦', description: 'رابط بين والد وطفل' },
     { value: 'sibling', label: 'أشقاء', icon: '👫', description: 'رابط بين الأشقاء' },
     { value: 'marriage', label: 'زواج', icon: '💒', description: 'رابط زواج بين العائلتين' },
     { value: 'cousin', label: 'أبناء عم/خال', icon: '👥', description: 'رابط أبناء عم أو خال' },
     { value: 'extended', label: 'قرابة ممتدة', icon: '🌳', description: 'رابط قرابة ممتد' }
-  ];
+  ], []);
 
   // ===========================================================================
   // دوال مساعدة
@@ -74,6 +74,26 @@ export default function ExtendedFamilyLinking({
   const sanitizeName = useCallback((firstName, fatherName, surname) => {
     const parts = [firstName, fatherName, surname].filter(part => part && part.trim() !== '');
     return parts.length > 0 ? parts.join(' ').trim() : 'غير محدد';
+  }, []);
+
+  // الحصول على نوع الرابط العكسي - نقل هذه الدالة إلى أعلى
+  const getReverseLinkType = useCallback((linkType) => {
+    switch (linkType) {
+      case 'parent-child':
+        return 'child-parent';
+      case 'child-parent':
+        return 'parent-child';
+      case 'sibling':
+        return 'sibling';
+      case 'marriage':
+        return 'marriage';
+      case 'cousin':
+        return 'cousin';
+      case 'extended':
+        return 'extended';
+      default:
+        return 'extended';
+    }
   }, []);
 
   const getLinkTypeInfo = useCallback((linkType) => {
@@ -354,7 +374,7 @@ export default function ExtendedFamilyLinking({
     } finally {
       setLoading(false);
     }
-  }, [selectedFamily, linkType, relationDescription, currentUserUid, onLinkingComplete, loadFamiliesForLinking, loadLinkedFamilies, showMessage]);
+  }, [selectedFamily, linkType, relationDescription, currentUserUid, onLinkingComplete, loadFamiliesForLinking, loadLinkedFamilies, showMessage, getReverseLinkType]);
 
   // تأكيد فك الربط - الطريقة المُحدثة والمُحسنة
   const confirmUnlinking = useCallback(async () => {
@@ -437,27 +457,7 @@ export default function ExtendedFamilyLinking({
     } finally {
       setLoading(false);
     }
-  }, [selectedLinkToRemove, currentUserUid, onLinkingComplete, loadFamiliesForLinking, loadLinkedFamilies, showMessage]);
-
-  // الحصول على نوع الرابط العكسي
-  const getReverseLinkType = useCallback((linkType) => {
-    switch (linkType) {
-      case 'parent-child':
-        return 'child-parent';
-      case 'child-parent':
-        return 'parent-child';
-      case 'sibling':
-        return 'sibling';
-      case 'marriage':
-        return 'marriage';
-      case 'cousin':
-        return 'cousin';
-      case 'extended':
-        return 'extended';
-      default:
-        return 'extended';
-    }
-  }, []);
+  }, [selectedLinkToRemove, currentUserUid, onLinkingComplete, loadFamiliesForLinking, loadLinkedFamilies, showMessage, getReverseLinkType]);
 
   // ===========================================================================
   // دوال العرض
