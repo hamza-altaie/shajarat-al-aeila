@@ -32,27 +32,25 @@ export default function FamilyTreeAdvanced() {
   
   const [showExtendedTree, setShowExtendedTree] = useState(false);
   const [selectedNode, setSelectedNode] = useState(null);
-  
   const [linkedFamilies, setLinkedFamilies] = useState([]);
   const [showLinkingPanel, setShowLinkingPanel] = useState(false);
-
   const [performanceMetrics, setPerformanceMetrics] = useState({
     loadTime: 0,
     personCount: 0,
     maxDepthReached: 0,
     memoryUsage: 0
   });
-
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('info');
-
-  // حالات البيانات
   const [simpleTreeData, setSimpleTreeData] = useState(null);
   const [extendedTreeData, setExtendedTreeData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState('');
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
   
   const uid = localStorage.getItem('verifiedUid');
   const navigate = useNavigate();
@@ -62,15 +60,12 @@ export default function FamilyTreeAdvanced() {
   const containerRef = useRef(null);
   const reactRootsRef = useRef(new Map());
 
-  // إعداد البحث المحلي
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-
   // Hook للبحث والزووم
   const currentTreeData = showExtendedTree ? extendedTreeData : simpleTreeData;
   const searchZoomHook = useSearchZoom(svgRef, currentTreeData);
+
   // ===========================================================================
-  // دوال مساعدة
+  // دوال مساعدة ثابتة
   // ===========================================================================
 
   const sanitizeMemberData = (memberData) => {
@@ -83,19 +78,6 @@ export default function FamilyTreeAdvanced() {
       relation: memberData.relation?.trim() || 'عضو'
     };
   };
-
-  const buildFullName = useCallback((person) => {
-    if (!person) return 'غير محدد';
-
-    const parts = [
-        person.firstName,
-        person.fatherName,
-        person.grandfatherName,
-        person.surname
-    ].filter(part => part && part.trim() !== '');
-
-    return parts.length > 0 ? parts.join(' ').trim() : 'غير محدد';
-  }, []);
 
   const findFamilyHead = (members) => {
     const head = members.find(m => m.relation === 'رب العائلة');
@@ -111,8 +93,21 @@ export default function FamilyTreeAdvanced() {
   };
 
   // ===========================================================================
-  // دوال التحكم
+  // دوال أساسية useCallback
   // ===========================================================================
+
+  const buildFullName = useCallback((person) => {
+    if (!person) return 'غير محدد';
+
+    const parts = [
+        person.firstName,
+        person.fatherName,
+        person.grandfatherName,
+        person.surname
+    ].filter(part => part && part.trim() !== '');
+
+    return parts.length > 0 ? parts.join(' ').trim() : 'غير محدد';
+  }, []);
 
   const showSnackbar = useCallback((message, severity = 'info') => {
     setSnackbarMessage(message);
@@ -122,13 +117,462 @@ export default function FamilyTreeAdvanced() {
 
   const handleNodeClick = useCallback((nodeData) => {
     if (nodeData.action === 'edit') {
-      // console.log('تعديل الشخص:', nodeData.name);
+      // منطق التعديل
     } else if (nodeData.action === 'view') {
-      // console.log('عرض تفاصيل الشخص:', nodeData.name);
+      // منطق العرض
     }
     
     setSelectedNode(nodeData);
   }, []);
+
+  const monitorPerformance = useCallback((metrics) => {
+    setPerformanceMetrics(prev => ({
+      ...prev,
+      ...metrics
+    }));
+    
+    if (metrics.personCount > 50) {
+      showSnackbar(`✅ تم تحميل ${metrics.personCount} شخص بنجاح`, 'success');
+    }
+    
+    if (metrics.familyCount > 1) {
+      showSnackbar(`🏛️ تم ربط ${metrics.familyCount} عائلة`, 'info');
+    }
+  }, [showSnackbar]);
+
+  // ===========================================================================
+  // دوال البناء
+  // ===========================================================================
+
+  const buildSimpleTreeStructure = useCallback((familyMembers) => {
+    if (!familyMembers || familyMembers.length === 0) {
+      return null;
+    }
+
+    const head = findFamilyHead(familyMembers);
+    if (!head) {
+      return null;
+    }
+
+    const rootNode = {
+      name: buildFullName(head),
+      id: head.globalId,
+      avatar: head.avatar || null,
+      attributes: {
+        ...head,
+        isCurrentUser: true,
+        treeType: 'simple',
+        isExtended: false
+      },
+      children: []
+    };
+
+    const children = familyMembers.filter(m => 
+      (m.relation === 'ابن' || m.relation === 'بنت' || m.relation === 'child') && 
+      m.globalId !== head.globalId
+    );
+
+    children.forEach(child => {
+      rootNode.children.push({
+        name: buildFullName(child),
+        id: child.globalId,
+        avatar: child.avatar || null,
+        attributes: {
+          ...child,
+          treeType: 'simple',
+          isExtended: false
+        },
+        children: []
+      });
+    });
+
+    return rootNode;
+  }, [buildFullName]);
+
+  const calculateTreeDepth = useCallback((node, currentDepth = 0) => {
+    if (!node || !node.children || node.children.length === 0) {
+      return currentDepth;
+    }
+    
+    let maxDepth = currentDepth;
+    node.children.forEach(child => {
+      const childDepth = calculateTreeDepth(child, currentDepth + 1);
+      maxDepth = Math.max(maxDepth, childDepth);
+    });
+    
+    return maxDepth;
+  }, []);
+
+  const loadFamilyData = useCallback(async (familyUid) => {
+    try {
+      const familySnapshot = await getDocs(collection(db, 'users', familyUid, 'family'));
+      const members = [];
+      
+      familySnapshot.forEach(doc => {
+        const memberData = sanitizeMemberData({ 
+          ...doc.data(), 
+          id: doc.id,
+          globalId: `${familyUid}_${doc.id}`,
+          familyUid: familyUid,
+          isExtended: familyUid !== uid
+        });
+        
+        if (memberData.firstName && memberData.firstName.trim() !== '') {
+          members.push(memberData);
+        }
+      });
+
+      if (members.length > 0) {
+        const head = findFamilyHead(members);
+        
+        return {
+          uid: familyUid,
+          members,
+          head,
+          isExtended: familyUid !== uid
+        };
+      }
+      
+      return null;
+    } catch {
+      return null;
+    }
+  }, [uid]);
+
+  const findAllLinkedFamilies = useCallback(async (startUid) => {
+    try {
+      const linkedFamilyUids = new Set([startUid]);
+      
+      // البحث في بيانات المستخدم الحالي
+      const userDoc = await getDoc(doc(db, 'users', startUid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        
+        // إضافة العائلات من linkedFamilies
+        if (userData.linkedFamilies && Array.isArray(userData.linkedFamilies)) {
+          userData.linkedFamilies.forEach(link => {
+            if (link.targetFamilyUid) {
+              linkedFamilyUids.add(link.targetFamilyUid);
+            }
+          });
+        }
+        
+        // إضافة العائلة الرئيسية إن وجدت
+        if (userData.linkedToFamilyHead) {
+          linkedFamilyUids.add(userData.linkedToFamilyHead);
+        }
+      }
+      
+      // البحث في جميع المستخدمين عن روابط معكوسة
+      const allUsersSnapshot = await getDocs(collection(db, 'users'));
+      allUsersSnapshot.forEach(userDoc => {
+        const userData = userDoc.data();
+        const userId = userDoc.id;
+        
+        // إذا كان مرتبط بعائلتك
+        if (userData.linkedToFamilyHead === startUid) {
+          linkedFamilyUids.add(userId);
+        }
+        
+        // إذا كان لديه روابط معك
+        if (userData.linkedFamilies && Array.isArray(userData.linkedFamilies)) {
+          userData.linkedFamilies.forEach(link => {
+            if (link.targetFamilyUid === startUid) {
+              linkedFamilyUids.add(userId);
+            }
+          });
+        }
+      });
+      
+      const result = Array.from(linkedFamilyUids);
+      return result;
+      
+    } catch {
+      return [startUid]; // إرجاع العائلة الحالية فقط في حالة الخطأ
+    }
+  }, []);
+
+  const buildExtendedTreeStructure = useCallback((allFamiliesData, rootFamilyUid) => {
+    if (!allFamiliesData || allFamiliesData.length === 0) {
+      return null;
+    }
+
+    // العثور على العائلة الجذر
+    const rootFamily = allFamiliesData.find(f => f.uid === rootFamilyUid) || allFamiliesData[0];
+    if (!rootFamily || !rootFamily.head) {
+      return null;
+    }
+
+    // بناء العقدة الجذر
+    const rootNode = {
+      name: buildFullName(rootFamily.head),
+      id: rootFamily.head.globalId,
+      avatar: rootFamily.head.avatar || null,
+      attributes: {
+        ...rootFamily.head,
+        isCurrentUser: true,
+        treeType: 'extended',
+        isExtended: false,
+        familyName: 'عائلتك'
+      },
+      children: []
+    };
+
+    // إضافة أطفال العائلة الجذر
+    const rootChildren = rootFamily.members.filter(m => 
+      (m.relation === 'ابن' || m.relation === 'بنت') && 
+      m.globalId !== rootFamily.head.globalId
+    );
+
+    rootChildren.forEach(child => {
+      const childNode = {
+        name: buildFullName(child),
+        id: child.globalId,
+        avatar: child.avatar || null,
+        attributes: {
+          ...child,
+          treeType: 'extended',
+          isExtended: false,
+          familyName: 'عائلتك'
+        },
+        children: []
+      };
+
+      // البحث عن أطفال هذا الشخص في العائلات الأخرى
+      const childFamily = allFamiliesData.find(f => 
+        f.uid !== rootFamilyUid && 
+        f.head && 
+        buildFullName(f.head) === buildFullName(child)
+      );
+
+      if (childFamily) {
+        const grandChildren = childFamily.members.filter(m => 
+          (m.relation === 'ابن' || m.relation === 'بنت') &&
+          m.globalId !== childFamily.head.globalId
+        );
+
+        grandChildren.forEach(grandChild => {
+          childNode.children.push({
+            name: buildFullName(grandChild),
+            id: grandChild.globalId,
+            avatar: grandChild.avatar || null,
+            attributes: {
+              ...grandChild,
+              treeType: 'extended',
+              isExtended: true,
+              familyName: `عائلة ${buildFullName(child)}`
+            },
+            children: []
+          });
+        });
+      }
+
+      rootNode.children.push(childNode);
+    });
+
+    // إضافة العائلات المرتبطة كأشقاء
+    const otherFamilies = allFamiliesData.filter(f => 
+      f.uid !== rootFamilyUid && 
+      f.head &&
+      !rootChildren.some(child => buildFullName(child) === buildFullName(f.head))
+    );
+
+    otherFamilies.forEach(family => {
+      const familyNode = {
+        name: buildFullName(family.head),
+        id: family.head.globalId,
+        avatar: family.head.avatar || null,
+        attributes: {
+          ...family.head,
+          treeType: 'extended',
+          isExtended: true,
+          familyName: `عائلة ${buildFullName(family.head)}`
+        },
+        children: []
+      };
+
+      // إضافة أطفال هذه العائلة
+      const familyChildren = family.members.filter(m => 
+        (m.relation === 'ابن' || m.relation === 'بنت') && 
+        m.globalId !== family.head.globalId
+      );
+
+      familyChildren.forEach(child => {
+        familyNode.children.push({
+          name: buildFullName(child),
+          id: child.globalId,
+          avatar: child.avatar || null,
+          attributes: {
+            ...child,
+            treeType: 'extended',
+            isExtended: true,
+            familyName: `عائلة ${buildFullName(family.head)}`
+          },
+          children: []
+        });
+      });
+
+      rootNode.children.push(familyNode);
+    });
+
+    return rootNode;
+  }, [buildFullName]);
+
+  // ===========================================================================
+  // دوال التحميل الرئيسية
+  // ===========================================================================
+
+  const loadSimpleTree = useCallback(async () => {
+    if (!uid) {
+      return;
+    }
+    
+    setLoading(true);
+    setLoadingStage('تحميل عائلتك...');
+    setLoadingProgress(0);
+
+    try {
+      const familySnapshot = await getDocs(collection(db, 'users', uid, 'family'));
+      const familyMembers = [];
+      
+      setLoadingProgress(30);
+      
+      familySnapshot.forEach(doc => {
+        const memberData = sanitizeMemberData({ 
+          ...doc.data(), 
+          id: doc.id,
+          globalId: `${uid}_${doc.id}`,
+          familyUid: uid
+        });
+        
+        if (memberData.firstName && memberData.firstName.trim() !== '') {
+          familyMembers.push(memberData);
+        }
+      });
+
+      setLoadingProgress(60);
+      setLoadingStage('بناء الشجرة...');
+
+      const treeData = buildSimpleTreeStructure(familyMembers);
+      
+      setLoadingProgress(100);
+      setLoadingStage('اكتمل التحميل');
+      
+      setSimpleTreeData(treeData);
+      
+      // تسجيل مقاييس الأداء
+      monitorPerformance({
+        personCount: familyMembers.length,
+        maxDepthReached: 2,
+        familyCount: 1,
+        loadTime: 1000
+      });
+      
+      showSnackbar(`✅ تم تحميل عائلتك: ${familyMembers.length} أفراد`, 'success');
+
+    } catch {
+      setError('فشل في تحميل الشجرة');
+      showSnackbar('❌ فشل في تحميل الشجرة', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [uid, showSnackbar, monitorPerformance, buildSimpleTreeStructure]);
+
+  const loadExtendedTree = useCallback(async () => {
+    if (!uid) return;
+
+    const startTime = Date.now();
+    setLoading(true);
+    setLoadingStage('البحث عن العائلات المرتبطة...');
+    setLoadingProgress(0);
+
+    try {
+      // الخطوة 1: تحميل عائلتك
+      setLoadingProgress(10);
+      const myFamilyData = await loadFamilyData(uid);
+      
+      // الخطوة 2: البحث عن العائلات المرتبطة
+      setLoadingProgress(30);
+      setLoadingStage('البحث عن الروابط...');
+      const allLinkedFamilies = await findAllLinkedFamilies(uid);
+      
+      // الخطوة 3: تحميل بيانات جميع العائلات
+      setLoadingProgress(50);
+      setLoadingStage('تحميل بيانات العائلات...');
+      const allFamiliesData = [];
+      
+      // إضافة عائلتك
+      if (myFamilyData && myFamilyData.members.length > 0) {
+        allFamiliesData.push(myFamilyData);
+      }
+      
+      // إضافة العائلات المرتبطة
+      for (const familyUid of allLinkedFamilies) {
+        if (familyUid !== uid) {
+          try {
+            const familyData = await loadFamilyData(familyUid);
+            if (familyData && familyData.members.length > 0) {
+              allFamiliesData.push(familyData);
+            }
+          } catch {
+            // تعذر تحميل العائلة - متابعة صامتة
+          }
+        }
+      }
+      
+      setLoadingProgress(70);
+      setLoadingStage('بناء الشجرة الموسعة...');
+      
+      // الخطوة 4: بناء الشجرة الموسعة
+      const extendedTree = buildExtendedTreeStructure(allFamiliesData, uid);
+      
+      setLoadingProgress(90);
+      setLoadingStage('تحسين الشجرة...');
+      
+      // الخطوة 5: حساب المقاييس
+      const totalPersons = allFamiliesData.reduce((sum, family) => sum + family.members.length, 0);
+      const endTime = Date.now();
+      
+      monitorPerformance({
+        personCount: totalPersons,
+        familyCount: allFamiliesData.length,
+        maxDepthReached: calculateTreeDepth(extendedTree),
+        loadTime: endTime - startTime
+      });
+      
+      setLoadingProgress(100);
+      setLoadingStage('اكتمل التحميل الموسع');
+      
+      setExtendedTreeData(extendedTree);
+      
+      showSnackbar(`🏛️ تم تحميل ${allFamiliesData.length} عائلة بـ ${totalPersons} شخص`, 'success');
+
+    } catch {
+      setError('فشل في تحميل الشجرة الموسعة');
+      showSnackbar('❌ فشل في تحميل الشجرة الموسعة', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [uid, showSnackbar, monitorPerformance, buildExtendedTreeStructure, calculateTreeDepth, loadFamilyData, findAllLinkedFamilies]);
+
+  const loadLinkedFamilies = useCallback(async () => {
+    if (!uid) return;
+    
+    try {
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const linked = userData.linkedFamilies || [];
+        setLinkedFamilies(linked);
+      }
+    } catch {
+      // خطأ صامت في تحميل العائلات المرتبطة
+    }
+  }, [uid]);
+
+  // ===========================================================================
+  // دوال التحكم
+  // ===========================================================================
 
   const handleRefresh = useCallback(() => {
     // تنظيف البيانات السابقة
@@ -139,7 +583,7 @@ export default function FamilyTreeAdvanced() {
       setSimpleTreeData(null);
       loadSimpleTree();
     }
-  }, [showExtendedTree]);
+  }, [showExtendedTree, loadExtendedTree, loadSimpleTree]);
 
   const handleTreeTypeToggle = useCallback((event) => {
     const newValue = event.target.checked;
@@ -154,7 +598,7 @@ export default function FamilyTreeAdvanced() {
     } else {
       showSnackbar('✅ تحويل للشجرة العادية', 'info');
     }
-  }, [showSnackbar, extendedTreeData]);
+  }, [showSnackbar, extendedTreeData, loadExtendedTree]);
 
   // ===========================================================================
   // دالة رسم الشجرة
@@ -375,459 +819,74 @@ export default function FamilyTreeAdvanced() {
 
   }, [showExtendedTree, handleNodeClick, buildFullName, searchQuery]);
 
-  // مراقبة الأداء
-  const monitorPerformance = useCallback((metrics) => {
-    setPerformanceMetrics(prev => ({
-      ...prev,
-      ...metrics
-    }));
+  // دالة البحث المحلية
+  const performSearch = useCallback((query) => {
+    console.log('🔍 بحث محلي عن:', query);
     
-    if (metrics.personCount > 50) {
-      showSnackbar(`✅ تم تحميل ${metrics.personCount} شخص بنجاح`, 'success');
+    if (!query || query.trim().length < 2) {
+      setSearchResults([]);
+      return [];
     }
+
+    const treeData = showExtendedTree ? extendedTreeData : simpleTreeData;
+    if (!treeData) {
+      console.warn('❌ لا توجد بيانات شجرة للبحث فيها');
+      return [];
+    }
+
+    const results = [];
+    const normalizedQuery = query.toLowerCase().trim();
     
-    if (metrics.familyCount > 1) {
-      showSnackbar(`🏛️ تم ربط ${metrics.familyCount} عائلة`, 'info');
-    }
-  }, [showSnackbar]);
-
-  // ===========================================================================
-  // تحميل الشجرة العادية
-  // ===========================================================================
-
-  const loadSimpleTree = useCallback(async () => {
-    if (!uid) {
-      return;
-    }
+    console.log('📊 البحث في بيانات الشجرة...');
     
-    setLoading(true);
-    setLoadingStage('تحميل عائلتك...');
-    setLoadingProgress(0);
-
-    try {
-      const familySnapshot = await getDocs(collection(db, 'users', uid, 'family'));
-      const familyMembers = [];
+    function searchInNode(node, depth = 0) {
+      if (!node) return;
       
-      setLoadingProgress(30);
+      // استخراج البيانات من مصادر متعددة
+      const name = node.name || node.attributes?.name || '';
+      const firstName = node.attributes?.firstName || '';
+      const relation = node.attributes?.relation || node.relation || '';
       
-      familySnapshot.forEach(doc => {
-        const memberData = sanitizeMemberData({ 
-          ...doc.data(), 
-          id: doc.id,
-          globalId: `${uid}_${doc.id}`,
-          familyUid: uid
+      console.log(`  فحص: ${name} (${relation})`);
+      
+      // فحص التطابق في الاسم
+      if (name.toLowerCase().includes(normalizedQuery) || 
+          firstName.toLowerCase().includes(normalizedQuery)) {
+        results.push({
+          node: node,
+          type: 'name',
+          score: 3,
+          depth: depth
         });
-        
-        if (memberData.firstName && memberData.firstName.trim() !== '') {
-          familyMembers.push(memberData);
-        }
-      });
-
-      setLoadingProgress(60);
-      setLoadingStage('بناء الشجرة...');
-
-      const treeData = buildSimpleTreeStructure(familyMembers);
-      
-      setLoadingProgress(100);
-      setLoadingStage('اكتمل التحميل');
-      
-      setSimpleTreeData(treeData);
-      
-      // تسجيل مقاييس الأداء
-      monitorPerformance({
-        personCount: familyMembers.length,
-        maxDepthReached: 2,
-        familyCount: 1,
-        loadTime: 1000
-      });
-      
-      showSnackbar(`✅ تم تحميل عائلتك: ${familyMembers.length} أفراد`, 'success');
-
-      // تم حذف استدعاء resetView التلقائي بعد التحميل بناءً على طلب المستخدم
-
-    } catch {
-      setError('فشل في تحميل الشجرة');
-      showSnackbar('❌ فشل في تحميل الشجرة', 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [uid, showSnackbar, monitorPerformance]);
-
-  const buildSimpleTreeStructure = (familyMembers) => {
-    if (!familyMembers || familyMembers.length === 0) {
-      return null;
-    }
-
-    const head = findFamilyHead(familyMembers);
-    if (!head) {
-      return null;
-    }
-
-    const rootNode = {
-      name: buildFullName(head),
-      id: head.globalId,
-      avatar: head.avatar || null,
-      attributes: {
-        ...head,
-        isCurrentUser: true,
-        treeType: 'simple',
-        isExtended: false
-      },
-      children: []
-    };
-
-    const children = familyMembers.filter(m => 
-      (m.relation === 'ابن' || m.relation === 'بنت' || m.relation === 'child') && 
-      m.globalId !== head.globalId
-    );
-
-    children.forEach(child => {
-      rootNode.children.push({
-        name: buildFullName(child),
-        id: child.globalId,
-        avatar: child.avatar || null,
-        attributes: {
-          ...child,
-          treeType: 'simple',
-          isExtended: false
-        },
-        children: []
-      });
-    });
-
-    return rootNode;
-  };
-
-  // ===========================================================================
-  // 🔥 تحميل الشجرة الموسعة الحقيقية
-  // ===========================================================================
-
-  const loadExtendedTree = useCallback(async () => {
-    if (!uid) return;
-
-    const startTime = Date.now();
-    setLoading(true);
-    setLoadingStage('البحث عن العائلات المرتبطة...');
-    setLoadingProgress(0);
-
-    try {
-      // الخطوة 1: تحميل عائلتك
-      setLoadingProgress(10);
-      const myFamilyData = await loadFamilyData(uid);
-      
-      // الخطوة 2: البحث عن العائلات المرتبطة
-      setLoadingProgress(30);
-      setLoadingStage('البحث عن الروابط...');
-      const allLinkedFamilies = await findAllLinkedFamilies(uid);
-      
-      // الخطوة 3: تحميل بيانات جميع العائلات
-      setLoadingProgress(50);
-      setLoadingStage('تحميل بيانات العائلات...');
-      const allFamiliesData = [];
-      
-      // إضافة عائلتك
-      if (myFamilyData && myFamilyData.members.length > 0) {
-        allFamiliesData.push(myFamilyData);
-      }
-      
-      // إضافة العائلات المرتبطة
-      for (const familyUid of allLinkedFamilies) {
-        if (familyUid !== uid) {
-          try {
-            const familyData = await loadFamilyData(familyUid);
-            if (familyData && familyData.members.length > 0) {
-              allFamiliesData.push(familyData);
-            }
-          } catch {
-            // تعذر تحميل العائلة - متابعة صامتة
-          }
-        }
-      }
-      
-      setLoadingProgress(70);
-      setLoadingStage('بناء الشجرة الموسعة...');
-      
-      // الخطوة 4: بناء الشجرة الموسعة
-      const extendedTree = buildExtendedTreeStructure(allFamiliesData, uid);
-      
-      setLoadingProgress(90);
-      setLoadingStage('تحسين الشجرة...');
-      
-      // الخطوة 5: حساب المقاييس
-      const totalPersons = allFamiliesData.reduce((sum, family) => sum + family.members.length, 0);
-      const endTime = Date.now();
-      
-      monitorPerformance({
-        personCount: totalPersons,
-        familyCount: allFamiliesData.length,
-        maxDepthReached: calculateTreeDepth(extendedTree),
-        loadTime: endTime - startTime
-      });
-      
-      setLoadingProgress(100);
-      setLoadingStage('اكتمل التحميل الموسع');
-      
-      setExtendedTreeData(extendedTree);
-      
-      showSnackbar(`🏛️ تم تحميل ${allFamiliesData.length} عائلة بـ ${totalPersons} شخص`, 'success');
-
-      // تم حذف استدعاء resetView التلقائي بعد التحميل الموسع بناءً على طلب المستخدم
-
-    } catch {
-      setError('فشل في تحميل الشجرة الموسعة');
-      showSnackbar('❌ فشل في تحميل الشجرة الموسعة', 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [uid, showSnackbar, monitorPerformance]);
-
-  // دالة تحميل بيانات عائلة واحدة
-  const loadFamilyData = async (familyUid) => {
-    try {
-      const familySnapshot = await getDocs(collection(db, 'users', familyUid, 'family'));
-      const members = [];
-      
-      familySnapshot.forEach(doc => {
-        const memberData = sanitizeMemberData({ 
-          ...doc.data(), 
-          id: doc.id,
-          globalId: `${familyUid}_${doc.id}`,
-          familyUid: familyUid,
-          isExtended: familyUid !== uid // تمييز العائلات الخارجية
+        console.log(`  ✅ مطابقة اسم: ${name}`);
+      } 
+      // فحص التطابق في العلاقة
+      else if (relation.toLowerCase().includes(normalizedQuery)) {
+        results.push({
+          node: node,
+          type: 'relation', 
+          score: 2,
+          depth: depth
         });
-        
-        if (memberData.firstName && memberData.firstName.trim() !== '') {
-          members.push(memberData);
-        }
-      });
-
-      if (members.length > 0) {
-        const head = findFamilyHead(members);
-        
-        return {
-          uid: familyUid,
-          members,
-          head,
-          isExtended: familyUid !== uid
-        };
+        console.log(`  ✅ مطابقة علاقة: ${relation}`);
       }
       
-      return null;
-    } catch {
-      return null;
-    }
-  };
-
-  // دالة البحث عن جميع العائلات المرتبطة
-  const findAllLinkedFamilies = async (startUid) => {
-    try {
-      const linkedFamilyUids = new Set([startUid]);
-      
-      // البحث في بيانات المستخدم الحالي
-      const userDoc = await getDoc(doc(db, 'users', startUid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        
-        // إضافة العائلات من linkedFamilies
-        if (userData.linkedFamilies && Array.isArray(userData.linkedFamilies)) {
-          userData.linkedFamilies.forEach(link => {
-            if (link.targetFamilyUid) {
-              linkedFamilyUids.add(link.targetFamilyUid);
-            }
-          });
-        }
-        
-        // إضافة العائلة الرئيسية إن وجدت
-        if (userData.linkedToFamilyHead) {
-          linkedFamilyUids.add(userData.linkedToFamilyHead);
-        }
+      // البحث في الأطفال
+      if (node.children && Array.isArray(node.children)) {
+        node.children.forEach(child => searchInNode(child, depth + 1));
       }
-      
-      // البحث في جميع المستخدمين عن روابط معكوسة
-      const allUsersSnapshot = await getDocs(collection(db, 'users'));
-      allUsersSnapshot.forEach(userDoc => {
-        const userData = userDoc.data();
-        const userId = userDoc.id;
-        
-        // إذا كان مرتبط بعائلتك
-        if (userData.linkedToFamilyHead === startUid) {
-          linkedFamilyUids.add(userId);
-        }
-        
-        // إذا كان لديه روابط معك
-        if (userData.linkedFamilies && Array.isArray(userData.linkedFamilies)) {
-          userData.linkedFamilies.forEach(link => {
-            if (link.targetFamilyUid === startUid) {
-              linkedFamilyUids.add(userId);
-            }
-          });
-        }
-      });
-      
-      const result = Array.from(linkedFamilyUids);
-      return result;
-      
-    } catch {
-      return [startUid]; // إرجاع العائلة الحالية فقط في حالة الخطأ
-    }
-  };
-
-  // دالة بناء الشجرة الموسعة
-  const buildExtendedTreeStructure = (allFamiliesData, rootFamilyUid) => {
-    if (!allFamiliesData || allFamiliesData.length === 0) {
-      return null;
-    }
-
-    // العثور على العائلة الجذر
-    const rootFamily = allFamiliesData.find(f => f.uid === rootFamilyUid) || allFamiliesData[0];
-    if (!rootFamily || !rootFamily.head) {
-      return null;
-    }
-
-    // بناء العقدة الجذر
-    const rootNode = {
-      name: buildFullName(rootFamily.head),
-      id: rootFamily.head.globalId,
-      avatar: rootFamily.head.avatar || null,
-      attributes: {
-        ...rootFamily.head,
-        isCurrentUser: true,
-        treeType: 'extended',
-        isExtended: false,
-        familyName: 'عائلتك'
-      },
-      children: []
-    };
-
-    // إضافة أطفال العائلة الجذر
-    const rootChildren = rootFamily.members.filter(m => 
-      (m.relation === 'ابن' || m.relation === 'بنت') && 
-      m.globalId !== rootFamily.head.globalId
-    );
-
-    rootChildren.forEach(child => {
-      const childNode = {
-        name: buildFullName(child),
-        id: child.globalId,
-        avatar: child.avatar || null,
-        attributes: {
-          ...child,
-          treeType: 'extended',
-          isExtended: false,
-          familyName: 'عائلتك'
-        },
-        children: []
-      };
-
-      // البحث عن أطفال هذا الشخص في العائلات الأخرى
-      const childFamily = allFamiliesData.find(f => 
-        f.uid !== rootFamilyUid && 
-        f.head && 
-        buildFullName(f.head) === buildFullName(child)
-      );
-
-      if (childFamily) {
-        const grandChildren = childFamily.members.filter(m => 
-          (m.relation === 'ابن' || m.relation === 'بنت') &&
-          m.globalId !== childFamily.head.globalId
-        );
-
-        grandChildren.forEach(grandChild => {
-          childNode.children.push({
-            name: buildFullName(grandChild),
-            id: grandChild.globalId,
-            avatar: grandChild.avatar || null,
-            attributes: {
-              ...grandChild,
-              treeType: 'extended',
-              isExtended: true,
-              familyName: `عائلة ${buildFullName(child)}`
-            },
-            children: []
-          });
-        });
-      }
-
-      rootNode.children.push(childNode);
-    });
-
-    // إضافة العائلات المرتبطة كأشقاء
-    const otherFamilies = allFamiliesData.filter(f => 
-      f.uid !== rootFamilyUid && 
-      f.head &&
-      !rootChildren.some(child => buildFullName(child) === buildFullName(f.head))
-    );
-
-    otherFamilies.forEach(family => {
-      const familyNode = {
-        name: buildFullName(family.head),
-        id: family.head.globalId,
-        avatar: family.head.avatar || null,
-        attributes: {
-          ...family.head,
-          treeType: 'extended',
-          isExtended: true,
-          familyName: `عائلة ${buildFullName(family.head)}`
-        },
-        children: []
-      };
-
-      // إضافة أطفال هذه العائلة
-      const familyChildren = family.members.filter(m => 
-        (m.relation === 'ابن' || m.relation === 'بنت') && 
-        m.globalId !== family.head.globalId
-      );
-
-      familyChildren.forEach(child => {
-        familyNode.children.push({
-          name: buildFullName(child),
-          id: child.globalId,
-          avatar: child.avatar || null,
-          attributes: {
-            ...child,
-            treeType: 'extended',
-            isExtended: true,
-            familyName: `عائلة ${buildFullName(family.head)}`
-          },
-          children: []
-        });
-      });
-
-      rootNode.children.push(familyNode);
-    });
-
-    return rootNode;
-  };
-
-  // دالة حساب عمق الشجرة
-  const calculateTreeDepth = (node, currentDepth = 0) => {
-    if (!node || !node.children || node.children.length === 0) {
-      return currentDepth;
     }
     
-    let maxDepth = currentDepth;
-    node.children.forEach(child => {
-      const childDepth = calculateTreeDepth(child, currentDepth + 1);
-      maxDepth = Math.max(maxDepth, childDepth);
-    });
+    searchInNode(treeData);
     
-    return maxDepth;
-  };
-
-  const loadLinkedFamilies = useCallback(async () => {
-    if (!uid) return;
+    // ترتيب النتائج
+    results.sort((a, b) => b.score - a.score || a.depth - b.depth);
     
-    try {
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const linked = userData.linkedFamilies || [];
-        setLinkedFamilies(linked);
-      }
-    } catch {
-      // خطأ صامت في تحميل العائلات المرتبطة
-    }
-  }, [uid]);
+    console.log(`📊 تم العثور على ${results.length} نتيجة`);
+    
+    setSearchResults(results);
+    return results;
+  }, [showExtendedTree, extendedTreeData, simpleTreeData]);
 
   // ===========================================================================
   // تأثيرات ودورة الحياة
@@ -841,7 +900,7 @@ export default function FamilyTreeAdvanced() {
 
     loadSimpleTree();
     loadLinkedFamilies();
-  }, [uid, navigate, loadSimpleTree, loadLinkedFamilies, loadExtendedTree]);
+  }, [uid, navigate, loadSimpleTree, loadLinkedFamilies]);
 
   useEffect(() => {
     if (!uid) return;
@@ -865,89 +924,19 @@ export default function FamilyTreeAdvanced() {
 
   // تنظيف عند إلغاء التحميل
   useEffect(() => {
+    const currentReactRoots = reactRootsRef.current;
     return () => {
-        const localReactRoots = reactRootsRef.current;
-        localReactRoots.forEach(root => {
-            try {
-                root.unmount();
-            } catch {
-                // Silent cleanup
-            }
-        });
-        localReactRoots.clear();
+      currentReactRoots.forEach(root => {
+        try {
+          root.unmount();
+        } catch {
+          // Silent cleanup
+        }
+      });
+      currentReactRoots.clear();
     };
   }, []);
 
-  // دالة البحث المحلية
-  const performSearch = useCallback((query) => {
-  console.log('🔍 بحث محلي عن:', query);
-  
-  if (!query || query.trim().length < 2) {
-    setSearchResults([]);
-    return [];
-  }
-
-  const treeData = showExtendedTree ? extendedTreeData : simpleTreeData;
-  if (!treeData) {
-    console.warn('❌ لا توجد بيانات شجرة للبحث فيها');
-    return [];
-  }
-
-  const results = [];
-  const normalizedQuery = query.toLowerCase().trim();
-  
-  console.log('📊 البحث في بيانات الشجرة...');
-  
-  function searchInNode(node, depth = 0) {
-    if (!node) return;
-    
-    // استخراج البيانات من مصادر متعددة
-    const name = node.name || node.attributes?.name || '';
-    const firstName = node.attributes?.firstName || '';
-    const relation = node.attributes?.relation || node.relation || '';
-    
-    console.log(`  فحص: ${name} (${relation})`);
-    
-    // فحص التطابق في الاسم
-    if (name.toLowerCase().includes(normalizedQuery) || 
-        firstName.toLowerCase().includes(normalizedQuery)) {
-      results.push({
-        node: node,
-        type: 'name',
-        score: 3,
-        depth: depth
-      });
-      console.log(`  ✅ مطابقة اسم: ${name}`);
-    } 
-    // فحص التطابق في العلاقة
-    else if (relation.toLowerCase().includes(normalizedQuery)) {
-      results.push({
-        node: node,
-        type: 'relation', 
-        score: 2,
-        depth: depth
-      });
-      console.log(`  ✅ مطابقة علاقة: ${relation}`);
-    }
-    
-    // البحث في الأطفال
-    if (node.children && Array.isArray(node.children)) {
-      node.children.forEach(child => searchInNode(child, depth + 1));
-    }
-  }
-  
-  searchInNode(treeData);
-  
-  // ترتيب النتائج
-  results.sort((a, b) => b.score - a.score || a.depth - b.depth);
-  
-  console.log(`📊 تم العثور على ${results.length} نتيجة`);
-  
-  setSearchResults(results);
-  return results;
-}, [showExtendedTree, extendedTreeData, simpleTreeData]);
-  
-  
   // ===========================================================================
   // واجهة المستخدم
   // ===========================================================================
