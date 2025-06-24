@@ -9,7 +9,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // إصلاح تحذيرات process
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
 
-
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
@@ -20,7 +19,7 @@ export default defineConfig({
 
   define: {
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
-    'process.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL) // Add other required variables explicitly
+    'process.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL)
   },
 
   // إعدادات الخادم
@@ -36,7 +35,7 @@ export default defineConfig({
     }
   },
   
-  // إعدادات البناء
+  // إعدادات البناء - مع إصلاحات مشكلة MUI
   build: {
     outDir: resolve(__dirname, 'dist'),
     assetsDir: 'assets',
@@ -51,19 +50,45 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
+          // تجميع React في chunk منفصل
           'react-vendor': ['react', 'react-dom'],
-          'mui-vendor': ['@mui/material', '@mui/icons-material'],
-          'firebase-vendor': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
-          'heavy-components': ['react-d3-tree', 'html2canvas']
+          // تجميع جميع MUI في chunk واحد بدلاً من تقسيمه
+          'mui-vendor': [
+            '@mui/material', 
+            '@mui/icons-material',
+            '@emotion/react',
+            '@emotion/styled'
+          ],
+          // Firebase في chunk منفصل
+          'firebase-vendor': [
+            'firebase/app', 
+            'firebase/auth', 
+            'firebase/firestore', 
+            'firebase/storage'
+          ],
+          // مكتبات ثقيلة منفصلة
+          'visualization': ['d3'],
+          'heavy-components': ['html2canvas']
+        },
+        // تحسين حجم الـ chunks
+        chunkFileNames: (chunkInfo) => {
+          const facadeModuleId = chunkInfo.facadeModuleId ? chunkInfo.facadeModuleId.split('/').pop() : 'chunk';
+          return `js/${facadeModuleId}-[hash].js`;
         }
-      }
+      },
+      // تحديد حد أقصى للملفات المفتوحة في نفس الوقت
+      maxParallelFileOps: 5
     },
     assetsInlineLimit: 4096,
     chunkSizeWarningLimit: 1000,
-    cssCodeSplit: true
+    cssCodeSplit: true,
+    // تحسين استخدام الذاكرة أثناء البناء
+    reportCompressedSize: false,
+    // تقليل عدد العمليات المتوازية
+    target: 'esnext'
   },
   
-  // إعدادات الحل والاستيراد - مُصححة
+  // إعدادات الحل والاستيراد
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
@@ -72,7 +97,6 @@ export default defineConfig({
       '@hooks': resolve(__dirname, 'src/hooks'),
       '@utils': resolve(__dirname, 'src/utils'),
       '@contexts': resolve(__dirname, 'src/contexts')
-      // إزالة alias للـ firebase لتجنب التضارب
     },
     extensions: ['.js', '.jsx', '.ts', '.tsx', '.json']
   },
@@ -85,28 +109,35 @@ export default defineConfig({
     }
   },
   
-  // تحسينات الأداء - مُصححة
+  // تحسينات الأداء - مع تحسينات MUI
   optimizeDeps: {
     include: [
       'react',
       'react-dom',
       'react-router-dom',
-      '@mui/material',
-      '@mui/icons-material',
+      // تحسين MUI
+      '@mui/material/Unstable_Grid2',
+      '@mui/material/colors',
       '@emotion/react',
-      '@emotion/styled'
+      '@emotion/styled',
+      'd3'
     ],
     exclude: [
-      'firebase'  // استبعاد Firebase من التحسين المسبق لتجنب المشاكل
+      'firebase'
     ],
-    // تجبر Vite على إعادة تحسين التبعيات
-    force: true
+    // تقليل عدد العمليات المتوازية للتحسين المسبق
+    force: true,
+    // تحديد عدد العمليات المتوازية
+    esbuildOptions: {
+      target: 'esnext'
+    }
   },
   
   // إعدادات التطوير المتقدمة
   esbuild: {
     jsxFactory: 'React.createElement',
-    jsxFragment: 'React.Fragment'
+    jsxFragment: 'React.Fragment',
+    target: 'esnext'
   },
   
   logLevel: 'info',
