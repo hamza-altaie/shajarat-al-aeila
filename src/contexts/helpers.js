@@ -7,7 +7,7 @@ export function useAdvancedSearch(initialQuery = '', delay = 500) {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (debouncedQuery.trim().length >= 2) {
-        console.log(`Searching for: ${debouncedQuery}`); // Example usage
+        // Removed console.log(`Searching for: ${debouncedQuery}`)
       }
     }, delay);
 
