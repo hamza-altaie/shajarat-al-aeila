@@ -919,7 +919,9 @@ export default function FamilyTreeAdvanced() {
     return () => {
       currentReactRoots.forEach(root => {
         try {
-          root.unmount();
+          if (!ReactDOM.unstable_isNewReconciler) {
+            root.unmount();
+          }
         } catch {
           // Silent cleanup
         }
