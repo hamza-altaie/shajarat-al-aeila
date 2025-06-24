@@ -8,8 +8,9 @@
 - إدارة أفراد العائلة (إضافة، تعديل، حذف)
 - عرض شجرة العائلة بشكل رسومي تفاعلي وجذاب (D3.js)
 - حماية الصفحات بحيث لا يمكن الوصول إلا بعد التحقق
-- دعم البحث عن الأفراد
+- دعم البحث عن الأفراد مع تحسينات البحث والزووم
 - دعم PWA (تشغيل دون اتصال)
+- تحسينات الأداء والأنيميشن للشجرة العائلية
 
 ## 🔧 المتطلبات
 - Node.js 18.0.0 أو أحدث
@@ -48,38 +49,58 @@ yarn dev
 src/
 ├── App.jsx                # المكون الرئيسي
 ├── AppRoutes.jsx          # تعريف المسارات
-├── AuthContext.jsx        # سياق المصادقة
-├── main.jsx               # نقطة دخول التطبيق
+├── AuthContext.jsx        # إدارة المصادقة
+├── main.jsx               # نقطة الدخول للتطبيق
 ├── ProtectedRoute.jsx     # حماية المسارات
-│
-├── components/            # مكونات واجهة المستخدم
+├── userService.js         # خدمات المستخدم
+├── contexts/              # السياقات المشتركة
+│   ├── AuthContext.js
+│   ├── FamilyTreeContext.jsx
+│   ├── FamilyTreeHelpers.js
+│   ├── helpers.js
+│   ├── sharedConstants.js
+│   ├── sharedFunctions.js
+│   ├── sharedHooks.js
+│   └── helpers/
+│       └── useSmartCache.js
+├── components/            # المكونات التفاعلية
 │   ├── AdvancedFamilyFeatures.jsx
 │   ├── ExtendedFamilyLinking.jsx
 │   ├── FamilySelectionPage.jsx
-│   ├── FamilyTreeAdvanced.jsx
 │   ├── FamilyTreeAdvanced.css
-│   └── ModernFamilyNodeHTML.jsx
-│
-├── pages/                 # صفحات التطبيق
+│   ├── FamilyTreeAdvanced.jsx
+│   ├── ModernFamilyNodeHTML.jsx
+│   ├── SearchBar.jsx
+├── pages/                 # الصفحات الرئيسية
 │   ├── Family.jsx
 │   ├── FamilySelection.jsx
 │   ├── FamilyTree.jsx
 │   ├── PhoneLogin.jsx
 │   └── PrivacyPolicy.jsx
-│
+├── firebase/              # إعدادات Firebase
+│   ├── auth.js
+│   └── config.js
 ├── hooks/                 # React Hooks مخصصة
+│   ├── authHooks.js
 │   ├── useAdvancedFamilyGraph.js
-│   └── usePhoneAuth.js
-│
+│   ├── usePhoneAuth.js
+│   └── useSearchZoom.js
 ├── utils/                 # أدوات مساعدة
 │   └── AdvancedFamilyGraph.js
-│
-├── contexts/              # React Contexts
-│   └── FamilyTreeContext.jsx
-│
-├── firebase/              # إعدادات Firebase
-│   ├── config.js
-│   └── auth.js
+public/
+├── index.html             # ملف HTML الرئيسي
+├── manifest.json          # ملف المانيفست للتطبيق
+├── sw.js                  # Service Worker
+├── tree-bg.png            # صورة الخلفية للشجرة
+├── icons/                 # أيقونات التطبيق
+│   ├── boy.png
+│   ├── girl.png
+│   └── logo.png
+functions/
+├── index.js               # وظائف Firebase
+├── package.json           # إعدادات الوظائف
+firestore-rules/
+├── firestore.rules        # قواعد Firestore
 ```
 
 ## 🚀 البناء والنشر
