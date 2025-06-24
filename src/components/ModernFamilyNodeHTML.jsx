@@ -75,8 +75,42 @@ const ModernFamilyNodeHTML = ({
         {nodeDatum.avatar ? (
           <img src={nodeDatum.avatar} alt={nodeDatum.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
         ) : (
-          <span style={{ fontSize: 22, color: colors.primary }}>👤</span>
+          /* أفاتار PNG من مكتبة المشروع */
+          <img 
+            src={nodeDatum.gender === 'female' || 
+                 nodeDatum.relation === 'بنت' || 
+                 nodeDatum.relation === 'ابنة' || 
+                 nodeDatum.relation === 'الزوجة' || 
+                 nodeDatum.relation === 'ربة العائلة' 
+                 ? '/icons/girl.png'    // صورة البنت من مجلد icons
+                 : '/icons/boy.png'     // صورة الولد من مجلد icons
+                } 
+            alt={nodeDatum.name || 'أفاتار'} 
+            style={{ 
+              width: '100%', 
+              height: '100%', 
+              objectFit: 'cover', 
+              borderRadius: '50%' 
+            }} 
+            onError={(e) => {
+              // في حالة فشل تحميل الصورة، استخدم أيقونة احتياطية
+              e.target.style.display = 'none';
+              e.target.nextElementSibling.style.display = 'block';
+            }}
+          />
         )}
+        {/* أيقونة احتياطية في حالة فشل تحميل الصورة */}
+        <span style={{ 
+          fontSize: 22, 
+          color: colors.primary,
+          display: 'none' // مخفية افتراضياً
+        }}>
+          {nodeDatum.gender === 'female' || 
+           nodeDatum.relation === 'بنت' || 
+           nodeDatum.relation === 'ابنة' || 
+           nodeDatum.relation === 'الزوجة' || 
+           nodeDatum.relation === 'ربة العائلة' ? '👩' : '👨'}
+        </span>
       </div>
       {/* معلومات */}
       <div style={{ flex: 1, minWidth: 0 }}>
