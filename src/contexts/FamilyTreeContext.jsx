@@ -655,20 +655,6 @@ export function FamilyTreeProvider({ children }) {
     </FamilyTreeContext.Provider>
   );
 }
-
-// ====================================================
-// 🪝 Hook للاستخدام
-// ====================================================
-export function useFamilyTree() {
-  const context = useContext(FamilyTreeContext);
-  
-  if (!context) {
-    throw new Error('useFamilyTree must be used within a FamilyTreeProvider');
-  }
-  
-  return context;
-}
-
 // ====================================================
 // 🎯 Hooks متخصصة للأداء
 // ====================================================

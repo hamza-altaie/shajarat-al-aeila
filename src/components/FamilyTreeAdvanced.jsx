@@ -959,7 +959,32 @@ export default function FamilyTreeAdvanced() {
           fontFamily: 'Cairo, sans-serif'
         }}
       >
-        {currentTreeData ? (
+        {error ? (
+          <Box
+            display="flex"
+            flexDirection="column"
+            justifyContent="center"
+            alignItems="center"
+            height="100%"
+            sx={{ color: '#ef4444', textAlign: 'center' }}
+          >
+            <Warning sx={{ fontSize: 80, mb: 2 }} />
+            <Typography variant="h5" sx={{ mb: 2, fontFamily: 'Cairo, sans-serif' }}>
+              حدث خطأ في التحميل
+            </Typography>
+            <Typography variant="body1" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+              {error}
+            </Typography>
+            <Button 
+              variant="contained" 
+              onClick={handleRefresh}
+              startIcon={<Refresh />}
+              sx={{ fontFamily: 'Cairo, sans-serif' }}
+            >
+              إعادة المحاولة
+            </Button>
+          </Box>
+        ) : currentTreeData ? (
           <svg
             ref={svgRef}
             width="100%"
