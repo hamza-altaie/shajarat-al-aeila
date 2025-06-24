@@ -539,9 +539,6 @@ useEffect(() => {
           </Box>
           
           <Box flex={1} textAlign={{ xs: 'center', sm: 'left' }}>
-            <Typography variant="h6" fontWeight="bold" gutterBottom>
-              صورة العضو
-            </Typography>
             <Button
               variant="outlined"
               component="label"
