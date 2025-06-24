@@ -1,11 +1,10 @@
-import React, { createContext, useContext, useReducer, useEffect, useCallback, useMemo, useState } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useMemo } from 'react';
 import { 
   collection, onSnapshot, doc, getDoc, setDoc, updateDoc, deleteDoc,
   query, orderBy, getDocs
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { useSmartCache } from './helpers/useSmartCache';
 
 // =======================================================
 // 🏗️ نظام إدارة الحالة المتقدم لشجرة العائلة
@@ -656,10 +655,14 @@ export function FamilyTreeProvider({ children }) {
   );
 }
 // ====================================================
-// 🎯 Hooks متخصصة للأداء
+// 🪝 Hook للاستخدام
 // ====================================================
-
-// Hook للذاكرة المؤقتة الذكية
-export function useSmartCache(key, fetchFunction, ttl = 300000) { // 5 minutes default
-  throw new Error('Duplicate declaration of useSmartCache. Please use the imported version from helpers/useSmartCache.js');
+export function useFamilyTree() {
+  const context = useContext(FamilyTreeContext);
+  
+  if (!context) {
+    throw new Error('useFamilyTree must be used within a FamilyTreeProvider');
+  }
+  
+  return context;
 }
