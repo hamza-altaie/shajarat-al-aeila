@@ -822,7 +822,6 @@ export default function FamilyTreeAdvanced() {
 
   // دالة البحث المحلية
   const performSearch = useCallback((query) => {
-    console.log('🔍 بحث محلي عن:', query);
     
     if (!query || query.trim().length < 2) {
       setSearchResults([]);
@@ -838,8 +837,6 @@ export default function FamilyTreeAdvanced() {
     const results = [];
     const normalizedQuery = query.toLowerCase().trim();
     
-    console.log('📊 البحث في بيانات الشجرة...');
-    
     function searchInNode(node, depth = 0) {
       if (!node) return;
       
@@ -847,8 +844,6 @@ export default function FamilyTreeAdvanced() {
       const name = node.name || node.attributes?.name || '';
       const firstName = node.attributes?.firstName || '';
       const relation = node.attributes?.relation || node.relation || '';
-      
-      console.log(`  فحص: ${name} (${relation})`);
       
       // فحص التطابق في الاسم
       if (name.toLowerCase().includes(normalizedQuery) || 
@@ -859,7 +854,6 @@ export default function FamilyTreeAdvanced() {
           score: 3,
           depth: depth
         });
-        console.log(`  ✅ مطابقة اسم: ${name}`);
       } 
       // فحص التطابق في العلاقة
       else if (relation.toLowerCase().includes(normalizedQuery)) {
@@ -869,7 +863,6 @@ export default function FamilyTreeAdvanced() {
           score: 2,
           depth: depth
         });
-        console.log(`  ✅ مطابقة علاقة: ${relation}`);
       }
       
       // البحث في الأطفال
@@ -882,9 +875,6 @@ export default function FamilyTreeAdvanced() {
     
     // ترتيب النتائج
     results.sort((a, b) => b.score - a.score || a.depth - b.depth);
-    
-    console.log(`📊 تم العثور على ${results.length} نتيجة`);
-    
     setSearchResults(results);
     return results;
   }, [showExtendedTree, extendedTreeData, simpleTreeData]);
@@ -1222,17 +1212,12 @@ export default function FamilyTreeAdvanced() {
                     <Box
                       key={index}
                       onClick={() => {
-                        console.log('🖱️ تم النقر على النتيجة:', result);
-                        
                         const nodeName = result.node?.name || 
                                         result.node?.data?.name || 
                                         result.node?.attributes?.name || 
                                         result.name || '';
                         
                         if (nodeName) {
-                          console.log('🎯 تشغيل الزووم فوراً لـ:', nodeName);
-                          
-                          // تنفيذ الزووم أولاً
                           searchZoomHook.searchAndZoom(nodeName);
                           
                           // ثانياً: تحديث حالة البحث بعد تأخير قصير
