@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as d3 from 'd3';
 import { createRoot } from 'react-dom/client';
+import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Button, Typography, Alert, Snackbar, CircularProgress, 
