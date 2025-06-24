@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useReducer, useEffect, useCallback, useMemo } from 'react';
 import { 
   collection, onSnapshot, doc, getDoc, setDoc, updateDoc, deleteDoc,
@@ -345,7 +346,8 @@ export function FamilyTreeProvider({ children }) {
     } finally {
       dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
     }
-  }, []);
+    }, [startRealtimeListeners]);
+ 
   
   const updateUserSettings = useCallback(async (settings) => {
     try {
