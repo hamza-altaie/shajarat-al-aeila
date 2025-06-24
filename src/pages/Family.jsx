@@ -489,12 +489,6 @@ useEffect(() => {
   setFilteredMembers(sortedMembers);
 }, [search, members]);
 
-  // تسجيل حالة البحث والأعضاء المصفاة
-  useEffect(() => {
-    console.log('🔍 حالة البحث:', search);
-    console.log('👥 الأعضاء المصفاة:', filteredMembers);
-  }, [search, filteredMembers]);
-
   // تحميل البيانات عند بداية المكون
   useEffect(() => {
     if (uid) {
