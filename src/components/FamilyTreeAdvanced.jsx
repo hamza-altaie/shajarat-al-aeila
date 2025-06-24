@@ -1119,11 +1119,11 @@ export default function FamilyTreeAdvanced() {
         )}
         
         <Box display="flex" justifyContent="center" gap={1} flexWrap="wrap" sx={{ mb: 2 }}>
-          <Button variant="outlined" size="small" onClick={() => setShowLinkingPanel(true)} disabled={loading} startIcon={<LinkIcon />}>
-            ربط
+          <Button variant="contained" size="small" onClick={() => navigate('/family')} disabled={loading} startIcon={<PersonAdd />} sx={{ gap: 1 }}>
+            إدارة العائلة
           </Button>
-          <Button variant="contained" size="small" onClick={() => navigate('/family')} disabled={loading} startIcon={<PersonAdd />}>
-            إضافة
+          <Button variant="outlined" size="small" onClick={() => setShowLinkingPanel(true)} disabled={loading} startIcon={<LinkIcon />} sx={{ gap: 1 }}>
+            ربط
           </Button>
           <IconButton size="small" onClick={handleRefresh} disabled={loading} title="إعادة تحميل الصفحة">
             <Refresh />
