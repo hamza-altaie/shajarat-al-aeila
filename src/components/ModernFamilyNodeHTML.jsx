@@ -1,3 +1,4 @@
+// src/components/ModernFamilyNodeHTML.jsx - نسخة مصححة
 import React from 'react';
 
 const ModernFamilyNodeHTML = ({ 
@@ -41,11 +42,11 @@ const ModernFamilyNodeHTML = ({
   return (
     <div
       style={{
-        width: '240px',
-        minWidth: '220px',
-        height: '140px',          // زيادة الارتفاع لاستيعاب الصورة في الأعلى
-        minHeight: '120px',
-        borderRadius: '16px',
+        width: '220px',
+        minWidth: '200px',
+        height: '110px',
+        minHeight: '90px',
+        borderRadius: '14px',
         background: colors.bg,
         border: `2.5px solid ${colors.border}`,
         boxShadow: highlight ? '0 0 0 5px #ffeb3b, 0 4px 18px 2px rgba(0,0,0,0.07)' : '0 4px 18px 2px rgba(0,0,0,0.07)',
@@ -54,9 +55,8 @@ const ModernFamilyNodeHTML = ({
         fontFamily: 'Cairo, sans-serif',
         direction: 'rtl',
         display: 'flex',
-        flexDirection: 'column',   // ترتيب عمودي بدلاً من أفقي
-        alignItems: 'center',     // توسيط أفقي
-        padding: '15px 12px 10px 12px',
+        alignItems: 'center',
+        padding: '10px 12px',
         margin: '12px',
         backgroundClip: 'padding-box',
         overflow: 'visible',
@@ -66,129 +66,35 @@ const ModernFamilyNodeHTML = ({
       onClick={e => { e.stopPropagation(); onNodeClick && onNodeClick(nodeDatum); }}
       className="modern-family-node-html family-node-card"
     >
-      {/* صورة في الأعلى والوسط */}
+      {/* صورة */}
       <div style={{
-        width: 56,                // صورة أكبر
-        height: 56, 
-        borderRadius: '50%', 
-        background: '#f3f4f6', 
-        border: `2px solid ${colors.border}`,
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        marginBottom: 8,          // مسافة تحت الصورة
-        overflow: 'hidden',
-        flexShrink: 0,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+        width: 44, height: 44, borderRadius: '50%', background: '#f3f4f6', border: `1.5px solid ${colors.border}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 10, overflow: 'hidden',
+        flexShrink: 0
       }}>
         {nodeDatum.avatar ? (
-          <img 
-            src={nodeDatum.avatar} 
-            alt={nodeDatum.name} 
-            style={{ 
-              width: '100%', 
-              height: '100%', 
-              objectFit: 'cover', 
-              borderRadius: '50%' 
-            }} 
-          />
+          <img src={nodeDatum.avatar} alt={nodeDatum.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
         ) : (
-          <span style={{ 
-            fontSize: 28,           // أيقونة أكبر
-            color: colors.primary 
-          }}>
-            👤
-          </span>
+          <span style={{ fontSize: 22, color: colors.primary }}>👤</span>
         )}
       </div>
-
-      {/* معلومات تحت الصورة */}
-      <div style={{ 
-        flex: 1, 
-        minWidth: 0, 
-        textAlign: 'center',      // توسيط النص
-        width: '100%'
-      }}>
-        {/* اسم الشخص */}
-        <div style={{ 
-          fontWeight: 700, 
-          fontSize: 14,             // خط أكبر قليلاً
-          color: colors.text, 
-          marginBottom: 4, 
-          whiteSpace: 'nowrap', 
-          overflow: 'hidden', 
-          textOverflow: 'ellipsis',
-          lineHeight: '1.2'
-        }}>
+      {/* معلومات */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: 13, color: colors.text, marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {nodeDatum.name || 'غير محدد'}
         </div>
-
-        {/* نوع القرابة */}
-        <div style={{ 
-          fontSize: 12, 
-          color: colors.subText, 
-          marginBottom: 4, 
-          whiteSpace: 'nowrap', 
-          overflow: 'hidden', 
-          textOverflow: 'ellipsis',
-          fontWeight: 500
-        }}>
+        <div style={{ fontSize: 11, color: colors.subText, marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {nodeDatum.relation || 'عضو'}
         </div>
-
-        {/* معلومات إضافية */}
-        <div style={{ 
-          fontSize: 10, 
-          color: colors.subText, 
-          display: 'flex', 
-          justifyContent: 'center',  // توسيط المعلومات الإضافية
-          gap: 8,
-          flexWrap: 'wrap'
-        }}>
+        <div style={{ fontSize: 10, color: colors.subText, display: 'flex', gap: 8 }}>
           {nodeDatum.age && <span>{nodeDatum.age} سنة</span>}
-          {nodeDatum.phone && (
-            <span style={{ direction: 'ltr' }}>
-              📱 {nodeDatum.phone.substring(0, 8)}...
-            </span>
-          )}
+          {nodeDatum.phone && <span style={{ direction: 'ltr' }}>📱 {nodeDatum.phone.substring(0, 8)}...</span>}
         </div>
       </div>
-
-      {/* شارة عدد الأطفال - في الزاوية العلوية اليسرى */}
+      {/* عدد الأطفال */}
       {nodeDatum.children && nodeDatum.children.length > 0 && (
-        <div style={{ 
-          position: 'absolute', 
-          top: -8,                  // خارج حدود الكارت قليلاً
-          left: 8, 
-          background: '#4caf50',    // لون أخضر للأطفال
-          color: 'white', 
-          borderRadius: 12, 
-          fontSize: 10, 
-          padding: '3px 8px', 
-          border: '2px solid white',
-          fontWeight: 600,
-          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-        }}>
+        <div style={{ position: 'absolute', top: 6, left: 8, background: '#f3f4f6', color: colors.primary, borderRadius: 8, fontSize: 10, padding: '1.5px 6px', border: `1px solid ${colors.border}` }}>
           {nodeDatum.children.length} 👶
-        </div>
-      )}
-
-      {/* شارة العائلة الموسعة - في الزاوية العلوية اليمنى */}
-      {nodeDatum.isExtended && (
-        <div style={{ 
-          position: 'absolute', 
-          top: -8, 
-          right: 8, 
-          background: '#ff5722',    // لون برتقالي للعائلات الموسعة
-          color: 'white', 
-          borderRadius: 12, 
-          fontSize: 9, 
-          padding: '3px 6px', 
-          border: '2px solid white',
-          fontWeight: 600,
-          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-        }}>
-          🔗
         </div>
       )}
     </div>
