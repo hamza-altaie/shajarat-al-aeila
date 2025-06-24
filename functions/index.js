@@ -290,13 +290,6 @@ exports.advancedSearch = onCall(
       // ترتيب حسب الصلة
       processedResults.sort((a, b) => b.relevanceScore - a.relevanceScore);
 
-      // تسجيل النشاط
-      await logActivity(userId, "advanced_search", {
-        query,
-        resultsCount: processedResults.length,
-        filters
-      });
-
       return {
         results: processedResults,
         totalFound: processedResults.length,

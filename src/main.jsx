@@ -238,7 +238,6 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', async () => {
     try {
       const registration = await navigator.serviceWorker.register('/sw.js');
-      console.log('✅ تم تسجيل Service Worker بنجاح:', registration.scope);
       
       registration.addEventListener('updatefound', () => {
         const newWorker = registration.installing;
@@ -257,28 +256,3 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     }
   });
 }
-
-// مراقبة حالة الشبكة
-if (typeof navigator !== 'undefined' && 'onLine' in navigator) {
-  const logNetworkStatus = () => {
-    console.log('🌐 حالة الشبكة:', navigator.onLine ? 'متصل' : 'غير متصل');
-  };
-  
-  window.addEventListener('online', logNetworkStatus);
-  window.addEventListener('offline', logNetworkStatus);
-  logNetworkStatus();
-}
-
-// معلومات التطبيق في Console
-if (import.meta.env.DEV) {
-  console.group('🌳 معلومات التطبيق');
-  console.log('📱 الاسم: تطبيق شجرة العائلة');
-  console.log('🔢 الإصدار: 1.0.0');
-  console.log('🚀 البيئة:', import.meta.env.MODE);
-  console.log('⚛️ React:', React.version);
-  console.log('🎨 المظهر: Material-UI مخصص');
-  console.log('👨‍💻 المطور: فريق شجرة العائلة');
-  console.groupEnd();
-}
-
-console.log('🚀 تم تحميل التطبيق بنجاح!');

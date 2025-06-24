@@ -50,13 +50,11 @@ if (import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true'
     // محاكي Auth
     if (!auth._delegate._config.emulator) {
       connectAuthEmulator(auth, 'http://localhost:9099');
-      console.log('🔧 متصل بمحاكي Firebase Auth');
     }
     
     // محاكي Firestore
     if (!db._delegate._databaseId.projectId.includes('demo-')) {
       connectFirestoreEmulator(db, 'localhost', 8080);
-      console.log('🔧 متصل بمحاكي Firestore');
     }
     
     // محاكي Storage
