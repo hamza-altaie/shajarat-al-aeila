@@ -1243,7 +1243,14 @@ useEffect(() => {
             </Typography>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 3, gap: 1 }}>
+        <DialogActions sx={{ justifyContent: 'center', gap: 2 }}>
+          <Button 
+            onClick={handlePhoneChange}
+            variant="contained"
+            sx={{ borderRadius: 2 }}
+          >
+            تحديث الرقم
+          </Button>
           <Button 
             onClick={() => {
               setPhoneModalOpen(false);
@@ -1253,28 +1260,6 @@ useEffect(() => {
             sx={{ borderRadius: 2 }}
           >
             إلغاء
-          </Button>
-          <Button 
-            onClick={handlePhoneChange}
-            variant="contained"
-            sx={{ 
-              borderRadius: 2,
-              minWidth: { xs: 100, sm: 120 },
-              px: { xs: 2, sm: 3 },
-              py: 1,
-              gap: { xs: 1, sm: 1.5 },
-              fontSize: { xs: '0.875rem', sm: '1rem' },
-              '& .MuiButton-startIcon': {
-                marginLeft: { xs: '8px', sm: '12px' },
-                marginRight: '0px',
-                '& > svg': {
-                  fontSize: { xs: '18px', sm: '20px' }
-                }
-              }
-            }}
-            startIcon={<PhoneIphoneIcon />}
-          >
-            تحديث الرقم
           </Button>
         </DialogActions>
       </Dialog>
