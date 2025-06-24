@@ -600,3 +600,65 @@
 .search-highlight {
   z-index: 1000 !important;
 }
+
+/* منع اختفاء العقد أثناء البحث */
+.family-tree-chart-container .node {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+}
+
+/* ضمان بقاء العقد مرئية أثناء البحث */
+.family-tree-chart-container .node.search-highlight {
+  opacity: 1 !important;
+  visibility: visible !important;
+  z-index: 1000 !important;
+  position: relative !important;
+}
+
+/* منع إخفاء المحتوى */
+.family-tree-chart-container .node foreignObject {
+  overflow: visible !important;
+  pointer-events: auto !important;
+}
+
+.family-tree-chart-container .node foreignObject > div {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+}
+
+/* ضمان عدم اختفاء SVG */
+.family-tree-chart-container svg {
+  opacity: 1 !important;
+  visibility: visible !important;
+  min-height: 400px !important;
+}
+
+/* حماية من الإخفاء العرضي */
+.family-tree-chart-container g {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* تحسين إضافي لمنع الاختفاء */
+.family-tree-chart-container .node.active,
+.family-tree-chart-container .node.selected,
+.family-tree-chart-container .node.search-highlight {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+}
+
+/* تحسين عرض نتائج البحث */
+.search-results-container {
+  position: absolute !important;
+  z-index: 9999 !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+  backdrop-filter: blur(10px) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
+  max-height: 300px !important;
+  overflow-y: auto !important;
+  width: 100% !important;
+}

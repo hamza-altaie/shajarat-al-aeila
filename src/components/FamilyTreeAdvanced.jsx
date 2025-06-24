@@ -68,6 +68,7 @@ export default function FamilyTreeAdvanced() {
   // دوال مساعدة ثابتة
   // ===========================================================================
 
+
   const sanitizeMemberData = (memberData) => {
     return {
       ...memberData,
@@ -1221,22 +1222,25 @@ export default function FamilyTreeAdvanced() {
                     <Box
                       key={index}
                       onClick={() => {
-                        console.log('🖱️ تم النقر على النتيجة المحسنة:', result);
+                        console.log('🖱️ تم النقر على النتيجة:', result);
                         
-                        // تحديث شريط البحث
-                        const nodeName = result.node?.name || result.node?.data?.name || result.node?.attributes?.name || '';
-                        setSearchQuery(nodeName);
+                        const nodeName = result.node?.name || 
+                                        result.node?.data?.name || 
+                                        result.node?.attributes?.name || 
+                                        result.name || '';
                         
-                        // إخفاء النتائج
-                        setSearchResults([]);
-                        
-                        console.log('⏰ بدء الزووم بعد تأخير قصير');
-                        
-                        // تشغيل الزووم مع تأخير قصير
-                        setTimeout(() => {
-                          console.log('🎯 تشغيل handleSearchAndZoom');
-                          searchZoomHook.searchAndZoom(result.node?.name || result.node?.attributes?.name || result.name || '');
-                        }, 150);
+                        if (nodeName) {
+                          console.log('🎯 تشغيل الزووم فوراً لـ:', nodeName);
+                          
+                          // تنفيذ الزووم أولاً
+                          searchZoomHook.searchAndZoom(nodeName);
+                          
+                          // ثانياً: تحديث حالة البحث بعد تأخير قصير
+                          setTimeout(() => {
+                            setSearchQuery(nodeName);
+                            setSearchResults([]);
+                          }, 300);
+                        }
                       }}
                       sx={{
                         p: 2,
