@@ -37,6 +37,7 @@
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
     "rimraf": "^5.0.5",
+    "terser": "^5.43.1",
     "vite": "^6.3.5"
   },
   "description": "تطبيق ويب لإدارة وعرض شجرة العائلة باستخدام React وFirebase.",
