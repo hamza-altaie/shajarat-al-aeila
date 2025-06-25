@@ -1,619 +1,474 @@
-// src/pages/PhoneLogin.jsx - صفحة تسجيل الدخول المُحدثة
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  Box, Card, CardContent, TextField, Button, Typography, 
-  Alert, Snackbar, CircularProgress, Divider, Stack
-} from '@mui/material';
-import { Phone, Send, Verified, Warning as WarningIcon } from '@mui/icons-material';
-
-// استيراد Firebase مع معالجة الأخطاء
-import { auth, getFirebaseStatus, testFirestoreConnection } from '../firebase/config';
-import { 
-  signInWithPhoneNumber, 
-  RecaptchaVerifier, 
-  updateProfile,
-  onAuthStateChanged 
-} from 'firebase/auth';
-
-// استيراد الخدمات
+import React, { useState, useEffect } from 'react';
+import usePhoneAuth from '../hooks/usePhoneAuth';
 import userService from '../userService';
+import {
+  Container, Paper, TextField, Button, Box, Typography, 
+  Alert, CircularProgress, InputAdornment, Link
+} from '@mui/material';
+import { Phone as PhoneIcon, Security as SecurityIcon, Warning as WarningIcon } from '@mui/icons-material';
 
-export default function PhoneLogin() {
-  // ===========================================================================
-  // الحالات الأساسية
-  // ===========================================================================
-  
-  const navigate = useNavigate();
-  
-  // حالات النموذج
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
-  const [confirmationResult, setConfirmationResult] = useState(null);
-  const [step, setStep] = useState('phone'); // 'phone' | 'verification'
-  
-  // حالات التحميل والأخطاء
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  
-  // حالات Firebase
+const PhoneLogin = () => {
+  const {
+    phone, setPhone,
+    code, setCode,
+    confirmationResult,
+    message, setMessage,
+    loading,
+    confirmationLoading,
+    sendCode,
+    verifyCode
+  } = usePhoneAuth();
+
+  const [timer, setTimer] = useState(0);
+  const [phoneInput, setPhoneInput] = useState('');
   const [firebaseStatus, setFirebaseStatus] = useState(null);
-  const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
-  
-  // ===========================================================================
-  // التأثيرات والتهيئة
-  // ===========================================================================
-  
+
   // فحص حالة Firebase عند التحميل
   useEffect(() => {
-    const checkFirebaseStatus = async () => {
+    const checkStatus = async () => {
       try {
+        // استيراد دالة فحص Firebase بشكل صحيح
+        const { getFirebaseStatus } = await import('../firebase/config');
+        
+        if (typeof getFirebaseStatus !== 'function') {
+          throw new Error('getFirebaseStatus is not a function');
+        }
+        
         const status = getFirebaseStatus();
         setFirebaseStatus(status);
         
-        // اختبار الاتصال بـ Firestore
-        if (status.services.firestore) {
-          await testFirestoreConnection();
+        if (!status.isInitialized) {
+          setMessage('❌ خطأ في تهيئة Firebase. يرجى التحقق من الإعدادات.');
+        } else if (status.config?.isDemoConfig) {
+          setMessage('⚠️ يتم استخدام إعدادات تجريبية. يرجى تحديث ملف .env');
+        } else {
+          setMessage(''); // مسح أي رسائل خطأ سابقة
         }
-        
-        console.log('✅ Firebase جاهز للاستخدام');
       } catch (error) {
-        console.error('❌ خطأ في فحص Firebase:', error);
-        setError('خطأ في الاتصال بالخدمة. يرجى إعادة تحميل الصفحة.');
+        console.error('خطأ في فحص Firebase:', error);
+        
+        // إعداد حالة افتراضية في حالة فشل الفحص
+        setFirebaseStatus({ 
+          isInitialized: false, 
+          error: error.message || 'فشل في فحص حالة Firebase'
+        });
+        
+        setMessage('⚠️ تحذير: قد تكون هناك مشكلة في إعدادات Firebase');
       }
     };
     
-    checkFirebaseStatus();
-  }, []);
-  
-  // مراقبة حالة المصادقة
+    checkStatus();
+  }, [setMessage]);
+
+  // عداد مؤقت لإعادة تفعيل زر الإرسال
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        console.log('✅ المستخدم مسجل دخول، توجيه إلى الصفحة الرئيسية');
-        navigate('/family');
-      }
-    });
-    
-    return () => unsubscribe();
-  }, [navigate]);
-  
-  // إعداد reCAPTCHA
-  useEffect(() => {
-    if (!firebaseStatus?.services?.auth) return;
-    
-    const setupRecaptcha = () => {
-      try {
-        // تنظيف أي reCAPTCHA موجود
-        if (window.recaptchaVerifier) {
-          window.recaptchaVerifier.clear();
-        }
-        
-        // إعداد reCAPTCHA جديد
-        const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          size: 'normal',
-          callback: () => {
-            console.log('✅ reCAPTCHA تم التحقق منه');
-          },
-          'expired-callback': () => {
-            console.log('⚠️ reCAPTCHA انتهت صلاحيته');
-            setError('انتهت صلاحية التحقق. يرجى المحاولة مرة أخرى.');
-          },
-          'error-callback': (error) => {
-            console.error('❌ خطأ في reCAPTCHA:', error);
-            setError('خطأ في التحقق الأمني. يرجى إعادة تحميل الصفحة.');
-          }
-        });
-        
-        setRecaptchaVerifier(verifier);
-        window.recaptchaVerifier = verifier;
-        
-      } catch (error) {
-        console.error('❌ خطأ في إعداد reCAPTCHA:', error);
-        setError('خطأ في إعداد التحقق الأمني.');
-      }
-    };
-    
-    // تأخير قصير للتأكد من تحميل DOM
-    const timer = setTimeout(setupRecaptcha, 500);
-    
-    return () => {
-      clearTimeout(timer);
-      if (window.recaptchaVerifier) {
-        window.recaptchaVerifier.clear();
-        window.recaptchaVerifier = null;
-      }
-    };
-  }, [firebaseStatus]);
-  
-  // ===========================================================================
-  // وظائف المساعدة
-  // ===========================================================================
-  
-  // تنسيق رقم الهاتف
-  const formatPhoneNumber = (phone) => {
-    // إزالة جميع الأحرف غير الرقمية
-    const cleaned = phone.replace(/\D/g, '');
-    
-    // إضافة رمز الدولة إذا لم يكن موجوداً
-    if (cleaned.startsWith('05') || cleaned.startsWith('5')) {
-      return '+966' + cleaned.slice(cleaned.startsWith('0') ? 1 : 0);
+    if (timer > 0) {
+      const interval = setInterval(() => setTimer(t => t - 1), 1000);
+      return () => clearInterval(interval);
+    }
+  }, [timer]);
+
+  // دالة مساعدة للتحقق من الرقم العراقي
+  const isValidIraqiNumber = (phoneInput) => {
+    // 07xxxxxxxx (10 أرقام تبدأ بـ 07)
+    if (phoneInput.length === 10 && phoneInput.startsWith('07')) {
+      return true;
     }
     
-    if (cleaned.startsWith('966')) {
-      return '+' + cleaned;
+    // 7xxxxxxxx أو 7xxxxxxxxx (9-10 أرقام تبدأ بـ 7 بدون صفر)
+    if ((phoneInput.length === 9 || phoneInput.length === 10) && phoneInput.startsWith('7') && !phoneInput.startsWith('07')) {
+      return true;
     }
     
-    if (cleaned.startsWith('+966')) {
-      return cleaned;
-    }
-    
-    // افتراض رقم سعودي
-    return '+966' + cleaned;
+    return false;
   };
-  
-  // التحقق من صحة رقم الهاتف
-  const validatePhoneNumber = (phone) => {
-    const formatted = formatPhoneNumber(phone);
-    const phoneRegex = /^\+966[5][0-9]{8}$/;
-    return phoneRegex.test(formatted);
-  };
-  
-  // ===========================================================================
-  // معالجات الأحداث
-  // ===========================================================================
-  
-  // إرسال رمز التحقق
-  const handleSendCode = useCallback(async () => {
-    if (!phoneNumber.trim()) {
-      setError('يرجى إدخال رقم الهاتف');
-      return;
-    }
-    
-    if (!validatePhoneNumber(phoneNumber)) {
-      setError('يرجى إدخال رقم هاتف سعودي صحيح (مثال: 0501234567)');
-      return;
-    }
-    
-    if (!recaptchaVerifier) {
-      setError('جاري تحضير التحقق الأمني، يرجى الانتظار...');
-      return;
-    }
-    
-    setLoading(true);
-    setError('');
-    
-    try {
-      const formattedPhone = formatPhoneNumber(phoneNumber);
-      console.log('📱 إرسال رمز التحقق إلى:', formattedPhone);
-      
-      const confirmation = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier);
-      
-      setConfirmationResult(confirmation);
-      setStep('verification');
-      setSuccess(`تم إرسال رمز التحقق إلى ${formattedPhone}`);
-      
-      console.log('✅ تم إرسال رمز التحقق بنجاح');
-      
-    } catch (error) {
-      console.error('❌ خطأ في إرسال رمز التحقق:', error);
-      
-      // معالجة أخطاء مختلفة
-      let errorMessage = 'حدث خطأ في إرسال رمز التحقق';
-      
-      switch (error.code) {
-        case 'auth/invalid-phone-number':
-          errorMessage = 'رقم الهاتف غير صحيح';
-          break;
-        case 'auth/too-many-requests':
-          errorMessage = 'تم تجاوز الحد المسموح من المحاولات. يرجى المحاولة لاحقاً';
-          break;
-        case 'auth/captcha-check-failed':
-          errorMessage = 'فشل التحقق الأمني. يرجى إعادة تحميل الصفحة';
-          break;
-        case 'auth/quota-exceeded':
-          errorMessage = 'تم تجاوز الحد المسموح اليومي. يرجى المحاولة غداً';
-          break;
-        default:
-          errorMessage = error.message || 'حدث خطأ غير متوقع';
-      }
-      
-      setError(errorMessage);
-      
-      // إعادة تعيين reCAPTCHA
-      if (recaptchaVerifier) {
-        recaptchaVerifier.clear();
-        window.location.reload(); // إعادة تحميل الصفحة لإعادة تعيين reCAPTCHA
-      }
-      
-    } finally {
-      setLoading(false);
-    }
-  }, [phoneNumber, recaptchaVerifier]);
-  
-  // التحقق من الرمز
-  const handleVerifyCode = useCallback(async () => {
-    if (!verificationCode.trim()) {
-      setError('يرجى إدخال رمز التحقق');
-      return;
-    }
-    
-    if (verificationCode.length !== 6) {
-      setError('رمز التحقق يجب أن يكون 6 أرقام');
-      return;
-    }
-    
-    if (!confirmationResult) {
-      setError('خطأ في عملية التحقق. يرجى المحاولة مرة أخرى');
-      return;
-    }
-    
-    setLoading(true);
-    setError('');
-    
-    try {
-      console.log('🔐 التحقق من الرمز...');
-      
-      const result = await confirmationResult.confirm(verificationCode);
-      const user = result.user;
-      
-      console.log('✅ تم التحقق بنجاح، المستخدم:', user.uid);
-      
-      // تحديث معلومات المستخدم
-      if (!user.displayName) {
-        await updateProfile(user, {
-          displayName: `مستخدم ${user.phoneNumber}`
-        });
-      }
-      
-      // حفظ أو تحديث بيانات المستخدم
-      try {
-        await userService.createOrUpdateUser(user.uid, {
-          phoneNumber: user.phoneNumber,
-          displayName: user.displayName || `مستخدم ${user.phoneNumber}`,
-          lastLogin: new Date(),
-          createdAt: new Date()
-        });
-        
-        console.log('✅ تم حفظ بيانات المستخدم');
-      } catch (userError) {
-        console.warn('⚠️ تحذير: لم يتم حفظ بيانات المستخدم:', userError);
-        // لا نوقف العملية بسبب هذا الخطأ
-      }
-      
-      setSuccess('تم تسجيل الدخول بنجاح! جاري التوجيه...');
-      
-      // توجيه المستخدم بعد تأخير قصير
-      setTimeout(() => {
-        navigate('/family');
-      }, 1500);
-      
-    } catch (error) {
-      console.error('❌ خطأ في التحقق من الرمز:', error);
-      
-      let errorMessage = 'رمز التحقق غير صحيح';
-      
-      switch (error.code) {
-        case 'auth/invalid-verification-code':
-          errorMessage = 'رمز التحقق غير صحيح';
-          break;
-        case 'auth/code-expired':
-          errorMessage = 'انتهت صلاحية رمز التحقق. يرجى طلب رمز جديد';
-          setStep('phone');
-          setConfirmationResult(null);
-          break;
-        case 'auth/session-expired':
-          errorMessage = 'انتهت جلسة التحقق. يرجى المحاولة مرة أخرى';
-          setStep('phone');
-          setConfirmationResult(null);
-          break;
-        default:
-          errorMessage = error.message || 'حدث خطأ في التحقق';
-      }
-      
-      setError(errorMessage);
-      
-    } finally {
-      setLoading(false);
-    }
-  }, [verificationCode, confirmationResult, navigate]);
-  
-  // العودة لخطوة إدخال الهاتف
-  const handleBackToPhone = () => {
-    setStep('phone');
-    setVerificationCode('');
-    setConfirmationResult(null);
-    setError('');
-    setSuccess('');
-  };
-  
-  // ===========================================================================
-  // معالجات الإدخال
-  // ===========================================================================
-  
+
+  // معالجة تغيير رقم الهاتف
   const handlePhoneChange = (e) => {
-    const value = e.target.value;
-    // السماح بالأرقام والرموز الأساسية فقط
-    const cleaned = value.replace(/[^\d+\-\s()]/g, '');
-    setPhoneNumber(cleaned);
+    let value = e.target.value.replace(/[^\d]/g, ''); // إزالة كل شيء عدا الأرقام
     
-    // مسح الخطأ عند الكتابة
-    if (error) setError('');
-  };
-  
-  const handleCodeChange = (e) => {
-    const value = e.target.value;
-    // السماح بالأرقام فقط
-    const cleaned = value.replace(/\D/g, '').slice(0, 6);
-    setVerificationCode(cleaned);
+    // تحديد الحد الأقصى للأرقام (10 أرقام للأرقام العراقية)
+    if (value.length > 10) {
+      value = value.slice(0, 10);
+    }
     
-    // مسح الخطأ عند الكتابة
-    if (error) setError('');
+    setPhoneInput(value);
+    
+    // تنسيق الرقم للعرض والإرسال
+    let formattedPhone = '';
+    if (value.length > 0) {
+      // معالجة أرقام الهاتف العراقية
+      if (value.startsWith('07') && value.length === 10) {
+        // إزالة الصفر الأول من 07xxxxxxxx -> 7xxxxxxxx
+        formattedPhone = '+964' + value.substring(1);
+      } else if (value.startsWith('7') && value.length === 9) {
+        // إضافة كود الدولة مباشرة لـ 7xxxxxxxx
+        formattedPhone = '+964' + value;
+      } else if (value.length === 10 && value.startsWith('7')) {
+        // للأرقام التي تبدأ بـ 7 وطولها 10
+        formattedPhone = '+964' + value;
+      }
+    }
+    
+    setPhone(formattedPhone);
   };
-  
-  // ===========================================================================
-  // معالجات لوحة المفاتيح
-  // ===========================================================================
-  
-  const handlePhoneKeyPress = (e) => {
-    if (e.key === 'Enter' && !loading) {
-      handleSendCode();
+
+  // إرسال كود التحقق
+  const handleSendCode = async () => {
+    // التأكد من أن الرقم صحيح قبل الإرسال
+    if (!phone || !phone.startsWith('+9647') || (phone.length !== 13 && phone.length !== 14)) {
+      setMessage('❌ يرجى إدخال رقم هاتف عراقي صحيح');
+      return;
+    }
+    
+    // فحص حالة Firebase قبل الإرسال
+    if (!firebaseStatus?.isInitialized) {
+      setMessage('❌ خطأ في الاتصال بالخدمة. يرجى إعادة تحميل الصفحة.');
+      return;
+    }
+    
+    try {
+      const result = await sendCode();
+      if (result?.success !== false) {
+        setTimer(60); // 60 ثانية انتظار
+      }
+    } catch (error) {
+      console.error('خطأ في إرسال الكود:', error);
+      setMessage('❌ فشل في إرسال الكود، يرجى المحاولة مرة أخرى');
     }
   };
-  
-  const handleCodeKeyPress = (e) => {
-    if (e.key === 'Enter' && !loading) {
-      handleVerifyCode();
+
+  // التحقق من الكود
+  const handleVerifyCode = async () => {
+    try {
+      await verifyCode();
+    } catch (error) {
+      console.error('خطأ في التحقق:', error);
     }
   };
-  
-  // ===========================================================================
-  // العرض
-  // ===========================================================================
-  
+
+  // التحقق من صحة رقم الهاتف للعرض
+  const isPhoneValid = () => {
+    if (!phone) return false;
+    
+    // التحقق من أن الرقم يبدأ بكود العراق الصحيح
+    if (!phone.startsWith('+9647')) return false;
+    
+    // التحقق من طول الرقم الصحيح
+    return phone.length === 13 || phone.length === 14;
+  };
+
+  const isCodeValid = code && code.length === 6;
+
+  // تحديد النص التوضيحي بناءً على ما تم إدخاله
+  const getHelperText = () => {
+    if (phoneInput.length === 0) {
+      return "مثال: 7701234567 أو 07701234567";
+    } else if (phoneInput.length < 9) {
+      return `أدخل ${9 - phoneInput.length} أرقام إضافية`;
+    } else if (phoneInput.length === 9 && phoneInput.startsWith('7')) {
+      return "✅ رقم صحيح";
+    } else if (phoneInput.length === 10 && phoneInput.startsWith('07')) {
+      return "✅ رقم صحيح";
+    } else if (phoneInput.length === 10 && phoneInput.startsWith('7')) {
+      return "✅ رقم صحيح";
+    } else {
+      return "تنسيق الرقم غير صحيح";
+    }
+  };
+
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        display: 'flex',
-        alignItems: 'center',
+    <Container 
+      maxWidth="sm" 
+      sx={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
         justifyContent: 'center',
-        p: 2
+        py: 4
       }}
     >
-      <Card
-        sx={{
-          maxWidth: 400,
-          width: '100%',
+      <Paper 
+        elevation={8}
+        sx={{ 
+          width: '100%', 
+          p: { xs: 3, sm: 4 }, 
           borderRadius: 3,
-          boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
+          background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
         }}
       >
-        <CardContent sx={{ p: 4 }}>
-          {/* شعار التطبيق */}
-          <Box sx={{ textAlign: 'center', mb: 4 }}>
-            <Box
-              sx={{
-                width: 100,
-                height: 100,
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                mx: 'auto',
-                mb: 2,
-                boxShadow: '0 8px 24px rgba(76, 175, 80, 0.3)'
-              }}
-            >
-              <Typography variant="h3" sx={{ color: 'white' }}>
-                🌳
-              </Typography>
+        {/* شعار التطبيق */}
+        <Box textAlign="center" mb={4}>
+          <Box
+            sx={{
+              width: 100,
+              height: 100,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              mx: 'auto',
+              mb: 2,
+              boxShadow: '0 8px 24px rgba(76, 175, 80, 0.3)'
+            }}
+          >
+            <Typography variant="h3" sx={{ color: 'white' }}>
+              🌳
+            </Typography>
+          </Box>
+          
+          <Typography 
+            variant="h4" 
+            fontWeight="bold" 
+            gutterBottom
+            sx={{ 
+              color: '#2e7d32',
+              fontSize: { xs: '1.5rem', sm: '2rem' }
+            }}
+          >
+            شجرة العائلة
+          </Typography>
+          
+          <Typography 
+            variant="body1" 
+            color="text.secondary"
+            sx={{ mb: 3, lineHeight: 1.6 }}
+          >
+            ابنِ شجرة عائلتك بسهولة وأمان. تطبيق شامل لإدارة وعرض أفراد العائلة
+          </Typography>
+        </Box>
+
+        {/* تحذير حالة Firebase */}
+        {firebaseStatus && !firebaseStatus.isInitialized && (
+          <Alert severity="error" sx={{ mb: 3 }} icon={<WarningIcon />}>
+            <Typography variant="body2" fontWeight="bold">
+              خطأ في الاتصال بالخدمة
+            </Typography>
+            <Typography variant="body2">
+              يرجى التحقق من اتصالك بالإنترنت وإعادة تحميل الصفحة
+            </Typography>
+          </Alert>
+        )}
+
+        {firebaseStatus?.config?.isDemoConfig && (
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            <Typography variant="body2">
+              يتم استخدام إعدادات تجريبية. قد لا تعمل جميع الميزات بشكل صحيح.
+            </Typography>
+          </Alert>
+        )}
+
+        {/* نموذج تسجيل الدخول */}
+        <Box>
+          <Typography 
+            variant="h6" 
+            gutterBottom 
+            textAlign="center"
+            sx={{ mb: 3, color: '#1976d2' }}
+          >
+            تسجيل الدخول برقم الهاتف
+          </Typography>
+
+          {/* حقل رقم الهاتف */}
+          <Box mb={3}>
+            <Box display="flex" gap={1} mb={2}>
+              <TextField
+                type="tel"
+                label="رقم الهاتف"
+                placeholder="7701234567"
+                value={phoneInput}
+                onChange={handlePhoneChange}
+                fullWidth
+                size="medium"
+                dir="ltr"
+                disabled={!firebaseStatus?.isInitialized}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PhoneIcon color="primary" />
+                    </InputAdornment>
+                  ),
+                }}
+                helperText={getHelperText()}
+                inputProps={{ 
+                  maxLength: 10,
+                  style: { textAlign: 'left' }
+                }}
+                error={phoneInput.length > 0 && !isValidIraqiNumber(phoneInput)}
+              />
+              
+              <TextField
+                value="+964"
+                disabled
+                sx={{ 
+                  width: 80,
+                  '& .MuiInputBase-input': {
+                    textAlign: 'center',
+                    fontWeight: 'bold',
+                    color: '#2e7d32'
+                  }
+                }}
+                size="medium"
+              />
             </Box>
             
-            <Typography 
-              variant="h4" 
-              fontWeight="bold" 
-              gutterBottom
+            {/* عرض الرقم الكامل المنسق */}
+            {phone && (
+              <Box mb={2} p={1} bgcolor="grey.50" borderRadius={1}>
+                <Typography variant="body2" color="text.secondary" textAlign="center">
+                  الرقم الكامل: <strong dir="ltr">{phone}</strong>
+                </Typography>
+              </Box>
+            )}
+            
+            <Button
+              variant="contained"
+              color="success"
+              fullWidth
+              size="large"
+              onClick={handleSendCode}
+              disabled={loading || timer > 0 || !isPhoneValid() || !firebaseStatus?.isInitialized}
               sx={{ 
-                color: '#2e7d32',
-                fontSize: { xs: '1.5rem', sm: '2rem' }
+                py: 1.5, 
+                fontSize: 16,
+                fontWeight: 600,
+                borderRadius: 2,
+                position: 'relative'
               }}
             >
-              شجرة العائلة
-            </Typography>
-            
-            <Typography 
-              variant="body1" 
-              color="text.secondary"
-              sx={{ mb: 3, lineHeight: 1.6 }}
+              {loading ? (
+                <Box display="flex" alignItems="center" gap={1}>
+                  <CircularProgress size={20} color="inherit" />
+                  جاري الإرسال...
+                </Box>
+              ) : timer > 0 ? (
+                `إعادة الإرسال خلال ${timer} ثانية`
+              ) : (
+                'إرسال كود التحقق'
+              )}
+            </Button>
+          </Box>
+
+          {/* حقل كود التحقق */}
+          {confirmationResult && (
+            <Box mb={3}>
+              <TextField
+                type="text"
+                label="كود التحقق"
+                value={code}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^\d]/g, '').slice(0, 6);
+                  setCode(value);
+                }}
+                fullWidth
+                size="medium"
+                placeholder="أدخل الكود المكون من 6 أرقام"
+                disabled={!firebaseStatus?.isInitialized}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SecurityIcon color="primary" />
+                    </InputAdornment>
+                  ),
+                }}
+                inputProps={{
+                  maxLength: 6,
+                  style: { textAlign: 'center', fontSize: '1.2rem', letterSpacing: '0.5rem' }
+                }}
+                helperText="تم إرسال الكود إلى هاتفك"
+              />
+              
+              <Button
+                variant="contained"
+                color="primary"
+                fullWidth
+                size="large"
+                onClick={handleVerifyCode}
+                disabled={confirmationLoading || !isCodeValid || !firebaseStatus?.isInitialized}
+                sx={{ 
+                  py: 1.5, 
+                  fontSize: 16,
+                  fontWeight: 600,
+                  borderRadius: 2,
+                  mt: 2
+                }}
+              >
+                {confirmationLoading ? (
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <CircularProgress size={20} color="inherit" />
+                    جاري التحقق...
+                  </Box>
+                ) : (
+                  'تأكيد الكود'
+                )}
+              </Button>
+
+              {/* زر إعادة إرسال الكود */}
+              {timer === 0 && (
+                <Box textAlign="center" mt={2}>
+                  <Link
+                    component="button"
+                    variant="body2"
+                    onClick={handleSendCode}
+                    disabled={loading || !firebaseStatus?.isInitialized}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    لم تستلم الكود؟ إعادة الإرسال
+                  </Link>
+                </Box>
+              )}
+            </Box>
+          )}
+
+          {/* رسائل الحالة */}
+          {message && (
+            <Alert 
+              severity={message.includes('✅') ? 'success' : message.includes('⚠️') ? 'warning' : 'error'}
+              sx={{ mb: 2 }}
             >
-              ابنِ شجرة عائلتك بسهولة وأمان. تطبيق شامل لإدارة وعرض أفراد العائلة
+              {message}
+            </Alert>
+          )}
+
+          {/* معلومات إضافية */}
+          <Box mt={4} p={2} bgcolor="grey.50" borderRadius={2}>
+            <Typography variant="body2" color="text.secondary" textAlign="center">
+              🔒 بياناتك محمية بتقنيات التشفير المتقدمة
+            </Typography>
+            <Typography variant="body2" color="text.secondary" textAlign="center" mt={1}>
+              نحن نحترم خصوصيتك ولا نشارك بياناتك مع أي طرف ثالث
             </Typography>
           </Box>
 
-          {/* تحذير حالة Firebase */}
-          {firebaseStatus && !firebaseStatus.isInitialized && (
-            <Alert severity="error" sx={{ mb: 3 }} icon={<WarningIcon />}>
-              <Typography variant="body2" fontWeight="bold">
-                خطأ في الاتصال بالخدمة
-              </Typography>
-              <Typography variant="body2">
-                يرجى التحقق من اتصالك بالإنترنت وإعادة تحميل الصفحة
-              </Typography>
-            </Alert>
-          )}
+          {/* رابط سياسة الخصوصية */}
+          <Box textAlign="center" mt={3}>
+            <Link
+              href="/privacy"
+              variant="body2"
+              color="primary"
+              underline="hover"
+            >
+              سياسة الخصوصية والشروط
+            </Link>
+          </Box>
+        </Box>
 
-          {firebaseStatus?.config?.isDemoConfig && (
-            <Alert severity="warning" sx={{ mb: 3 }}>
-              <Typography variant="body2">
-                يتم استخدام إعدادات تجريبية. قد لا تعمل جميع الميزات بشكل صحيح.
-              </Typography>
-            </Alert>
-          )}
-
-          {/* خطوة إدخال رقم الهاتف */}
-          {step === 'phone' && (
-            <Stack spacing={3}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Phone sx={{ fontSize: 48, color: '#4caf50', mb: 2 }} />
-                <Typography variant="h6" fontWeight="bold" gutterBottom>
-                  تسجيل الدخول برقم الهاتف
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  أدخل رقم هاتفك لتلقي رمز التحقق
-                </Typography>
-              </Box>
-
-              <TextField
-                fullWidth
-                label="رقم الهاتف"
-                placeholder="0501234567"
-                value={phoneNumber}
-                onChange={handlePhoneChange}
-                onKeyPress={handlePhoneKeyPress}
-                disabled={loading}
-                dir="ltr"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': {
-                      borderColor: '#4caf50',
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: '#4caf50',
-                    },
-                  },
-                }}
-                helperText="مثال: 0501234567 أو +966501234567"
-              />
-
-              {/* حاوي reCAPTCHA */}
-              <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                <div id="recaptcha-container"></div>
-              </Box>
-
-              <Button
-                fullWidth
-                variant="contained"
-                size="large"
-                onClick={handleSendCode}
-                disabled={loading || !phoneNumber.trim() || !recaptchaVerifier}
-                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Send />}
-                sx={{
-                  bgcolor: '#4caf50',
-                  '&:hover': { bgcolor: '#2e7d32' },
-                  py: 1.5,
-                  fontSize: '1.1rem'
-                }}
-              >
-                {loading ? 'جاري الإرسال...' : 'إرسال رمز التحقق'}
-              </Button>
-            </Stack>
-          )}
-
-          {/* خطوة التحقق من الرمز */}
-          {step === 'verification' && (
-            <Stack spacing={3}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Verified sx={{ fontSize: 48, color: '#4caf50', mb: 2 }} />
-                <Typography variant="h6" fontWeight="bold" gutterBottom>
-                  التحقق من رمز الهاتف
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  أدخل الرمز المُرسل إلى {formatPhoneNumber(phoneNumber)}
-                </Typography>
-              </Box>
-
-              <TextField
-                fullWidth
-                label="رمز التحقق"
-                placeholder="123456"
-                value={verificationCode}
-                onChange={handleCodeChange}
-                onKeyPress={handleCodeKeyPress}
-                disabled={loading}
-                inputProps={{ 
-                  maxLength: 6,
-                  style: { textAlign: 'center', fontSize: '1.5rem', letterSpacing: '0.5rem' }
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': {
-                      borderColor: '#4caf50',
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: '#4caf50',
-                    },
-                  },
-                }}
-                helperText="الرمز مكون من 6 أرقام"
-              />
-
-              <Button
-                fullWidth
-                variant="contained"
-                size="large"
-                onClick={handleVerifyCode}
-                disabled={loading || verificationCode.length !== 6}
-                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Verified />}
-                sx={{
-                  bgcolor: '#4caf50',
-                  '&:hover': { bgcolor: '#2e7d32' },
-                  py: 1.5,
-                  fontSize: '1.1rem'
-                }}
-              >
-                {loading ? 'جاري التحقق...' : 'تأكيد الرمز'}
-              </Button>
-
-              <Divider />
-
-              <Button
-                fullWidth
-                variant="outlined"
-                onClick={handleBackToPhone}
-                disabled={loading}
-                sx={{
-                  borderColor: '#4caf50',
-                  color: '#4caf50',
-                  '&:hover': {
-                    borderColor: '#2e7d32',
-                    color: '#2e7d32',
-                    bgcolor: 'rgba(76, 175, 80, 0.04)'
-                  }
-                }}
-              >
-                تغيير رقم الهاتف
-              </Button>
-            </Stack>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* رسائل النجاح والخطأ */}
-      <Snackbar
-        open={!!error}
-        autoHideDuration={6000}
-        onClose={() => setError('')}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert severity="error" onClose={() => setError('')}>
-          {error}
-        </Alert>
-      </Snackbar>
-
-      <Snackbar
-        open={!!success}
-        autoHideDuration={4000}
-        onClose={() => setSuccess('')}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert severity="success" onClose={() => setSuccess('')}>
-          {success}
-        </Alert>
-      </Snackbar>
-    </Box>
+        {/* حاوية reCAPTCHA مخفية */}
+        <Box 
+          id="recaptcha-container" 
+          sx={{ 
+            position: 'absolute',
+            top: -9999,
+            left: -9999,
+            visibility: 'hidden',
+            opacity: 0,
+            pointerEvents: 'none'
+          }}
+        />
+      </Paper>
+    </Container>
   );
-}
+};
+
+export default PhoneLogin;
