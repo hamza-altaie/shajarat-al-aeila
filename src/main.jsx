@@ -1,40 +1,69 @@
-import React from 'react'
-import { createRoot } from 'react-dom/client'
-import App from './App.jsx'
+// src/main.jsx - نقطة الدخول الرئيسية مع إصلاح الأخطاء
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App.jsx';
+import './index.css';
 
-// استيراد الخطوط والستايل
-import './index.css'
+// ===========================================================================
+// 🔧 إصلاح مشاكل React DevTools والأخطاء العامة
+// ===========================================================================
 
-// إعداد اللغة العربية والاتجاه
-document.documentElement.lang = 'ar';
-document.documentElement.dir = 'rtl';
-document.title = 'شجرة العائلة';
+// تجنب أخطاء React DevTools
+if (typeof window !== 'undefined') {
+  // إعداد React DevTools بشكل آمن
+  try {
+    if (!window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+      window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {};
+    }
+    
+    // تعيين خصائص آمنة لـ React DevTools
+    const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+    
+    if (typeof hook === 'object' && hook !== null) {
+      // تعيين الخصائص المطلوبة بشكل آمن
+      if (!hook.checkDCE) {
+        hook.checkDCE = function() {};
+      }
+      if (!hook.supportsFiber) {
+        hook.supportsFiber = true;
+      }
+      if (!hook.renderers) {
+        hook.renderers = new Map();
+      }
+      if (!hook.onCommitFiberRoot) {
+        hook.onCommitFiberRoot = function() {};
+      }
+      if (!hook.onCommitFiberUnmount) {
+        hook.onCommitFiberUnmount = function() {};
+      }
+    }
+  } catch (devToolsError) {
+    console.warn('⚠️ تحذير: لم يتم إعداد React DevTools بشكل صحيح:', devToolsError);
+  }
+}
 
-// معالج أخطاء React
+// ===========================================================================
+// 🛡️ معالجة الأخطاء العامة
+// ===========================================================================
+
+// ErrorBoundary مكون لمعالجة الأخطاء
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null, errorInfo: null };
+    this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error) {
-    return { hasError: true };
+    return { hasError: true, error };
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('خطأ في المكون:', error, errorInfo);
-    this.setState({ 
-      error: error, 
-      errorInfo: errorInfo 
-    });
-  }
-
-  handleReload = () => {
-    window.location.reload();
-  }
-
-  handleGoHome = () => {
-    window.location.href = '/';
+    console.error('❌ خطأ في التطبيق:', error, errorInfo);
+    
+    // تجنب إرسال أخطاء Chrome Extensions
+    if (error.stack && !error.stack.includes('extension://')) {
+      // يمكن إضافة خدمة لوغ الأخطاء هنا
+    }
   }
 
   render() {
@@ -43,147 +72,49 @@ class ErrorBoundary extends React.Component {
         <div style={{
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'center',
           alignItems: 'center',
-          minHeight: '100vh',
-          fontFamily: 'Cairo, Arial, sans-serif',
-          backgroundColor: '#f8f9fa',
-          color: '#333',
-          textAlign: 'center',
+          justifyContent: 'center',
+          height: '100vh',
           padding: '20px',
-          direction: 'rtl'
+          textAlign: 'center',
+          fontFamily: 'Cairo, Arial, sans-serif'
         }}>
-          <div style={{
-            backgroundColor: '#fff',
-            padding: '40px',
-            borderRadius: '16px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-            maxWidth: '600px',
-            width: '100%'
-          }}>
-            <div style={{
-              fontSize: '4rem',
-              marginBottom: '20px'
-            }}>
-              ⚠️
-            </div>
-            
-            <h1 style={{ 
-              color: '#d32f2f', 
-              marginBottom: '20px',
-              fontSize: '1.8rem',
-              fontWeight: 'bold'
-            }}>
-              حدث خطأ في التطبيق
-            </h1>
-            
-            <p style={{ 
-              marginBottom: '24px', 
-              lineHeight: '1.6',
-              fontSize: '1.1rem',
-              color: '#555'
-            }}>
-              نعتذر، حدث خطأ غير متوقع أثناء تشغيل التطبيق. 
-              يرجى إعادة تحميل الصفحة أو المحاولة لاحقاً.
-            </p>
-
-            <p style={{
-              marginBottom: '32px',
-              fontSize: '0.95rem',
-              color: '#888',
-              lineHeight: '1.4'
-            }}>
-              إذا استمر هذا الخطأ، يرجى التواصل مع فريق الدعم. 
-              فريقنا سيعمل على إصلاح هذه المشكلة في أسرع وقت ممكن.
-            </p>
-
-            <div style={{
-              display: 'flex',
-              gap: '12px',
-              justifyContent: 'center',
-              flexWrap: 'wrap'
-            }}>
-              <button
-                onClick={this.handleReload}
-                style={{
-                  backgroundColor: '#2e7d32',
-                  color: 'white',
-                  border: 'none',
-                  padding: '12px 24px',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  transition: 'background-color 0.2s ease',
-                  fontFamily: 'inherit'
-                }}
-              >
-                🔄 إعادة تحميل الصفحة
-              </button>
-              
-              <button
-                onClick={this.handleGoHome}
-                style={{
-                  backgroundColor: 'transparent',
-                  color: '#2e7d32',
-                  border: '2px solid #2e7d32',
-                  padding: '12px 24px',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  fontFamily: 'inherit'
-                }}
-              >
-                🏠 الصفحة الرئيسية
-              </button>
-            </div>
-
-            <p style={{
-              marginTop: '24px',
-              fontSize: '14px',
-              color: '#999',
-              borderTop: '1px solid #eee',
-              paddingTop: '16px'
-            }}>
-              شجرة العائلة - نسخة 1.0.0
-            </p>
-
-            {this.state.error && (
-              <details style={{ 
-                marginTop: '20px', 
-                textAlign: 'left',
-                backgroundColor: '#f5f5f5',
-                padding: '16px',
-                borderRadius: '8px',
-                border: '1px solid #ddd'
+          <h1 style={{ color: '#d32f2f', marginBottom: '20px' }}>
+            🚫 حدث خطأ في التطبيق
+          </h1>
+          <p style={{ color: '#666', marginBottom: '20px' }}>
+            عذراً، حدث خطأ غير متوقع. يرجى إعادة تحميل الصفحة.
+          </p>
+          <button 
+            onClick={() => window.location.reload()}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#4caf50',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '16px'
+            }}
+          >
+            🔄 إعادة تحميل الصفحة
+          </button>
+          
+          {process.env.NODE_ENV === 'development' && (
+            <details style={{ marginTop: '20px', textAlign: 'left' }}>
+              <summary>تفاصيل الخطأ (للمطورين)</summary>
+              <pre style={{ 
+                background: '#f5f5f5', 
+                padding: '10px', 
+                borderRadius: '5px',
+                fontSize: '12px',
+                overflow: 'auto',
+                maxWidth: '600px'
               }}>
-                <summary style={{ 
-                  cursor: 'pointer', 
-                  color: '#666',
-                  fontWeight: 'bold',
-                  marginBottom: '8px'
-                }}>
-                  تفاصيل الخطأ (للمطورين)
-                </summary>
-                <pre style={{ 
-                  backgroundColor: '#fff', 
-                  padding: '12px', 
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  overflow: 'auto',
-                  marginTop: '8px',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                  border: '1px solid #ccc'
-                }}>
-                  {this.state.error.toString()}
-                  {this.state.errorInfo.componentStack}
-                </pre>
-              </details>
-            )}
-          </div>
+                {this.state.error?.stack || this.state.error?.message || 'خطأ غير معروف'}
+              </pre>
+            </details>
+          )}
         </div>
       );
     }
@@ -192,68 +123,40 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// دالة معالجة الأخطاء العامة
-function handleGlobalError(error, context = {}) {
-  console.error('خطأ عام في التطبيق:', error, context);
-  
-  // يمكن إضافة تتبع الأخطاء هنا (مثل Sentry)
-  if (window.gtag) {
-    window.gtag('event', 'exception', {
-      description: error.message || error.toString(),
-      fatal: false
-    });
+// دالة لمعالجة الأخطاء العامة
+const handleGlobalError = (error, context = {}) => {
+  // تجنب أخطاء Chrome Extensions
+  if (error.message && error.message.includes('extension')) {
+    return;
   }
+  
+  if (error.stack && error.stack.includes('extension://')) {
+    return;
+  }
+  
+  console.error('❌ خطأ عام في التطبيق:', {
+    error: error.message || error,
+    stack: error.stack,
+    context,
+    timestamp: new Date().toISOString(),
+    userAgent: navigator.userAgent
+  });
+};
+
+// ===========================================================================
+// 🚀 تشغيل التطبيق
+// ===========================================================================
+
+// التأكد من وجود العنصر الجذر
+const container = document.getElementById('root');
+if (!container) {
+  throw new Error('لم يتم العثور على العنصر الجذر #root في HTML');
 }
 
-// بدء تشغيل التطبيق
-const container = document.getElementById('root');
+// إنشاء الجذر وعرض التطبيق
+const root = createRoot(container);
 
-if (!container) {
-  console.error('❌ لم يتم العثور على العنصر الجذر #root');
-  
-  // إنشاء عنصر جذر إذا لم يكن موجوداً
-  const rootElement = document.createElement('div');
-  rootElement.id = 'root';
-  document.body.appendChild(rootElement);
-  
-  const root = createRoot(rootElement);
-  root.render(
-    <React.StrictMode>
-      <div style={{
-        display: 'flex', 
-        flexDirection: 'column', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        minHeight: '100vh', 
-        fontFamily: 'Cairo, Arial, sans-serif',
-        backgroundColor: '#f8f9fa',
-        color: '#d32f2f',
-        textAlign: 'center',
-        padding: '20px',
-        direction: 'rtl'
-      }}>
-        <h1>خطأ في التطبيق</h1>
-        <p>لم يتم العثور على العنصر الجذر المطلوب لتشغيل التطبيق</p>
-        <button 
-          onClick={() => window.location.reload()}
-          style={{
-            backgroundColor: '#2e7d32',
-            color: 'white',
-            border: 'none',
-            padding: '12px 24px',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '16px',
-          }}
-        >
-          إعادة تحميل الصفحة
-        </button>
-      </div>
-    </React.StrictMode>
-  );
-} else {
-  const root = createRoot(container);
-  
+try {
   root.render(
     <React.StrictMode>
       <ErrorBoundary>
@@ -261,36 +164,68 @@ if (!container) {
       </ErrorBoundary>
     </React.StrictMode>
   );
+  
+  console.log('✅ تم تحميل التطبيق بنجاح');
+} catch (renderError) {
+  console.error('❌ خطأ في عرض التطبيق:', renderError);
+  handleGlobalError(renderError, { phase: 'render' });
 }
 
-// معالجة الأخطاء العامة
+// ===========================================================================
+// 🔍 مستمعات الأخطاء العامة
+// ===========================================================================
+
+// معالجة أخطاء JavaScript العامة
 window.addEventListener('error', (event) => {
-  // تجنب إظهار أخطاء Chrome Extensions
+  // تجاهل أخطاء Chrome Extensions
   if (event.filename && event.filename.includes('extension://')) {
     event.preventDefault();
     return false;
   }
   
-  console.error('خطأ JavaScript غير معالج:', event.error);
-  handleGlobalError(event.error, { 
-    type: 'javascript', 
-    source: event.filename, 
-    line: event.lineno 
-  });
-});
-
-window.addEventListener('unhandledrejection', (event) => {
-  // تجنب إظهار أخطاء Chrome Extensions
-  if (event.reason && event.reason.toString().includes('extension')) {
+  // تجاهل أخطاء React DevTools المعروفة
+  if (event.message && event.message.includes('__REACT_DEVTOOLS_GLOBAL_HOOK__')) {
     event.preventDefault();
     return false;
   }
   
-  console.error('Promise مرفوض غير معالج:', event.reason);
-  handleGlobalError(new Error(event.reason), { type: 'promise' });
+  handleGlobalError(event.error || new Error(event.message), { 
+    type: 'javascript', 
+    source: event.filename, 
+    line: event.lineno,
+    column: event.colno
+  });
 });
 
-// Service Worker للعمل دون اتصال (للإنتاج فقط)
+// معالجة Promise المرفوضة
+window.addEventListener('unhandledrejection', (event) => {
+  const reason = event.reason;
+  
+  // تجاهل أخطاء Chrome Extensions
+  if (reason && reason.toString().includes('extension')) {
+    event.preventDefault();
+    return false;
+  }
+  
+  // تجاهل أخطاء React DevTools
+  if (reason && reason.toString().includes('__REACT_DEVTOOLS_GLOBAL_HOOK__')) {
+    event.preventDefault();
+    return false;
+  }
+  
+  // تجاهل أخطاء Firebase المعروفة غير الحرجة
+  if (reason && reason.code && reason.code.startsWith('firebase/')) {
+    console.warn('⚠️ تحذير Firebase:', reason);
+    return;
+  }
+  
+  handleGlobalError(new Error(reason), { type: 'promise' });
+});
+
+// ===========================================================================
+// 🔧 Service Worker (للإنتاج فقط)
+// ===========================================================================
+
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', async () => {
     try {
@@ -301,7 +236,7 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
         if (newWorker) {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              if (confirm('يتوفر تحديث جديد للتطبيق. هل تريد إعادة التحميل الآن؟')) {
+              if (confirm('🔄 يتوفر تحديث جديد للتطبيق. هل تريد إعادة التحميل الآن؟')) {
                 window.location.reload();
               }
             }
@@ -309,42 +244,89 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
         }
       });
       
-      console.log('✅ Service Worker مسجل بنجاح:', registration);
+      console.log('✅ Service Worker مسجل بنجاح');
     } catch (error) {
-      console.error('❌ فشل تسجيل Service Worker:', error);
+      console.warn('⚠️ تحذير: فشل تسجيل Service Worker:', error);
     }
   });
 }
 
-// إعدادات الأداء
-if (import.meta.env.DEV) {
-  // في بيئة التطوير، تمكين أدوات التطوير
-  window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = window.__REACT_DEVTOOLS_GLOBAL_HOOK__ || {};
-  window.__REACT_DEVTOOLS_GLOBAL_HOOK__.checkDCE = () => {};
-}
+// ===========================================================================
+// 📱 معلومات التطبيق والتطوير
+// ===========================================================================
 
 // تسجيل معلومات التطبيق
+const appInfo = {
+  name: import.meta.env.VITE_APP_NAME || 'شجرة العائلة',
+  version: import.meta.env.VITE_APP_VERSION || '1.0.0',
+  mode: import.meta.env.MODE,
+  timestamp: new Date().toISOString()
+};
+
 console.log(`
-🌳 شجرة العائلة - تطبيق إدارة الأنساب
-📱 النسخة: ${import.meta.env.VITE_APP_VERSION || '1.0.0'}
-🔧 البيئة: ${import.meta.env.MODE}
+🌳 ${appInfo.name}
+📱 النسخة: ${appInfo.version}
+🔧 البيئة: ${appInfo.mode}
+⏰ وقت التحميل: ${appInfo.timestamp}
 🚀 تم التحميل بنجاح!
 `);
 
-// تصدير دوال مفيدة للـ debugging
+// أدوات التطوير (بيئة التطوير فقط)
 if (import.meta.env.DEV) {
   window.debugApp = {
-    version: import.meta.env.VITE_APP_VERSION || '1.0.0',
-    mode: import.meta.env.MODE,
+    info: appInfo,
     firebase: {
       projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
       authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN
     },
-    reload: () => window.location.reload(),
-    clearStorage: () => {
-      localStorage.clear();
-      sessionStorage.clear();
-      console.log('تم مسح جميع البيانات المحلية');
+    actions: {
+      reload: () => window.location.reload(),
+      clearStorage: () => {
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+          console.log('🧹 تم مسح جميع البيانات المحلية');
+        } catch (error) {
+          console.error('❌ فشل في مسح البيانات المحلية:', error);
+        }
+      },
+      checkFirebase: async () => {
+        try {
+          const { getFirebaseStatus } = await import('./firebase/config');
+          const status = getFirebaseStatus();
+          console.log('🔥 حالة Firebase:', status);
+          return status;
+        } catch (error) {
+          console.error('❌ خطأ في فحص Firebase:', error);
+          return { error: error.message };
+        }
+      }
     }
   };
+  
+  console.log('🔧 أدوات التطوير متاحة في window.debugApp');
+}
+
+// ===========================================================================
+// 🧹 تنظيف عند إغلاق الصفحة
+// ===========================================================================
+
+window.addEventListener('beforeunload', () => {
+  // تنظيف React DevTools
+  if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+    try {
+      // تنظيف آمن بدون إثارة أخطاء
+      const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+      if (hook.renderers) {
+        hook.renderers.clear();
+      }
+    } catch (cleanupError) {
+      // تجاهل أخطاء التنظيف
+    }
+  }
+});
+
+// تصدير متغيرات للاختبار (بيئة التطوير فقط)
+if (import.meta.env.DEV) {
+  window.__APP_INFO__ = appInfo;
 }
