@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { auth, db } from './firebase/config';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import userService, { fetchUserData } from './userService';
+import { fetchUserData } from './userService';
 import { AuthContext } from './contexts/AuthContext';
 
 export const AuthProvider = ({ children }) => {

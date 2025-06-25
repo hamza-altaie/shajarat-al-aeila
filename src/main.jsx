@@ -303,30 +303,27 @@ if (import.meta.env.DEV) {
       }
     }
   };
-  
-  console.log('🔧 أدوات التطوير متاحة في window.debugApp');
+
+  console.log('Tools available in window.debugApp');
 }
 
 // ===========================================================================
-// 🧹 تنظيف عند إغلاق الصفحة
+// Cleanup on page close
 // ===========================================================================
 
 window.addEventListener('beforeunload', () => {
-  // تنظيف React DevTools
   if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
     try {
-      // تنظيف آمن بدون إثارة أخطاء
       const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
       if (hook.renderers) {
         hook.renderers.clear();
       }
-    } catch (cleanupError) {
-      // تجاهل أخطاء التنظيف
+    } catch {
+      // Ignore cleanup errors
     }
   }
 });
 
-// تصدير متغيرات للاختبار (بيئة التطوير فقط)
 if (import.meta.env.DEV) {
   window.__APP_INFO__ = appInfo;
 }

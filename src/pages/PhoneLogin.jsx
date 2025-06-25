@@ -6,39 +6,32 @@ import {
 import { Phone as PhoneIcon, Security as SecurityIcon, Warning as WarningIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
-// استيراد Firebase مع معالجة الأخطاء
-import { auth, getFirebaseStatus, testFirestoreConnection } from '../firebase/config';
-import { 
+import { auth } from '../firebase/config';
+import {
   signInWithPhoneNumber, 
   RecaptchaVerifier, 
   updateProfile,
   onAuthStateChanged 
 } from 'firebase/auth';
 
-// استيراد الخدمات
 import userService from '../userService';
 
 const PhoneLogin = () => {
   const navigate = useNavigate();
-  
-  // الحالات الأساسية
-  const [phoneNumber, setPhoneNumber] = useState('');
+
   const [verificationCode, setVerificationCode] = useState('');
   const [confirmationResult, setConfirmationResult] = useState(null);
-  const [step, setStep] = useState('phone'); // 'phone' | 'verification'
-  
-  // حالات التحميل والأخطاء
+
   const [loading, setLoading] = useState(false);
   const [confirmationLoading, setConfirmationLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  
-  // حالات Firebase
+
   const [firebaseStatus, setFirebaseStatus] = useState(null);
   const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
-  
   const [timer, setTimer] = useState(0);
   const [phoneInput, setPhoneInput] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
 
   // فحص حالة Firebase عند التحميل
   useEffect(() => {
@@ -70,7 +63,7 @@ const PhoneLogin = () => {
           error: error.message || 'فشل في فحص حالة Firebase'
         });
         
-        setMessage('⚠️ تحذير: قد تكون هناك مشكلة في إعدادات Firebase');
+        setError('⚠️ تحذير: قد تكون هناك مشكلة في إعدادات Firebase');
       }
     };
     
@@ -187,7 +180,7 @@ const PhoneLogin = () => {
       }
     }
     
-    setPhone(formattedPhone);
+    setPhoneNumber(formattedPhone);
   };
 
   // إرسال كود التحقق
@@ -218,7 +211,6 @@ const PhoneLogin = () => {
       const confirmation = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
       
       setConfirmationResult(confirmation);
-      setStep('verification');
       setSuccess(`تم إرسال رمز التحقق إلى ${phoneNumber}`);
       setTimer(60); // 60 ثانية انتظار
       
@@ -328,13 +320,9 @@ const PhoneLogin = () => {
           break;
         case 'auth/code-expired':
           errorMessage = 'انتهت صلاحية رمز التحقق. يرجى طلب رمز جديد';
-          setStep('phone');
-          setConfirmationResult(null);
           break;
         case 'auth/session-expired':
           errorMessage = 'انتهت جلسة التحقق. يرجى المحاولة مرة أخرى';
-          setStep('phone');
-          setConfirmationResult(null);
           break;
         default:
           errorMessage = error.message || 'حدث خطأ في التحقق';
