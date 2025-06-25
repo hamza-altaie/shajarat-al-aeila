@@ -142,7 +142,6 @@ export default defineConfig({
       'react-dom',
       'react-router-dom',
       // تحسين MUI
-      '@mui/material/Unstable_Grid2',
       '@mui/material/colors',
       '@emotion/react',
       '@emotion/styled',
