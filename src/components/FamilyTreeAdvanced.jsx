@@ -10,11 +10,20 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Divider, 
   FormControlLabel, Switch, TextField, InputAdornment
 } from '@mui/material';
-import {
-  AccountTree, Groups, Edit, Person, Close, 
-  ZoomIn, ZoomOut, Refresh, Warning, Link as LinkIcon, 
-  PersonAdd, Search as SearchIcon
-} from '@mui/icons-material';
+
+// استيراد الأيقونات بشكل منفصل لتحسين الأداء
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import GroupsIcon from '@mui/icons-material/Groups';
+import EditIcon from '@mui/icons-material/Edit';
+import PersonIcon from '@mui/icons-material/Person';
+import CloseIcon from '@mui/icons-material/Close';
+import ZoomInIcon from '@mui/icons-material/ZoomIn';
+import ZoomOutIcon from '@mui/icons-material/ZoomOut';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import WarningIcon from '@mui/icons-material/Warning';
+import LinkIcon from '@mui/icons-material/Link';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import SearchIcon from '@mui/icons-material/Search';
 
 // استيرادات Firebase
 import { db } from '../firebase/config';
@@ -68,7 +77,6 @@ export default function FamilyTreeAdvanced() {
   // ===========================================================================
   // دوال مساعدة ثابتة
   // ===========================================================================
-
 
   const sanitizeMemberData = (memberData) => {
     return {
@@ -962,7 +970,7 @@ export default function FamilyTreeAdvanced() {
             height="100%"
             sx={{ color: '#ef4444', textAlign: 'center' }}
           >
-            <Warning sx={{ fontSize: 80, mb: 2 }} />
+            <WarningIcon sx={{ fontSize: 80, mb: 2 }} />
             <Typography variant="h5" sx={{ mb: 2, fontFamily: 'Cairo, sans-serif' }}>
               حدث خطأ في التحميل
             </Typography>
@@ -972,7 +980,7 @@ export default function FamilyTreeAdvanced() {
             <Button 
               variant="contained" 
               onClick={handleRefresh}
-              startIcon={<Refresh />}
+              startIcon={<RefreshIcon />}
               sx={{ fontFamily: 'Cairo, sans-serif' }}
             >
               إعادة المحاولة
@@ -1027,7 +1035,7 @@ export default function FamilyTreeAdvanced() {
               </Box>
             ) : (
               <Box textAlign="center">
-                <AccountTree sx={{ fontSize: 120, color: showExtendedTree ? '#8b5cf6' : '#6366f1', mb: 2 }} />
+                <AccountTreeIcon sx={{ fontSize: 120, color: showExtendedTree ? '#8b5cf6' : '#6366f1', mb: 2 }} />
                 <Typography variant="h4" sx={{ mb: 1, fontFamily: 'Cairo, sans-serif' }}>
                   {showExtendedTree ? '🏛️ ابنِ شجرتك الموسعة' : '🌳 ابنِ شجرة عائلتك'}
                 </Typography>
@@ -1047,7 +1055,7 @@ export default function FamilyTreeAdvanced() {
                     }}
                     size="large"
                     onClick={() => navigate('/family')}
-                    startIcon={<Person />}
+                    startIcon={<PersonIcon />}
                   >
                     إضافة أفراد العائلة
                   </Button>
@@ -1122,14 +1130,14 @@ export default function FamilyTreeAdvanced() {
         )}
         
         <Box display="flex" justifyContent="center" gap={1} flexWrap="wrap" sx={{ mb: 2 }}>
-          <Button variant="contained" size="small" onClick={() => navigate('/family')} disabled={loading} startIcon={<PersonAdd />} sx={{ gap: 1 }}>
+          <Button variant="contained" size="small" onClick={() => navigate('/family')} disabled={loading} startIcon={<PersonAddIcon />} sx={{ gap: 1 }}>
             إدارة العائلة
           </Button>
           <Button variant="outlined" size="small" onClick={() => setShowLinkingPanel(true)} disabled={loading} startIcon={<LinkIcon />} sx={{ gap: 1 }}>
             ربط
           </Button>
           <IconButton size="small" onClick={handleRefresh} disabled={loading} title="إعادة تحميل الصفحة">
-            <Refresh />
+            <RefreshIcon />
           </IconButton>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, position: 'relative' }}>
             <TextField
@@ -1176,7 +1184,7 @@ export default function FamilyTreeAdvanced() {
                         }
                       }}
                     >
-                      <Close />
+                      <CloseIcon />
                     </IconButton>
                   </InputAdornment>
                 )
@@ -1406,7 +1414,7 @@ export default function FamilyTreeAdvanced() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setSelectedNode(null)}>إغلاق</Button>
-          <Button variant="contained" startIcon={<Edit />}>تعديل</Button>
+          <Button variant="contained" startIcon={<EditIcon />}>تعديل</Button>
         </DialogActions>
       </Dialog>
       
