@@ -13,13 +13,30 @@ process.env.NODE_ENV = process.env.NODE_ENV || 'development';
 export default defineConfig({
   plugins: [
     react({
+      // إصلاح نهائي لمشكلة jsxDEV
+      jsxRuntime: 'automatic',
+      jsxImportSource: 'react',
       fastRefresh: true,
+      babel: {
+        plugins: [],
+        presets: [
+          ['@babel/preset-react', { 
+            runtime: 'automatic',
+            importSource: 'react'
+          }]
+        ]
+      }
     })
   ],
 
   define: {
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
-    'process.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL)
+    'process.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || ''),
+    // إصلاح مشكلة global و jsxDEV
+    global: 'globalThis',
+    // إضافة تعريفات React
+    __DEV__: JSON.stringify(false),
+    'process.env.NODE_DEBUG': JSON.stringify(false),
   },
 
   // إعدادات الخادم
@@ -33,6 +50,15 @@ export default defineConfig({
       overlay: true,
       clientPort: 5173
     }
+  },
+  
+  // إعدادات البرفيو
+  preview: {
+    port: 4173,
+    host: true,
+    open: true,
+    strictPort: false,
+    cors: true
   },
   
   // إعدادات البناء - مع إصلاحات مشكلة MUI
@@ -133,10 +159,11 @@ export default defineConfig({
     }
   },
   
-  // إعدادات التطوير المتقدمة
+  // إعدادات التطوير المتقدمة - إصلاح jsxDEV
   esbuild: {
-    jsxFactory: 'React.createElement',
-    jsxFragment: 'React.Fragment',
+    jsx: 'automatic',
+    jsxFactory: undefined,
+    jsxFragment: undefined,
     target: 'esnext'
   },
   

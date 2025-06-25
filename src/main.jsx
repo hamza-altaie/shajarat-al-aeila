@@ -1,45 +1,41 @@
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import App from './App.jsx';
+import React from 'react'
+import { createRoot } from 'react-dom/client'
+import App from './App.jsx'
 
-// معالج الأخطاء العامة
-const handleGlobalError = (error, errorInfo) => {
-  console.error('خطأ عام في التطبيق:', error, errorInfo);
-  
-  // تجنب إرسال الأخطاء في وضع التطوير
-  if (import.meta.env.PROD) {
-    // يمكن إضافة خدمة تسجيل الأخطاء هنا
-    // مثل Sentry أو LogRocket
-  }
-};
+// استيراد الخطوط والستايل
+import './index.css'
 
-// مكون معالج الأخطاء
+// إعداد اللغة العربية والاتجاه
+document.documentElement.lang = 'ar';
+document.documentElement.dir = 'rtl';
+document.title = 'شجرة العائلة';
+
+// معالج أخطاء React
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { 
-      hasError: false, 
-      error: null,
-      errorInfo: null 
-    };
+    this.state = { hasError: false, error: null, errorInfo: null };
   }
 
   static getDerivedStateFromError(error) {
-    return { hasError: true, error };
+    return { hasError: true };
   }
 
   componentDidCatch(error, errorInfo) {
-    this.setState({ errorInfo });
-    handleGlobalError(error, errorInfo);
+    console.error('خطأ في المكون:', error, errorInfo);
+    this.setState({ 
+      error: error, 
+      errorInfo: errorInfo 
+    });
   }
 
   handleReload = () => {
     window.location.reload();
-  };
+  }
 
   handleGoHome = () => {
     window.location.href = '/';
-  };
+  }
 
   render() {
     if (this.state.hasError) {
@@ -50,44 +46,54 @@ class ErrorBoundary extends React.Component {
           justifyContent: 'center',
           alignItems: 'center',
           minHeight: '100vh',
-          padding: '20px',
-          textAlign: 'center',
-          fontFamily: '"Cairo", sans-serif',
+          fontFamily: 'Cairo, Arial, sans-serif',
           backgroundColor: '#f8f9fa',
+          color: '#333',
+          textAlign: 'center',
+          padding: '20px',
           direction: 'rtl'
         }}>
           <div style={{
-            maxWidth: '500px',
-            width: '100%',
-            backgroundColor: 'white',
-            borderRadius: '16px',
+            backgroundColor: '#fff',
             padding: '40px',
+            borderRadius: '16px',
             boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+            maxWidth: '600px',
+            width: '100%'
           }}>
             <div style={{
-              fontSize: '80px',
-              marginBottom: '20px',
-              filter: 'grayscale(1)',
+              fontSize: '4rem',
+              marginBottom: '20px'
             }}>
-              🌳💔
+              ⚠️
             </div>
             
-            <h1 style={{
-              color: '#d32f2f',
-              marginBottom: '16px',
-              fontSize: '24px',
+            <h1 style={{ 
+              color: '#d32f2f', 
+              marginBottom: '20px',
+              fontSize: '1.8rem',
               fontWeight: 'bold'
             }}>
-              عذراً، حدث خطأ غير متوقع
+              حدث خطأ في التطبيق
             </h1>
             
-            <p style={{
-              color: '#666',
-              marginBottom: '24px',
+            <p style={{ 
+              marginBottom: '24px', 
               lineHeight: '1.6',
-              fontSize: '16px'
+              fontSize: '1.1rem',
+              color: '#555'
             }}>
-              نعتذر عن هذا الخطأ في تطبيق شجرة العائلة. 
+              نعتذر، حدث خطأ غير متوقع أثناء تشغيل التطبيق. 
+              يرجى إعادة تحميل الصفحة أو المحاولة لاحقاً.
+            </p>
+
+            <p style={{
+              marginBottom: '32px',
+              fontSize: '0.95rem',
+              color: '#888',
+              lineHeight: '1.4'
+            }}>
+              إذا استمر هذا الخطأ، يرجى التواصل مع فريق الدعم. 
               فريقنا سيعمل على إصلاح هذه المشكلة في أسرع وقت ممكن.
             </p>
 
@@ -137,11 +143,46 @@ class ErrorBoundary extends React.Component {
             <p style={{
               marginTop: '24px',
               fontSize: '14px',
-              color: '#888',
-              lineHeight: '1.4'
+              color: '#999',
+              borderTop: '1px solid #eee',
+              paddingTop: '16px'
             }}>
-              إذا استمر هذا الخطأ، يرجى التواصل مع فريق الدعم
+              شجرة العائلة - نسخة 1.0.0
             </p>
+
+            {this.state.error && (
+              <details style={{ 
+                marginTop: '20px', 
+                textAlign: 'left',
+                backgroundColor: '#f5f5f5',
+                padding: '16px',
+                borderRadius: '8px',
+                border: '1px solid #ddd'
+              }}>
+                <summary style={{ 
+                  cursor: 'pointer', 
+                  color: '#666',
+                  fontWeight: 'bold',
+                  marginBottom: '8px'
+                }}>
+                  تفاصيل الخطأ (للمطورين)
+                </summary>
+                <pre style={{ 
+                  backgroundColor: '#fff', 
+                  padding: '12px', 
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  overflow: 'auto',
+                  marginTop: '8px',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  border: '1px solid #ccc'
+                }}>
+                  {this.state.error.toString()}
+                  {this.state.errorInfo.componentStack}
+                </pre>
+              </details>
+            )}
           </div>
         </div>
       );
@@ -151,11 +192,24 @@ class ErrorBoundary extends React.Component {
   }
 }
 
+// دالة معالجة الأخطاء العامة
+function handleGlobalError(error, context = {}) {
+  console.error('خطأ عام في التطبيق:', error, context);
+  
+  // يمكن إضافة تتبع الأخطاء هنا (مثل Sentry)
+  if (window.gtag) {
+    window.gtag('event', 'exception', {
+      description: error.message || error.toString(),
+      fatal: false
+    });
+  }
+}
+
 // بدء تشغيل التطبيق
 const container = document.getElementById('root');
 
 if (!container) {
-  console.error('❌ لم يتم العثور على العنصر الجذر #root في HTML');
+  console.error('❌ لم يتم العثور على العنصر الجذر #root');
   
   // إنشاء عنصر جذر إذا لم يكن موجوداً
   const rootElement = document.createElement('div');
@@ -171,11 +225,12 @@ if (!container) {
         justifyContent: 'center', 
         alignItems: 'center', 
         minHeight: '100vh', 
-        fontFamily: 'Arial, sans-serif',
+        fontFamily: 'Cairo, Arial, sans-serif',
         backgroundColor: '#f8f9fa',
         color: '#d32f2f',
         textAlign: 'center',
         padding: '20px',
+        direction: 'rtl'
       }}>
         <h1>خطأ في التطبيق</h1>
         <p>لم يتم العثور على العنصر الجذر المطلوب لتشغيل التطبيق</p>
@@ -212,7 +267,8 @@ if (!container) {
 window.addEventListener('error', (event) => {
   // تجنب إظهار أخطاء Chrome Extensions
   if (event.filename && event.filename.includes('extension://')) {
-    return;
+    event.preventDefault();
+    return false;
   }
   
   console.error('خطأ JavaScript غير معالج:', event.error);
@@ -226,14 +282,15 @@ window.addEventListener('error', (event) => {
 window.addEventListener('unhandledrejection', (event) => {
   // تجنب إظهار أخطاء Chrome Extensions
   if (event.reason && event.reason.toString().includes('extension')) {
-    return;
+    event.preventDefault();
+    return false;
   }
   
   console.error('Promise مرفوض غير معالج:', event.reason);
   handleGlobalError(new Error(event.reason), { type: 'promise' });
 });
 
-// Service Worker للعمل دون اتصال
+// Service Worker للعمل دون اتصال (للإنتاج فقط)
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', async () => {
     try {
@@ -244,15 +301,50 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
         if (newWorker) {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              if (confirm('يتوفر تحديث جديد للتطبيق. هل تريد إعادة تحميل الصفحة؟')) {
+              if (confirm('يتوفر تحديث جديد للتطبيق. هل تريد إعادة التحميل الآن؟')) {
                 window.location.reload();
               }
             }
           });
         }
       });
-    } catch (registrationError) {
-      console.log('❌ فشل تسجيل Service Worker:', registrationError);
+      
+      console.log('✅ Service Worker مسجل بنجاح:', registration);
+    } catch (error) {
+      console.error('❌ فشل تسجيل Service Worker:', error);
     }
   });
+}
+
+// إعدادات الأداء
+if (import.meta.env.DEV) {
+  // في بيئة التطوير، تمكين أدوات التطوير
+  window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = window.__REACT_DEVTOOLS_GLOBAL_HOOK__ || {};
+  window.__REACT_DEVTOOLS_GLOBAL_HOOK__.checkDCE = () => {};
+}
+
+// تسجيل معلومات التطبيق
+console.log(`
+🌳 شجرة العائلة - تطبيق إدارة الأنساب
+📱 النسخة: ${import.meta.env.VITE_APP_VERSION || '1.0.0'}
+🔧 البيئة: ${import.meta.env.MODE}
+🚀 تم التحميل بنجاح!
+`);
+
+// تصدير دوال مفيدة للـ debugging
+if (import.meta.env.DEV) {
+  window.debugApp = {
+    version: import.meta.env.VITE_APP_VERSION || '1.0.0',
+    mode: import.meta.env.MODE,
+    firebase: {
+      projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN
+    },
+    reload: () => window.location.reload(),
+    clearStorage: () => {
+      localStorage.clear();
+      sessionStorage.clear();
+      console.log('تم مسح جميع البيانات المحلية');
+    }
+  };
 }
