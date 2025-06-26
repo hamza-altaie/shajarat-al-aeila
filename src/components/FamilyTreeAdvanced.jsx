@@ -1010,7 +1010,7 @@ export default function FamilyTreeAdvanced() {
           >
             {loading ? (
               <Box textAlign="center" maxWidth={600}>
-                <CircularProgress size={80} sx={{ color: showExtendedTree ? '#8b5cf6' : '#6366f1', mb: 3 }} />
+                <CircularProgress size={80} sx={{ color: '#1976d2', mb: 3 }} />
                 <Typography variant="h5" sx={{ mb: 2, fontFamily: 'Cairo, sans-serif' }}>
                   {loadingStage || `جاري تحميل ${treeTitle}...`}
                 </Typography>
@@ -1024,7 +1024,7 @@ export default function FamilyTreeAdvanced() {
                     mb: 2,
                     backgroundColor: 'rgba(255,255,255,0.1)',
                     '& .MuiLinearProgress-bar': {
-                      backgroundColor: showExtendedTree ? '#8b5cf6' : '#6366f1'
+                      backgroundColor: '#1976d2'
                     }
                   }}
                 />
@@ -1034,7 +1034,7 @@ export default function FamilyTreeAdvanced() {
               </Box>
             ) : (
               <Box textAlign="center">
-                <AccountTreeIcon sx={{ fontSize: 120, color: showExtendedTree ? '#8b5cf6' : '#6366f1', mb: 2 }} />
+                <AccountTreeIcon sx={{ fontSize: 120, color: '#1976d2', mb: 2 }} />
                 <Typography variant="h4" sx={{ mb: 1, fontFamily: 'Cairo, sans-serif' }}>
                   {showExtendedTree ? '🏛️ ابنِ شجرتك الموسعة' : '🌳 ابنِ شجرة عائلتك'}
                 </Typography>
@@ -1062,7 +1062,7 @@ export default function FamilyTreeAdvanced() {
                     variant="outlined"
                     sx={{ 
                       borderColor: showExtendedTree ? '#8b5cf6' : '#6366f1',
-                      color: showExtendedTree ? '#8b5cf6' : '#6366f1',
+                      color: '#1976d2',
                       '&:hover': { 
                         borderColor: showExtendedTree ? '#7c3aed' : '#4f46e5',
                         backgroundColor: showExtendedTree ? 'rgba(139, 92, 246, 0.1)' : 'rgba(99, 102,241, 0.1)'
@@ -1120,9 +1120,9 @@ export default function FamilyTreeAdvanced() {
               mb: 2,
               height: 6, 
               borderRadius: 3,
-              backgroundColor: 'rgba(99, 102, 241, 0.1)',
+              backgroundColor: 'rgba(25, 118, 210, 0.1)',
               '& .MuiLinearProgress-bar': {
-                backgroundColor: showExtendedTree ? '#8b5cf6' : '#6366f1'
+                backgroundColor: '#1976d2'
               }
             }}
           />
@@ -1327,10 +1327,10 @@ export default function FamilyTreeAdvanced() {
                 size="small"
                 sx={{
                   '& .MuiSwitch-switchBase.Mui-checked': {
-                    color: '#8b5cf6',
+                    color: '#1976d2',
                   },
                   '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                    backgroundColor: '#8b5cf6',
+                    backgroundColor: '#1976d2',
                   },
                 }}
               />
