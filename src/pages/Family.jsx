@@ -950,7 +950,13 @@ useEffect(() => {
       {/* الهيدر */}
       <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" mb={4} gap={2}>
         <Box textAlign={{ xs: 'center', sm: 'left' }}>
-          <Typography variant="h3" fontWeight="bold" gutterBottom fontSize={{ xs: '2rem', sm: '3rem' }}>
+          <Typography 
+            variant="h3" 
+            fontWeight="bold" 
+            gutterBottom 
+            fontSize={{ xs: '2rem', sm: '3rem' }}
+            sx={{ color: '#1976d2' }}  // أو أي لون تريده
+          >
             🏠 إدارة العائلة
           </Typography>
           <Typography variant="h6" color="text.secondary">
