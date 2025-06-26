@@ -31,6 +31,8 @@ import ExtendedFamilyLinking from './ExtendedFamilyLinking';
 import ModernFamilyNodeHTML from './ModernFamilyNodeHTML';
 import './FamilyTreeAdvanced.css';
 import { useSearchZoom } from '../hooks/useSearchZoom';
+import FamilyStatisticsDashboard from './FamilyStatisticsDashboard';
+import BarChartIcon from '@mui/icons-material/BarChart';
 
 export default function FamilyTreeAdvanced() {
   // ===========================================================================
@@ -58,6 +60,7 @@ export default function FamilyTreeAdvanced() {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [showStatistics, setShowStatistics] = useState(false);
   
   const uid = localStorage.getItem('verifiedUid');
   const navigate = useNavigate();
@@ -1191,6 +1194,21 @@ const drawTreeWithD3 = useCallback((data) => {
           <Button variant="outlined" size="small" onClick={() => setShowLinkingPanel(true)} disabled={loading} startIcon={<LinkIcon />} sx={{ gap: 1 }}>
             ربط
           </Button>
+          <Button 
+            variant="contained" 
+            size="small" 
+            onClick={() => setShowStatistics(true)} 
+            disabled={loading} 
+            startIcon={<BarChartIcon />} 
+            sx={{ 
+              gap: 1,
+              backgroundColor: 'success.main',
+              '&:hover': { backgroundColor: 'success.dark' }
+            }}
+          >
+            إحصائيات
+          </Button>
+
           <IconButton size="small" onClick={handleRefresh} disabled={loading} title="إعادة تحميل الصفحة">
             <RefreshIcon />
           </IconButton>
@@ -1483,6 +1501,45 @@ const drawTreeWithD3 = useCallback((data) => {
           {snackbarMessage}
         </Alert>
       </Snackbar>
+
+      {/* تسجيل تشخيصي */}
+      {console.log('🔍 Debug Info:', {
+        currentTreeData: currentTreeData,
+        simpleTreeData: simpleTreeData,
+        extendedTreeData: extendedTreeData,
+        showExtendedTree: showExtendedTree
+      })}
+      
+      <FamilyStatisticsDashboard
+      open={showStatistics}
+      onClose={() => setShowStatistics(false)}
+      treeData={currentTreeData}
+      familyMembers={(() => {
+        // استخراج البيانات من مصادر متعددة
+        const members = [];
+        
+        // من الشجرة المحددة
+        if (currentTreeData) {
+          const extractMembers = (node) => {
+            if (node && node.attributes) {
+              members.push({
+                id: node.id,
+                name: node.name,
+                ...node.attributes
+              });
+            }
+            if (node && node.children) {
+              node.children.forEach(child => extractMembers(child));
+            }
+          };
+          extractMembers(currentTreeData);
+        }
+        
+        return members;
+      })()}
+    />
+
     </Box>
   );
 }
+
