@@ -613,217 +613,276 @@ export default function FamilyTreeAdvanced() {
   // دالة رسم الشجرة
   // ===========================================================================
 
-  const drawTreeWithD3 = useCallback((data) => {
-    if (!data || !svgRef.current || !containerRef.current) return;
+  // استبدل دالة drawTreeWithD3 بهذا الكود الذي يحافظ على التصميم الأصلي مع أنيميشن بسيط:
 
-    
-    const svg = d3.select(svgRef.current);
-    svg.attr('transform', null); 
-    svg.property('__zoom', d3.zoomIdentity); 
-    svg.selectAll('*').remove(); 
+const drawTreeWithD3 = useCallback((data) => {
+  if (!data || !svgRef.current || !containerRef.current) return;
 
-    // إعداد الأبعاد
-    const container = containerRef.current;
-    const width = container.clientWidth;
-    const height = container.clientHeight;
-    svg.attr('width', width).attr('height', height).style('background', 'transparent');
+  const svg = d3.select(svgRef.current);
+  svg.attr('transform', null); 
+  svg.property('__zoom', d3.zoomIdentity); 
+  svg.selectAll('*').remove(); 
 
-    // إنشاء مجموعة g جديدة
-    const g = svg.append('g');
-    g.attr('transform', null); 
+  // إعداد الأبعاد
+  const container = containerRef.current;
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+  svg.attr('width', width).attr('height', height).style('background', 'transparent');
 
-    // إعداد الـ zoom بدون أي تحريك افتراضي
-    const zoom = d3.zoom()
-      .scaleExtent([0.1, 3])
-      .on('zoom', (event) => {
-        g.attr('transform', event.transform);
-      });
-    svg.call(zoom);
-    svg.property('__zoom', d3.zoomIdentity); 
+  // إنشاء مجموعة g جديدة
+  const g = svg.append('g');
+  g.attr('transform', null); 
 
-    // إعداد بيانات الشجرة
-    const root = d3.hierarchy(data);
-    // حساب عمق الشجرة (عدد الأجيال)
-    let maxDepth = 1;
-    let generationCounts = {};
-    let maxBreadth = 1;
-    root.each(d => {
-      if (d.depth > maxDepth) maxDepth = d.depth;
-      generationCounts[d.depth] = (generationCounts[d.depth] || 0) + 1;
-      if (generationCounts[d.depth] > maxBreadth) maxBreadth = generationCounts[d.depth];
+  // إعداد الـ zoom بدون أي تحريك افتراضي
+  const zoom = d3.zoom()
+    .scaleExtent([0.1, 3])
+    .on('zoom', (event) => {
+      g.attr('transform', event.transform);
     });
+  svg.call(zoom);
+  svg.property('__zoom', d3.zoomIdentity); 
 
-    // تمييز بين الشجرة العادية والموسعة
-    let verticalGap, dynamicHeight, horizontalGap, dynamicWidth;
-    if (showExtendedTree) {
-      // الشجرة الموسعة: مساحة رأسية أكبر لكن ليست مبالغ فيها، ومسافة أفقية أكبر
-      verticalGap = 80; 
-      horizontalGap = 220; 
-      dynamicHeight = Math.max(verticalGap * maxDepth, 350);
-      dynamicWidth = Math.max(horizontalGap * maxBreadth, width - 100);
-    } else {
-      verticalGap = 55;
-      horizontalGap = 180;
-      dynamicHeight = Math.max(verticalGap * maxDepth, 180);
-      dynamicWidth = width - 100;
+  // إعداد بيانات الشجرة
+  const root = d3.hierarchy(data);
+  // حساب عمق الشجرة (عدد الأجيال)
+  let maxDepth = 1;
+  let generationCounts = {};
+  let maxBreadth = 1;
+  root.each(d => {
+    if (d.depth > maxDepth) maxDepth = d.depth;
+    generationCounts[d.depth] = (generationCounts[d.depth] || 0) + 1;
+    if (generationCounts[d.depth] > maxBreadth) maxBreadth = generationCounts[d.depth];
+  });
+
+  // تمييز بين الشجرة العادية والموسعة
+  let verticalGap, dynamicHeight, horizontalGap, dynamicWidth;
+  if (showExtendedTree) {
+    // الشجرة الموسعة: مساحة رأسية أكبر لكن ليست مبالغ فيها، ومسافة أفقية أكبر
+    verticalGap = 80; 
+    horizontalGap = 220; 
+    dynamicHeight = Math.max(verticalGap * maxDepth, 350);
+    dynamicWidth = Math.max(horizontalGap * maxBreadth, width - 100);
+  } else {
+    verticalGap = 55;
+    horizontalGap = 180;
+    dynamicHeight = Math.max(verticalGap * maxDepth, 180);
+    dynamicWidth = width - 100;
+  }
+
+  // إعداد تخطيط الشجرة مع توزيع أفقي متساوٍ تماماً (بدون أي تراكب)
+  const treeLayout = d3.tree()
+    .size([dynamicWidth, dynamicHeight])
+    .separation(() => {
+      // توزيع أفقي متساوٍ تماماً بين جميع العقد في نفس الجيل (1)
+      return 1;
+    }); 
+
+  treeLayout(root);
+
+  // رسم الروابط مع أنيميشن بسيط
+  const links = g.selectAll(".link")
+    .data(root.links())
+    .enter().append("path")
+    .attr("class", "link")
+    .style("fill", "none")
+    .attr("d", d => {
+        const source = d.source;
+        const target = d.target;
+        const midY = source.y + (target.y - source.y) / 2;
+        const radius = 18;
+        return `M${source.x},${source.y}
+                L${source.x},${midY - radius}
+                Q${source.x},${midY} ${source.x + (target.x > source.x ? radius : -radius)},${midY}
+                L${target.x - (target.x > source.x ? radius : -radius)},${midY}
+                Q${target.x},${midY} ${target.x},${midY + radius}
+                L${target.x},${target.y}`;
+      })
+    .style("stroke", "#cbd5e1")
+    .style("stroke-width", 2)
+    .style("stroke-linecap", "round")
+    .style("stroke-linejoin", "round")
+    .style("opacity", 0) // بدء مخفي للأنيميشن
+    .style("filter", "none")
+    .style("stroke-dasharray", "none");
+
+  // أنيميشن بسيط للروابط
+  links.transition()
+    .delay(500)
+    .duration(800)
+    .ease(d3.easeQuadOut)
+    .style("opacity", 0.85);
+
+  // رسم العقد مع أنيميشن بسيط
+  const nodes = g.selectAll(".node")
+    .data(root.descendants())
+    .enter().append("g")
+    .attr("class", "node")
+    .attr("data-depth", d => d.depth) // للأنيميشن CSS
+    .attr("transform", d => `translate(${d.x},${d.y})`)
+    .style("opacity", 0); // بدء مخفي للأنيميشن
+
+  // أنيميشن بسيط للعقد
+  nodes.transition()
+    .delay((d, i) => d.depth * 200 + i * 50)
+    .duration(600)
+    .ease(d3.easeBackOut)
+    .style("opacity", 1);
+
+  // إضافة محتوى العقد - نفس التصميم الأصلي تماماً
+  nodes.each(function(d) {
+    const nodeGroup = d3.select(this);
+    const nodeData = d.data.attributes || d.data;
+    const uniqueId = nodeData.id || nodeData.globalId || Math.random().toString(36).substring(7);
+    
+    // إضافة خاصية highlightMatch بناءً على البحث
+    let highlightMatch = false;
+    if (searchQuery && searchQuery.length > 1) {
+      const q = searchQuery.trim();
+      if (
+        (nodeData.name && nodeData.name.includes(q)) ||
+        (nodeData.firstName && nodeData.firstName.includes(q))
+      ) {
+        highlightMatch = true;
+      }
     }
-
-    // إعداد تخطيط الشجرة مع توزيع أفقي متساوٍ تماماً (بدون أي تراكب)
-    const treeLayout = d3.tree()
-      .size([dynamicWidth, dynamicHeight])
-      .separation(() => {
-        // توزيع أفقي متساوٍ تماماً بين جميع العقد في نفس الجيل (1)
-        return 1;
-      }); 
-
-    treeLayout(root);
-
-    // رسم الروابط
-    g.selectAll(".link")
-      .data(root.links())
-      .enter().append("path")
-      .attr("class", "link")
-      .style("fill", "none")
-      .attr("d", d => {
-          const source = d.source;
-          const target = d.target;
-          const midY = source.y + (target.y - source.y) / 2;
-          const radius = 18;
-          return `M${source.x},${source.y}
-                  L${source.x},${midY - radius}
-                  Q${source.x},${midY} ${source.x + (target.x > source.x ? radius : -radius)},${midY}
-                  L${target.x - (target.x > source.x ? radius : -radius)},${midY}
-                  Q${target.x},${midY} ${target.x},${midY + radius}
-                  L${target.x},${target.y}`;
-        })
-      .style("stroke", "#cbd5e1")
-      .style("stroke-width", 2)
-      .style("stroke-linecap", "round")
-      .style("stroke-linejoin", "round")
-      .style("opacity", 0.85)
-      .style("filter", "none")
-      .style("stroke-dasharray", "none"); 
-
-    // رسم العقد
-    const nodes = g.selectAll(".node")
-      .data(root.descendants())
-      .enter().append("g")
-      .attr("class", "node")
-      .attr("transform", d => `translate(${d.x},${d.y})`)
-      .style("opacity", 1); // إزالة transition
-
-    // إضافة محتوى العقد
-    nodes.each(function(d) {
-      const nodeGroup = d3.select(this);
-      const nodeData = d.data.attributes || d.data;
-      const uniqueId = nodeData.id || nodeData.globalId || Math.random().toString(36).substring(7);
-      // إضافة خاصية highlightMatch بناءً على البحث
-      let highlightMatch = false;
-      if (searchQuery && searchQuery.length > 1) {
-        const q = searchQuery.trim();
-        if (
-          (nodeData.name && nodeData.name.includes(q)) ||
-          (nodeData.firstName && nodeData.firstName.includes(q))
-        ) {
-          highlightMatch = true;
-        }
-      }
-      try {
-        const foreignObject = nodeGroup.append("foreignObject")
-          .attr("width", 350)
-          .attr("height", 200)
-          .attr("x", -175)
-          .attr("y", -100)
-          .style("overflow", "visible");
-
-        const htmlContainer = foreignObject.append("xhtml:div")
-          .style("width", "100%")
-          .style("height", "100%")
-          .style("display", "flex")
-          .style("align-items", "center")
-          .style("justify-content", "center")
-          .style("font-family", "Cairo, sans-serif");
-
-        const reactContainer = htmlContainer.append("xhtml:div")
-          .attr("id", `react-node-${uniqueId}`)
-          .style("width", "320px")
-          .style("height", "180px")
-          .style("display", "flex")
-          .style("align-items", "center")
-          .style("justify-content", "center");
-
-        const reactElement = reactContainer.node();
-        if (reactElement) {
-          const root = createRoot(reactElement);
-          reactRootsRef.current.set(uniqueId, root);
-          root.render(
-            <ModernFamilyNodeHTML 
-              nodeDatum={{
-                ...nodeData,
-                name: nodeData.name || buildFullName(nodeData),
-                isExtended: showExtendedTree && nodeData.isExtended,
-                highlightMatch // تمرير خاصية التمييز
-              }}
-              onNodeClick={handleNodeClick}
-              isParent={
-                nodeData.relation?.includes('رب العائلة') || 
-                nodeData.relation === 'parent' ||
-                nodeData.relation === 'الأب' ||
-                nodeData.relation === 'الأم'
-              }
-              isChild={
-                nodeData.relation === 'ابن' || 
-                nodeData.relation === 'بنت' || 
-                nodeData.relation === 'child' ||
-                nodeData.relation === 'الابن' ||
-                nodeData.relation === 'الابنة'
-              }
-              isSpouse={
-                nodeData.relation === 'زوج' || 
-                nodeData.relation === 'زوجة' || 
-                nodeData.relation === 'spouse' ||
-                nodeData.relation === 'الزوج' ||
-                nodeData.relation === 'الزوجة'
-              }
-            />
-          );
-        }
-      } catch {
-        
-      }
-    });
-
     
-    const nodesByDepth = {};
-    root.each(d => {
-      if (!nodesByDepth[d.depth]) nodesByDepth[d.depth] = [];
-      nodesByDepth[d.depth].push(d);
-    });
-    Object.values(nodesByDepth).forEach(nodes => {
-      nodes.sort((a, b) => a.x - b.x);
-      for (let i = 1; i < nodes.length; i++) {
-        const prev = nodes[i - 1];
-        const curr = nodes[i];
-        // إذا كان هناك تداخل أو تقاطع بين الكروت، نحرك العقدة الحالية يميناً
-        const minDistance = 340; 
-        if (curr.x - prev.x < minDistance) {
-          const shift = minDistance - (curr.x - prev.x);
-          curr.x += shift;
-          // إعادة ضبط x لجميع الأبناء أيضاً
-          function shiftChildren(node, delta) {
-            if (node.children && node.children.length > 0) {
-              node.children.forEach(child => {
-                child.x += delta;
-                shiftChildren(child, delta);
-              });
-            }
-          }
-          shiftChildren(curr, shift);
-        }
-      }
-    });
+    try {
+      const foreignObject = nodeGroup.append("foreignObject")
+        .attr("width", 350)
+        .attr("height", 200)
+        .attr("x", -175)
+        .attr("y", -100)
+        .style("overflow", "visible");
 
-  }, [showExtendedTree, handleNodeClick, buildFullName, searchQuery]);
+      const htmlContainer = foreignObject.append("xhtml:div")
+        .style("width", "100%")
+        .style("height", "100%")
+        .style("display", "flex")
+        .style("align-items", "center")
+        .style("justify-content", "center")
+        .style("font-family", "Cairo, sans-serif");
+
+      const reactContainer = htmlContainer.append("xhtml:div")
+        .attr("id", `react-node-${uniqueId}`)
+        .style("width", "320px")
+        .style("height", "180px")
+        .style("display", "flex")
+        .style("align-items", "center")
+        .style("justify-content", "center");
+
+      const reactElement = reactContainer.node();
+      if (reactElement) {
+        const root = createRoot(reactElement);
+        reactRootsRef.current.set(uniqueId, root);
+        root.render(
+          <ModernFamilyNodeHTML 
+            nodeDatum={{
+              ...nodeData,
+              name: nodeData.name || buildFullName(nodeData),
+              isExtended: showExtendedTree && nodeData.isExtended,
+              highlightMatch // تمرير خاصية التمييز
+            }}
+            onNodeClick={handleNodeClick}
+            isParent={
+              nodeData.relation?.includes('رب العائلة') || 
+              nodeData.relation === 'parent' ||
+              nodeData.relation === 'الأب' ||
+              nodeData.relation === 'الأم'
+            }
+            isChild={
+              nodeData.relation === 'ابن' || 
+              nodeData.relation === 'بنت' || 
+              nodeData.relation === 'child' ||
+              nodeData.relation === 'الابن' ||
+              nodeData.relation === 'الابنة'
+            }
+            isSpouse={
+              nodeData.relation === 'زوج' || 
+              nodeData.relation === 'زوجة' || 
+              nodeData.relation === 'spouse' ||
+              nodeData.relation === 'الزوج' ||
+              nodeData.relation === 'الزوجة'
+            }
+          />
+        );
+      }
+    } catch {
+      // معالجة صامتة للأخطاء
+    }
+  });
+
+  // معالجة تداخل العقد - نفس الطريقة الأصلية
+  const nodesByDepth = {};
+  root.each(d => {
+    if (!nodesByDepth[d.depth]) nodesByDepth[d.depth] = [];
+    nodesByDepth[d.depth].push(d);
+  });
+  
+  Object.values(nodesByDepth).forEach(nodes => {
+    nodes.sort((a, b) => a.x - b.x);
+    for (let i = 1; i < nodes.length; i++) {
+      const prev = nodes[i - 1];
+      const curr = nodes[i];
+      // إذا كان هناك تداخل أو تقاطع بين الكروت، نحرك العقدة الحالية يميناً
+      const minDistance = 340; 
+      if (curr.x - prev.x < minDistance) {
+        const shift = minDistance - (curr.x - prev.x);
+        curr.x += shift;
+        // إعادة ضبط x لجميع الأبناء أيضاً
+        function shiftChildren(node, delta) {
+          if (node.children && node.children.length > 0) {
+            node.children.forEach(child => {
+              child.x += delta;
+              shiftChildren(child, delta);
+            });
+          }
+        }
+        shiftChildren(curr, shift);
+      }
+    }
+  });
+
+  // تمركز تلقائي بسيط (اختياري)
+  setTimeout(() => {
+    if (svgRef.current && containerRef.current) {
+      const svg = d3.select(svgRef.current);
+      const g = svg.select('g');
+      
+      try {
+        const bounds = g.node().getBBox();
+        const fullWidth = bounds.width;
+        const fullHeight = bounds.height;
+        
+        if (fullWidth > 0 && fullHeight > 0) {
+          const scale = Math.min(
+            (width * 0.9) / fullWidth,
+            (height * 0.9) / fullHeight,
+            1.2
+          );
+          
+          const centerX = bounds.x + fullWidth / 2;
+          const centerY = bounds.y + fullHeight / 2;
+          const targetX = width / 2 - centerX * scale;
+          const targetY = height / 2 - centerY * scale;
+          
+          svg.transition()
+            .duration(1500)
+            .ease(d3.easeCubicInOut)
+            .call(
+              zoom.transform,
+              d3.zoomIdentity
+                .translate(targetX, targetY)
+                .scale(scale)
+            );
+        }
+      } catch (error) {
+        // في حالة خطأ في حساب الحدود، لا نفعل شيء
+        console.log('تعذر حساب حدود الشجرة للتمركز التلقائي');
+      }
+    }
+  }, 1200);
+
+}, [showExtendedTree, handleNodeClick, buildFullName, searchQuery]);
 
   // دالة البحث المحلية
   const performSearch = useCallback((query) => {
