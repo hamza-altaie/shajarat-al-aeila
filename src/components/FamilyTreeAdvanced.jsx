@@ -13,12 +13,9 @@ import {
 
 // استيراد الأيقونات بشكل منفصل لتحسين الأداء
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
-import GroupsIcon from '@mui/icons-material/Groups';
 import EditIcon from '@mui/icons-material/Edit';
 import PersonIcon from '@mui/icons-material/Person';
 import CloseIcon from '@mui/icons-material/Close';
-import ZoomInIcon from '@mui/icons-material/ZoomIn';
-import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import WarningIcon from '@mui/icons-material/Warning';
 import LinkIcon from '@mui/icons-material/Link';
@@ -488,80 +485,83 @@ export default function FamilyTreeAdvanced() {
   }, [uid, showSnackbar, monitorPerformance, buildSimpleTreeStructure]);
 
   const loadExtendedTree = useCallback(async () => {
-    if (!uid) return;
+  if (!uid) return;
 
-    const startTime = Date.now();
-    setLoading(true);
-    setLoadingStage('البحث عن العائلات المرتبطة...');
-    setLoadingProgress(0);
+  const startTime = Date.now();
+  setLoading(true);
+  
+  // 🔵 يمكنك تغيير هذه النصوص ولونها
+  setLoadingStage('🔍 البحث عن العائلات المرتبطة...');
+  setLoadingProgress(0);
 
-    try {
-      // الخطوة 1: تحميل عائلتك
-      setLoadingProgress(10);
-      const myFamilyData = await loadFamilyData(uid);
-      
-      // الخطوة 2: البحث عن العائلات المرتبطة
-      setLoadingProgress(30);
-      setLoadingStage('البحث عن الروابط...');
-      const allLinkedFamilies = await findAllLinkedFamilies(uid);
-      
-      // الخطوة 3: تحميل بيانات جميع العائلات
-      setLoadingProgress(50);
-      setLoadingStage('تحميل بيانات العائلات...');
-      const allFamiliesData = [];
-      
-      // إضافة عائلتك
-      if (myFamilyData && myFamilyData.members.length > 0) {
-        allFamiliesData.push(myFamilyData);
-      }
-      
-      // إضافة العائلات المرتبطة
-      for (const familyUid of allLinkedFamilies) {
-        if (familyUid !== uid) {
-          try {
-            const familyData = await loadFamilyData(familyUid);
-            if (familyData && familyData.members.length > 0) {
-              allFamiliesData.push(familyData);
-            }
-          } catch {
-            // تعذر تحميل العائلة - متابعة صامتة
+  try {
+    // الخطوة 1: تحميل عائلتك
+    setLoadingProgress(10);
+    setLoadingStage('📋 تحميل بيانات عائلتك...');
+    const myFamilyData = await loadFamilyData(uid);
+    
+    // الخطوة 2: البحث عن العائلات المرتبطة
+    setLoadingProgress(30);
+    setLoadingStage('🔗 البحث عن الروابط...');
+    const allLinkedFamilies = await findAllLinkedFamilies(uid);
+    
+    // الخطوة 3: تحميل بيانات جميع العائلات
+    setLoadingProgress(50);
+    setLoadingStage('🏠 تحميل بيانات العائلات...');
+    const allFamiliesData = [];
+    
+    // إضافة عائلتك
+    if (myFamilyData && myFamilyData.members.length > 0) {
+      allFamiliesData.push(myFamilyData);
+    }
+    
+    // إضافة العائلات المرتبطة
+    for (const familyUid of allLinkedFamilies) {
+      if (familyUid !== uid) {
+        try {
+          const familyData = await loadFamilyData(familyUid);
+          if (familyData && familyData.members.length > 0) {
+            allFamiliesData.push(familyData);
           }
+        } catch {
+          // تعذر تحميل العائلة - متابعة صامتة
         }
       }
-      
-      setLoadingProgress(70);
-      setLoadingStage('بناء الشجرة الموسعة...');
-      
-      // الخطوة 4: بناء الشجرة الموسعة
-      const extendedTree = buildExtendedTreeStructure(allFamiliesData, uid);
-      
-      setLoadingProgress(90);
-      setLoadingStage('تحسين الشجرة...');
-      
-      // الخطوة 5: حساب المقاييس
-      const totalPersons = allFamiliesData.reduce((sum, family) => sum + family.members.length, 0);
-      const endTime = Date.now();
-      
-      monitorPerformance({
-        personCount: totalPersons,
-        familyCount: allFamiliesData.length,
-        maxDepthReached: calculateTreeDepth(extendedTree),
-        loadTime: endTime - startTime
-      });
-      
-      setLoadingProgress(100);
-      setLoadingStage('اكتمل التحميل الموسع');
-      
-      setExtendedTreeData(extendedTree);
-      
-      showSnackbar(`🏛️ تم تحميل ${allFamiliesData.length} عائلة بـ ${totalPersons} شخص`, 'success');
-
-    } catch {
-      setError('فشل في تحميل الشجرة الموسعة');
-      showSnackbar('❌ فشل في تحميل الشجرة الموسعة', 'error');
-    } finally {
-      setLoading(false);
     }
+    
+    setLoadingProgress(70);
+    setLoadingStage('🌳 بناء الشجرة الموسعة...');
+    
+    // الخطوة 4: بناء الشجرة الموسعة
+    const extendedTree = buildExtendedTreeStructure(allFamiliesData, uid);
+    
+    setLoadingProgress(90);
+    setLoadingStage('⚡ تحسين وتنسيق الشجرة...');
+    
+    // الخطوة 5: حساب المقاييس
+    const totalPersons = allFamiliesData.reduce((sum, family) => sum + family.members.length, 0);
+    const endTime = Date.now();
+    
+    monitorPerformance({
+      personCount: totalPersons,
+      familyCount: allFamiliesData.length,
+      maxDepthReached: calculateTreeDepth(extendedTree),
+      loadTime: endTime - startTime
+    });
+    
+    setLoadingProgress(100);
+    setLoadingStage('✅ اكتمل التحميل بنجاح!');
+    
+    setExtendedTreeData(extendedTree);
+    
+    showSnackbar(`🏛️ تم تحميل ${allFamiliesData.length} عائلة بـ ${totalPersons} شخص`, 'success');
+
+  } catch {
+    setError('فشل في تحميل الشجرة الموسعة');
+    showSnackbar('❌ فشل في تحميل الشجرة الموسعة', 'error');
+  } finally {
+    setLoading(false);
+  }
   }, [uid, showSnackbar, monitorPerformance, buildExtendedTreeStructure, calculateTreeDepth, loadFamilyData, findAllLinkedFamilies]);
 
   const loadLinkedFamilies = useCallback(async () => {
@@ -616,13 +616,11 @@ export default function FamilyTreeAdvanced() {
   const drawTreeWithD3 = useCallback((data) => {
     if (!data || !svgRef.current || !containerRef.current) return;
 
-    // 🚫 ممنوع أي تحريك أو توسيط أو زووم تلقائي هنا إطلاقًا
-    // إعادة تعيين أي transform/zoom على svg وg لمنع أي تحريك متراكم
-    // هذا يضمن أن الشجرة دائمًا تبدأ من الوضع الافتراضي بدون أي تحريك
+    
     const svg = d3.select(svgRef.current);
-    svg.attr('transform', null); // إلغاء أي transform على svg
-    svg.property('__zoom', d3.zoomIdentity); // إعادة تعيين حالة الزووم الداخلية
-    svg.selectAll('*').remove(); // تنظيف svg
+    svg.attr('transform', null); 
+    svg.property('__zoom', d3.zoomIdentity); 
+    svg.selectAll('*').remove(); 
 
     // إعداد الأبعاد
     const container = containerRef.current;
@@ -632,7 +630,7 @@ export default function FamilyTreeAdvanced() {
 
     // إنشاء مجموعة g جديدة
     const g = svg.append('g');
-    g.attr('transform', null); // إلغاء أي transform على g
+    g.attr('transform', null); 
 
     // إعداد الـ zoom بدون أي تحريك افتراضي
     const zoom = d3.zoom()
@@ -641,7 +639,7 @@ export default function FamilyTreeAdvanced() {
         g.attr('transform', event.transform);
       });
     svg.call(zoom);
-    svg.property('__zoom', d3.zoomIdentity); // إعادة تعيين حالة الزووم الداخلية بعد call
+    svg.property('__zoom', d3.zoomIdentity); 
 
     // إعداد بيانات الشجرة
     const root = d3.hierarchy(data);
@@ -659,8 +657,8 @@ export default function FamilyTreeAdvanced() {
     let verticalGap, dynamicHeight, horizontalGap, dynamicWidth;
     if (showExtendedTree) {
       // الشجرة الموسعة: مساحة رأسية أكبر لكن ليست مبالغ فيها، ومسافة أفقية أكبر
-      verticalGap = 80; // تقليلها قليلاً
-      horizontalGap = 220; // زيادة المسافة الأفقية بين العقد
+      verticalGap = 80; 
+      horizontalGap = 220; 
       dynamicHeight = Math.max(verticalGap * maxDepth, 350);
       dynamicWidth = Math.max(horizontalGap * maxBreadth, width - 100);
     } else {
@@ -704,7 +702,7 @@ export default function FamilyTreeAdvanced() {
       .style("stroke-linejoin", "round")
       .style("opacity", 0.85)
       .style("filter", "none")
-      .style("stroke-dasharray", "none"); // إزالة أي transition
+      .style("stroke-dasharray", "none"); 
 
     // رسم العقد
     const nodes = g.selectAll(".node")
@@ -791,12 +789,11 @@ export default function FamilyTreeAdvanced() {
           );
         }
       } catch {
-        // خطأ صامت في إنشاء العقدة
+        
       }
     });
 
-    // بعد توزيع العقد، نعيد ضبط مواضع العقد أفقياً بحيث لا تتقاطع أي عقدة مع أخرى في نفس المستوى
-    // نستخدم خوارزمية بسيطة: لكل مستوى (depth)، نرتب العقد حسب x ونمنع أي تداخل
+    
     const nodesByDepth = {};
     root.each(d => {
       if (!nodesByDepth[d.depth]) nodesByDepth[d.depth] = [];
@@ -808,7 +805,7 @@ export default function FamilyTreeAdvanced() {
         const prev = nodes[i - 1];
         const curr = nodes[i];
         // إذا كان هناك تداخل أو تقاطع بين الكروت، نحرك العقدة الحالية يميناً
-        const minDistance = 340; // عرض الكارت + هامش (يمكنك ضبطها حسب حجم الكارت)
+        const minDistance = 340; 
         if (curr.x - prev.x < minDistance) {
           const shift = minDistance - (curr.x - prev.x);
           curr.x += shift;
@@ -956,7 +953,7 @@ export default function FamilyTreeAdvanced() {
           right: 0,
           bottom: 0,
           overflow: 'hidden',
-          background: '#fff', // خلفية بيضاء دائماً
+          background: '#fff', 
           fontFamily: 'Cairo, sans-serif'
         }}
       >
@@ -1028,7 +1025,7 @@ export default function FamilyTreeAdvanced() {
                     }
                   }}
                 />
-                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', fontFamily: 'Cairo, sans-serif' }}>
+                <Typography variant="body2" sx={{ color: '#1976d2', fontFamily: 'Cairo, sans-serif' }}>
                   {Math.round(loadingProgress)}% مكتمل
                 </Typography>
               </Box>
@@ -1038,7 +1035,7 @@ export default function FamilyTreeAdvanced() {
                 <Typography variant="h4" sx={{ mb: 1, fontFamily: 'Cairo, sans-serif' }}>
                   {showExtendedTree ? '🏛️ ابنِ شجرتك الموسعة' : '🌳 ابنِ شجرة عائلتك'}
                 </Typography>
-                <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.7)', mb: 3, maxWidth: 500, fontFamily: 'Cairo, sans-serif' }}>
+                <Typography variant="body1" sx={{ color: '#1976d2', mb: 3, maxWidth: 500, fontFamily: 'Cairo, sans-serif' }}>
                   {showExtendedTree 
                     ? 'اربط عائلتك مع العائلات الأخرى لبناء شجرة موسعة شاملة'
                     : 'أضف أفراد عائلتك لبناء شجرة عائلية جميلة'
@@ -1104,7 +1101,7 @@ export default function FamilyTreeAdvanced() {
           textAlign="center" 
           sx={{ 
             mb: 2, 
-            color: showExtendedTree ? '#8b5cf6' : '#6366f1',
+            color: '#1976d2',
             fontWeight: 'bold',
             fontFamily: 'Cairo, sans-serif'
           }}
