@@ -112,7 +112,6 @@ export default function FamilyTreeAdvanced() {
     const parts = [
         person.firstName,
         person.fatherName,
-        person.grandfatherName,
         person.surname
     ].filter(part => part && part.trim() !== '');
 
