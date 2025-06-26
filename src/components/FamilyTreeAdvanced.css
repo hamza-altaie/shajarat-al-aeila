@@ -1,4 +1,4 @@
-/* ملف CSS عصري لكاردات شجرة العائلة - نسخة للتركيب المباشر */
+/* ملف CSS عصري لكاردات شجرة العائلة - نسخة نظيفة بدون تكرار */
 
 .family-tree-advanced-root {
   /* متغيرات الألوان العصرية */
@@ -16,9 +16,9 @@
   --family-bg-card: rgba(255, 255, 255, 0.05);
   
   /* ألوان النصوص */
-  --family-text-primary: #f8fafc;
-  --family-text-secondary: #cbd5e1;
-  --family-text-muted: #94a3b8;
+  --family-text-primary: #1a1a1a !important;
+  --family-text-secondary: #2d3748 !important;
+  --family-text-muted: #4a5568 !important;
   
   /* ظلال عصرية */
   --family-shadow-light: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -75,7 +75,10 @@
   border-radius: 8px;
   margin: 0 auto;
   display: block;
-  /* إزالة transition و will-change نهائيًا */
+  opacity: 1 !important;
+  visibility: visible !important;
+  min-height: 400px !important;
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .family-tree-chart-container svg:active {
@@ -87,7 +90,10 @@
   cursor: pointer;
   transform-origin: center;
   position: relative;
-  /* إزالة transition و will-change نهائيًا */
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 /* كارت العضو الجديد */
@@ -303,16 +309,18 @@
 /* 🎯 تحسينات البحث والزووم - الإصدار المحسن */
 /* =================================================================== */
 
-/* تمييز البحث الأساسي */
+/* تمييز البحث الأساسي - دمج القواعد المتكررة */
 .search-highlight {
   position: relative;
-  z-index: 100 !important;
+  z-index: 1000 !important;
 }
 
 /* تمييز العقدة في SVG */
 .family-tree-chart-container .node.search-highlight {
-  z-index: 100;
+  z-index: 1000;
   position: relative;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
 /* تمييز الكارد */
@@ -322,6 +330,7 @@
   stroke-width: 4px !important;
   filter: drop-shadow(0 0 20px #ffeb3b) drop-shadow(0 0 40px rgba(255, 235, 59, 0.6)) !important;
   transform: scale(1.08) !important;
+  animation: none !important;
 }
 
 /* تمييز منطقة المحتوى */
@@ -333,53 +342,47 @@
     0 0 30px rgba(255, 235, 59, 0.8),
     inset 0 0 20px rgba(255, 235, 59, 0.2) !important;
   backdrop-filter: blur(10px) !important;
-}
-
-/* تأثير النبض المحسن */
-@keyframes searchPulse {
-  0%, 100% { 
-    transform: scale(1.08);
-    filter: drop-shadow(0 0 20px #ffeb3b) drop-shadow(0 0 40px rgba(255, 235, 59, 0.6));
-  }
-  50% { 
-    transform: scale(1.12);
-    filter: drop-shadow(0 0 30px #ffeb3b) drop-shadow(0 0 60px rgba(255, 235, 59, 0.8));
-  }
-}
-
-.family-tree-chart-container .node.search-highlight rect,
-.family-tree-chart-container .node.search-highlight .family-node-card {
   animation: none !important;
 }
 
-/* تأثير الهالة المتحركة */
-@keyframes glowRing {
-  0%, 100% { 
-    box-shadow: 
-      0 0 20px rgba(255, 235, 59, 0.8),
-      0 0 40px rgba(255, 235, 59, 0.6),
-      0 0 60px rgba(255, 235, 59, 0.4);
-  }
-  50% { 
-    box-shadow: 
-      0 0 30px rgba(255, 235, 59, 1),
-      0 0 60px rgba(255, 235, 59, 0.8),
-      0 0 90px rgba(255, 235, 59, 0.6);
-  }
+/* منع إخفاء المحتوى */
+.family-tree-chart-container .node foreignObject {
+  overflow: visible !important;
+  pointer-events: auto !important;
 }
 
-.family-tree-chart-container .node.search-highlight foreignObject > div {
-  animation: none !important;
+.family-tree-chart-container .node foreignObject > div {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
 }
 
-/* تحسين أنيميشن الزووم للـ SVG */
-.family-tree-chart-container svg {
-  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+/* حماية من الإخفاء العرضي */
+.family-tree-chart-container g {
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
-/* تأثير الزووم السلس للعقد */
-.family-tree-chart-container .node {
-  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+/* تحسين إضافي لمنع الاختفاء */
+.family-tree-chart-container .node.active,
+.family-tree-chart-container .node.selected,
+.family-tree-chart-container .node.search-highlight {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+}
+
+/* تحسين عرض نتائج البحث */
+.search-results-container {
+  position: absolute !important;
+  z-index: 9999 !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+  backdrop-filter: blur(10px) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
+  max-height: 300px !important;
+  overflow-y: auto !important;
+  width: 100% !important;
 }
 
 /* تأثير ظهور العقد المتدرج */
@@ -398,34 +401,7 @@
   animation: nodeAppear 0.6s ease-out;
 }
 
-/* تأثير التركيز البطيء */
-@keyframes focusZoom {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.15);
-  }
-  100% {
-    transform: scale(1.08);
-  }
-}
-
-.family-tree-chart-container .node.search-highlight.focus-zoom {
-  animation: none !important;
-}
-
-/* تحسين الأداء للأنيميشن */
-.family-tree-chart-container .node.search-highlight,
-.family-tree-chart-container .node.search-highlight * {
-  will-change: transform, opacity, filter;
-}
-
 /* إزالة التمييز بسلاسة */
-.family-tree-chart-container .node.search-highlight.fade-out {
-  animation: fadeOut 0.5s ease-in-out forwards;
-}
-
 @keyframes fadeOut {
   0% {
     opacity: 1;
@@ -437,29 +413,63 @@
   }
 }
 
-/* تأثير الخلفية المضيئة */
-.family-tree-chart-container .node.search-highlight::before {
-  content: '';
-  position: absolute;
-  top: -10px;
-  left: -10px;
-  right: -10px;
-  bottom: -10px;
-  background: radial-gradient(circle, rgba(255, 235, 59, 0.3) 0%, transparent 70%);
-  border-radius: 50%;
-  z-index: -1;
-  animation: backgroundGlow 2s infinite ease-in-out;
+.family-tree-chart-container .node.search-highlight.fade-out {
+  animation: fadeOut 0.5s ease-in-out forwards;
 }
 
-@keyframes backgroundGlow {
+/* تأثير النبض المحسن - قاعدة واحدة فقط */
+@keyframes pulse {
   0%, 100% { 
-    opacity: 0.3;
     transform: scale(1);
+    filter: brightness(1);
   }
   50% { 
-    opacity: 0.6;
-    transform: scale(1.2);
+    transform: scale(1.05);
+    filter: brightness(1.2);
   }
+}
+
+.family-badge.important {
+  animation: pulse 2s infinite;
+}
+
+/* تأثيرات تدرج الألوان */
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* =================================================================== */
+/* إصلاح ألوان نصوص التحميل */
+/* =================================================================== */
+
+.family-tree-advanced-root .MuiCircularProgress-root ~ .MuiTypography-root,
+.family-tree-advanced-root .loading-text,
+.family-tree-advanced-root .loading-stage {
+  color: #1976d2 !important;
+  font-weight: 700 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.family-tree-advanced-root .MuiLinearProgress-root + .MuiTypography-root {
+  color: #1976d2 !important;
+  font-weight: 600 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.family-tree-advanced-root .MuiTypography-h5,
+.family-tree-advanced-root .MuiTypography-body2 {
+  color: #1976d2 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.family-tree-advanced-root .MuiBox-root .MuiTypography-root {
+  color: #1976d2 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
 /* =================================================================== */
@@ -483,12 +493,6 @@
   
   .family-info-text {
     font-size: 10px;
-  }
-  
-  /* تقليل تأثيرات الأنيميشن على الأجهزة المحمولة */
-  .family-tree-chart-container .node.search-highlight rect,
-  .family-tree-chart-container .node.search-highlight .family-node-card {
-    animation-duration: 3s;
   }
 }
 
@@ -544,20 +548,9 @@
   will-change: transform, opacity;
 }
 
-/* إضافة تأثير النبض للعناصر المهمة */
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-.family-badge.important {
-  animation: pulse 2s infinite;
-}
-
-/* تأثيرات تدرج الألوان */
-@keyframes gradientShift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+.family-tree-chart-container .node.search-highlight,
+.family-tree-chart-container .node.search-highlight * {
+  will-change: transform, opacity, filter;
 }
 
 /* تحسينات الطباعة */
@@ -577,88 +570,8 @@
     fill: black !important;
   }
   
-  /* إخفاء تأثيرات البحث في الطباعة */
   .search-highlight {
     animation: none !important;
     filter: none !important;
   }
-}
-
-
-/* تأثير النبض للشخص المُختار */
-@keyframes pulse {
-  0%, 100% { 
-    transform: scale(1);
-    filter: brightness(1);
-  }
-  50% { 
-    transform: scale(1.05);
-    filter: brightness(1.2);
-  }
-}
-
-.search-highlight {
-  z-index: 1000 !important;
-}
-
-/* منع اختفاء العقد أثناء البحث */
-.family-tree-chart-container .node {
-  opacity: 1 !important;
-  visibility: visible !important;
-  display: block !important;
-}
-
-/* ضمان بقاء العقد مرئية أثناء البحث */
-.family-tree-chart-container .node.search-highlight {
-  opacity: 1 !important;
-  visibility: visible !important;
-  z-index: 1000 !important;
-  position: relative !important;
-}
-
-/* منع إخفاء المحتوى */
-.family-tree-chart-container .node foreignObject {
-  overflow: visible !important;
-  pointer-events: auto !important;
-}
-
-.family-tree-chart-container .node foreignObject > div {
-  opacity: 1 !important;
-  visibility: visible !important;
-  display: block !important;
-}
-
-/* ضمان عدم اختفاء SVG */
-.family-tree-chart-container svg {
-  opacity: 1 !important;
-  visibility: visible !important;
-  min-height: 400px !important;
-}
-
-/* حماية من الإخفاء العرضي */
-.family-tree-chart-container g {
-  opacity: 1 !important;
-  visibility: visible !important;
-}
-
-/* تحسين إضافي لمنع الاختفاء */
-.family-tree-chart-container .node.active,
-.family-tree-chart-container .node.selected,
-.family-tree-chart-container .node.search-highlight {
-  opacity: 1 !important;
-  visibility: visible !important;
-  display: block !important;
-}
-
-/* تحسين عرض نتائج البحث */
-.search-results-container {
-  position: absolute !important;
-  z-index: 9999 !important;
-  background: rgba(255, 255, 255, 0.98) !important;
-  backdrop-filter: blur(10px) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
-  max-height: 300px !important;
-  overflow-y: auto !important;
-  width: 100% !important;
 }
