@@ -78,51 +78,5 @@
   </style>
   
   <script type="module" src="/src/main.jsx"></script>
-  
-  <!-- سكريبت للتحقق من تحميل React -->
-  <script>
-    setTimeout(() => {
-      const root = document.getElementById('root');
-      if (root.children.length === 1) {
-        console.error('❌ فشل تحميل React - التطبيق لم يتم تهيئته');
-        root.innerHTML = `
-          <div style="
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            font-family: 'Cairo', Arial, sans-serif;
-            background: #f8f9fa;
-            direction: rtl;
-            text-align: center;
-            padding: 20px;
-          ">
-            <div style="background: #fff; padding: 40px; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); max-width: 500px;">
-              <h1 style="color: #d32f2f; margin-bottom: 20px;">⚠️ خطأ في التحميل</h1>
-              <p style="margin-bottom: 20px; line-height: 1.6;">
-                لم يتم تحميل التطبيق بشكل صحيح. يرجى إعادة تحميل الصفحة.
-              </p>
-              <button onclick="window.location.reload()" style="
-                background: #2e7d32;
-                color: white;
-                border: none;
-                padding: 12px 24px;
-                border-radius: 8px;
-                cursor: pointer;
-                font-size: 16px;
-                font-family: inherit;
-              ">
-                🔄 إعادة تحميل
-              </button>
-            </div>
-          </div>
-        `;
-      } else {
-        console.log('✅ تم تحميل React بنجاح');
-        document.body.classList.add('react-loaded');
-      }
-    }, 5000);
-  </script>
 </body>
 </html>

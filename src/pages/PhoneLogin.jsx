@@ -35,50 +35,49 @@ const PhoneLogin = () => {
 
   // فحص حالة Firebase عند التحميل
   useEffect(() => {
-    const checkStatus = async () => {
-      try {
-        // استيراد دالة فحص Firebase بشكل صحيح
-        const { getFirebaseStatus } = await import('../firebase/config');
-        
-        if (typeof getFirebaseStatus !== 'function') {
-          throw new Error('getFirebaseStatus is not a function');
-        }
-        
+  const checkStatus = async () => {
+    try {
+      const { getFirebaseStatus } = await import('../firebase/config');
+
+      if (typeof getFirebaseStatus !== 'function') {
+        throw new Error('getFirebaseStatus is not a function');
+      }
+
+      // نضيف تأخير بسيط قبل استدعاء الفحص
+      setTimeout(() => {
         const status = getFirebaseStatus();
         setFirebaseStatus(status);
-        
+
         if (!status.isInitialized) {
           setError('❌ خطأ في تهيئة Firebase. يرجى التحقق من الإعدادات.');
         } else if (status.config?.isDemoConfig) {
           setError('⚠️ يتم استخدام إعدادات تجريبية. يرجى تحديث ملف .env');
         } else {
-          setError(''); // مسح أي رسائل خطأ سابقة
+          setError('');
         }
-      } catch (error) {
-        console.error('خطأ في فحص Firebase:', error);
-        
-        // إعداد حالة افتراضية في حالة فشل الفحص
-        setFirebaseStatus({ 
-          isInitialized: false, 
-          error: error.message || 'فشل في فحص حالة Firebase'
-        });
-        
-        setError('⚠️ تحذير: قد تكون هناك مشكلة في إعدادات Firebase');
-      }
-    };
-    
-    checkStatus();
-  }, []);
+      }, 100); // تأخير 100 مللي ثانية
+    } catch (error) {
+      console.error('خطأ في فحص Firebase:', error);
+      setFirebaseStatus({
+        isInitialized: false,
+        error: error.message || 'فشل في فحص حالة Firebase'
+      });
+      setError('⚠️ تحذير: قد تكون هناك مشكلة في إعدادات Firebase');
+    }
+  };
+
+  checkStatus();
+}, []);
+
   
   // مراقبة حالة المصادقة
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        console.log('✅ المستخدم مسجل دخول، توجيه إلى الصفحة الرئيسية');
+      if (user && localStorage.getItem('verifiedUid') && localStorage.getItem('verifiedPhone')) {
+        console.log('✅ المستخدم مكتمل التحقق، توجيه إلى الصفحة الرئيسية');
         navigate('/family');
       }
     });
-    
     return () => unsubscribe();
   }, [navigate]);
   
@@ -277,6 +276,9 @@ const PhoneLogin = () => {
       
       const result = await confirmationResult.confirm(verificationCode);
       const user = result.user;
+
+      localStorage.setItem('verifiedUid', user.uid);
+      localStorage.setItem('verifiedPhone', user.phoneNumber);
       
       console.log('✅ تم التحقق بنجاح، المستخدم:', user.uid);
       

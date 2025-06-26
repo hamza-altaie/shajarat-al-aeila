@@ -58,6 +58,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
+  const timeout = setTimeout(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       try {
         setError(null);
@@ -72,6 +73,7 @@ export const AuthProvider = ({ children }) => {
             if (userData) {
               setIsAuthenticated(true);
               await updateLastLogin(currentUser.uid);
+              setUserData(userData);
             } else {
               const newUserData = {
                 uid: currentUser.uid,
@@ -106,8 +108,17 @@ export const AuthProvider = ({ children }) => {
       }
     });
 
-    return () => unsubscribe();
-  }, [validateLocalStorage, updateLastLogin, clearLocalStorage]);
+    window.__auth_unsub = unsubscribe;
+  }, 300); // تأخير بسيط حتى Firebase يتهيأ
+
+  return () => {
+    clearTimeout(timeout);
+    if (window.__auth_unsub) {
+      window.__auth_unsub();
+    }
+  };
+}, [validateLocalStorage, updateLastLogin, clearLocalStorage]);
+
 
   const login = useCallback(async (user, additionalData = {}) => {
     try {
