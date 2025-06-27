@@ -106,6 +106,43 @@ export default function FamilyTreeAdvanced() {
   // دوال أساسية useCallback
   // ===========================================================================
 
+
+const calculateAge = useCallback((birthdate) => {
+  if (!birthdate) return '';
+  
+  try {
+    const birth = new Date(birthdate);
+    const today = new Date();
+    
+    if (isNaN(birth.getTime())) return '';
+    
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    
+    if (age === 0) {
+      const monthsDiff = today.getMonth() - birth.getMonth() + 
+                       (12 * (today.getFullYear() - birth.getFullYear()));
+      
+      if (monthsDiff < 1) {
+        const daysDiff = Math.floor((today - birth) / (1000 * 60 * 60 * 24));
+        return `${daysDiff} يوم`;
+      } else {
+        return `${monthsDiff} شهر`;
+      }
+    }
+    
+    return `${age} سنة`;
+  } catch {
+    return '';
+  }
+}, []);
+
+
+
   const buildFullName = useCallback((person) => {
     if (!person) return 'غير محدد';
 
@@ -783,7 +820,8 @@ const drawTreeWithD3 = useCallback((data) => {
               ...nodeData,
               name: nodeData.name || buildFullName(nodeData),
               isExtended: showExtendedTree && nodeData.isExtended,
-              highlightMatch // تمرير خاصية التمييز
+              highlightMatch, // تمرير خاصية التمييز
+              birthdate: nodeData.birthdate || nodeData.birthDate
             }}
             onNodeClick={handleNodeClick}
             isParent={
@@ -1500,7 +1538,7 @@ const drawTreeWithD3 = useCallback((data) => {
           {snackbarMessage}
         </Alert>
       </Snackbar>
-      
+
       <FamilyStatisticsDashboard
       open={showStatistics}
       onClose={() => setShowStatistics(false)}

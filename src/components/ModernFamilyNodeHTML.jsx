@@ -1,10 +1,48 @@
-// src/components/ModernFamilyNodeHTML.jsx - نسخة مصححة
+// src/components/ModernFamilyNodeHTML.jsx - مع إضافة العمر
 import React from 'react';
 
 const ModernFamilyNodeHTML = ({ 
   nodeDatum, 
   onNodeClick
 }) => {
+  
+  // دالة حساب العمر
+  const calculateAge = (birthdate) => {
+    if (!birthdate) return '';
+    
+    try {
+      const birth = new Date(birthdate);
+      const today = new Date();
+      
+      if (isNaN(birth.getTime())) return '';
+      
+      let age = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+      }
+      
+      if (age === 0) {
+        const monthsDiff = today.getMonth() - birth.getMonth() + 
+                         (12 * (today.getFullYear() - birth.getFullYear()));
+        
+        if (monthsDiff < 1) {
+          const daysDiff = Math.floor((today - birth) / (1000 * 60 * 60 * 24));
+          return `${daysDiff} يوم`;
+        } else {
+          return `${monthsDiff} شهر`;
+        }
+      }
+      
+      return `${age} سنة`;
+    } catch {
+      return '';
+    }
+  };
+
+  // حساب العمر من البيانات
+  const age = calculateAge(nodeDatum.birthdate || nodeDatum.birthDate);
   
   // ألوان حسب النوع
   const getNodeColors = () => {
@@ -112,23 +150,64 @@ const ModernFamilyNodeHTML = ({
            nodeDatum.relation === 'ربة العائلة' ? '👩' : '👨'}
         </span>
       </div>
+      
       {/* معلومات */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 13, color: colors.text, marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {nodeDatum.name || 'غير محدد'}
         </div>
-        <div style={{ fontSize: 11, color: colors.subText, marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        
+        {/* القرابة */}
+        <div style={{ 
+          fontSize: 11, 
+          color: colors.subText, 
+          marginBottom: 2, 
+          whiteSpace: 'nowrap', 
+          overflow: 'hidden', 
+          textOverflow: 'ellipsis' 
+        }}>
           {nodeDatum.relation || 'عضو'}
         </div>
+        
+        {/* معلومات إضافية */}
         <div style={{ fontSize: 10, color: colors.subText, display: 'flex', gap: 8 }}>
-          {nodeDatum.age && <span>{nodeDatum.age} سنة</span>}
           {nodeDatum.phone && <span style={{ direction: 'ltr' }}>📱 {nodeDatum.phone.substring(0, 8)}...</span>}
+          {nodeDatum.location && <span>📍 {nodeDatum.location}</span>}
         </div>
       </div>
+      
       {/* عدد الأطفال */}
       {nodeDatum.children && nodeDatum.children.length > 0 && (
-        <div style={{ position: 'absolute', top: 6, left: 8, background: '#f3f4f6', color: colors.primary, borderRadius: 8, fontSize: 10, padding: '1.5px 6px', border: `1px solid ${colors.border}` }}>
+        <div style={{ 
+          position: 'absolute', 
+          top: 6, 
+          left: 8, 
+          background: '#f3f4f6', 
+          color: colors.primary, 
+          borderRadius: 8, 
+          fontSize: 10, 
+          padding: '1.5px 6px', 
+          border: `1px solid ${colors.border}` 
+        }}>
           {nodeDatum.children.length} 👶
+        </div>
+      )}
+      
+      {/* العمر في الأسفل يسار */}
+      {age && (
+        <div style={{ 
+          position: 'absolute', 
+          bottom: 6, 
+          left: 8, 
+          background: 'rgba(255,255,255,0.9)', 
+          color: colors.primary, 
+          borderRadius: 10, 
+          fontSize: 9, 
+          padding: '2px 6px', 
+          border: `1px solid ${colors.border}`,
+          fontWeight: '600'
+        }}>
+          {age}
         </div>
       )}
     </div>
