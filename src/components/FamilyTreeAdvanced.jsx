@@ -1487,7 +1487,6 @@ const drawTreeWithD3 = useCallback((data) => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setSelectedNode(null)}>إغلاق</Button>
-          <Button variant="contained" startIcon={<EditIcon />}>تعديل</Button>
         </DialogActions>
       </Dialog>
       
@@ -1501,14 +1500,6 @@ const drawTreeWithD3 = useCallback((data) => {
           {snackbarMessage}
         </Alert>
       </Snackbar>
-
-      {/* تسجيل تشخيصي */}
-      {console.log('🔍 Debug Info:', {
-        currentTreeData: currentTreeData,
-        simpleTreeData: simpleTreeData,
-        extendedTreeData: extendedTreeData,
-        showExtendedTree: showExtendedTree
-      })}
       
       <FamilyStatisticsDashboard
       open={showStatistics}
