@@ -57,10 +57,10 @@ export default function FamilyTreeAdvanced() {
   const [loading, setLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState('');
   const [loadingProgress, setLoadingProgress] = useState(0);
-  const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showStatistics, setShowStatistics] = useState(false);
+  const [error, setError] = useState(null);
   
   const uid = localStorage.getItem('verifiedUid');
   const navigate = useNavigate();
@@ -878,8 +878,8 @@ const drawTreeWithD3 = useCallback((data) => {
                 .scale(scale)
             );
         }
-      } catch (error) {
-        // في حالة خطأ في حساب الحدود، لا نفعل شيء
+      } catch {
+        // Removed unused 'error'
         console.log('تعذر حساب حدود الشجرة للتمركز التلقائي');
       }
     }

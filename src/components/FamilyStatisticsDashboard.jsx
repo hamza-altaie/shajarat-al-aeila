@@ -33,13 +33,6 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState(null);
-  const [expandedSections, setExpandedSections] = useState({
-    overview: true,
-    demographics: false,
-    generations: false,
-    professional: false,
-    insights: false
-  });
 
   // تحليل البيانات
   const analyzeData = useMemo(() => {
@@ -63,14 +56,6 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
     }
   }, [analyzeData]);
 
-  // التعامل مع الأقسام القابلة للطي
-  const handleSectionToggle = (section) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
-
   // تصدير البيانات
   const handleExport = (format) => {
     if (!analysis) return;
@@ -92,7 +77,7 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
   };
 
   // مكونات واجهة المستخدم
-  const StatCard = ({ title, value, subtitle, color = 'primary', icon: Icon, progress }) => (
+  const StatCard = ({ title, value, subtitle, color = 'primary', progress }) => (
     <Card 
       sx={{ 
         height: '100%',
@@ -125,14 +110,6 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
       }}
     >
       <CardContent sx={{ textAlign: 'center', py: 3 }}>
-        {Icon && (
-          <Box sx={{ mb: 2 }}>
-            <Icon sx={{ 
-              fontSize: 40, 
-              color: `${color}.main`
-            }} />
-          </Box>
-        )}
         <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 1, color: `${color}.main` }}>
           {typeof value === 'number' ? value.toLocaleString('ar-SA') : value}
         </Typography>
@@ -167,7 +144,7 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
     </Card>
   );
 
-  const DataList = ({ data, icon: Icon, color = 'primary', maxItems = 5, emptyMessage = "لا توجد بيانات" }) => (
+  const DataList = ({ data, color = 'primary', maxItems = 5, emptyMessage = "لا توجد بيانات" }) => (
     <List dense>
       {Object.keys(data).length === 0 ? (
         <ListItem>
@@ -196,7 +173,7 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
               }}
             >
               <ListItemIcon>
-                <Icon sx={{ color: `${color}.main` }} />
+                <PeopleIcon sx={{ color: `${color}.main` }} />
               </ListItemIcon>
               <ListItemText 
                 primary={key}
@@ -488,7 +465,6 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
                       </Typography>
                       <DataList 
                         data={analysis.demographicAnalysis.ageGroups} 
-                        icon={PeopleIcon}
                         color="primary"
                       />
                     </Paper>
@@ -667,7 +643,6 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
                       </Typography>
                       <DataList 
                         data={analysis.professionalAnalysis.professions} 
-                        icon={WorkIcon}
                         color="primary"
                       />
                     </Paper>
@@ -684,7 +659,6 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
                       </Box>
                       <DataList 
                         data={analysis.professionalAnalysis.educationLevel} 
-                        icon={SchoolIcon}
                         color="secondary"
                       />
                     </Paper>
@@ -710,7 +684,6 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
                         <Grid item xs={12} md={8}>
                           <DataList 
                             data={analysis.professionalAnalysis.locations} 
-                            icon={LocationOnIcon}
                             color="success"
                             maxItems={8}
                           />
