@@ -113,7 +113,7 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
         <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 1, color: `${color}.main` }}>
           {typeof value === 'number' ? value.toLocaleString('ar-SA') : value}
         </Typography>
-        <Typography variant="h6" sx={{ mb: 1, fontFamily: 'Cairo, sans-serif' }}>
+        <Typography variant="h6" sx={{ mb: 1, fontFamily: 'Cairo, sans-serif', color: `${color}.main` }}>
           {title}
         </Typography>
         {subtitle && (
@@ -278,8 +278,8 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
             <Box sx={{ p: 2, backgroundColor: 'primary.50', borderBottom: '1px solid', borderColor: 'primary.200' }}>
               <Grid container spacing={2} alignItems="center">
                 <Grid item xs={12} md={8}>
-                  <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif' }}>
-                    📈 تم تحليل {analysis.metadata.totalMembers} عضو في {analysis.metadata.processingTime}ms
+                  <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif' }}sx={{ color: '#1976d2' }}>
+                    📈 تم تحليل {analysis.metadata.totalMembers} عضو في {analysis.metadata.processingTime} ms
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'Cairo, sans-serif' }}>
                     جودة البيانات: {analysis.metadata.dataQuality} • آخر تحديث: {new Date(analysis.metadata.analysisDate).toLocaleString('ar-SA')}

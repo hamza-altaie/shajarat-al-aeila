@@ -880,14 +880,10 @@ useEffect(() => {
           </Box>
 
           {/* اسم العضو */}
-          <Typography variant="h6" fontWeight="bold" gutterBottom fontSize={{ xs: '1.1rem', sm: '1.25rem' }}>
-            {`${member.firstName} ${member.fatherName}`}
+          <Typography variant="h6" fontWeight="bold" gutterBottom fontSize={{ xs: '1.1rem', sm: '1.25rem' }}sx={{ color: '#1976d2' }}>
+            {`${member.firstName} ${member.fatherName} ${member.surname}`}
           </Typography>
           
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            {`${member.grandfatherName} ${member.surname}`}
-          </Typography>
-
           {/* القرابة */}
           <Chip 
             label={member.relation} 
