@@ -860,16 +860,7 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
             تقرير مفصل
           </Button>
           
-          <Button 
-            onClick={() => handleExport('csv')} 
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            disabled={!analysis}
-            sx={{ fontFamily: 'Cairo, sans-serif' }}
-          >
           
-            إغلاق
-          </Button>
         </Box>
       </DialogActions>
     </Dialog>
