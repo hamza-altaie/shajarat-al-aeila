@@ -1499,7 +1499,9 @@ const drawTreeWithD3 = useCallback((data) => {
       </Dialog>
 
       <Dialog open={!!selectedNode} onClose={() => setSelectedNode(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>👤 {selectedNode?.name || 'تفاصيل الشخص'}</DialogTitle>
+        <DialogTitle sx={{ color: '#1976d2', fontWeight: 'bold', fontFamily: 'Cairo, sans-serif' }}>
+          {(selectedNode?.gender === 'female' || selectedNode?.relation === 'بنت') ? '♀️' : '♂️'} {selectedNode?.name || 'تفاصيل الشخص'}
+        </DialogTitle>
         <DialogContent>
           {selectedNode && (
             <Box sx={{ p: 1 }}>
