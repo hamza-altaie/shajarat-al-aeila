@@ -287,16 +287,6 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
                 </Grid>
                 <Grid item xs={12} md={4}>
                   <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                    <Tooltip title="تصدير JSON">
-                      <IconButton onClick={() => handleExport('json')} size="small">
-                        <DownloadIcon />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="تصدير CSV">
-                      <IconButton onClick={() => handleExport('csv')} size="small">
-                        <DownloadIcon />
-                      </IconButton>
-                    </Tooltip>
                     <Tooltip title="تصدير تقرير">
                       <IconButton onClick={() => handleExport('summary')} size="small">
                         <InsightsIcon />
@@ -877,25 +867,7 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
             disabled={!analysis}
             sx={{ fontFamily: 'Cairo, sans-serif' }}
           >
-            تصدير CSV
-          </Button>
           
-          <Button 
-            onClick={() => handleExport('json')} 
-            variant="contained"
-            startIcon={<DownloadIcon />}
-            disabled={!analysis}
-            sx={{ fontFamily: 'Cairo, sans-serif' }}
-          >
-            تصدير JSON
-          </Button>
-          
-          <Button 
-            onClick={onClose} 
-            variant="outlined"
-            color="inherit"
-            sx={{ fontFamily: 'Cairo, sans-serif' }}
-          >
             إغلاق
           </Button>
         </Box>
