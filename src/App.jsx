@@ -6,6 +6,7 @@ import { CssBaseline, GlobalStyles, Box, CircularProgress, Typography } from '@m
 // استيراد المكونات الأساسية - مُصحح
 import AppRoutes from './AppRoutes.jsx';
 import { AuthProvider } from './AuthContext.jsx';
+import InstallPrompt from './components/InstallPrompt';
 
 // ======================================================
 // 🎨 إنشاء المظهر الديناميكي
@@ -350,6 +351,7 @@ function App() {
         <AuthProvider>
           <AuthMonitor>
             <AppRoutes />
+            <InstallPrompt />
           </AuthMonitor>
         </AuthProvider>
       </Router>
