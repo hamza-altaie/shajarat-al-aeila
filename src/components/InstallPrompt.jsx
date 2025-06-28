@@ -27,12 +27,13 @@ const InstallPrompt = () => {
       return;
     }
 
-    // مستمع لحدث التنصيب
+    // مستمع لحدث التنصيب التلقائي
     const handleBeforeInstallPrompt = (e) => {
+      console.log('💡 إمكانية التنصيب التلقائي متاحة!');
       e.preventDefault();
       setDeferredPrompt(e);
       
-      // إظهار واجهة التنصيب بعد 3 ثوان
+      // إظهار واجهة التنصيب فوراً
       setTimeout(() => {
         setShowInstallScreen(true);
       }, 3000);
@@ -40,18 +41,21 @@ const InstallPrompt = () => {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
-    // للأجهزة التي لا تدعم الحدث التلقائي (iPhone/Android قديم)
+    // للأجهزة التي لا تدعم التنصيب التلقائي - إظهار الواجهة أيضاً
     const userAgent = navigator.userAgent.toLowerCase();
     const isMobile = /mobi|android|iphone|ipad|ipod/i.test(userAgent);
     
+    // إظهار واجهة التنصيب لجميع الأجهزة المحمولة بعد 3 ثوان
     if (isMobile) {
       setTimeout(() => {
+        // إظهار الواجهة حتى لو لم يكن هناك deferredPrompt
         setShowInstallScreen(true);
       }, 3000);
     }
 
     // مستمع لحدث التنصيب المكتمل
     const handleAppInstalled = () => {
+      console.log('✅ تم تنصيب التطبيق بنجاح!');
       setIsInstalled(true);
       setShowInstallScreen(false);
       setDeferredPrompt(null);
@@ -67,27 +71,55 @@ const InstallPrompt = () => {
   }, []);
 
   const handleInstallClick = async () => {
+    console.log('🔄 محاولة التنصيب...', { deferredPrompt: !!deferredPrompt });
+    
     if (deferredPrompt) {
+      // تنصيب تلقائي للأجهزة التي تدعمه
       try {
+        console.log('💡 تنصيب تلقائي...');
         const result = await deferredPrompt.prompt();
-        console.log('نتيجة التنصيب:', result.outcome);
+        console.log('✅ نتيجة التنصيب:', result.outcome);
         
         if (result.outcome === 'accepted') {
+          console.log('🎉 تم التنصيب بنجاح!');
           localStorage.removeItem('install-declined');
         } else {
+          console.log('❌ المستخدم رفض التنصيب');
           localStorage.setItem('install-declined', 'true');
         }
+        
+        setDeferredPrompt(null);
+        setShowInstallScreen(false);
+        
       } catch (error) {
-        console.error('خطأ في التنصيب:', error);
+        console.error('❌ خطأ في التنصيب التلقائي:', error);
+        setShowInstallScreen(false);
       }
-      
-      setDeferredPrompt(null);
-      setShowInstallScreen(false);
     } else {
-      // للأجهزة التي لا تدعم التنصيب التلقائي
-      setShowInstallScreen(false);
-      localStorage.setItem('install-declined', 'true');
+      // تنصيب عادي للأجهزة التي لا تدعم التنصيب التلقائي
+      console.log('📱 تنصيب عادي...');
+      showManualInstructions();
     }
+  };
+
+  const showManualInstructions = () => {
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isIOS = /iphone|ipad|ipod/.test(userAgent);
+    const isAndroid = /android/.test(userAgent);
+    
+    let message = '';
+    if (isIOS) {
+      message = '📱 لتنصيب التطبيق على iPhone/iPad:\n\n1️⃣ اضغط على أيقونة المشاركة (📤) في الأسفل\n2️⃣ اختر "إضافة إلى الشاشة الرئيسية"\n3️⃣ اضغط "إضافة" لإنهاء التنصيب';
+    } else if (isAndroid) {
+      message = '🤖 لتنصيب التطبيق على Android:\n\n1️⃣ اضغط على قائمة المتصفح (⋮) في الأعلى\n2️⃣ اختر "إضافة إلى الشاشة الرئيسية"\n3️⃣ اضغط "إضافة" لإنهاء التنصيب';
+    } else {
+      message = '💻 لتنصيب التطبيق:\n\n1️⃣ ابحث عن أيقونة التنصيب في شريط العناوين\n2️⃣ أو اضغط Ctrl+D لإضافة للمفضلة\n3️⃣ استمتع بالوصول السريع للتطبيق';
+    }
+    
+    alert(message + '\n\n✨ بعد التنصيب ستجد التطبيق في الشاشة الرئيسية مع أيقونة جميلة!');
+    
+    setShowInstallScreen(false);
+    localStorage.setItem('install-declined', 'true');
   };
 
   const handleDecline = () => {
@@ -95,7 +127,7 @@ const InstallPrompt = () => {
     localStorage.setItem('install-declined', 'true');
   };
 
-  // لا تظهر شيء إذا كان التطبيق منصب بالفعل
+  // تظهر الواجهة لجميع الأجهزة المحمولة
   if (isInstalled || !showInstallScreen) {
     return null;
   }

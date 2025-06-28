@@ -1,17 +1,12 @@
-// public/sw.js - النسخة المُصححة للمشروع
-const CACHE_VERSION = 'family-tree-v1.0.0';
+// public/sw.js - النسخة المُصححة الكاملة
+const CACHE_VERSION = 'family-tree-v1.0.1';
 const CACHE_NAME = `family-tree-cache-${CACHE_VERSION}`;
 
 // الملفات الأساسية (مسارات صحيحة لـ Vite)
 const STATIC_CACHE_FILES = [
   '/',
   '/index.html',
-  '/manifest.json',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
-  '/icons/icon-96x96.png',
-  '/icons/icon-144x144.png',
-  '/icons/icon-72x72.png'
+  '/manifest.json'
 ];
 
 // تثبيت Service Worker
@@ -22,12 +17,7 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('📦 تخزين الملفات الأساسية...');
-        // تخزين الملفات الأساسية فقط
-        return cache.addAll([
-          '/',
-          '/index.html', 
-          '/manifest.json'
-        ]);
+        return cache.addAll(STATIC_CACHE_FILES);
       })
       .then(() => {
         console.log('✅ تم تثبيت Service Worker بنجاح');
@@ -66,7 +56,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// معالجة الطلبات
+// معالجة الطلبات - مُبسطة ومُحسنة
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
@@ -79,15 +69,15 @@ self.addEventListener('fetch', (event) => {
   if (url.hostname.includes('firebase') || 
       url.hostname.includes('google') ||
       url.hostname.includes('googleapis') ||
-      url.hostname.includes('firestore') ||
-      url.hostname.includes('cloudfunctions')) {
+      url.hostname.includes('firestore')) {
     return;
   }
 
-  // تجاهل طلبات HMR في التطوير
+  // تجاهل طلبات التطوير
   if (url.pathname.includes('/@vite/') || 
       url.pathname.includes('/@fs/') ||
-      url.pathname.includes('/node_modules/')) {
+      url.pathname.includes('/node_modules/') ||
+      url.pathname.includes('/__vite_hmr')) {
     return;
   }
 
@@ -96,66 +86,51 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// معالجة الطلبات مع استراتيجيات مختلفة
+// معالجة الطلبات بطريقة بسيطة وفعالة
 async function handleFetchRequest(request) {
-  const url = new URL(request.url);
-  
   try {
     // للصفحات HTML - محاولة الشبكة أولاً
     if (request.destination === 'document') {
       try {
         const networkResponse = await fetch(request);
-        // تخزين الصفحة الناجحة
         if (networkResponse.ok) {
           const cache = await caches.open(CACHE_NAME);
           cache.put(request, networkResponse.clone());
         }
         return networkResponse;
       } catch (error) {
-        // في حالة فشل الشبكة، استخدم النسخة المخزنة أو الصفحة الرئيسية
+        // في حالة فشل الشبكة، استخدم النسخة المخزنة
         const cachedResponse = await caches.match(request);
-        return cachedResponse || caches.match('/') || caches.match('/index.html');
-      }
-    }
-
-    // للموارد الثابتة - التخزين المؤقت أولاً
-    if (request.destination === 'image' || 
-        request.destination === 'script' || 
-        request.destination === 'style' ||
-        url.pathname.includes('/icons/') ||
-        url.pathname.includes('/assets/')) {
-      
-      const cachedResponse = await caches.match(request);
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-
-      try {
-        const networkResponse = await fetch(request);
-        if (networkResponse.ok) {
-          const cache = await caches.open(CACHE_NAME);
-          cache.put(request, networkResponse.clone());
+        if (cachedResponse) {
+          return cachedResponse;
         }
-        return networkResponse;
-      } catch (error) {
-        console.warn('⚠️ فشل تحميل المورد:', request.url);
-        throw error;
+        // إرجاع الصفحة الرئيسية كحل احتياطي
+        return caches.match('/') || caches.match('/index.html');
       }
     }
 
-    // للطلبات الأخرى - الشبكة فقط
-    return fetch(request);
+    // للموارد الأخرى - الشبكة أولاً مع تخزين
+    const networkResponse = await fetch(request);
+    if (networkResponse.ok && 
+        (request.destination === 'image' || 
+         request.destination === 'script' || 
+         request.destination === 'style' ||
+         request.url.includes('/icons/') ||
+         request.url.includes('/assets/'))) {
+      
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(request, networkResponse.clone());
+    }
+    return networkResponse;
 
   } catch (error) {
-    console.warn('⚠️ فشل في معالجة الطلب:', request.url, error);
-    
-    // محاولة أخيرة من التخزين المؤقت
+    // محاولة استخدام النسخة المخزنة
     const cachedResponse = await caches.match(request);
     if (cachedResponse) {
       return cachedResponse;
     }
     
-    // إرجاع استجابة احتياطية للصفحات
+    // للصفحات، إرجاع صفحة احتياطية
     if (request.destination === 'document') {
       return new Response(getOfflineHTML(), {
         headers: { 'Content-Type': 'text/html; charset=utf-8' }
@@ -180,15 +155,21 @@ self.addEventListener('message', (event) => {
       
     case 'GET_VERSION':
       console.log('📱 طلب نسخة التطبيق');
-      event.ports[0]?.postMessage({ version: CACHE_VERSION });
+      if (event.ports && event.ports[0]) {
+        event.ports[0].postMessage({ version: CACHE_VERSION });
+      }
       break;
       
     case 'CLEAR_CACHE':
       console.log('🧹 مسح التخزين المؤقت...');
       clearAllCaches().then(() => {
-        event.ports[0]?.postMessage({ success: true });
+        if (event.ports && event.ports[0]) {
+          event.ports[0].postMessage({ success: true });
+        }
       }).catch((error) => {
-        event.ports[0]?.postMessage({ success: false, error: error.message });
+        if (event.ports && event.ports[0]) {
+          event.ports[0].postMessage({ success: false, error: error.message });
+        }
       });
       break;
   }
@@ -256,6 +237,7 @@ function getOfflineHTML() {
           font-size: 1rem;
           cursor: pointer;
           margin-top: 20px;
+          transition: background 0.3s;
         }
         button:hover {
           background: #1b5e20;
@@ -291,27 +273,29 @@ console.log(`
 `);
 
 // تنظيف دوري للتخزين المؤقت (كل 24 ساعة)
-setInterval(async () => {
-  try {
-    const cache = await caches.open(CACHE_NAME);
-    const requests = await cache.keys();
-    const now = Date.now();
-    const maxAge = 7 * 24 * 60 * 60 * 1000; // أسبوع واحد
-    
-    for (const request of requests) {
-      const response = await cache.match(request);
-      if (response) {
-        const dateHeader = response.headers.get('date');
-        if (dateHeader) {
-          const responseDate = new Date(dateHeader).getTime();
-          if (now - responseDate > maxAge) {
-            await cache.delete(request);
-            console.log('🗑️ تم حذف ملف قديم:', request.url);
+if (typeof setInterval !== 'undefined') {
+  setInterval(async () => {
+    try {
+      const cache = await caches.open(CACHE_NAME);
+      const requests = await cache.keys();
+      const now = Date.now();
+      const maxAge = 7 * 24 * 60 * 60 * 1000; // أسبوع واحد
+      
+      for (const request of requests) {
+        const response = await cache.match(request);
+        if (response) {
+          const dateHeader = response.headers.get('date');
+          if (dateHeader) {
+            const responseDate = new Date(dateHeader).getTime();
+            if (now - responseDate > maxAge) {
+              await cache.delete(request);
+              console.log('🗑️ تم حذف ملف قديم:', request.url);
+            }
           }
         }
       }
+    } catch (error) {
+      console.warn('⚠️ فشل التنظيف الدوري:', error);
     }
-  } catch (error) {
-    console.warn('⚠️ فشل التنظيف الدوري:', error);
-  }
-}, 24 * 60 * 60 * 1000);
+  }, 24 * 60 * 60 * 1000);
+}
