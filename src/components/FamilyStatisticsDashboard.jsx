@@ -278,7 +278,7 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
             <Box sx={{ p: 2, backgroundColor: 'primary.50', borderBottom: '1px solid', borderColor: 'primary.200' }}>
               <Grid container spacing={2} alignItems="center">
                 <Grid item xs={12} md={8}>
-                  <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif' }}sx={{ color: '#1976d2' }}>
+                  <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', color: '#1976d2' }}>
                     📈 تم تحليل {analysis.metadata.totalMembers} عضو في {analysis.metadata.processingTime} ms
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'Cairo, sans-serif' }}>
