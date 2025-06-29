@@ -16,7 +16,7 @@ import {
 
 // استيرادات Firebase
 import { 
-  collection, getDocs, doc, updateDoc, getDoc, setDoc, arrayUnion 
+  collection, getDocs, doc, updateDoc, getDoc, arrayUnion 
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
