@@ -1,4 +1,4 @@
-// src/components/ExtendedFamilyLinking.jsx - إصلاح مشاكل ESLint
+// src/components/ExtendedFamilyLinking.jsx - مع إصلاحات عرض الهاتف العمودي
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box, Card, CardContent, Typography, Button, Dialog, DialogTitle,
@@ -28,7 +28,7 @@ export default function ExtendedFamilyLinking({
   // ===========================================================================
   // الحالات الأساسية
   // ===========================================================================
-  const [currentTab, setCurrentTab] = useState(0); // 0: ربط جديد، 1: الروابط الحالية
+  const [currentTab, setCurrentTab] = useState(0);
   const [availableFamilies, setAvailableFamilies] = useState([]);
   const [linkedFamilies, setLinkedFamilies] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
@@ -50,49 +50,32 @@ export default function ExtendedFamilyLinking({
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('info');
   
-  // أنواع الروابط المتاحة - استخدام useMemo لتجنب إعادة الإنشاء
+  // أنواع الروابط
   const linkTypes = useMemo(() => [
-    { value: 'parent-child', label: 'والد - طفل', icon: '👨‍👧‍👦', description: 'رابط بين والد وطفل' },
-    { value: 'sibling', label: 'أشقاء', icon: '👫', description: 'رابط بين الأشقاء' },
-    { value: 'marriage', label: 'زواج', icon: '💒', description: 'رابط زواج بين العائلتين' },
-    { value: 'cousin', label: 'أبناء عم/خال', icon: '👥', description: 'رابط أبناء عم أو خال' },
-    { value: 'extended', label: 'قرابة ممتدة', icon: '🌳', description: 'رابط قرابة ممتد' }
+    { value: 'parent-child', label: 'أب-ابن', icon: '👨‍👦', description: 'رابط بين الآباء والأبناء' },
+    { value: 'sibling', label: 'أشقاء', icon: '👥', description: 'رابط بين الإخوة والأخوات' },
+    { value: 'marriage', label: 'زواج', icon: '💒', description: 'رابط الزواج' },
+    { value: 'cousin', label: 'أبناء عم', icon: '👨‍👩‍👧‍👦', description: 'رابط بين أبناء العم' },
+    { value: 'extended', label: 'قرابة بعيدة', icon: '🌳', description: 'روابط أخرى' }
   ], []);
 
-  // ===========================================================================
   // دوال مساعدة
-  // ===========================================================================
-  
-  const showMessage = useCallback((msg, type = 'info') => {
-    setMessage(msg);
-    setMessageType(type);
-    setTimeout(() => {
-      setMessage('');
-    }, 5000);
-  }, []);
-
   const sanitizeName = useCallback((firstName, fatherName, surname) => {
-    const parts = [firstName, fatherName, surname].filter(part => part && part.trim() !== '');
+    const parts = [firstName, fatherName, surname].filter(part => 
+      part && part.trim() && part.trim() !== 'غير محدد'
+    );
     return parts.length > 0 ? parts.join(' ').trim() : 'غير محدد';
   }, []);
 
-  // الحصول على نوع الرابط العكسي - نقل هذه الدالة إلى أعلى
   const getReverseLinkType = useCallback((linkType) => {
     switch (linkType) {
-      case 'parent-child':
-        return 'child-parent';
-      case 'child-parent':
-        return 'parent-child';
-      case 'sibling':
-        return 'sibling';
-      case 'marriage':
-        return 'marriage';
-      case 'cousin':
-        return 'cousin';
-      case 'extended':
-        return 'extended';
-      default:
-        return 'extended';
+      case 'parent-child': return 'child-parent';
+      case 'child-parent': return 'parent-child';
+      case 'sibling': return 'sibling';
+      case 'marriage': return 'marriage';
+      case 'cousin': return 'cousin';
+      case 'extended': return 'extended';
+      default: return 'extended';
     }
   }, []);
 
@@ -105,17 +88,12 @@ export default function ExtendedFamilyLinking({
   // دوال التحميل
   // ===========================================================================
 
-  // تحميل العائلات المتاحة للربط
   const loadFamiliesForLinking = useCallback(async () => {
-    if (!currentUserUid) {
-      console.warn('⚠️ لا يوجد معرف مستخدم حالي');
-      return;
-    }
+    if (!currentUserUid) return;
     
     setInitialLoading(true);
     
     try {
-      // الحصول على جميع المستخدمين
       const usersSnapshot = await getDocs(collection(db, 'users'));
       const families = [];
       
@@ -123,13 +101,11 @@ export default function ExtendedFamilyLinking({
         const userId = userDoc.id;
         const userData = userDoc.data();
         
-        // تجاهل المستخدم الحالي والعائلات المرتبطة بالفعل
         if (userId === currentUserUid || existingLinks.includes(userId)) {
           continue;
         }
         
         try {
-          // تحميل أفراد هذه العائلة
           const familySnapshot = await getDocs(collection(db, 'users', userId, 'family'));
           const members = [];
           
@@ -144,70 +120,71 @@ export default function ExtendedFamilyLinking({
             }
           });
           
-          // إذا كان لديه أفراد عائلة
           if (members.length > 0) {
-            // العثور على رب العائلة
             const familyHead = members.find(m => m.relation === 'رب العائلة') || members[0];
             const membersCount = members.length;
             
             const familyName = familyHead 
               ? `عائلة ${sanitizeName(familyHead.firstName, familyHead.fatherName, familyHead.surname)}`
-              : `عائلة ${userId.substring(0, 8)}`;
+              : `عائلة ${userData.displayName || userData.email || 'غير محدد'}`;
             
             families.push({
               uid: userId,
-              name: familyName.trim(),
+              name: familyName,
               head: familyHead,
-              membersCount,
               members,
+              membersCount,
               phone: userData.phone || familyHead?.phone || 'غير محدد',
-              createdAt: userData.createdAt || new Date().toISOString(),
+              email: userData.email || 'غير محدد',
               userData
             });
           }
         } catch (error) {
-          console.warn(`⚠️ تجاهل العائلة ${userId} بسبب خطأ:`, error.message);
+          console.warn(`تجاهل العائلة ${userId}:`, error);
         }
       }
       
       setAvailableFamilies(families);
+      setMessage(families.length > 0 
+        ? `تم العثور على ${families.length} عائلة متاحة للربط`
+        : 'لا توجد عائلات متاحة للربط حالياً'
+      );
+      setMessageType('info');
       
     } catch (error) {
       console.error('❌ خطأ في تحميل العائلات:', error);
-      showMessage('فشل في تحميل العائلات المتاحة', 'error');
+      setMessage('حدث خطأ أثناء تحميل العائلات');
+      setMessageType('error');
     } finally {
       setInitialLoading(false);
     }
-  }, [currentUserUid, existingLinks, sanitizeName, showMessage]);
+  }, [currentUserUid, existingLinks, sanitizeName]);
 
-  // تحميل العائلات المرتبطة حالياً
   const loadLinkedFamilies = useCallback(async () => {
     if (!currentUserUid) return;
     
     try {
       const userDoc = await getDoc(doc(db, 'users', currentUserUid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const linkedFamiliesData = userData.linkedFamilies || [];
-        
-        // إثراء بيانات العائلات المرتبطة
+      const userData = userDoc.data();
+      const linkedFamiliesData = userData?.linkedFamilies || [];
+      
+      if (linkedFamiliesData.length > 0) {
         const enrichedLinkedFamilies = [];
         
         for (const link of linkedFamiliesData) {
           try {
-            const targetUserDoc = await getDoc(doc(db, 'users', link.targetFamilyUid));
-            if (targetUserDoc.exists()) {
-              const targetUserData = targetUserDoc.data();
-              
-              // تحميل رئيس العائلة المستهدفة
-              const targetFamilySnapshot = await getDocs(collection(db, 'users', link.targetFamilyUid, 'family'));
+            const targetDoc = await getDoc(doc(db, 'users', link.targetFamilyUid));
+            const targetUserData = targetDoc.data();
+            
+            if (targetUserData) {
+              const familySnapshot = await getDocs(collection(db, 'users', link.targetFamilyUid, 'family'));
+              const members = [];
               let targetFamilyHead = null;
-              let membersCount = 0;
               
-              targetFamilySnapshot.forEach(doc => {
+              familySnapshot.forEach(doc => {
                 const memberData = doc.data();
-                if (memberData.firstName) {
-                  membersCount++;
+                if (memberData.firstName && memberData.firstName.trim() !== '') {
+                  members.push(memberData);
                   if (memberData.relation === 'رب العائلة') {
                     targetFamilyHead = memberData;
                   }
@@ -218,7 +195,7 @@ export default function ExtendedFamilyLinking({
                 ...link,
                 targetFamilyHead,
                 targetUserData,
-                membersCount,
+                membersCount: members.length,
                 phone: targetUserData.phone || 'غير محدد'
               });
             }
@@ -238,7 +215,6 @@ export default function ExtendedFamilyLinking({
   // دوال البحث والتفاعل
   // ===========================================================================
 
-  // البحث في العائلات
   const searchFamilies = useCallback((searchTerm) => {
     if (!searchTerm.trim()) {
       setSearchResults([]);
@@ -261,7 +237,6 @@ export default function ExtendedFamilyLinking({
     setSearchResults(results);
   }, [availableFamilies]);
 
-  // فتح نافذة الربط
   const openLinkingDialog = useCallback((family) => {
     setSelectedFamily(family);
     setLinkType('');
@@ -269,198 +244,133 @@ export default function ExtendedFamilyLinking({
     setLinkingDialogOpen(true);
   }, []);
 
-  // فتح نافذة فك الربط
   const openUnlinkDialog = useCallback((linkedFamily) => {
     setSelectedLinkToRemove(linkedFamily);
     setUnlinkDialogOpen(true);
   }, []);
 
   // ===========================================================================
-  // دوال الربط وفك الربط - المُحدثة
+  // دوال الربط وفك الربط
   // ===========================================================================
 
-  // تأكيد الربط
-  const confirmLinking = useCallback(async () => {
-    if (!selectedFamily || !linkType) {
-      showMessage('يرجى اختيار نوع الرابط', 'warning');
+  const handleCreateLink = useCallback(async () => {
+    if (!selectedFamily || !linkType || !currentUserUid) {
+      setMessage('يرجى ملء جميع الحقول المطلوبة');
+      setMessageType('error');
       return;
     }
     
     setLoading(true);
     
     try {
-      // إنشاء معرف فريد للرابط
-      const linkId = `link_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-      
-      // إنشاء بيانات الرابط
       const linkData = {
-        linkId, // إضافة معرف فريد
         targetFamilyUid: selectedFamily.uid,
         targetFamilyName: selectedFamily.name,
         linkType,
-        relationDescription: relationDescription.trim() || '',
+        relationDescription: relationDescription || '',
         establishedAt: new Date().toISOString(),
-        establishedBy: currentUserUid,
-        status: 'active',
-        mutual: true
+        establishedBy: currentUserUid
       };
-
-      // تحديث بيانات المستخدم الحالي
-      const currentUserRef = doc(db, 'users', currentUserUid);
-      const currentUserDoc = await getDoc(currentUserRef);
       
-      if (currentUserDoc.exists()) {
-        await updateDoc(currentUserRef, {
-          linkedFamilies: arrayUnion(linkData),
-          lastUpdated: new Date().toISOString()
-        });
-      } else {
-        await setDoc(currentUserRef, {
-          linkedFamilies: [linkData],
-          lastUpdated: new Date().toISOString()
-        }, { merge: true });
-      }
-
-      // إنشاء الرابط العكسي مع معرف فريد منفصل
-      const reverseLinkId = `link_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-      const reverseLinkType = getReverseLinkType(linkType);
       const reverseLinkData = {
-        linkId: reverseLinkId, // معرف فريد منفصل للرابط العكسي
         targetFamilyUid: currentUserUid,
-        targetFamilyName: `عائلة مرتبطة`,
-        linkType: reverseLinkType,
-        relationDescription: relationDescription.trim() || '',
+        targetFamilyName: 'عائلتك',
+        linkType: getReverseLinkType(linkType),
+        relationDescription: relationDescription || '',
         establishedAt: new Date().toISOString(),
-        establishedBy: currentUserUid,
-        status: 'active',
-        mutual: true,
-        isReverseLink: true,
-        originalLinkId: linkId // ربط بالرابط الأصلي
+        establishedBy: currentUserUid
       };
-
-      // تحديث بيانات العائلة المستهدفة
-      const targetUserRef = doc(db, 'users', selectedFamily.uid);
-      const targetUserDoc = await getDoc(targetUserRef);
       
-      if (targetUserDoc.exists()) {
-        await updateDoc(targetUserRef, {
-          linkedFamilies: arrayUnion(reverseLinkData),
-          lastUpdated: new Date().toISOString()
-        });
-      } else {
-        await setDoc(targetUserRef, {
-          linkedFamilies: [reverseLinkData],
-          lastUpdated: new Date().toISOString()
-        }, { merge: true });
-      }
+      // إضافة الرابط للمستخدم الحالي
+      await updateDoc(doc(db, 'users', currentUserUid), {
+        linkedFamilies: arrayUnion(linkData)
+      });
       
-      showMessage('✅ تم ربط العائلة بنجاح', 'success');
+      // إضافة الرابط العكسي للعائلة المستهدفة
+      await updateDoc(doc(db, 'users', selectedFamily.uid), {
+        linkedFamilies: arrayUnion(reverseLinkData)
+      });
+      
+      setMessage(`تم ربط عائلتك مع ${selectedFamily.name} بنجاح!`);
+      setMessageType('success');
       setLinkingDialogOpen(false);
       
-      // إشعار المكون الأب
+      // إعادة تحميل البيانات
+      await Promise.all([loadFamiliesForLinking(), loadLinkedFamilies()]);
+      
       if (onLinkingComplete) {
-        onLinkingComplete(selectedFamily, linkType);
+        onLinkingComplete();
       }
       
-      // إعادة تحميل البيانات
-      await Promise.all([
-        loadFamiliesForLinking(),
-        loadLinkedFamilies()
-      ]);
-      
     } catch (error) {
-      console.error('❌ خطأ في ربط العائلة:', error);
-      showMessage('❌ فشل في ربط العائلة: ' + error.message, 'error');
+      console.error('❌ خطأ في إنشاء الرابط:', error);
+      setMessage('حدث خطأ أثناء ربط العائلات');
+      setMessageType('error');
     } finally {
       setLoading(false);
     }
-  }, [selectedFamily, linkType, relationDescription, currentUserUid, onLinkingComplete, loadFamiliesForLinking, loadLinkedFamilies, showMessage, getReverseLinkType]);
+  }, [selectedFamily, linkType, relationDescription, currentUserUid, getReverseLinkType, loadFamiliesForLinking, loadLinkedFamilies, onLinkingComplete]);
 
-  // تأكيد فك الربط - الطريقة المُحدثة والمُحسنة
-  const confirmUnlinking = useCallback(async () => {
-    if (!selectedLinkToRemove) {
-      showMessage('لا يوجد رابط محدد لفكه', 'warning');
-      return;
-    }
+  const handleRemoveLink = useCallback(async () => {
+    if (!selectedLinkToRemove || !currentUserUid) return;
     
     setLoading(true);
     
     try {
-      // الطريقة 1: جلب البيانات الحالية وإعادة كتابة المصفوفة بدون العنصر المحذوف
-      const currentUserRef = doc(db, 'users', currentUserUid);
-      const currentUserDoc = await getDoc(currentUserRef);
+      // حذف الرابط من المستخدم الحالي
+      const currentUserDoc = await getDoc(doc(db, 'users', currentUserUid));
+      const currentUserData = currentUserDoc.data();
+      const updatedLinks = (currentUserData?.linkedFamilies || []).filter(
+        link => link.targetFamilyUid !== selectedLinkToRemove.targetFamilyUid
+      );
       
-      if (currentUserDoc.exists()) {
-        const currentUserData = currentUserDoc.data();
-        const currentLinks = currentUserData.linkedFamilies || [];
-        
-        // إزالة الرابط بناءً على المعرف الفريد أو البيانات الفريدة
-        const updatedLinks = currentLinks.filter(link => {
-          // مقارنة متعددة المعايير لضمان الحذف الصحيح
-          return !(
-            link.targetFamilyUid === selectedLinkToRemove.targetFamilyUid &&
-            link.linkType === selectedLinkToRemove.linkType &&
-            link.establishedAt === selectedLinkToRemove.establishedAt
-          );
-        });
-        
-        // تحديث البيانات
-        await updateDoc(currentUserRef, {
-          linkedFamilies: updatedLinks,
-          lastUpdated: new Date().toISOString()
-        });
-      }
-
-      // إزالة الرابط العكسي من العائلة المستهدفة
-      const targetUserRef = doc(db, 'users', selectedLinkToRemove.targetFamilyUid);
-      const targetUserDoc = await getDoc(targetUserRef);
+      await updateDoc(doc(db, 'users', currentUserUid), {
+        linkedFamilies: updatedLinks
+      });
       
-      if (targetUserDoc.exists()) {
-        const targetUserData = targetUserDoc.data();
-        const targetLinks = targetUserData.linkedFamilies || [];
-        
-        // البحث عن الرابط العكسي وإزالته
-        const updatedTargetLinks = targetLinks.filter(link => {
-          return !(
-            link.targetFamilyUid === currentUserUid &&
-            (link.originalLinkId === selectedLinkToRemove.linkId || // إذا كان مرتبط بالمعرف الأصلي
-             (link.linkType === getReverseLinkType(selectedLinkToRemove.linkType) &&
-              Math.abs(new Date(link.establishedAt) - new Date(selectedLinkToRemove.establishedAt)) < 5000)) // مقارنة الوقت مع هامش خطأ
-          );
-        });
-        
-        await updateDoc(targetUserRef, {
-          linkedFamilies: updatedTargetLinks,
-          lastUpdated: new Date().toISOString()
-        });
-      }
+      // حذف الرابط العكسي من العائلة المستهدفة
+      const targetUserDoc = await getDoc(doc(db, 'users', selectedLinkToRemove.targetFamilyUid));
+      const targetUserData = targetUserDoc.data();
+      const updatedTargetLinks = (targetUserData?.linkedFamilies || []).filter(
+        link => link.targetFamilyUid !== currentUserUid
+      );
       
+      await updateDoc(doc(db, 'users', selectedLinkToRemove.targetFamilyUid), {
+        linkedFamilies: updatedTargetLinks
+      });
       
-      showMessage('✅ تم فك ربط العائلة بنجاح', 'success');
+      setMessage(`تم فك الرابط مع ${selectedLinkToRemove.targetFamilyName} بنجاح`);
+      setMessageType('success');
       setUnlinkDialogOpen(false);
-      setSelectedLinkToRemove(null);
-      
-      // إشعار المكون الأب
-      if (onLinkingComplete) {
-        onLinkingComplete(null, 'unlink');
-      }
       
       // إعادة تحميل البيانات
-      await Promise.all([
-        loadFamiliesForLinking(),
-        loadLinkedFamilies()
-      ]);
+      await Promise.all([loadFamiliesForLinking(), loadLinkedFamilies()]);
+      
+      if (onLinkingComplete) {
+        onLinkingComplete();
+      }
       
     } catch (error) {
-      console.error('❌ خطأ في فك ربط العائلة:', error);
-      showMessage('❌ فشل في فك ربط العائلة: ' + error.message, 'error');
+      console.error('❌ خطأ في حذف الرابط:', error);
+      setMessage('حدث خطأ أثناء فك الرابط');
+      setMessageType('error');
     } finally {
       setLoading(false);
     }
-  }, [selectedLinkToRemove, currentUserUid, onLinkingComplete, loadFamiliesForLinking, loadLinkedFamilies, showMessage, getReverseLinkType]);
+  }, [selectedLinkToRemove, currentUserUid, loadFamiliesForLinking, loadLinkedFamilies, onLinkingComplete]);
 
   // ===========================================================================
-  // دوال العرض
+  // التأثيرات
+  // ===========================================================================
+
+  useEffect(() => {
+    if (currentUserUid) {
+      Promise.all([loadFamiliesForLinking(), loadLinkedFamilies()]);
+    }
+  }, [currentUserUid, loadFamiliesForLinking, loadLinkedFamilies]);
+
+  // ===========================================================================
+  // مكونات العرض
   // ===========================================================================
 
   // عرض كارت العائلة المتاحة للربط
@@ -470,36 +380,68 @@ export default function ExtendedFamilyLinking({
       sx={{ 
         mb: 2, 
         border: '1px solid #e0e0e0',
+        borderRadius: 2,
         transition: 'all 0.3s ease',
         '&:hover': { 
-          boxShadow: 3,
-          borderColor: '#2e7d32',
-          transform: 'translateY(-2px)'
-        }
+          boxShadow: 2,
+          borderColor: '#2196f3'
+        },
+        // إصلاحات خاصة للهواتف
+        width: '100%',
+        maxWidth: '100%',
+        overflow: 'visible'
       }}
     >
-      <CardContent>
-        <Box display="flex" alignItems="center" gap={2}>
+      <CardContent sx={{ 
+        p: { xs: 2, sm: 3 }, // حشو أقل على الهواتف
+        '&:last-child': { pb: { xs: 2, sm: 3 } }
+      }}>
+        <Box 
+          display="flex" 
+          flexDirection={{ xs: 'column', sm: 'row' }} // عمودي على الهواتف
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+          gap={2}
+        >
           <Avatar 
             src={family.head?.avatar} 
             sx={{ 
-              bgcolor: '#2e7d32', 
-              width: 56, 
-              height: 56,
-              fontSize: '1.5rem'
+              bgcolor: '#2196f3', 
+              width: { xs: 48, sm: 56 }, // أصغر على الهواتف
+              height: { xs: 48, sm: 56 },
+              fontSize: '1.5rem',
+              alignSelf: { xs: 'center', sm: 'flex-start' }
             }}
           >
             {family.head?.firstName?.charAt(0) || '👤'}
           </Avatar>
           
-          <Box flex={1}>
-            <Typography variant="h6" fontWeight="bold" color="primary" gutterBottom>
+          <Box flex={1} sx={{ minWidth: 0 }}>
+            <Typography 
+              variant="h6" 
+              fontWeight="bold" 
+              color="primary" 
+              gutterBottom
+              sx={{ 
+                fontSize: { xs: '1rem', sm: '1.25rem' },
+                wordBreak: 'break-word'
+              }}
+            >
               {family.name}
             </Typography>
             
             {family.head && (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                <PersonIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} />
+              <Typography 
+                variant="body2" 
+                color="text.secondary" 
+                sx={{ 
+                  mb: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  flexWrap: 'wrap'
+                }}
+              >
+                <PersonIcon sx={{ fontSize: 16 }} />
                 رب العائلة: {sanitizeName(
                   family.head.firstName, 
                   family.head.fatherName, 
@@ -508,11 +450,20 @@ export default function ExtendedFamilyLinking({
               </Typography>
             )}
             
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            <Typography 
+              variant="body2" 
+              color="text.secondary" 
+              sx={{ mb: 1 }}
+            >
               👥 {family.membersCount} فرد
             </Typography>
             
-            <Box display="flex" gap={1} mt={1}>
+            <Box 
+              display="flex" 
+              gap={1} 
+              mt={1} 
+              flexWrap="wrap"
+            >
               <Chip 
                 size="small" 
                 label="متاح للربط" 
@@ -538,9 +489,10 @@ export default function ExtendedFamilyLinking({
               onClick={() => openLinkingDialog(family)}
               disabled={loading}
               sx={{ 
-                minWidth: 100,
+                minWidth: { xs: '100%', sm: 100 },
                 borderRadius: 2,
-                gap: 1
+                gap: 1,
+                mt: { xs: 2, sm: 0 }
               }}
             >
               ربط
@@ -562,35 +514,68 @@ export default function ExtendedFamilyLinking({
           mb: 2, 
           border: '1px solid #e3f2fd',
           backgroundColor: '#fafafa',
+          borderRadius: 2,
           transition: 'all 0.3s ease',
           '&:hover': { 
             boxShadow: 3,
             borderColor: '#2196f3'
-          }
+          },
+          // إصلاحات خاصة للهواتف
+          width: '100%',
+          maxWidth: '100%',
+          overflow: 'visible'
         }}
       >
-        <CardContent>
-          <Box display="flex" alignItems="center" gap={2}>
+        <CardContent sx={{ 
+          p: { xs: 2, sm: 3 },
+          '&:last-child': { pb: { xs: 2, sm: 3 } }
+        }}>
+          <Box 
+            display="flex" 
+            flexDirection={{ xs: 'column', sm: 'row' }}
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+            gap={2}
+          >
             <Avatar 
               src={linkedFamily.targetFamilyHead?.avatar} 
               sx={{ 
                 bgcolor: '#2196f3', 
-                width: 56, 
-                height: 56,
-                fontSize: '1.5rem'
+                width: { xs: 48, sm: 56 },
+                height: { xs: 48, sm: 56 },
+                fontSize: '1.5rem',
+                alignSelf: { xs: 'center', sm: 'flex-start' }
               }}
             >
               {linkedFamily.targetFamilyHead?.firstName?.charAt(0) || '🔗'}
             </Avatar>
             
-            <Box flex={1}>
-              <Typography variant="h6" fontWeight="bold" color="primary" gutterBottom>
+            <Box flex={1} sx={{ minWidth: 0 }}>
+              <Typography 
+                variant="h6" 
+                fontWeight="bold" 
+                color="primary" 
+                gutterBottom
+                sx={{ 
+                  fontSize: { xs: '1rem', sm: '1.25rem' },
+                  wordBreak: 'break-word'
+                }}
+              >
                 {linkedFamily.targetFamilyName}
               </Typography>
               
               {linkedFamily.targetFamilyHead && (
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  <PersonIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} />
+                <Typography 
+                  variant="body2" 
+                  color="text.secondary" 
+                  sx={{ 
+                    mb: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    flexWrap: 'wrap'
+                  }}
+                >
+                  <PersonIcon sx={{ fontSize: 16 }} />
                   رب العائلة: {sanitizeName(
                     linkedFamily.targetFamilyHead.firstName, 
                     linkedFamily.targetFamilyHead.fatherName, 
@@ -599,11 +584,20 @@ export default function ExtendedFamilyLinking({
                 </Typography>
               )}
               
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              <Typography 
+                variant="body2" 
+                color="text.secondary" 
+                sx={{ mb: 1 }}
+              >
                 👥 {linkedFamily.membersCount} فرد
               </Typography>
               
-              <Box display="flex" gap={1} mt={1} flexWrap="wrap">
+              <Box 
+                display="flex" 
+                gap={1} 
+                mt={1} 
+                flexWrap="wrap"
+              >
                 <Chip 
                   size="small" 
                   label={`${linkTypeInfo.icon} ${linkTypeInfo.label}`}
@@ -618,73 +612,39 @@ export default function ExtendedFamilyLinking({
                     variant="outlined" 
                   />
                 )}
-                <Chip 
-                  size="small" 
-                  label={`مرتبط منذ ${new Date(linkedFamily.establishedAt).toLocaleDateString('ar-SA')}`}
-                  color="success" 
-                  variant="outlined" 
-                />
               </Box>
             </Box>
             
-            <Button
-              variant="outlined"
+            <IconButton
               color="error"
-              startIcon={<UnlinkIcon />}
               onClick={() => openUnlinkDialog(linkedFamily)}
               disabled={loading}
               sx={{ 
-                minWidth: 100,
-                borderRadius: 2,
-                gap: 1
+                alignSelf: { xs: 'center', sm: 'flex-start' },
+                mt: { xs: 1, sm: 0 }
               }}
             >
-              فك الربط
-            </Button>
+              <UnlinkIcon />
+            </IconButton>
           </Box>
         </CardContent>
       </Card>
     );
-  }, [loading, openUnlinkDialog, getLinkTypeInfo, sanitizeName]);
+  }, [getLinkTypeInfo, sanitizeName, loading, openUnlinkDialog]);
 
-  // ===========================================================================
-  // تأثيرات ودورة الحياة
-  // ===========================================================================
-
-  useEffect(() => {
-    if (currentUserUid) {
-      Promise.all([
-        loadFamiliesForLinking(),
-        loadLinkedFamilies()
-      ]);
-    }
-  }, [currentUserUid, loadFamiliesForLinking, loadLinkedFamilies]);
-
-  // ===========================================================================
-  // العرض الرئيسي (مختصر للطول)
-  // ===========================================================================
-
+  // العرض الرئيسي
   return (
-    <Box sx={{ p: 3, fontFamily: 'Cairo, sans-serif' }}>
-      {/* رأس القسم */}
-      <Box display="flex" alignItems="center" gap={2} mb={3}>
-        <TreeIcon color="primary" sx={{ fontSize: 40 }} />
-        <Box>
-          <Typography variant="h5" fontWeight="bold" color="primary">
-            إدارة روابط العائلات
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            اربط عائلتك مع العائلات الأخرى أو فك الروابط الموجودة
-          </Typography>
-        </Box>
-      </Box>
-
-      {/* رسائل التنبيه */}
+    <Box sx={{ 
+      width: '100%', 
+      height: '100%',
+      overflow: 'auto',
+      p: { xs: 1, sm: 2 } // حشو أقل على الهواتف
+    }}>
       {message && (
         <Alert 
-          severity={messageType}
-          sx={{ mb: 3, borderRadius: 2 }}
+          severity={messageType} 
           onClose={() => setMessage('')}
+          sx={{ mb: 2 }}
         >
           {message}
         </Alert>
@@ -721,7 +681,7 @@ export default function ExtendedFamilyLinking({
 
       <Divider sx={{ mb: 3 }} />
 
-      {/* تبويبات */}
+      {/* تبويبات محسنة للهواتف */}
       <Box sx={{ mb: 3 }}>
         <Tabs 
           value={currentTab} 
@@ -730,12 +690,13 @@ export default function ExtendedFamilyLinking({
           sx={{
             '& .MuiTab-root': {
               borderRadius: 2,
-              margin: 1,
-              minHeight: 64,
-              padding: '12px 16px'
+              margin: { xs: 0.5, sm: 1 },
+              minHeight: { xs: 56, sm: 64 },
+              padding: { xs: '8px 12px', sm: '12px 16px' },
+              fontSize: { xs: '0.875rem', sm: '1rem' }
             },
             '& .MuiTabs-flexContainer': {
-              gap: 1
+              gap: { xs: 0.5, sm: 1 }
             }
           }}
         >
@@ -752,13 +713,21 @@ export default function ExtendedFamilyLinking({
                   minWidth: 0
                 }}
               >
-                <LinkIcon sx={{ fontSize: 20 }} />
-                <Typography variant="body2" sx={{ fontWeight: 'medium', whiteSpace: 'nowrap' }}>
+                <LinkIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    fontWeight: 'medium', 
+                    whiteSpace: 'nowrap',
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                  }}
+                >
                   ربط عائلات جديدة
                 </Typography>
                 <Badge badgeContent={availableFamilies.length} color="primary" />
               </Box>
-            } 
+            }
+            value={0}
           />
           <Tab 
             label={
@@ -773,301 +742,192 @@ export default function ExtendedFamilyLinking({
                   minWidth: 0
                 }}
               >
-                <GroupsIcon sx={{ fontSize: 20 }} />
-                <Typography variant="body2" sx={{ fontWeight: 'medium', whiteSpace: 'nowrap' }}>
+                <GroupsIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    fontWeight: 'medium', 
+                    whiteSpace: 'nowrap',
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                  }}
+                >
                   العائلات المرتبطة
                 </Typography>
                 <Badge badgeContent={linkedFamilies.length} color="success" />
               </Box>
-            } 
+            }
+            value={1}
           />
         </Tabs>
       </Box>
 
-      {/* محتوى التبويبات */}
-      {currentTab === 0 && (
-        <Box>
-          {/* شريط البحث */}
-          <Box mb={3}>
-            <TextField
-              fullWidth
-              placeholder="ابحث عن العائلات بالاسم أو رقم الهاتف..."
-              value={searchQuery}
-              onChange={(e) => searchFamilies(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ color: 'text.secondary' }} />
-                  </InputAdornment>
-                ),
-                endAdornment: searchQuery && (
-                  <InputAdornment position="end">
-                    <IconButton 
-                      size="small" 
-                      onClick={() => {
-                        setSearchQuery('');
-                        setSearchResults([]);
-                      }}
-                    >
-                      <CloseIcon />
-                    </IconButton>
-                  </InputAdornment>
-                )
-              }}
-              size="medium"
-              sx={{ 
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2
-                }
-              }}
-            />
+      {/* المحتوى */}
+      <Box sx={{ 
+        minHeight: { xs: '60vh', sm: 400 },
+        maxHeight: { xs: 'calc(100vh - 300px)', sm: '70vh' },
+        overflow: 'auto',
+        px: { xs: 0, sm: 1 }
+      }}>
+        {initialLoading ? (
+          <Box display="flex" flexDirection="column" alignItems="center" py={4}>
+            <CircularProgress size={60} />
+            <Typography variant="body1" sx={{ mt: 2 }}>
+              جاري تحميل العائلات...
+            </Typography>
           </Box>
+        ) : (
+          <>
+            {currentTab === 0 && (
+              <Box>
+                {/* شريط البحث */}
+                <TextField
+                  fullWidth
+                  placeholder="ابحث في العائلات المتاحة..."
+                  value={searchQuery}
+                  onChange={(e) => searchFamilies(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    )
+                  }}
+                  sx={{ mb: 3 }}
+                />
 
-          {/* محتوى العائلات المتاحة */}
-          {initialLoading ? (
-            <Box display="flex" flexDirection="column" alignItems="center" py={6}>
-              <CircularProgress size={60} sx={{ mb: 2 }} />
-              <Typography variant="h6" color="text.secondary">
-                جاري تحميل العائلات المتاحة...
-              </Typography>
-            </Box>
-          ) : searchQuery && searchResults.length > 0 ? (
-            <Box>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                🔍 نتائج البحث ({searchResults.length})
-              </Typography>
-              {searchResults.map(family => renderFamilyCard(family))}
-            </Box>
-          ) : searchQuery && searchResults.length === 0 ? (
-            <Card>
-              <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                <SearchIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  لا توجد نتائج للبحث
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  لم يتم العثور على عائلات تطابق "{searchQuery}"
-                </Typography>
-              </CardContent>
-            </Card>
-          ) : availableFamilies.length > 0 ? (
-            <Box>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                🏠 العائلات المتاحة للربط ({availableFamilies.length})
-              </Typography>
-              {availableFamilies.slice(0, 10).map(family => renderFamilyCard(family))}
-              {availableFamilies.length > 10 && (
-                <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mt: 2 }}>
-                  وعائلات أخرى... استخدم البحث للعثور على عائلة محددة
-                </Typography>
-              )}
-            </Box>
-          ) : (
-            <Card>
-              <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                <GroupsIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  لا توجد عائلات متاحة للربط
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  جميع العائلات مرتبطة بالفعل أو لا توجد عائلات أخرى في النظام
-                </Typography>
-              </CardContent>
-            </Card>
-          )}
-        </Box>
-      )}
+                {/* عرض النتائج */}
+                {searchQuery && searchResults.length === 0 ? (
+                  <Alert severity="info">
+                    لا توجد نتائج للبحث "{searchQuery}"
+                  </Alert>
+                ) : (
+                  <Box>
+                    {(searchQuery ? searchResults : availableFamilies).map(family => 
+                      renderFamilyCard(family, true)
+                    )}
+                  </Box>
+                )}
+              </Box>
+            )}
 
-      {currentTab === 1 && (
-        <Box>
-          {linkedFamilies.length > 0 ? (
-            <Box>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                🔗 العائلات المرتبطة ({linkedFamilies.length})
-              </Typography>
-              {linkedFamilies.map(linkedFamily => renderLinkedFamilyCard(linkedFamily))}
-            </Box>
-          ) : (
-            <Card>
-              <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                <LinkIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  لا توجد عائلات مرتبطة
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  لم تقم بربط أي عائلات بعد. انتقل إلى تبويب "ربط عائلات جديدة" لبدء الربط
-                </Typography>
-                <Button
-                  variant="contained"
-                  onClick={() => setCurrentTab(0)}
-                  startIcon={<LinkIcon />}
-                  sx={{ gap: 1 }}
-                >
-                  ابدأ الربط
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </Box>
-      )}
+            {currentTab === 1 && (
+              <Box>
+                {linkedFamilies.length === 0 ? (
+                  <Alert severity="info" icon={<InfoIcon />}>
+                    لم تقم بربط أي عائلات بعد. انتقل إلى تبويب "ربط عائلات جديدة" لبدء الربط.
+                  </Alert>
+                ) : (
+                  <Box>
+                    {linkedFamilies.map(linkedFamily => 
+                      renderLinkedFamilyCard(linkedFamily)
+                    )}
+                  </Box>
+                )}
+              </Box>
+            )}
+          </>
+        )}
+      </Box>
 
-      {/* نوافذ الحوار */}
-      {/* نافذة تأكيد الربط */}
+      {/* حوار الربط */}
       <Dialog 
         open={linkingDialogOpen} 
         onClose={() => setLinkingDialogOpen(false)}
         maxWidth="sm"
         fullWidth
-        PaperProps={{
-          sx: { borderRadius: 3 }
-        }}
+        fullScreen={window.innerWidth < 600} // ملء الشاشة على الهواتف الصغيرة
       >
         <DialogTitle>
-          <Box display="flex" alignItems="center" gap={2}>
-            <LinkIcon color="primary" />
-            <Typography variant="h6" fontWeight="bold">
-              ربط العائلات
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Typography variant="h6">
+              ربط مع {selectedFamily?.name}
             </Typography>
+            <IconButton onClick={() => setLinkingDialogOpen(false)}>
+              <CloseIcon />
+            </IconButton>
           </Box>
         </DialogTitle>
-        
         <DialogContent>
-          {selectedFamily && (
-            <Box>
-              <Typography variant="body1" gutterBottom sx={{ mb: 2 }}>
-                هل تريد ربط عائلتك مع:
-              </Typography>
-              
-              {renderFamilyCard(selectedFamily, false)}
-              
-              <Divider sx={{ my: 3 }} />
-              
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                اختر نوع العلاقة بين العائلتين:
-              </Typography>
-              
-              <Autocomplete
-                options={linkTypes}
-                getOptionLabel={(option) => option.label}
-                onChange={(event, newValue) => setLinkType(newValue?.value || '')}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="نوع العلاقة"
-                    required
-                    error={!linkType}
-                    helperText={!linkType ? 'يرجى اختيار نوع العلاقة' : ''}
-                  />
-                )}
-                renderOption={(props, option) => (
-                  <Box component="li" {...props}>
-                    <Box display="flex" alignItems="center" gap={2}>
-                      <span style={{ fontSize: '1.2rem' }}>{option.icon}</span>
-                      <Box>
-                        <Typography variant="body2" fontWeight="bold">
-                          {option.label}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {option.description}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-                )}
-                sx={{ mb: 3 }}
-              />
-              
-              <TextField
-                fullWidth
-                label="وصف العلاقة (اختياري)"
-                value={relationDescription}
-                onChange={(e) => setRelationDescription(e.target.value)}
-                placeholder="مثال: أبناء عم من جهة الأب"
-                multiline
-                rows={2}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2
-                  }
-                }}
-              />
-            </Box>
-          )}
+          <Box sx={{ pt: 2 }}>
+            <Autocomplete
+              options={linkTypes}
+              getOptionLabel={(option) => `${option.icon} ${option.label}`}
+              value={linkTypes.find(type => type.value === linkType) || null}
+              onChange={(event, newValue) => setLinkType(newValue?.value || '')}
+              renderInput={(params) => (
+                <TextField 
+                  {...params} 
+                  label="نوع القرابة" 
+                  required 
+                  fullWidth
+                  sx={{ mb: 2 }}
+                />
+              )}
+            />
+
+            <TextField
+              fullWidth
+              label="وصف العلاقة (اختياري)"
+              value={relationDescription}
+              onChange={(e) => setRelationDescription(e.target.value)}
+              multiline
+              rows={2}
+              placeholder="مثال: أشقاء من نفس الأب، أو أبناء عم من الدرجة الثانية..."
+            />
+          </Box>
         </DialogContent>
-        
         <DialogActions sx={{ p: 3 }}>
           <Button 
             onClick={() => setLinkingDialogOpen(false)}
-            sx={{ borderRadius: 2 }}
+            disabled={loading}
           >
             إلغاء
           </Button>
-          <Button
-            variant="contained"
-            onClick={confirmLinking}
-            disabled={!linkType || loading}
+          <Button 
+            variant="contained" 
+            onClick={handleCreateLink}
+            disabled={loading || !linkType}
             startIcon={loading ? <CircularProgress size={20} /> : <CheckIcon />}
-            sx={{ borderRadius: 2, minWidth: 120, gap: 1 }}
           >
             {loading ? 'جاري الربط...' : 'تأكيد الربط'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* نافذة تأكيد فك الربط */}
+      {/* حوار فك الربط */}
       <Dialog 
         open={unlinkDialogOpen} 
         onClose={() => setUnlinkDialogOpen(false)}
         maxWidth="sm"
         fullWidth
-        PaperProps={{
-          sx: { borderRadius: 3 }
-        }}
       >
         <DialogTitle>
-          <Box display="flex" alignItems="center" gap={2}>
-            <UnlinkIcon color="error" />
-            <Typography variant="h6" fontWeight="bold">
-              فك ربط العائلة
-            </Typography>
+          <Box display="flex" alignItems="center" gap={1}>
+            <WarningIcon color="warning" />
+            <Typography variant="h6">تأكيد فك الرابط</Typography>
           </Box>
         </DialogTitle>
-        
         <DialogContent>
-          {selectedLinkToRemove && (
-            <Box>
-              <Alert severity="warning" sx={{ mb: 3, borderRadius: 2 }}>
-                <Typography variant="body2">
-                  ⚠️ هذا الإجراء سيؤدي إلى فك الربط نهائياً بين العائلتين. 
-                  هل أنت متأكد من أنك تريد المتابعة؟
-                </Typography>
-              </Alert>
-              
-              <Typography variant="body1" gutterBottom sx={{ mb: 2 }}>
-                العائلة المراد فك ربطها:
-              </Typography>
-              
-              {renderLinkedFamilyCard(selectedLinkToRemove)}
-            </Box>
-          )}
+          <Typography>
+            هل أنت متأكد من رغبتك في فك الرابط مع{' '}
+            <strong>{selectedLinkToRemove?.targetFamilyName}</strong>؟
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            سيتم حذف الرابط من كلا الجانبين ولن يظهر في الشجرة الموسعة.
+          </Typography>
         </DialogContent>
-        
-        <DialogActions sx={{ p: 3 }}>
-          <Button 
-            onClick={() => setUnlinkDialogOpen(false)}
-            sx={{ borderRadius: 2 }}
-          >
+        <DialogActions>
+          <Button onClick={() => setUnlinkDialogOpen(false)} disabled={loading}>
             إلغاء
           </Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={confirmUnlinking}
+          <Button 
+            variant="contained" 
+            color="error" 
+            onClick={handleRemoveLink}
             disabled={loading}
-            startIcon={loading ? <CircularProgress size={20} /> : <UnlinkIcon />}
-            sx={{ borderRadius: 2, minWidth: 120, gap: 1 }}
+            startIcon={loading ? <CircularProgress size={20} /> : <DeleteIcon />}
           >
-            {loading ? 'جاري فك الربط...' : 'تأكيد فك الربط'}
+            {loading ? 'جاري الحذف...' : 'فك الرابط'}
           </Button>
         </DialogActions>
       </Dialog>
