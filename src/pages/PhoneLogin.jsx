@@ -50,8 +50,6 @@ const PhoneLogin = () => {
 
         if (!status.isInitialized) {
           setError('❌ خطأ في تهيئة Firebase. يرجى التحقق من الإعدادات.');
-        } else if (status.config?.isDemoConfig) {
-          setError('⚠️ يتم استخدام إعدادات تجريبية. يرجى تحديث ملف .env');
         } else {
           setError('');
         }
@@ -437,14 +435,6 @@ const PhoneLogin = () => {
             </Typography>
             <Typography variant="body2">
               يرجى التحقق من اتصالك بالإنترنت وإعادة تحميل الصفحة
-            </Typography>
-          </Alert>
-        )}
-
-        {firebaseStatus?.config?.isDemoConfig && (
-          <Alert severity="warning" sx={{ mb: 3 }}>
-            <Typography variant="body2">
-              يتم استخدام إعدادات تجريبية. قد لا تعمل جميع الميزات بشكل صحيح.
             </Typography>
           </Alert>
         )}
