@@ -64,24 +64,31 @@ export class FamilyAnalytics {
   }
 
   /**
-   * استخراج جميع الأعضاء من الشجرة
+   * استخراج جميع الأعضاء من الشجرة أو من قائمة flat مع حساب الأجيال تلقائياً إذا لم يوجد treeData
    */
   extractAllMembers(treeData, familyMembers = []) {
     let allMembers = [];
-    
     // إذا كان لدينا بيانات شجرة، استخراج من الشجرة
     if (treeData) {
       allMembers = this.extractFromTreeStructure(treeData);
+    } else if (familyMembers && familyMembers.length > 0) {
+      // --- حساب الأجيال تلقائياً بناءً على parentId ---
+      // 1. بناء خريطة الأعضاء حسب id
+      const memberMap = {};
+      familyMembers.forEach(m => { memberMap[m.id] = { ...m }; });
+      // 2. تعيين الجيل لكل عضو
+      function assignGeneration(member) {
+        if (member.generation !== undefined && member.generation !== null) return member.generation;
+        if (!member.parentId || !memberMap[member.parentId]) {
+          member.generation = 0; // رب العائلة
+        } else {
+          member.generation = assignGeneration(memberMap[member.parentId]) + 1;
+        }
+        return member.generation;
+      }
+      Object.values(memberMap).forEach(assignGeneration);
+      allMembers = Object.values(memberMap);
     }
-    
-    // إضافة أعضاء إضافيين إن وجدوا
-    if (familyMembers && familyMembers.length > 0) {
-      const additionalMembers = familyMembers.filter(fm => 
-        !allMembers.some(am => am.id === fm.id || am.globalId === fm.globalId)
-      );
-      allMembers = [...allMembers, ...additionalMembers];
-    }
-    
     // تنظيف وتوحيد البيانات
     return allMembers.map(member => this.normalizeMemberData(member));
   }

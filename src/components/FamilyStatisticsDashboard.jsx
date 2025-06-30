@@ -39,11 +39,8 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
     if (!open) return null;
     setLoading(true);
     try {
-      // دمج جميع الأعضاء من الشجرة وقائمة familyMembers بدون تكرار
-      const allMembers = Array.isArray(familyMembers) && familyMembers.length > 0
-        ? familyMembers
-        : familyAnalytics.extractAllMembers(treeData, []);
-      const result = familyAnalytics.analyzeFamily(null, allMembers);
+      // استخدم treeData مع familyMembers ليتم حساب الأجيال بدقة
+      const result = familyAnalytics.analyzeFamily(treeData, familyMembers);
       setLoading(false);
       return result;
     } catch (error) {
