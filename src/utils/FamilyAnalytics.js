@@ -151,11 +151,27 @@ export class FamilyAnalytics {
    * توحيد بيانات العضو
    */
   normalizeMemberData(member) {
+    // إذا لم يوجد age رقمي، احسبه من birthdate أو birthDate
+    let age = this.parseAge(member.age);
+    if ((age === null || age === undefined) && (member.birthdate || member.birthDate)) {
+      const birth = new Date(member.birthdate || member.birthDate);
+      const today = new Date();
+      if (!isNaN(birth.getTime())) {
+        age = today.getFullYear() - birth.getFullYear();
+        const monthDiff = today.getMonth() - birth.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+          age--;
+        }
+        if (age < 0) age = null;
+      } else {
+        age = null;
+      }
+    }
     return {
       ...member,
       name: member.name || this.buildFullName(member),
       gender: this.normalizeGender(member.gender),
-      age: this.parseAge(member.age),
+      age: age,
       isMarried: this.parseBoolean(member.isMarried),
       generation: member.generation || 0
     };
