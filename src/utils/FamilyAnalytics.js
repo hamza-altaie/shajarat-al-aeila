@@ -248,8 +248,8 @@ export class FamilyAnalytics {
     const total = members.length;
     const males = members.filter(m => m.gender === 'ذكر').length;
     const females = members.filter(m => m.gender === 'أنثى').length;
-    const married = members.filter(m => m.isMarried).length;
-    
+    // حذف حساب المتزوجين ومعدل الزواج
+    // const married = members.filter(m => m.isMarried).length;
     // حساب الأعمار
     const ages = members.map(m => m.age).filter(age => age !== null);
     const ageStats = ages.length > 0 ? {
@@ -258,7 +258,6 @@ export class FamilyAnalytics {
       max: Math.max(...ages),
       median: this.calculateMedian(ages)
     } : { average: 0, min: 0, max: 0, median: 0 };
-    
     return {
       totalMembers: total,
       genderDistribution: {
@@ -268,11 +267,7 @@ export class FamilyAnalytics {
         malePercentage: total > 0 ? Math.round((males / total) * 100) : 0,
         femalePercentage: total > 0 ? Math.round((females / total) * 100) : 0
       },
-      marriageStats: {
-        married: married,
-        single: total - married,
-        marriageRate: total > 0 ? Math.round((married / total) * 100) : 0
-      },
+      // حذف marriageStats بالكامل
       ageStatistics: ageStats,
       dataCompleteness: this.calculateDataCompleteness(members)
     };
@@ -319,7 +314,7 @@ export class FamilyAnalytics {
   analyzeDemographics(members) {
     return {
       ageGroups: this.categorizeByAge(members),
-      marriageByAge: this.analyzeMarriageByAge(members),
+      // حذف marriageByAge بالكامل
       genderByGeneration: this.analyzeGenderByGeneration(members),
       populationPyramid: this.createPopulationPyramid(members)
     };
@@ -535,31 +530,8 @@ export class FamilyAnalytics {
 
   // دوال إضافية للتحليلات المتقدمة
   analyzeMarriageByAge(members) {
-    const ageGroups = this.categorizeByAge(members);
-    const marriageByAge = {};
-    
-    Object.keys(ageGroups).forEach(ageGroup => {
-      const groupMembers = members.filter(m => {
-        const age = m.age;
-        switch(ageGroup) {
-          case 'أطفال (0-12)': return age !== null && age <= 12;
-          case 'مراهقون (13-17)': return age !== null && age > 12 && age <= 17;
-          case 'شباب (18-35)': return age !== null && age > 17 && age <= 35;
-          case 'متوسطو العمر (36-55)': return age !== null && age > 35 && age <= 55;
-          case 'كبار السن (56+)': return age !== null && age > 55;
-          default: return age === null;
-        }
-      });
-      
-      const married = groupMembers.filter(m => m.isMarried).length;
-      marriageByAge[ageGroup] = {
-        total: groupMembers.length,
-        married: married,
-        rate: groupMembers.length > 0 ? Math.round((married / groupMembers.length) * 100) : 0
-      };
-    });
-    
-    return marriageByAge;
+    // حذف الدالة بالكامل
+    return {};
   }
 
   analyzeGenderByGeneration(members) {
@@ -719,7 +691,7 @@ export class FamilyAnalytics {
 
   exportToCSV(members) {
     const headers = [
-      'الاسم', 'الجنس', 'العمر', 'العلاقة', 'الحالة الاجتماعية',
+      'الاسم', 'الجنس', 'العمر', 'العلاقة',
       'التعليم', 'المهنة', 'الموقع', 'الجيل', 'رقم الهاتف'
     ];
     
@@ -728,7 +700,7 @@ export class FamilyAnalytics {
       `"${member.gender || ''}"`,
       `"${member.age || ''}"`,
       `"${member.relation || ''}"`,
-      `"${member.isMarried ? 'متزوج' : 'غير متزوج'}"`,
+      // حذف الحالة الاجتماعية
       `"${member.education || ''}"`,
       `"${member.profession || ''}"`,
       `"${member.location || ''}"`,
@@ -748,7 +720,6 @@ export class FamilyAnalytics {
 - إجمالي الأعضاء: ${analysis.basicStats.totalMembers}
 - عدد الأجيال: ${analysis.generationAnalysis.totalGenerations}
 - متوسط العمر: ${analysis.basicStats.ageStatistics.average} سنة
-- نسبة الزواج: ${analysis.basicStats.marriageStats.marriageRate}%
 
 👥 التوزيع الجنسي:
 - ذكور: ${analysis.basicStats.genderDistribution.males} (${analysis.basicStats.genderDistribution.malePercentage}%)

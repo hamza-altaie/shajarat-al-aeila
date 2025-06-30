@@ -349,16 +349,6 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
                     />
                   </Grid>
                   
-                  <Grid item xs={12} sm={6} md={3}>
-                    <StatCard
-                      title="نسبة الزواج"
-                      value={`${analysis.basicStats.marriageStats.marriageRate}%`}
-                      subtitle={`${analysis.basicStats.marriageStats.married} من ${analysis.basicStats.totalMembers}`}
-                      color="error"
-                      progress={analysis.basicStats.marriageStats.marriageRate}
-                    />
-                  </Grid>
-
                   {/* التوزيع الجنسي */}
                   <Grid item xs={12} md={6}>
                     <Paper sx={{ p: 3, height: '100%' }}>
@@ -451,31 +441,6 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
                         data={analysis.demographicAnalysis.ageGroups} 
                         color="primary"
                       />
-                    </Paper>
-                  </Grid>
-
-                  {/* الزواج حسب العمر */}
-                  <Grid item xs={12} md={6}>
-                    <Paper sx={{ p: 3 }}>
-                      <Typography variant="h6" sx={{ mb: 2, fontFamily: 'Cairo, sans-serif' }}>
-                        💑 معدل الزواج حسب الفئة العمرية
-                      </Typography>
-                      <List dense>
-                        {Object.entries(analysis.demographicAnalysis.marriageByAge).map(([ageGroup, data]) => (
-                          <ListItem key={ageGroup} sx={{ borderRadius: 1, mb: 1, backgroundColor: 'grey.50' }}>
-                            <ListItemText 
-                              primary={ageGroup}
-                              secondary={`${data.married} من ${data.total} (${data.rate}%)`}
-                              sx={{ fontFamily: 'Cairo, sans-serif' }}
-                            />
-                            <LinearProgress 
-                              variant="determinate" 
-                              value={data.rate}
-                              sx={{ width: 100, ml: 2 }}
-                            />
-                          </ListItem>
-                        ))}
-                      </List>
                     </Paper>
                   </Grid>
                 </Grid>
