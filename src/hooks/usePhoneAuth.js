@@ -1,3 +1,4 @@
+// src/hooks/usePhoneAuth.js - النسخة المُحدثة والمُصححة
 import React, { useState, useEffect } from 'react';
 import { auth } from '../firebase/config';
 import { signInWithPhoneNumber, RecaptchaVerifier } from 'firebase/auth';
@@ -32,21 +33,36 @@ export const validateBirthdate = (date) => {
   return true;
 };
 
-// إصلاح أخطاء no-useless-escape
+// ✅ إصلاح دالة التحقق من الهاتف
 export const validatePhone = (phone) => {
   if (!phone || typeof phone !== 'string') return false;
 
   const cleanPhone = phone.replace(/[\s\-()]/g, '');
-  const iraqiPhoneRegex = /^\+9647[0-9]{8,9}$/;
+  // دعم جميع أنواع الأرقام العراقية
+  const iraqiPhoneRegex = /^\+9647[0-9]{8,10}$/;
 
   return iraqiPhoneRegex.test(cleanPhone);
 };
 
+// ✅ إصلاح دالة تنسيق رقم الهاتف
 export const formatPhoneNumber = (phone) => {
+  if (!phone) return '';
+  
   const cleanPhone = phone.replace(/[^\d+]/g, '');
 
+  // إذا بدأ بـ 07، حوله إلى +9647
   if (cleanPhone.startsWith('07')) {
     return '+964' + cleanPhone.substring(1);
+  }
+  
+  // إذا بدأ بـ 7 بدون صفر، أضف +964
+  if (cleanPhone.startsWith('7') && !cleanPhone.startsWith('07')) {
+    return '+964' + cleanPhone;
+  }
+  
+  // إذا بدأ بـ +964 بالفعل، أرجعه كما هو
+  if (cleanPhone.startsWith('+964')) {
+    return cleanPhone;
   }
 
   return cleanPhone;
@@ -61,6 +77,7 @@ export default function usePhoneAuth() {
   const [confirmationLoading, setConfirmationLoading] = useState(false);
   const navigate = useNavigate();
 
+  // ✅ إصلاح دالة sendCode
   const sendCode = async () => {
     const formattedPhone = formatPhoneNumber(phone);
     
@@ -73,6 +90,8 @@ export default function usePhoneAuth() {
     setMessage('');
 
     try {
+      console.log('🔍 محاولة إرسال رمز التحقق إلى:', formattedPhone);
+
       // تنظيف reCAPTCHA السابق
       if (window.recaptchaVerifier) {
         try {
@@ -89,9 +108,12 @@ export default function usePhoneAuth() {
         throw new Error('عنصر reCAPTCHA غير موجود');
       }
 
-      // إنشاء reCAPTCHA جديد مع إعدادات محسنة
+      // ✅ إنشاء reCAPTCHA بالطريقة الصحيحة الجديدة
       window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         size: 'invisible',
+        callback: (response) => {
+          console.log('✅ reCAPTCHA تم التحقق منه:', response);
+        },
         'expired-callback': () => {
           console.warn('⚠️ انتهت صلاحية reCAPTCHA');
           setMessage('❌ انتهت صلاحية التحقق، يرجى المحاولة مرة أخرى');
@@ -111,6 +133,9 @@ export default function usePhoneAuth() {
         throw new Error('فشل في تهيئة نظام التحقق');
       }
 
+      // تأخير قصير للتأكد من جاهزية reCAPTCHA
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       // إرسال رمز التحقق
       console.log('📱 إرسال رمز التحقق إلى:', formattedPhone);
       const result = await signInWithPhoneNumber(auth, formattedPhone, window.recaptchaVerifier);
@@ -119,38 +144,49 @@ export default function usePhoneAuth() {
       setPhone(formattedPhone);
       setMessage('✅ تم إرسال كود التحقق إلى هاتفك');
       
+      console.log('✅ تم إرسال رمز التحقق بنجاح');
       return { success: true };
       
     } catch (error) {
-      console.error('❌ خطأ في إرسال الكود:', error);
+      console.error('❌ خطأ مفصل في إرسال الكود:', {
+        code: error.code,
+        message: error.message,
+        phone: formattedPhone,
+        timestamp: new Date().toISOString()
+      });
       
       let friendlyMessage = '❌ حدث خطأ أثناء إرسال الكود';
       
-      // معالجة أنواع الأخطاء المختلفة
+      // ✅ معالجة محسنة للأخطاء
       switch (error.code) {
+        case 'auth/invalid-app-credential':
+          friendlyMessage = '❌ خطأ في إعدادات Firebase. تحقق من Firebase Console';
+          break;
         case 'auth/too-many-requests':
           friendlyMessage = '❌ تم إرسال الكثير من الطلبات. يرجى المحاولة لاحقاً';
           break;
         case 'auth/invalid-phone-number':
-          friendlyMessage = '❌ رقم الهاتف غير صحيح';
+          friendlyMessage = '❌ رقم الهاتف غير صحيح. استخدم صيغة: +9647xxxxxxxx';
           break;
         case 'auth/quota-exceeded':
           friendlyMessage = '❌ تم تجاوز الحد المسموح من الرسائل لهذا اليوم';
           break;
         case 'auth/app-not-authorized':
-          friendlyMessage = '❌ التطبيق غير مصرح له باستخدام هذه الخدمة';
-          break;
-        case 'auth/recaptcha-not-enabled':
-          friendlyMessage = '❌ نظام التحقق غير مفعل';
+          friendlyMessage = '❌ التطبيق غير مُخول. أضف localhost في Firebase Console';
           break;
         case 'auth/operation-not-allowed':
-          friendlyMessage = '❌ تسجيل الدخول بالهاتف غير مفعل';
+          friendlyMessage = '❌ Phone Authentication غير مفعل في Firebase Console';
+          break;
+        case 'auth/captcha-check-failed':
+          friendlyMessage = '❌ فشل التحقق الأمني. أعد تحميل الصفحة';
           break;
         default:
           if (error.message.includes('network')) {
             friendlyMessage = '❌ مشكلة في الاتصال بالإنترنت';
           } else if (error.message.includes('cors')) {
             friendlyMessage = '❌ مشكلة في إعدادات الأمان';
+          } else {
+            friendlyMessage = `❌ خطأ: ${error.message}`;
           }
           break;
       }
@@ -281,6 +317,8 @@ export default function usePhoneAuth() {
         default:
           if (error.message.includes('network')) {
             friendlyMessage = '❌ مشكلة في الاتصال بالإنترنت';
+          } else {
+            friendlyMessage = error.message || '❌ حدث خطأ غير متوقع';
           }
           break;
       }
@@ -341,20 +379,28 @@ export default function usePhoneAuth() {
   };
 }
 
-// إضافة دالة sendVerificationCode المفقودة
+// ✅ دالة sendVerificationCode محسنة
 export const sendVerificationCode = async (phoneNumber, recaptchaContainerId) => {
   try {
-    const recaptchaVerifier = new RecaptchaVerifier(recaptchaContainerId, {
+    // إنشاء reCAPTCHA بالطريقة الصحيحة
+    const recaptchaVerifier = new RecaptchaVerifier(auth, recaptchaContainerId, {
       size: 'invisible',
       callback: () => {
-        console.log('تم التحقق من reCAPTCHA بنجاح');
+        console.log('✅ تم التحقق من reCAPTCHA بنجاح');
+      },
+      'error-callback': (error) => {
+        console.error('❌ خطأ في reCAPTCHA:', error);
       }
-    }, auth);
+    });
 
+    // تقديم reCAPTCHA
+    await recaptchaVerifier.render();
+
+    // إرسال رمز التحقق
     const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
     return confirmationResult;
   } catch (error) {
-    console.error('خطأ أثناء إرسال رمز التحقق:', error);
+    console.error('❌ خطأ أثناء إرسال رمز التحقق:', error);
     throw error;
   }
 };
