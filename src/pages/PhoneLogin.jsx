@@ -1,5 +1,3 @@
-// src/pages/PhoneLogin.jsx - الإصلاح النهائي للأخطاء المتبقية
-
 import React, { useState, useEffect } from 'react';
 import {
   Container, Paper, TextField, Button, Box, Typography, 
@@ -33,42 +31,45 @@ const PhoneLogin = () => {
   const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
   const [timer, setTimer] = useState(0);
   const [phoneInput, setPhoneInput] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
 
   // فحص حالة Firebase عند التحميل
   useEffect(() => {
-    const checkStatus = async () => {
-      try {
-        const { getFirebaseStatus } = await import('../firebase/config');
+  const checkStatus = async () => {
+    try {
+      const { getFirebaseStatus } = await import('../firebase/config');
 
-        if (typeof getFirebaseStatus !== 'function') {
-          throw new Error('getFirebaseStatus is not a function');
-        }
-
-        setTimeout(() => {
-          const status = getFirebaseStatus();
-          setFirebaseStatus(status);
-
-          if (!status.isInitialized) {
-            setError('❌ خطأ في تهيئة Firebase. يرجى التحقق من الإعدادات.');
-          } else if (status.config?.isDemoConfig) {
-            setError('⚠️ يتم استخدام إعدادات تجريبية. يرجى تحديث ملف .env');
-          } else {
-            setError('');
-          }
-        }, 100);
-      } catch (error) {
-        console.error('خطأ في فحص Firebase:', error);
-        setFirebaseStatus({
-          isInitialized: false,
-          error: error.message || 'فشل في فحص حالة Firebase'
-        });
-        setError('⚠️ تحذير: قد تكون هناك مشكلة في إعدادات Firebase');
+      if (typeof getFirebaseStatus !== 'function') {
+        throw new Error('getFirebaseStatus is not a function');
       }
-    };
 
-    checkStatus();
-  }, []);
+      // نضيف تأخير بسيط قبل استدعاء الفحص
+      setTimeout(() => {
+        const status = getFirebaseStatus();
+        setFirebaseStatus(status);
 
+        if (!status.isInitialized) {
+          setError('❌ خطأ في تهيئة Firebase. يرجى التحقق من الإعدادات.');
+        } else if (status.config?.isDemoConfig) {
+          setError('⚠️ يتم استخدام إعدادات تجريبية. يرجى تحديث ملف .env');
+        } else {
+          setError('');
+        }
+      }, 100); // تأخير 100 مللي ثانية
+    } catch (error) {
+      console.error('خطأ في فحص Firebase:', error);
+      setFirebaseStatus({
+        isInitialized: false,
+        error: error.message || 'فشل في فحص حالة Firebase'
+      });
+      setError('⚠️ تحذير: قد تكون هناك مشكلة في إعدادات Firebase');
+    }
+  };
+
+  checkStatus();
+}, []);
+
+  
   // مراقبة حالة المصادقة
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -80,37 +81,25 @@ const PhoneLogin = () => {
     return () => unsubscribe();
   }, [navigate]);
   
-  // إعداد reCAPTCHA مُحسن
+  // إعداد reCAPTCHA
   useEffect(() => {
     if (!firebaseStatus?.services?.auth) return;
     
-    const setupRecaptcha = async () => {
+    const setupRecaptcha = () => {
       try {
         // تنظيف أي reCAPTCHA موجود
         if (window.recaptchaVerifier) {
-          try {
-            window.recaptchaVerifier.clear();
-          } catch (e) {
-            console.warn('تنظيف reCAPTCHA السابق:', e);
-          }
-          window.recaptchaVerifier = null;
+          window.recaptchaVerifier.clear();
         }
         
-        // التأكد من وجود العنصر
-        const container = document.getElementById('recaptcha-container');
-        if (!container) {
-          console.error('❌ عنصر recaptcha-container غير موجود');
-          return;
-        }
-        
-        // إنشاء reCAPTCHA جديد مع إعدادات محسنة
+        // إعداد reCAPTCHA جديد
         const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
           size: 'invisible',
-          callback: (response) => {
-            console.log('✅ reCAPTCHA تم التحقق منه بنجاح:', response);
+          callback: () => {
+            console.log('✅ reCAPTCHA تم التحقق منه');
           },
           'expired-callback': () => {
-            console.warn('⚠️ reCAPTCHA انتهت صلاحيته');
+            console.log('⚠️ reCAPTCHA انتهت صلاحيته');
             setError('انتهت صلاحية التحقق. يرجى المحاولة مرة أخرى.');
           },
           'error-callback': (error) => {
@@ -119,33 +108,26 @@ const PhoneLogin = () => {
           }
         });
         
-        // تقديم reCAPTCHA
-        await verifier.render();
-        console.log('✅ تم تقديم reCAPTCHA بنجاح');
-        
         setRecaptchaVerifier(verifier);
         window.recaptchaVerifier = verifier;
         
       } catch (error) {
         console.error('❌ خطأ في إعداد reCAPTCHA:', error);
-        setError('خطأ في إعداد التحقق الأمني. يرجى إعادة تحميل الصفحة.');
+        setError('خطأ في إعداد التحقق الأمني.');
       }
     };
     
-    const timer = setTimeout(setupRecaptcha, 1000);
+    // تأخير قصير للتأكد من تحميل DOM
+    const timer = setTimeout(setupRecaptcha, 500);
     
     return () => {
       clearTimeout(timer);
       if (window.recaptchaVerifier) {
-        try {
-          window.recaptchaVerifier.clear();
-        } catch (e) {
-          console.warn('تنظيف reCAPTCHA عند إلغاء التحميل:', e);
-        }
+        window.recaptchaVerifier.clear();
         window.recaptchaVerifier = null;
       }
     };
-  }, [firebaseStatus?.services?.auth]);
+  }, [firebaseStatus]);
 
   // عداد مؤقت لإعادة تفعيل زر الإرسال
   useEffect(() => {
@@ -155,166 +137,113 @@ const PhoneLogin = () => {
     }
   }, [timer]);
 
-  // ✅ إصلاح دالة التحقق من الرقم العراقي
+  // دالة مساعدة للتحقق من الرقم العراقي
   const isValidIraqiNumber = (phoneInput) => {
-    if (!phoneInput || typeof phoneInput !== 'string') return false;
-    
-    // إزالة الفراغات والشرط
-    const cleaned = phoneInput.replace(/[\s\-()]/g, '');
-    
-    // أنماط الأرقام العراقية المقبولة:
-    // 07xxxxxxxx (10 أرقام)
-    // 7xxxxxxxx (9 أرقام) 
-    // 7xxxxxxxxx (10 أرقام بدون صفر أولي)
-    
-    if (cleaned.length === 10 && cleaned.startsWith('07')) {
-      return /^07[0-9]{8}$/.test(cleaned);
+    // 07xxxxxxxx (10 أرقام تبدأ بـ 07)
+    if (phoneInput.length === 10 && phoneInput.startsWith('07')) {
+      return true;
     }
     
-    if (cleaned.length === 9 && cleaned.startsWith('7') && !cleaned.startsWith('07')) {
-      return /^7[0-9]{8}$/.test(cleaned);
-    }
-    
-    // إضافة دعم للأرقام 10 أرقام بدون صفر أولي
-    if (cleaned.length === 10 && cleaned.startsWith('7') && !cleaned.startsWith('07')) {
-      return /^7[0-9]{9}$/.test(cleaned);
+    // 7xxxxxxxx أو 7xxxxxxxxx (9-10 أرقام تبدأ بـ 7 بدون صفر)
+    if ((phoneInput.length === 9 || phoneInput.length === 10) && phoneInput.startsWith('7') && !phoneInput.startsWith('07')) {
+      return true;
     }
     
     return false;
   };
 
-  // ✅ إصلاح دالة تنسيق رقم الهاتف
-  const formatPhoneNumber = (phoneInput) => {
-    if (!phoneInput) return '';
-    
-    // إزالة كل شيء عدا الأرقام
-    const cleaned = phoneInput.replace(/[^\d]/g, '');
-    
-    // تحويل إلى التنسيق الدولي
-    if (cleaned.startsWith('07') && cleaned.length === 10) {
-      // 07xxxxxxxx -> +9647xxxxxxxx
-      return '+964' + cleaned.substring(1);
-    } else if (cleaned.startsWith('7') && cleaned.length === 9 && !cleaned.startsWith('07')) {
-      // 7xxxxxxxx -> +9647xxxxxxxx
-      return '+964' + cleaned;
-    } else if (cleaned.startsWith('7') && cleaned.length === 10 && !cleaned.startsWith('07')) {
-      // 7xxxxxxxxx -> +9647xxxxxxxxx
-      return '+964' + cleaned;
-    }
-    
-    return '';
-  };
-
-  // ✅ معالجة تغيير رقم الهاتف المحسنة
+  // معالجة تغيير رقم الهاتف
   const handlePhoneChange = (e) => {
     let value = e.target.value.replace(/[^\d]/g, ''); // إزالة كل شيء عدا الأرقام
     
-    // تحديد الحد الأقصى
+    // تحديد الحد الأقصى للأرقام (10 أرقام للأرقام العراقية)
     if (value.length > 10) {
       value = value.slice(0, 10);
     }
     
     setPhoneInput(value);
+    
+    // تنسيق الرقم للعرض والإرسال
+    let formattedPhone = '';
+    if (value.length > 0) {
+      // معالجة أرقام الهاتف العراقية
+      if (value.startsWith('07') && value.length === 10) {
+        // إزالة الصفر الأول من 07xxxxxxxx -> 7xxxxxxxx
+        formattedPhone = '+964' + value.substring(1);
+      } else if (value.startsWith('7') && value.length === 9) {
+        // إضافة كود الدولة مباشرة لـ 7xxxxxxxx
+        formattedPhone = '+964' + value;
+      } else if (value.length === 10 && value.startsWith('7')) {
+        // للأرقام التي تبدأ بـ 7 وطولها 10
+        formattedPhone = '+964' + value;
+      }
+    }
+    
+    setPhoneNumber(formattedPhone);
   };
 
-  // ✅ الحصول على الرقم المنسق للإرسال
-  const getFormattedPhoneNumber = () => {
-    return formatPhoneNumber(phoneInput);
-  };
-
-  // ✅ التحقق من صحة الرقم للإرسال
-  const isPhoneValidForSending = () => {
-    const formatted = getFormattedPhoneNumber();
-    return formatted && formatted.startsWith('+9647') && (formatted.length === 13 || formatted.length === 14 || formatted.length === 15);
-  };
-
-  // ✅ إرسال كود التحقق - مُحسن بالكامل
+  // إرسال كود التحقق
   const handleSendCode = async () => {
-    // تعريف متغير phoneNumber محلياً لتجنب خطأ initialization
-    const phoneNumber = getFormattedPhoneNumber();
-    
-    // تشخيص شامل قبل الإرسال
-    console.log('🔍 تشخيص ما قبل الإرسال:');
-    console.log('- رقم الهاتف المُدخل:', phoneInput);
-    console.log('- رقم الهاتف المُنسق:', phoneNumber);
-    console.log('- Firebase Status:', firebaseStatus);
-    console.log('- reCAPTCHA Status:', !!recaptchaVerifier);
-    
-    // التحقق من صحة الرقم
-    if (!phoneNumber || !isPhoneValidForSending()) {
-      setError('❌ يرجى إدخال رقم هاتف عراقي صحيح (مثال: 07701234567 أو 7701234567)');
+    // التأكد من أن الرقم صحيح قبل الإرسال
+    if (!phoneNumber || !phoneNumber.startsWith('+9647') || (phoneNumber.length !== 13 && phoneNumber.length !== 14)) {
+      setError('❌ يرجى إدخال رقم هاتف عراقي صحيح');
       return;
     }
     
-    // فحص حالة Firebase
+    // فحص حالة Firebase قبل الإرسال
     if (!firebaseStatus?.isInitialized) {
       setError('❌ خطأ في الاتصال بالخدمة. يرجى إعادة تحميل الصفحة.');
       return;
     }
     
-    // التحقق من وجود reCAPTCHA
-    if (!recaptchaVerifier || !window.recaptchaVerifier) {
-      setError('❌ جاري تحضير التحقق الأمني، يرجى الانتظار قليلاً ثم المحاولة مرة أخرى...');
+    if (!recaptchaVerifier) {
+      setError('جاري تحضير التحقق الأمني، يرجى الانتظار...');
       return;
     }
     
     setLoading(true);
     setError('');
-    setSuccess('');
     
     try {
       console.log('📱 إرسال رمز التحقق إلى:', phoneNumber);
-      console.log('🔐 باستخدام reCAPTCHA:', !!window.recaptchaVerifier);
       
-      // إضافة تأخير قصير قبل الإرسال للتأكد من جاهزية reCAPTCHA
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const confirmation = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
+      const confirmation = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
       
       setConfirmationResult(confirmation);
-      setSuccess(`✅ تم إرسال رمز التحقق إلى ${phoneNumber}`);
-      setTimer(60);
+      setSuccess(`تم إرسال رمز التحقق إلى ${phoneNumber}`);
+      setTimer(60); // 60 ثانية انتظار
       
       console.log('✅ تم إرسال رمز التحقق بنجاح');
       
     } catch (error) {
       console.error('❌ خطأ في إرسال رمز التحقق:', error);
       
+      // معالجة أخطاء مختلفة
       let errorMessage = 'حدث خطأ في إرسال رمز التحقق';
       
       switch (error.code) {
         case 'auth/invalid-phone-number':
-          errorMessage = '❌ رقم الهاتف غير صحيح. تأكد من الصيغة الصحيحة';
+          errorMessage = 'رقم الهاتف غير صحيح';
           break;
         case 'auth/too-many-requests':
-          errorMessage = '❌ تم تجاوز الحد المسموح من المحاولات. يرجى المحاولة لاحقاً';
-          setTimer(3600);
+          errorMessage = 'تم تجاوز الحد المسموح من المحاولات. يرجى المحاولة لاحقاً';
           break;
         case 'auth/captcha-check-failed':
-          errorMessage = '❌ فشل التحقق الأمني. يرجى إعادة تحميل الصفحة';
+          errorMessage = 'فشل التحقق الأمني. يرجى إعادة تحميل الصفحة';
           break;
         case 'auth/quota-exceeded':
-          errorMessage = '❌ تم تجاوز الحد المسموح اليومي. يرجى المحاولة غداً';
-          break;
-        case 'auth/operation-not-allowed':
-          errorMessage = '❌ تسجيل الدخول بالهاتف غير مفعل. تحقق من إعدادات Firebase';
+          errorMessage = 'تم تجاوز الحد المسموح اليومي. يرجى المحاولة غداً';
           break;
         default:
-          errorMessage = `❌ خطأ: ${error.message || 'حدث خطأ غير متوقع'}`;
-          break;
+          errorMessage = error.message || 'حدث خطأ غير متوقع';
       }
       
       setError(errorMessage);
       
-      // إعادة تعيين reCAPTCHA عند الخطأ
-      if (window.recaptchaVerifier) {
-        try {
-          window.recaptchaVerifier.clear();
-          window.recaptchaVerifier = null;
-          setRecaptchaVerifier(null);
-        } catch (clearError) {
-          console.warn('فشل في تنظيف reCAPTCHA:', clearError);
-        }
+      // إعادة تعيين reCAPTCHA
+      if (recaptchaVerifier) {
+        recaptchaVerifier.clear();
+        window.location.reload(); // إعادة تحميل الصفحة لإعادة تعيين reCAPTCHA
       }
       
     } finally {
@@ -372,6 +301,7 @@ const PhoneLogin = () => {
         console.log('✅ تم حفظ بيانات المستخدم');
       } catch (userError) {
         console.warn('⚠️ تحذير: لم يتم حفظ بيانات المستخدم:', userError);
+        // لا نوقف العملية بسبب هذا الخطأ
       }
       
       setSuccess('تم تسجيل الدخول بنجاح! جاري التوجيه...');
@@ -407,24 +337,34 @@ const PhoneLogin = () => {
     }
   };
 
+  // التحقق من صحة رقم الهاتف للعرض
+  const isPhoneValid = () => {
+    if (!phoneNumber) return false;
+    
+    // التحقق من أن الرقم يبدأ بكود العراق الصحيح
+    if (!phoneNumber.startsWith('+9647')) return false;
+    
+    // التحقق من طول الرقم الصحيح
+    return phoneNumber.length === 13 || phoneNumber.length === 14;
+  };
+
   const isCodeValid = verificationCode && verificationCode.length === 6;
 
-  // ✅ تحديد النص التوضيحي المحسن
+  // تحديد النص التوضيحي بناءً على ما تم إدخاله
   const getHelperText = () => {
     if (phoneInput.length === 0) {
       return "مثال: 7701234567 أو 07701234567";
-    } 
-    
-    if (phoneInput.length < 9) {
-      return `أدخل ${9 - phoneInput.length} أرقام إضافية على الأقل`;
+    } else if (phoneInput.length < 9) {
+      return `أدخل ${9 - phoneInput.length} أرقام إضافية`;
+    } else if (phoneInput.length === 9 && phoneInput.startsWith('7')) {
+      return "✅ رقم صحيح";
+    } else if (phoneInput.length === 10 && phoneInput.startsWith('07')) {
+      return "✅ رقم صحيح";
+    } else if (phoneInput.length === 10 && phoneInput.startsWith('7')) {
+      return "✅ رقم صحيح";
+    } else {
+      return "تنسيق الرقم غير صحيح";
     }
-    
-    if (isValidIraqiNumber(phoneInput)) {
-      const formatted = getFormattedPhoneNumber();
-      return `✅ سيتم الإرسال إلى: ${formatted}`;
-    }
-    
-    return "❌ تنسيق الرقم غير صحيح";
   };
 
   return (
@@ -447,20 +387,6 @@ const PhoneLogin = () => {
           background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
         }}
       >
-        {/* حاوية reCAPTCHA */}
-        <Box 
-          id="recaptcha-container" 
-          sx={{ 
-            position: 'fixed',
-            top: '-1000px',
-            left: '-1000px',
-            width: '1px',
-            height: '1px',
-            opacity: 0,
-            pointerEvents: 'none'
-          }}
-        />
-
         {/* شعار التطبيق */}
         <Box textAlign="center" mb={4}>
           <Box
@@ -499,7 +425,7 @@ const PhoneLogin = () => {
             color="text.secondary"
             sx={{ mb: 3, lineHeight: 1.6 }}
           >
-            ابنِ شجرة عائلتك بسهولة وأمان
+            ابنِ شجرة عائلتك بسهولة وأمان. تطبيق شامل لإدارة وعرض أفراد العائلة
           </Typography>
         </Box>
 
@@ -577,13 +503,22 @@ const PhoneLogin = () => {
               />
             </Box>
             
+            {/* عرض الرقم الكامل المنسق */}
+            {phoneNumber && (
+              <Box mb={2} p={1} bgcolor="grey.50" borderRadius={1}>
+                <Typography variant="body2" color="text.secondary" textAlign="center">
+                  الرقم الكامل: <strong dir="ltr">{phoneNumber}</strong>
+                </Typography>
+              </Box>
+            )}
+            
             <Button
               variant="contained"
               color="success"
               fullWidth
               size="large"
               onClick={handleSendCode}
-              disabled={loading || timer > 0 || !isPhoneValidForSending() || !firebaseStatus?.isInitialized}
+              disabled={loading || timer > 0 || !isPhoneValid() || !firebaseStatus?.isInitialized}
               sx={{ 
                 py: 1.5, 
                 fontSize: 16,
@@ -717,6 +652,17 @@ const PhoneLogin = () => {
             </Link>
           </Box>
         </Box>
+
+        {/* حاوية reCAPTCHA */}
+        <Box 
+          id="recaptcha-container" 
+          sx={{ 
+            display: 'flex',
+            justifyContent: 'center',
+            mt: 2,
+            mb: 2
+          }}
+        />
       </Paper>
     </Container>
   );
