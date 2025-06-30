@@ -132,14 +132,15 @@ export class FamilyAnalytics {
    */
   extractMemberAttributes(node) {
     const attrs = node.attributes || node;
-    
+    // دعم جميع صيغ تاريخ الميلاد
+    const birthDate = attrs.birthDate || attrs.birthdate || attrs.BirthDate || attrs.BIRTHDATE || '';
     return {
       firstName: attrs.firstName || '',
       fatherName: attrs.fatherName || '',
       surname: attrs.surname || '',
       gender: this.normalizeGender(attrs.gender),
       age: this.parseAge(attrs.age),
-      birthDate: attrs.birthDate,
+      birthDate: birthDate,
       relation: attrs.relation || 'عضو',
       isMarried: this.parseBoolean(attrs.isMarried),
       education: attrs.education,
@@ -158,10 +159,10 @@ export class FamilyAnalytics {
    * توحيد بيانات العضو
    */
   normalizeMemberData(member) {
-    // إذا لم يوجد age رقمي، احسبه من birthdate أو birthDate
-    let age = this.parseAge(member.age);
-    if ((age === null || age === undefined) && (member.birthdate || member.birthDate)) {
-      const birth = new Date(member.birthdate || member.birthDate);
+    // حساب العمر دائماً من birthDate إذا كانت متوفرة
+    let age = null;
+    if (member.birthDate || member.birthdate) {
+      const birth = new Date(member.birthDate || member.birthdate);
       const today = new Date();
       if (!isNaN(birth.getTime())) {
         age = today.getFullYear() - birth.getFullYear();
@@ -170,10 +171,14 @@ export class FamilyAnalytics {
           age--;
         }
         if (age < 0) age = null;
-      } else {
-        age = null;
       }
     }
+    // إذا لم يوجد birthDate، استخدم parseAge
+    if (age === null) {
+      age = this.parseAge(member.age);
+    }
+    // طباعة العمر المحسوب وصيغة تاريخ الميلاد
+    console.log('عضو:', member.name || member.id, '| birthDate:', member.birthDate || member.birthdate, '| العمر المحسوب:', age);
     return {
       ...member,
       name: member.name || this.buildFullName(member),
@@ -417,7 +422,23 @@ export class FamilyAnalytics {
   }
 
   calculateAverageAge(members) {
-    const ages = members.map(m => m.age).filter(age => age !== null);
+    // حساب العمر من birthDate إذا لم توجد خاصية age رقمية
+    const ages = members.map(m => {
+      if (typeof m.age === 'number' && !isNaN(m.age)) return m.age;
+      if (m.birthDate || m.birthdate) {
+        const birth = new Date(m.birthDate || m.birthdate);
+        const today = new Date();
+        if (!isNaN(birth.getTime())) {
+          let age = today.getFullYear() - birth.getFullYear();
+          const monthDiff = today.getMonth() - birth.getMonth();
+          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+            age--;
+          }
+          return age >= 0 ? age : null;
+        }
+      }
+      return null;
+    }).filter(age => age !== null);
     return ages.length > 0 
       ? Math.round(ages.reduce((sum, age) => sum + age, 0) / ages.length)
       : 0;
