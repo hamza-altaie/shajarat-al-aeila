@@ -182,7 +182,7 @@ export class FamilyAnalytics {
     return {
       ...member,
       name: member.name || this.buildFullName(member),
-      gender: this.normalizeGender(member.gender),
+      gender: this.normalizeGender(member.gender, member.relation),
       age: age,
       isMarried: this.parseBoolean(member.isMarried),
       generation: member.generation || 0
@@ -207,18 +207,31 @@ export class FamilyAnalytics {
   /**
    * توحيد الجنس
    */
-  normalizeGender(gender) {
-    if (!gender) return 'غير محدد';
-    
-    const genderStr = gender.toString().toLowerCase();
-    
-    if (genderStr.includes('ذكر') || genderStr.includes('male') || genderStr.includes('رجل')) {
+  normalizeGender(gender, relation) {
+    // إذا لم يوجد جنس واضح، استنتج من العلاقة
+    let genderStr = gender ? gender.toString().toLowerCase().trim() : '';
+    const maleValues = [
+      'ذكر', 'male', 'رجل', 'm', 'ذ', '1', 'boy', 'man', 'ذكرى', 'ذكرًا'
+    ];
+    const femaleValues = [
+      'أنثى', 'female', 'امرأة', 'f', 'أ', '2', 'girl', 'woman', 'انثى', 'أنثىً', 'انثىً'
+    ];
+    if (maleValues.some(val => genderStr === val || genderStr.includes(val))) {
       return 'ذكر';
     }
-    if (genderStr.includes('أنثى') || genderStr.includes('female') || genderStr.includes('امرأة')) {
+    if (femaleValues.some(val => genderStr === val || genderStr.includes(val))) {
       return 'أنثى';
     }
-    
+    // استنتاج الجنس من العلاقة
+    if (relation) {
+      const rel = relation.toString().toLowerCase();
+      if (rel.includes('ابن') || rel.includes('رب العائلة') || rel.includes('father') || rel.includes('اب')) {
+        return 'ذكر';
+      }
+      if (rel.includes('بنت') || rel.includes('أم') || rel.includes('mother') || rel.includes('ام')) {
+        return 'أنثى';
+      }
+    }
     return 'غير محدد';
   }
 
