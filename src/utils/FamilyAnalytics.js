@@ -563,10 +563,10 @@ export class FamilyAnalytics {
   }
 
   // دوال إضافية للتحليلات المتقدمة
-  analyzeMarriageByAge(members) {
-    // حذف الدالة بالكامل
-    return {};
-  }
+  // analyzeMarriageByAge(members) {
+  //   // حذف الدالة بالكامل
+  //   return {};
+  // }
 
   analyzeGenderByGeneration(members) {
     const generations = new Map();
