@@ -37,10 +37,13 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
   // تحليل البيانات
   const analyzeData = useMemo(() => {
     if (!open) return null;
-    
     setLoading(true);
     try {
-      const result = familyAnalytics.analyzeFamily(treeData, familyMembers);
+      // دمج جميع الأعضاء من الشجرة وقائمة familyMembers بدون تكرار
+      const allMembers = Array.isArray(familyMembers) && familyMembers.length > 0
+        ? familyMembers
+        : familyAnalytics.extractAllMembers(treeData, []);
+      const result = familyAnalytics.analyzeFamily(null, allMembers);
       setLoading(false);
       return result;
     } catch (error) {
@@ -144,7 +147,7 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
     </Card>
   );
 
-  const DataList = ({ data, color = 'primary', maxItems = 5, emptyMessage = "لا توجد بيانات" }) => (
+  const DataList = ({ data, color = 'primary', maxItems = 0, emptyMessage = "لا توجد بيانات" }) => (
     <List dense>
       {Object.keys(data).length === 0 ? (
         <ListItem>
@@ -156,7 +159,7 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
       ) : (
         Object.entries(data)
           .sort(([,a], [,b]) => b - a)
-          .slice(0, maxItems)
+          .slice(0, maxItems > 0 ? maxItems : Object.keys(data).length)
           .map(([key, value], index) => (
             <ListItem 
               key={key}
@@ -179,12 +182,6 @@ const FamilyStatisticsDashboard = ({ open, onClose, treeData, familyMembers = []
                 primary={key}
                 secondary={`${value} شخص`}
                 sx={{ fontFamily: 'Cairo, sans-serif' }}
-              />
-              <Chip 
-                label={value} 
-                size="small" 
-                color={index === 0 ? color : 'default'}
-                variant={index === 0 ? 'filled' : 'outlined'}
               />
             </ListItem>
           ))
