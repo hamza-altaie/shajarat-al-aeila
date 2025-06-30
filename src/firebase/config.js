@@ -1,4 +1,4 @@
-// src/firebase/config.js - النسخة المُحدثة والمُصححة
+// src/firebase/config.js - إصلاح شامل
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
@@ -27,85 +27,82 @@ const requiredEnvVars = [
 ];
 
 const missingVars = requiredEnvVars.filter(varName => !import.meta.env[varName]);
+
+// ✅ إصلاح: طباعة تفصيلية للمتغيرات
+console.log('🔍 فحص متغيرات البيئة:');
+requiredEnvVars.forEach(varName => {
+  const value = import.meta.env[varName];
+  console.log(`${varName}: ${value ? '✅ موجود' : '❌ مفقود'}`);
+});
+
 if (missingVars.length > 0) {
   console.error(`❌ متغيرات البيئة المفقودة: ${missingVars.join(', ')}`);
+  console.error('💡 تأكد من وجود ملف .env في المجلد الجذر مع المتغيرات المطلوبة');
 }
 
-// تهيئة Firebase
+// تهيئة Firebase مع معالجة الأخطاء
 let app;
-if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
-  console.log('🔥 تم تهيئة Firebase بنجاح');
-} else {
-  app = getApp();
-  console.log('🔥 Firebase موجود مسبقاً');
-}
+let initializationError = null;
 
-// تهيئة الخدمات
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
-const functions = getFunctions(app);
-
-// الاتصال بـ Firebase Emulators في بيئة التطوير فقط
-if (import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true') {
-  try {
-    // تجنب الاتصال المتكرر بـ Emulators
-    if (!auth._delegate?._config?.emulator) {
-      connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-      console.log('🔧 متصل بـ Auth Emulator');
+try {
+  if (!getApps().length) {
+    // ✅ إصلاح: التحقق من صحة التكوين قبل التهيئة
+    if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+      throw new Error('Firebase config is incomplete. Check your environment variables.');
     }
     
-    if (!db._delegate?._databaseId?.projectId?.includes('localhost')) {
-      connectFirestoreEmulator(db, 'localhost', 8080);
-      console.log('🔧 متصل بـ Firestore Emulator');
-    }
-    
-    if (!storage._delegate?._host?.includes('localhost')) {
-      connectStorageEmulator(storage, 'localhost', 9199);
-      console.log('🔧 متصل بـ Storage Emulator');
-    }
-    
-    if (!functions._delegate?._url?.includes('localhost')) {
-      connectFunctionsEmulator(functions, 'localhost', 5001);
-      console.log('🔧 متصل بـ Functions Emulator');
-    }
-  } catch (error) {
-    console.warn('⚠️ تحذير: فشل الاتصال بـ Firebase Emulators:', error.message);
+    app = initializeApp(firebaseConfig);
+    console.log('🔥 تم تهيئة Firebase بنجاح');
+  } else {
+    app = getApp();
+    console.log('🔥 Firebase موجود مسبقاً');
   }
+} catch (error) {
+  console.error('❌ خطأ في تهيئة Firebase:', error);
+  initializationError = error;
+  // إنشاء app وهمي لتجنب أخطاء أخرى
+  app = null;
 }
 
-// تصدير الخدمات
-export { auth, db, storage, functions };
+// تهيئة الخدمات مع معالجة الأخطاء
+let auth, db, storage, functions;
 
-// دالة فحص حالة Firebase - مُحدثة ومُصححة
+try {
+  if (app) {
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
+    functions = getFunctions(app);
+    console.log('✅ تم تهيئة خدمات Firebase بنجاح');
+  } else {
+    console.error('❌ لا يمكن تهيئة خدمات Firebase - التطبيق غير متاح');
+  }
+} catch (error) {
+  console.error('❌ خطأ في تهيئة خدمات Firebase:', error);
+}
+
+// ✅ إصلاح: إضافة دالة getFirebaseStatus المطلوبة
 export const getFirebaseStatus = () => {
-  const isInitialized = getApps().length > 0;
+  const isInitialized = getApps().length > 0 && !initializationError;
   const isDevelopment = import.meta.env.DEV;
   const isProduction = import.meta.env.PROD;
   
   // فحص شامل للإعدادات التجريبية أو المعطلة
   const isDemoConfig = 
-    // فحص project ID
     !firebaseConfig.projectId ||
     firebaseConfig.projectId === 'demo-project-id' || 
     firebaseConfig.projectId?.includes('demo') ||
     firebaseConfig.projectId?.includes('test') ||
-    
-    // فحص API Key
     !firebaseConfig.apiKey ||
     firebaseConfig.apiKey?.includes('demo') ||
     firebaseConfig.apiKey?.length < 30 ||
-    
-    // فحص auth domain
     !firebaseConfig.authDomain ||
     firebaseConfig.authDomain?.includes('demo') ||
-    
-    // فحص متغيرات البيئة المفقودة
     missingVars.length > 0;
 
   return {
     isInitialized,
+    initializationError: initializationError?.message || null,
     environment: {
       isDevelopment,
       isProduction,
@@ -123,21 +120,21 @@ export const getFirebaseStatus = () => {
       firestore: !!db,
       storage: !!storage,
       functions: !!functions
-    },
-    emulators: {
-      enabled: isDevelopment && import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true',
-      authConnected: auth._delegate?._config?.emulator !== undefined,
-      firestoreConnected: db._delegate?._databaseId?.projectId?.includes('localhost'),
-      storageConnected: storage._delegate?._host?.includes('localhost'),
-      functionsConnected: functions._delegate?._url?.includes('localhost')
     }
   };
 };
 
-// دالة فحص جاهزية الإنتاج
-export const checkProductionReadiness = () => {
+// ✅ إصلاح: إضافة دالة فحص جاهزية التطبيق
+export const checkAppReadiness = () => {
   const status = getFirebaseStatus();
   const issues = [];
+
+  if (!status.isInitialized) {
+    issues.push('❌ Firebase غير مُهيأ بشكل صحيح');
+    if (status.initializationError) {
+      issues.push(`❌ خطأ التهيئة: ${status.initializationError}`);
+    }
+  }
 
   if (status.config.isDemoConfig) {
     issues.push('❌ إعدادات Firebase غير مكتملة أو تجريبية');
@@ -147,12 +144,8 @@ export const checkProductionReadiness = () => {
     issues.push(`❌ متغيرات البيئة مفقودة: ${status.config.missingVars.join(', ')}`);
   }
 
-  if (status.environment.isProduction && status.emulators.enabled) {
-    issues.push('⚠️ Firebase Emulators مُفعلة في بيئة الإنتاج');
-  }
-
-  if (!status.isInitialized) {
-    issues.push('❌ Firebase غير مُهيأ بشكل صحيح');
+  if (!status.services.auth) {
+    issues.push('❌ خدمة Firebase Auth غير متاحة');
   }
 
   return {
@@ -160,26 +153,30 @@ export const checkProductionReadiness = () => {
     issues,
     status,
     recommendations: issues.length > 0 ? [
-      '1. تأكد من وجود جميع متغيرات البيئة في ملف .env',
-      '2. تأكد من صحة بيانات Firebase من Console',
-      '3. في الإنتاج، تأكد من إيقاف Emulators'
-    ] : ['✅ جاهز للنشر!']
+      '1. تأكد من وجود ملف .env في المجلد الجذر',
+      '2. تأكد من صحة بيانات Firebase من Firebase Console',
+      '3. أعد تشغيل الخادم بعد تعديل ملف .env'
+    ] : ['✅ جاهز للعمل!']
   };
 };
 
-// طباعة معلومات Firebase في بيئة التطوير
+// تصدير الخدمات
+export { auth, db, storage, functions };
+
+// معلومات للتطوير
 if (import.meta.env.DEV) {
   const status = getFirebaseStatus();
-  console.log('🔥 معلومات Firebase:', status);
+  console.log('🔥 حالة Firebase:', status);
   
-  if (status.config.isDemoConfig) {
-    console.warn('⚠️ تحذير: يتم استخدام إعدادات Firebase غير مكتملة');
+  if (!status.isInitialized) {
+    console.error('❌ Firebase غير جاهز للاستخدام');
+    console.error('💡 تحقق من متغيرات البيئة وإعدادات Firebase Console');
   }
   
-  // أدوات تطوير إضافية
+  // أدوات تطوير
   window.firebaseDebug = {
     getStatus: getFirebaseStatus,
-    checkProduction: checkProductionReadiness,
+    checkReadiness: checkAppReadiness,
     config: firebaseConfig,
     services: { auth, db, storage, functions }
   };
