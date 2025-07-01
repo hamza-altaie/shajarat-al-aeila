@@ -103,7 +103,8 @@ const PhoneLogin = () => {
           'error-callback': (error) => {
             console.error('❌ خطأ في reCAPTCHA:', error);
             setError('خطأ في التحقق الأمني. يرجى إعادة تحميل الصفحة.');
-          }
+          },
+          enterprise: false,
         });
         
         setRecaptchaVerifier(verifier);
@@ -206,6 +207,7 @@ const PhoneLogin = () => {
       console.log('📱 إرسال رمز التحقق إلى:', phoneNumber);
       
       const confirmation = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+
       
       setConfirmationResult(confirmation);
       setSuccess(`تم إرسال رمز التحقق إلى ${phoneNumber}`);
@@ -646,12 +648,7 @@ const PhoneLogin = () => {
         {/* حاوية reCAPTCHA */}
         <Box 
           id="recaptcha-container" 
-          sx={{ 
-            display: 'flex',
-            justifyContent: 'center',
-            mt: 2,
-            mb: 2
-          }}
+          sx={{ display: 'none' }}
         />
       </Paper>
     </Container>
