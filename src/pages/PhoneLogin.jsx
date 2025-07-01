@@ -206,7 +206,9 @@ const PhoneLogin = () => {
     try {
       console.log('📱 إرسال رمز التحقق إلى:', phoneNumber);
       
-      const confirmation = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+      
+      const confirmation = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
+
 
       
       setConfirmationResult(confirmation);
