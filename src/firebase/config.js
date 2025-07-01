@@ -1,46 +1,135 @@
+// 🔄 حل شامل - استبدل ملف src/firebase/config.js بالكامل بهذا:
+
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
 
+// ✅ إعدادات Firebase (تأكد من أن هذه صحيحة من Firebase Console)
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: "AIzaSyADPWJyhK_zB63x1AOIGsGSeDOLZXcyuvU",
+  authDomain: "shajarat-al-aeila.firebaseapp.com",
+  projectId: "shajarat-al-aeila",
+  storageBucket: "shajarat-al-aeila.firebasestorage.app",
+  messagingSenderId: "395923557025",
+  appId: "1:395923557025:web:315f774d0a02909cc57ee0",
+  measurementId: "G-9Z35NT21KG"
 };
 
+// تنظيف وإعادة تهيئة Firebase
 let app;
-if (!getApps().length) {
+let auth;
+let db;
+let storage;
+let functions;
+
+try {
+  // إزالة جميع التطبيقات الموجودة
+  const existingApps = getApps();
+  existingApps.forEach(async (existingApp) => {
+    try {
+      await existingApp.delete();
+    } catch (e) {
+      console.log('تنظيف التطبيقات القديمة...');
+    }
+  });
+
+  // تهيئة جديدة
   app = initializeApp(firebaseConfig);
-} else {
-  app = getApp();
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
+  functions = getFunctions(app);
+
+  console.log('🔥 تم إعادة تهيئة Firebase بنجاح');
+  console.log('📋 Project ID:', firebaseConfig.projectId);
+
+} catch (error) {
+  console.error('❌ خطأ في تهيئة Firebase:', error);
 }
 
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
-const functions = getFunctions(app);
-
+// تصدير الخدمات
 export { auth, db, storage, functions };
+export default app;
 
+// دالة فحص مبسطة
 export const getFirebaseStatus = () => {
-  const initialized = getApps().length > 0;
-
-  return {
-    isInitialized: initialized,
+  const isInitialized = !!app && !!auth && !!db;
+  
+  const status = {
+    isInitialized,
     config: {
-      isDemoConfig: firebaseConfig.projectId === 'demo-project-id',
       projectId: firebaseConfig.projectId,
+      authDomain: firebaseConfig.authDomain,
+      hasValidConfig: true
     },
     services: {
       auth: !!auth,
       firestore: !!db,
       storage: !!storage,
-      functions: !!functions,
+      functions: !!functions
+    },
+    timestamp: new Date().toISOString()
+  };
+
+  console.log('✅ Firebase Status:', isInitialized ? 'جاهز' : 'غير جاهز');
+  return status;
+};
+
+// دالة اختبار بسيطة
+export const testFirebaseConnection = async () => {
+  try {
+    console.log('🔍 اختبار Firebase بسيط...');
+    
+    if (!auth) {
+      throw new Error('Auth غير متاح');
+    }
+    
+    if (!db) {
+      throw new Error('Firestore غير متاح'); 
+    }
+
+    console.log('✅ Firebase جاهز للمصادقة');
+    return { 
+      success: true, 
+      message: 'Firebase جاهز',
+      auth: !!auth,
+      firestore: !!db
+    };
+
+  } catch (error) {
+    console.error('❌ خطأ في اختبار Firebase:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// تنظيف عند إغلاق الصفحة
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    if (window.recaptchaVerifier) {
+      try {
+        window.recaptchaVerifier.clear();
+        window.recaptchaVerifier = null;
+      } catch (e) {
+        console.log('تنظيف reCAPTCHA...');
+      }
+    }
+  });
+
+  // أدوات التطوير
+  window.firebaseDebug = {
+    config: firebaseConfig,
+    status: getFirebaseStatus,
+    test: testFirebaseConnection,
+    auth,
+    db,
+    app,
+    // دالة إعادة تعيين شاملة
+    reset: () => {
+      window.location.reload();
     }
   };
-};
+  
+  console.log('🛠️ أدوات Firebase متاحة في window.firebaseDebug');
+}

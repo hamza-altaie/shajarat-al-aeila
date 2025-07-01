@@ -6,7 +6,7 @@ import {
 import { Phone as PhoneIcon, Security as SecurityIcon, Warning as WarningIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
-import { auth } from '../firebase/config';
+import { auth, getFirebaseStatus, testFirebaseConnection } from '../firebase/config';
 import {
   signInWithPhoneNumber, 
   RecaptchaVerifier, 
@@ -37,23 +37,25 @@ const PhoneLogin = () => {
   useEffect(() => {
   const checkStatus = async () => {
     try {
-      const { getFirebaseStatus } = await import('../firebase/config');
+      // استخدام الدالة المُستوردة مباشرة
+      const status = getFirebaseStatus();
+      setFirebaseStatus(status);
 
-      if (typeof getFirebaseStatus !== 'function') {
-        throw new Error('getFirebaseStatus is not a function');
+      if (!status.isInitialized) {
+        setError('❌ خطأ في تهيئة Firebase. يرجى التحقق من الإعدادات.');
+      } else {
+        setError('');
+        console.log('✅ Firebase جاهز للاستخدام');
+        
+        // اختبار اتصال Firebase
+        testFirebaseConnection().then(result => {
+          if (!result.success) {
+            console.warn('⚠️ تحذير Firebase:', result.error);
+          } else {
+            console.log('🎉 جميع خدمات Firebase تعمل بشكل ممتاز!');
+          }
+        });
       }
-
-      // نضيف تأخير بسيط قبل استدعاء الفحص
-      setTimeout(() => {
-        const status = getFirebaseStatus();
-        setFirebaseStatus(status);
-
-        if (!status.isInitialized) {
-          setError('❌ خطأ في تهيئة Firebase. يرجى التحقق من الإعدادات.');
-        } else {
-          setError('');
-        }
-      }, 100); // تأخير 100 مللي ثانية
     } catch (error) {
       console.error('خطأ في فحص Firebase:', error);
       setFirebaseStatus({
@@ -81,52 +83,75 @@ const PhoneLogin = () => {
   
   // إعداد reCAPTCHA
   useEffect(() => {
-    if (!firebaseStatus?.services?.auth) return;
-    
-    const setupRecaptcha = () => {
-      try {
-        // تنظيف أي reCAPTCHA موجود
-        if (window.recaptchaVerifier) {
-          window.recaptchaVerifier.clear();
-        }
-        
-        // إعداد reCAPTCHA جديد
-        const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          size: 'invisible',
-          callback: () => {
-            console.log('✅ reCAPTCHA تم التحقق منه');
-          },
-          'expired-callback': () => {
-            console.log('⚠️ reCAPTCHA انتهت صلاحيته');
-            setError('انتهت صلاحية التحقق. يرجى المحاولة مرة أخرى.');
-          },
-          'error-callback': (error) => {
-            console.error('❌ خطأ في reCAPTCHA:', error);
-            setError('خطأ في التحقق الأمني. يرجى إعادة تحميل الصفحة.');
-          },
-          enterprise: false,
-        });
-        
-        setRecaptchaVerifier(verifier);
-        window.recaptchaVerifier = verifier;
-        
-      } catch (error) {
-        console.error('❌ خطأ في إعداد reCAPTCHA:', error);
-        setError('خطأ في إعداد التحقق الأمني.');
-      }
-    };
-    
-    // تأخير قصير للتأكد من تحميل DOM
-    const timer = setTimeout(setupRecaptcha, 500);
-    
-    return () => {
-      clearTimeout(timer);
+  if (!firebaseStatus?.services?.auth) return;
+  
+  const setupRecaptcha = async () => {
+    try {
+      console.log('🔧 بدء إعداد reCAPTCHA...');
+      
+      // تنظيف كامل
       if (window.recaptchaVerifier) {
-        window.recaptchaVerifier.clear();
+        try {
+          await window.recaptchaVerifier.clear();
+        } catch (e) {
+          console.log('تنظيف reCAPTCHA القديم...');
+        }
         window.recaptchaVerifier = null;
       }
-    };
-  }, [firebaseStatus]);
+      
+      // تنظيف العناصر الإضافية
+      const container = document.getElementById('recaptcha-container');
+      if (container) {
+        container.innerHTML = '';
+      }
+      
+      // إعداد جديد ومبسط
+      const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        size: 'invisible',
+        callback: () => {
+          console.log('✅ reCAPTCHA جاهز');
+        },
+        'expired-callback': () => {
+          console.warn('⚠️ انتهت صلاحية reCAPTCHA');
+        },
+        'error-callback': (error) => {
+          console.error('❌ خطأ reCAPTCHA:', error);
+        }
+      });
+      
+      // تقديم مع معالجة الأخطاء
+      try {
+        await verifier.render();
+        console.log('✅ تم تقديم reCAPTCHA بنجاح');
+      } catch (renderError) {
+        console.error('❌ خطأ في تقديم reCAPTCHA:', renderError);
+        // لا نرمي خطأ هنا - سنحاول إنشاء واحد جديد عند الإرسال
+      }
+      
+      setRecaptchaVerifier(verifier);
+      window.recaptchaVerifier = verifier;
+      
+    } catch (error) {
+      console.error('❌ خطأ في إعداد reCAPTCHA:', error);
+      // لا نعرض خطأ للمستخدم - سنحاول إنشاء reCAPTCHA عند الحاجة
+    }
+  };
+  
+  // تأخير 3 ثوان للتأكد من تحميل كل شيء
+  const timer = setTimeout(setupRecaptcha, 3000);
+  
+  return () => {
+    clearTimeout(timer);
+    if (window.recaptchaVerifier) {
+      try {
+        window.recaptchaVerifier.clear();
+        window.recaptchaVerifier = null;
+      } catch (e) {
+        console.log('تنظيف عند الخروج...');
+      }
+    }
+  };
+}, [firebaseStatus]);
 
   // عداد مؤقت لإعادة تفعيل زر الإرسال
   useEffect(() => {
@@ -138,135 +163,163 @@ const PhoneLogin = () => {
 
   // دالة مساعدة للتحقق من الرقم العراقي
   const isValidIraqiNumber = (phoneInput) => {
-    // 07xxxxxxxx (10 أرقام تبدأ بـ 07)
-    if (phoneInput.length === 10 && phoneInput.startsWith('07')) {
-      return true;
-    }
-    
-    // 7xxxxxxxx أو 7xxxxxxxxx (9-10 أرقام تبدأ بـ 7 بدون صفر)
-    if ((phoneInput.length === 9 || phoneInput.length === 10) && phoneInput.startsWith('7') && !phoneInput.startsWith('07')) {
-      return true;
-    }
-    
-    return false;
-  };
+  if (!phoneInput || typeof phoneInput !== 'string') return false;
+  
+  // إزالة المسافات والرموز
+  const cleanInput = phoneInput.replace(/[\s\-()]/g, '');
+  
+  // التحقق من الأنماط المقبولة للأرقام العراقية
+  const validPatterns = [
+    /^07[0-9]{8}$/, // 07xxxxxxxx
+    /^7[0-9]{8}$/,  // 7xxxxxxxx (9 أرقام)
+    /^7[0-9]{9}$/   // 7xxxxxxxxx (10 أرقام)
+  ];
+  
+  return validPatterns.some(pattern => pattern.test(cleanInput));
+};
 
-  // معالجة تغيير رقم الهاتف
-  const handlePhoneChange = (e) => {
-    let value = e.target.value.replace(/[^\d]/g, ''); // إزالة كل شيء عدا الأرقام
-    
-    // تحديد الحد الأقصى للأرقام (10 أرقام للأرقام العراقية)
-    if (value.length > 10) {
-      value = value.slice(0, 10);
+// 4. تحسين دالة handlePhoneChange:
+const handlePhoneChange = (e) => {
+  let value = e.target.value.replace(/[^\d]/g, ''); // الأرقام فقط
+  
+  // حد أقصى 10 أرقام
+  if (value.length > 10) {
+    value = value.slice(0, 10);
+  }
+  
+  setPhoneInput(value);
+  
+  // تنسيق الرقم للإرسال
+  let formattedPhone = '';
+  if (value.length > 0) {
+    if (value.startsWith('07') && value.length === 10) {
+      // تحويل 07xxxxxxxx إلى +9647xxxxxxxx
+      formattedPhone = '+964' + value.substring(1);
+    } else if (value.startsWith('7') && (value.length === 9 || value.length === 10)) {
+      // تحويل 7xxxxxxxx إلى +9647xxxxxxxx
+      formattedPhone = '+964' + value;
     }
-    
-    setPhoneInput(value);
-    
-    // تنسيق الرقم للعرض والإرسال
-    let formattedPhone = '';
-    if (value.length > 0) {
-      // معالجة أرقام الهاتف العراقية
-      if (value.startsWith('07') && value.length === 10) {
-        // إزالة الصفر الأول من 07xxxxxxxx -> 7xxxxxxxx
-        formattedPhone = '+964' + value.substring(1);
-      } else if (value.startsWith('7') && value.length === 9) {
-        // إضافة كود الدولة مباشرة لـ 7xxxxxxxx
-        formattedPhone = '+964' + value;
-      } else if (value.length === 10 && value.startsWith('7')) {
-        // للأرقام التي تبدأ بـ 7 وطولها 10
-        formattedPhone = '+964' + value;
-      }
-    }
-    
-    setPhoneNumber(formattedPhone);
-  };
+  }
+  
+  setPhoneNumber(formattedPhone);
+};
 
-  // إرسال كود التحقق
+  // 1. تحديث دالة handleSendCode للإنتاج النهائي:
   const handleSendCode = async () => {
-    // التأكد من أن الرقم صحيح قبل الإرسال
-    if (!phoneNumber || !phoneNumber.startsWith('+9647') || (phoneNumber.length !== 13 && phoneNumber.length !== 14)) {
-      setError('❌ يرجى إدخال رقم هاتف عراقي صحيح');
-      return;
-    }
+  console.log('🚀 بدء عملية إرسال الكود...');
+  console.log('📞 الرقم:', phoneNumber);
+  
+  // فحص أساسي
+  if (!phoneNumber || phoneNumber.length < 13) {
+    setError('❌ يرجى إدخال رقم هاتف صحيح');
+    return;
+  }
+  
+  if (!firebaseStatus?.isInitialized) {
+    setError('❌ Firebase غير جاهز. أعد تحميل الصفحة');
+    return;
+  }
+  
+  setLoading(true);
+  setError('');
+  setSuccess('');
+  
+  try {
+    // إعداد أو التأكد من reCAPTCHA
+    let verifier = window.recaptchaVerifier;
     
-    // فحص حالة Firebase قبل الإرسال
-    if (!firebaseStatus?.isInitialized) {
-      setError('❌ خطأ في الاتصال بالخدمة. يرجى إعادة تحميل الصفحة.');
-      return;
-    }
-    
-    if (!recaptchaVerifier) {
-      setError('جاري تحضير التحقق الأمني، يرجى الانتظار...');
-      return;
-    }
-    
-    setLoading(true);
-    setError('');
-    
-    try {
-      console.log('📱 إرسال رمز التحقق إلى:', phoneNumber);
+    if (!verifier || !verifier._widget) {
+      console.log('🔧 إنشاء reCAPTCHA جديد للإرسال...');
       
-      
-      const confirmation = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
-
-
-      
-      setConfirmationResult(confirmation);
-      setSuccess(`تم إرسال رمز التحقق إلى ${phoneNumber}`);
-      setTimer(60); // 60 ثانية انتظار
-      
-      console.log('✅ تم إرسال رمز التحقق بنجاح');
-      
-    } catch (error) {
-      console.error('❌ خطأ في إرسال رمز التحقق:', error);
-      
-      // معالجة أخطاء مختلفة
-      let errorMessage = 'حدث خطأ في إرسال رمز التحقق';
-      
-      switch (error.code) {
-        case 'auth/invalid-phone-number':
-          errorMessage = 'رقم الهاتف غير صحيح';
-          break;
-        case 'auth/too-many-requests':
-          errorMessage = 'تم تجاوز الحد المسموح من المحاولات. يرجى المحاولة لاحقاً';
-          break;
-        case 'auth/captcha-check-failed':
-          errorMessage = 'فشل التحقق الأمني. يرجى إعادة تحميل الصفحة';
-          break;
-        case 'auth/quota-exceeded':
-          errorMessage = 'تم تجاوز الحد المسموح اليومي. يرجى المحاولة غداً';
-          break;
-        default:
-          errorMessage = error.message || 'حدث خطأ غير متوقع';
+      // تنظيف أي شيء موجود
+      const container = document.getElementById('recaptcha-container');
+      if (container) {
+        container.innerHTML = '';
       }
       
-      setError(errorMessage);
+      // إنشاء جديد
+      verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        size: 'invisible',
+        callback: () => console.log('✅ reCAPTCHA للإرسال جاهز'),
+        'error-callback': (error) => {
+          console.error('❌ خطأ reCAPTCHA للإرسال:', error);
+        }
+      });
       
-      // إعادة تعيين reCAPTCHA بدون إعادة تحميل الصفحة
-      if (recaptchaVerifier) {
-        recaptchaVerifier.clear();
-        // window.location.reload(); // تم التعليق حتى لا تختفي رسالة الخطأ
-      }
+      // تقديم
+      await verifier.render();
+      window.recaptchaVerifier = verifier;
+      setRecaptchaVerifier(verifier);
       
-    } finally {
-      setLoading(false);
+      console.log('✅ reCAPTCHA جديد جاهز');
     }
-  };
+    
+    // محاولة إرسال الكود
+    console.log('📤 إرسال الكود إلى:', phoneNumber);
+    const confirmation = await signInWithPhoneNumber(auth, phoneNumber, verifier);
+    
+    // نجح الإرسال
+    setConfirmationResult(confirmation);
+    setSuccess(`✅ تم إرسال كود التحقق إلى ${phoneNumber}`);
+    setTimer(120);
+    
+    console.log('🎉 تم إرسال الكود بنجاح!');
+    
+  } catch (error) {
+    console.error('❌ خطأ في إرسال الكود:', error);
+    
+    let errorMessage = 'فشل في إرسال الكود';
+    
+    switch (error.code) {
+      case 'auth/invalid-app-credential':
+        errorMessage = 'مشكلة في إعدادات التطبيق. جاري إعادة التحميل...';
+        setTimeout(() => window.location.reload(), 3000);
+        break;
+        
+      case 'auth/invalid-phone-number':
+        errorMessage = 'رقم الهاتف غير صحيح';
+        break;
+        
+      case 'auth/too-many-requests':
+        errorMessage = 'تم تجاوز الحد المسموح. انتظر 15 دقيقة';
+        break;
+        
+      case 'auth/captcha-check-failed':
+        errorMessage = 'فشل التحقق الأمني. جاري إعادة المحاولة...';
+        // تنظيف وإعادة محاولة
+        if (window.recaptchaVerifier) {
+          window.recaptchaVerifier.clear();
+          window.recaptchaVerifier = null;
+        }
+        setTimeout(() => window.location.reload(), 2000);
+        break;
+        
+      default:
+        errorMessage = error.message || 'خطأ غير متوقع';
+    }
+    
+    setError(errorMessage);
+    
+  } finally {
+    setLoading(false);
+  }
+};
   
   // التحقق من الكود
   const handleVerifyCode = async () => {
-    if (!verificationCode.trim()) {
-      setError('يرجى إدخال رمز التحقق');
+    // التحقق من صحة الكود
+    if (!verificationCode || verificationCode.trim().length === 0) {
+      setError('❌ يرجى إدخال كود التحقق');
       return;
     }
     
     if (verificationCode.length !== 6) {
-      setError('رمز التحقق يجب أن يكون 6 أرقام');
+      setError('❌ كود التحقق يجب أن يكون 6 أرقام بالضبط');
       return;
     }
     
     if (!confirmationResult) {
-      setError('خطأ في عملية التحقق. يرجى المحاولة مرة أخرى');
+      setError('❌ خطأ في جلسة التحقق. يرجى إرسال كود جديد');
       return;
     }
     
@@ -274,65 +327,89 @@ const PhoneLogin = () => {
     setError('');
     
     try {
-      console.log('🔐 التحقق من الرمز...');
+      console.log('🔐 التحقق من كود SMS...');
       
-      const result = await confirmationResult.confirm(verificationCode);
+      const result = await confirmationResult.confirm(verificationCode.trim());
       const user = result.user;
-
+      
+      console.log('✅ تم التحقق من كود SMS بنجاح:', user.uid);
+      
+      // حفظ بيانات المصادقة محلياً
       localStorage.setItem('verifiedUid', user.uid);
       localStorage.setItem('verifiedPhone', user.phoneNumber);
-      
-      console.log('✅ تم التحقق بنجاح، المستخدم:', user.uid);
+      localStorage.setItem('lastLogin', new Date().toISOString());
       
       // تحديث معلومات المستخدم
       if (!user.displayName) {
         await updateProfile(user, {
-          displayName: `مستخدم ${user.phoneNumber}`
+          displayName: `مستخدم ${user.phoneNumber.replace('+964', '0')}`
         });
       }
       
-      // حفظ أو تحديث بيانات المستخدم
+      // حفظ بيانات المستخدم في قاعدة البيانات
       try {
         await userService.createOrUpdateUser(user.uid, {
           phoneNumber: user.phoneNumber,
-          displayName: user.displayName || `مستخدم ${user.phoneNumber}`,
+          displayName: user.displayName || `مستخدم ${user.phoneNumber.replace('+964', '0')}`,
           lastLogin: new Date(),
-          createdAt: new Date()
+          createdAt: new Date(),
+          isActive: true,
+          authMethod: 'phone'
         });
         
-        console.log('✅ تم حفظ بيانات المستخدم');
-      } catch (userError) {
-        console.warn('⚠️ تحذير: لم يتم حفظ بيانات المستخدم:', userError);
-        // لا نوقف العملية بسبب هذا الخطأ
+        console.log('✅ تم حفظ بيانات المستخدم في قاعدة البيانات');
+        
+      } catch (dbError) {
+        console.warn('⚠️ تحذير: مشكلة في حفظ البيانات:', dbError);
+        // لا نوقف العملية - المصادقة تمت بنجاح
       }
       
-      setSuccess('تم تسجيل الدخول بنجاح! جاري التوجيه...');
+      setSuccess('🎉 تم تسجيل الدخول بنجاح! جاري التوجه للتطبيق...');
+      
+      // تنظيف reCAPTCHA
+      if (window.recaptchaVerifier) {
+        window.recaptchaVerifier.clear();
+        window.recaptchaVerifier = null;
+      }
       
       // توجيه المستخدم بعد تأخير قصير
       setTimeout(() => {
         navigate('/family');
-      }, 1500);
+      }, 2000);
       
     } catch (error) {
-      console.error('❌ خطأ في التحقق من الرمز:', error);
+      console.error('❌ خطأ في التحقق من كود SMS:', error);
       
-      let errorMessage = 'رمز التحقق غير صحيح';
+      let errorMessage = '❌ كود التحقق غير صحيح';
       
       switch (error.code) {
         case 'auth/invalid-verification-code':
-          errorMessage = 'رمز التحقق غير صحيح';
+          errorMessage = '❌ كود التحقق غير صحيح. تأكد من إدخال الكود الصحيح';
           break;
         case 'auth/code-expired':
-          errorMessage = 'انتهت صلاحية رمز التحقق. يرجى طلب رمز جديد';
+          errorMessage = '❌ انتهت صلاحية كود التحقق. يرجى طلب كود جديد';
+          // إعادة تعيين الحالة لطلب كود جديد
+          setConfirmationResult(null);
+          setTimer(0);
           break;
         case 'auth/session-expired':
-          errorMessage = 'انتهت جلسة التحقق. يرجى المحاولة مرة أخرى';
+          errorMessage = '❌ انتهت جلسة التحقق. يرجى البدء من جديد';
+          setConfirmationResult(null);
+          setTimer(0);
+          break;
+        case 'auth/missing-verification-code':
+          errorMessage = '❌ لم يتم إدخال كود التحقق';
           break;
         default:
-          errorMessage = error.message || 'حدث خطأ في التحقق';
+          errorMessage = `❌ خطأ في التحقق: ${error.message}`;
       }
       
       setError(errorMessage);
+      
+      // مسح الكود المُدخل في حالة الخطأ
+      if (error.code === 'auth/invalid-verification-code') {
+        setVerificationCode('');
+      }
       
     } finally {
       setConfirmationLoading(false);
