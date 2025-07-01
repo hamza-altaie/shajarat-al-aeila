@@ -242,10 +242,10 @@ const PhoneLogin = () => {
       
       setError(errorMessage);
       
-      // إعادة تعيين reCAPTCHA
+      // إعادة تعيين reCAPTCHA بدون إعادة تحميل الصفحة
       if (recaptchaVerifier) {
         recaptchaVerifier.clear();
-        window.location.reload(); // إعادة تحميل الصفحة لإعادة تعيين reCAPTCHA
+        // window.location.reload(); // تم التعليق حتى لا تختفي رسالة الخطأ
       }
       
     } finally {
@@ -610,6 +610,11 @@ const PhoneLogin = () => {
             <Alert 
               severity="error"
               sx={{ mb: 2 }}
+              action={
+                <Button color="inherit" size="small" onClick={() => setError('')}>
+                  إغلاق
+                </Button>
+              }
             >
               {error}
             </Alert>
