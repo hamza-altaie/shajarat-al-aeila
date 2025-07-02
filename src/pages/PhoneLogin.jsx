@@ -33,6 +33,53 @@ const PhoneLogin = () => {
   const [phoneInput, setPhoneInput] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
 
+
+
+
+  useEffect(() => {
+    console.log('🚀 تم تحميل مكون PhoneLogin');
+    
+    // دالة التنظيف (cleanup function)
+    return () => {
+      console.log('🧹 بدء تنظيف مكون PhoneLogin...');
+      
+      try {
+        // تنظيف reCAPTCHA
+        if (window.recaptchaVerifier) {
+          window.recaptchaVerifier.clear();
+          window.recaptchaVerifier = null;
+          console.log('✅ تم تنظيف window.recaptchaVerifier');
+        }
+        
+        // تنظيف الـ state المحلي
+        setRecaptchaVerifier(null);
+        setConfirmationResult(null);
+        setLoading(false);
+        setError('');
+        setSuccess('');
+        console.log('✅ تم تنظيف الـ state');
+        
+        // تنظيف عنصر HTML
+        const container = document.getElementById('recaptcha-container');
+        if (container) {
+          container.innerHTML = '';
+          console.log('✅ تم تنظيف HTML container');
+        }
+        
+        // إيقاف المؤقت إذا كان يعمل
+        if (timer > 0) {
+          setTimer(0);
+          console.log('✅ تم إيقاف المؤقت');
+        }
+        
+      } catch (error) {
+        console.warn('⚠️ تحذير أثناء التنظيف:', error);
+      }
+      
+      console.log('🎉 اكتمل تنظيف مكون PhoneLogin');
+    };
+  }, []);
+
   // فحص حالة Firebase عند التحميل
   useEffect(() => {
   const checkStatus = async () => {
@@ -82,76 +129,41 @@ const PhoneLogin = () => {
   }, [navigate]);
   
   // إعداد reCAPTCHA
+  // إعداد reCAPTCHA - تشغيل مرة واحدة فقط
   useEffect(() => {
-  if (!firebaseStatus?.services?.auth) return;
-  
-  const setupRecaptcha = async () => {
-    try {
-      console.log('🔧 بدء إعداد reCAPTCHA...');
-      
-      // تنظيف كامل
-      if (window.recaptchaVerifier) {
-        try {
-          await window.recaptchaVerifier.clear();
-        } catch (e) {
-          console.log('تنظيف reCAPTCHA القديم...');
-        }
-        window.recaptchaVerifier = null;
-      }
-      
-      // تنظيف العناصر الإضافية
-      const container = document.getElementById('recaptcha-container');
-      if (container) {
-        container.innerHTML = '';
-      }
-      
-      // إعداد جديد ومبسط
-      const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
-        callback: () => {
-          console.log('✅ reCAPTCHA جاهز');
-        },
-        'expired-callback': () => {
-          console.warn('⚠️ انتهت صلاحية reCAPTCHA');
-        },
-        'error-callback': (error) => {
-          console.error('❌ خطأ reCAPTCHA:', error);
-        }
-      });
-      
-      // تقديم مع معالجة الأخطاء
+    if (!firebaseStatus?.services?.auth) return;
+    
+    const setupRecaptcha = async () => {
       try {
-        await verifier.render();
-        console.log('✅ تم تقديم reCAPTCHA بنجاح');
-      } catch (renderError) {
-        console.error('❌ خطأ في تقديم reCAPTCHA:', renderError);
-        // لا نرمي خطأ هنا - سنحاول إنشاء واحد جديد عند الإرسال
+        console.log('🔧 بدء إعداد reCAPTCHA الأولي...');
+        
+        // التأكد من عدم وجود reCAPTCHA سابق
+        if (window.recaptchaVerifier) {
+          console.log('🔧 تنظيف reCAPTCHA الموجود...');
+          try {
+            await window.recaptchaVerifier.clear();
+          } catch (e) {
+            console.log('تنظيف reCAPTCHA...');
+          }
+          window.recaptchaVerifier = null;
+        }
+        
+        // تنظيف العنصر
+        const container = document.getElementById('recaptcha-container');
+        if (container) {
+          container.innerHTML = '';
+        }
+        
+        // لا ننشئ reCAPTCHA هنا - سننشئه عند الحاجة في handleSendCode
+        console.log('✅ تم تنظيف reCAPTCHA. سيتم إنشاؤه عند الحاجة');
+        
+      } catch (error) {
+        console.error('❌ خطأ في إعداد reCAPTCHA:', error);
       }
-      
-      setRecaptchaVerifier(verifier);
-      window.recaptchaVerifier = verifier;
-      
-    } catch (error) {
-      console.error('❌ خطأ في إعداد reCAPTCHA:', error);
-      // لا نعرض خطأ للمستخدم - سنحاول إنشاء reCAPTCHA عند الحاجة
-    }
-  };
-  
-  // تأخير 3 ثوان للتأكد من تحميل كل شيء
-  const timer = setTimeout(setupRecaptcha, 3000);
-  
-  return () => {
-    clearTimeout(timer);
-    if (window.recaptchaVerifier) {
-      try {
-        window.recaptchaVerifier.clear();
-        window.recaptchaVerifier = null;
-      } catch (e) {
-        console.log('تنظيف عند الخروج...');
-      }
-    }
-  };
-}, [firebaseStatus]);
+    };
+
+    setupRecaptcha();
+  }, [firebaseStatus?.services?.auth]); // يتم التشغيل مرة واحدة فقط
 
   // عداد مؤقت لإعادة تفعيل زر الإرسال
   useEffect(() => {
@@ -225,40 +237,52 @@ const handlePhoneChange = (e) => {
   setSuccess('');
   
   try {
-    // إعداد أو التأكد من reCAPTCHA
-    let verifier = window.recaptchaVerifier;
-    
-    if (!verifier || !verifier._widget) {
-      console.log('🔧 إنشاء reCAPTCHA جديد للإرسال...');
-      
-      // تنظيف أي شيء موجود
-      const container = document.getElementById('recaptcha-container');
-      if (container) {
-        container.innerHTML = '';
+    // 🔥 تنظيف كامل قبل إنشاء reCAPTCHA جديد
+    if (window.recaptchaVerifier) {
+      try {
+        await window.recaptchaVerifier.clear();
+      } catch (e) {
+        console.log('تنظيف reCAPTCHA القديم...');
       }
-      
-      // إنشاء جديد
-      verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
-        callback: () => console.log('✅ reCAPTCHA للإرسال جاهز'),
-        'error-callback': (error) => {
-          console.error('❌ خطأ reCAPTCHA للإرسال:', error);
-        }
-      });
-      
-      // تقديم
-      await verifier.render();
-      window.recaptchaVerifier = verifier;
-      setRecaptchaVerifier(verifier);
-      
-      console.log('✅ reCAPTCHA جديد جاهز');
+      window.recaptchaVerifier = null;
+      setRecaptchaVerifier(null);
     }
     
-    // محاولة إرسال الكود
+    // تنظيف العنصر HTML
+    const container = document.getElementById('recaptcha-container');
+    if (container) {
+      container.innerHTML = '';
+    }
+    
+    // 🔥 انتظار قصير للتأكد من التنظيف
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // إنشاء reCAPTCHA جديد
+    console.log('🔧 إنشاء reCAPTCHA جديد...');
+    const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      size: 'invisible',
+      callback: () => console.log('✅ reCAPTCHA جاهز'),
+      'expired-callback': () => {
+        console.warn('⚠️ انتهت صلاحية reCAPTCHA');
+        setError('❌ انتهت صلاحية التحقق، يرجى المحاولة مرة أخرى');
+      },
+      'error-callback': (error) => {
+        console.error('❌ خطأ reCAPTCHA:', error);
+        setError('❌ خطأ في نظام التحقق، يرجى المحاولة مرة أخرى');
+      }
+    });
+    
+    // تقديم reCAPTCHA
+    await verifier.render();
+    window.recaptchaVerifier = verifier;
+    setRecaptchaVerifier(verifier);
+    
+    console.log('✅ reCAPTCHA جديد جاهز');
+    
+    // إرسال الكود
     console.log('📤 إرسال الكود إلى:', phoneNumber);
     const confirmation = await signInWithPhoneNumber(auth, phoneNumber, verifier);
     
-    // نجح الإرسال
     setConfirmationResult(confirmation);
     setSuccess(`✅ تم إرسال كود التحقق إلى ${phoneNumber}`);
     setTimer(120);
@@ -285,17 +309,12 @@ const handlePhoneChange = (e) => {
         break;
         
       case 'auth/captcha-check-failed':
-        errorMessage = 'فشل التحقق الأمني. جاري إعادة المحاولة...';
-        // تنظيف وإعادة محاولة
-        if (window.recaptchaVerifier) {
-          window.recaptchaVerifier.clear();
-          window.recaptchaVerifier = null;
-        }
-        setTimeout(() => window.location.reload(), 2000);
+        errorMessage = 'فشل التحقق الأمني. أعد المحاولة';
         break;
         
       default:
-        errorMessage = error.message || 'خطأ غير متوقع';
+        errorMessage = error.message || 'حدث خطأ غير متوقع';
+        break;
     }
     
     setError(errorMessage);
