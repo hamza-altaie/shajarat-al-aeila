@@ -288,38 +288,41 @@ const handlePhoneChange = (e) => {
     let errorMessage = 'فشل في إرسال الكود';
     
     switch (error.code) {
-      case 'auth/argument-error':
-        errorMessage = 'خطأ في إعدادات reCAPTCHA. جاري إعادة المحاولة...';
-        // إعادة تحميل الصفحة لإعادة تعيين كل شيء
-        setTimeout(() => window.location.reload(), 2000);
-        break;
-        
-      case 'auth/invalid-app-credential':
-        errorMessage = 'مشكلة في إعدادات التطبيق. جاري إعادة التحميل...';
-        setTimeout(() => window.location.reload(), 3000);
-        break;
-        
-      case 'auth/invalid-phone-number':
-        errorMessage = 'رقم الهاتف غير صحيح';
-        break;
-        
-      case 'auth/too-many-requests':
-        errorMessage = 'تم تجاوز الحد المسموح. انتظر 15 دقيقة';
-        break;
-        
-      case 'auth/captcha-check-failed':
-        errorMessage = 'فشل التحقق الأمني. أعد المحاولة';
-        break;
-        
-      default:
-        if (error.message.includes('site key') || error.message.includes('Invalid site key')) {
-          errorMessage = 'مشكلة في إعدادات reCAPTCHA. جاري إعادة تحميل الصفحة...';
-          setTimeout(() => window.location.reload(), 2000);
-        } else {
-          errorMessage = error.message || 'حدث خطأ غير متوقع';
-        }
-        break;
+  case 'auth/argument-error':
+    errorMessage = 'خطأ في إعدادات reCAPTCHA. يرجى المحاولة مرة أخرى';
+    // إعادة تعيين reCAPTCHA بدلاً من إعادة تحميل الصفحة
+    setConfirmationResult(null);
+    setTimer(0);
+    break;
+    
+  case 'auth/invalid-app-credential':
+    errorMessage = 'مشكلة في إعدادات التطبيق. تحقق من اتصالك بالإنترنت';
+    // لا تعيد تحميل الصفحة
+    break;
+    
+  case 'auth/invalid-phone-number':
+    errorMessage = 'رقم الهاتف غير صحيح';
+    break;
+    
+  case 'auth/too-many-requests':
+    errorMessage = 'تم تجاوز الحد المسموح. انتظر 15 دقيقة';
+    break;
+    
+  case 'auth/captcha-check-failed':
+    errorMessage = 'فشل التحقق الأمني. أعد المحاولة';
+    break;
+    
+  default:
+    if (error.message.includes('site key') || error.message.includes('Invalid site key')) {
+      errorMessage = 'مشكلة في إعدادات reCAPTCHA. يرجى المحاولة مرة أخرى';
+      // إعادة تعيين بدلاً من إعادة تحميل
+      setConfirmationResult(null);
+      setTimer(0);
+    } else {
+      errorMessage = error.message || 'حدث خطأ غير متوقع';
     }
+    break;
+}
     
     setError(errorMessage);
     
