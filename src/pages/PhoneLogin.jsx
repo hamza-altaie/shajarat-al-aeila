@@ -131,39 +131,39 @@ const PhoneLogin = () => {
   // إعداد reCAPTCHA
   // إعداد reCAPTCHA - تشغيل مرة واحدة فقط
   useEffect(() => {
-    if (!firebaseStatus?.services?.auth) return;
-    
-    const setupRecaptcha = async () => {
-      try {
-        console.log('🔧 بدء إعداد reCAPTCHA الأولي...');
-        
-        // التأكد من عدم وجود reCAPTCHA سابق
-        if (window.recaptchaVerifier) {
-          console.log('🔧 تنظيف reCAPTCHA الموجود...');
-          try {
-            await window.recaptchaVerifier.clear();
-          } catch (e) {
-            console.log('تنظيف reCAPTCHA...');
-          }
-          window.recaptchaVerifier = null;
+  if (!firebaseStatus?.services?.auth) return;
+  
+  const setupRecaptcha = async () => {
+    try {
+      console.log('🔧 بدء إعداد reCAPTCHA الأولي...');
+      
+      // التأكد من عدم وجود reCAPTCHA سابق
+      if (window.recaptchaVerifier) {
+        console.log('🔧 تنظيف reCAPTCHA الموجود...');
+        try {
+          await window.recaptchaVerifier.clear();
+        } catch (e) {
+          console.log('تنظيف reCAPTCHA...');
         }
-        
-        // تنظيف العنصر
-        const container = document.getElementById('recaptcha-container');
-        if (container) {
-          container.innerHTML = '';
-        }
-        
-        // لا ننشئ reCAPTCHA هنا - سننشئه عند الحاجة في handleSendCode
-        console.log('✅ تم تنظيف reCAPTCHA. سيتم إنشاؤه عند الحاجة');
-        
-      } catch (error) {
-        console.error('❌ خطأ في إعداد reCAPTCHA:', error);
+        window.recaptchaVerifier = null;
       }
-    };
+      
+      // تنظيف العنصر
+      const container = document.getElementById('recaptcha-container');
+      if (container) {
+        container.innerHTML = '';
+      }
+      
+      // ✅ لا ننشئ reCAPTCHA هنا - سننشئه عند الحاجة في handleSendCode
+      console.log('✅ تم تنظيف reCAPTCHA. سيتم إنشاؤه عند الحاجة');
+      
+    } catch (error) {
+      console.error('❌ خطأ في إعداد reCAPTCHA:', error);
+    }
+  };
 
-    setupRecaptcha();
-  }, [firebaseStatus?.services?.auth]); // يتم التشغيل مرة واحدة فقط
+  setupRecaptcha();
+}, [firebaseStatus?.services?.auth]);
 
   // عداد مؤقت لإعادة تفعيل زر الإرسال
   useEffect(() => {
@@ -257,12 +257,15 @@ const handlePhoneChange = (e) => {
     // 🔥 انتظار قصير للتأكد من التنظيف
     await new Promise(resolve => setTimeout(resolve, 100));
     
-    // إنشاء reCAPTCHA جديد
+    // 🔥 إنشاء reCAPTCHA بالطريقة الصحيحة
     console.log('🔧 إنشاء reCAPTCHA جديد...');
+    
+    // ✅ الطريقة الصحيحة: RecaptchaVerifier(auth, container, parameters)
     const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
       size: 'invisible',
-      sitekey: '6LdQcnQrAAAAAHBcSFsSxfs68h0lXvcdlw0Wafb0',
-      callback: () => console.log('✅ reCAPTCHA جاهز'),
+      callback: () => {
+        console.log('✅ reCAPTCHA جاهز');
+      },
       'expired-callback': () => {
         console.warn('⚠️ انتهت صلاحية reCAPTCHA');
         setError('❌ انتهت صلاحية التحقق، يرجى المحاولة مرة أخرى');
@@ -296,6 +299,12 @@ const handlePhoneChange = (e) => {
     let errorMessage = 'فشل في إرسال الكود';
     
     switch (error.code) {
+      case 'auth/argument-error':
+        errorMessage = 'خطأ في إعدادات reCAPTCHA. جاري إعادة المحاولة...';
+        // إعادة تحميل الصفحة لإعادة تعيين كل شيء
+        setTimeout(() => window.location.reload(), 2000);
+        break;
+        
       case 'auth/invalid-app-credential':
         errorMessage = 'مشكلة في إعدادات التطبيق. جاري إعادة التحميل...';
         setTimeout(() => window.location.reload(), 3000);
@@ -314,7 +323,12 @@ const handlePhoneChange = (e) => {
         break;
         
       default:
-        errorMessage = error.message || 'حدث خطأ غير متوقع';
+        if (error.message.includes('site key') || error.message.includes('Invalid site key')) {
+          errorMessage = 'مشكلة في إعدادات reCAPTCHA. جاري إعادة تحميل الصفحة...';
+          setTimeout(() => window.location.reload(), 2000);
+        } else {
+          errorMessage = error.message || 'حدث خطأ غير متوقع';
+        }
         break;
     }
     
