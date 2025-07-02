@@ -261,6 +261,7 @@ const handlePhoneChange = (e) => {
     console.log('🔧 إنشاء reCAPTCHA جديد...');
     const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
       size: 'invisible',
+      sitekey: '6LdQcnQrAAAAAHBcSFsSxfs68h0lXvcdlw0Wafb0',
       callback: () => console.log('✅ reCAPTCHA جاهز'),
       'expired-callback': () => {
         console.warn('⚠️ انتهت صلاحية reCAPTCHA');
