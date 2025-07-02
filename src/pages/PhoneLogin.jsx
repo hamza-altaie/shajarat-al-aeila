@@ -28,7 +28,7 @@ const PhoneLogin = () => {
   const [success, setSuccess] = useState('');
 
   const [firebaseStatus, setFirebaseStatus] = useState(null);
-  const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
+  const [recaptchaVerifier, setRecaptchaVerifier] = useState(null); // eslint-disable-line no-unused-vars
   const [timer, setTimer] = useState(0);
   const [phoneInput, setPhoneInput] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -38,11 +38,9 @@ const PhoneLogin = () => {
 
   useEffect(() => {
     console.log('🚀 تم تحميل مكون PhoneLogin');
-    
     // دالة التنظيف (cleanup function)
     return () => {
       console.log('🧹 بدء تنظيف مكون PhoneLogin...');
-      
       try {
         // تنظيف reCAPTCHA
         if (window.recaptchaVerifier) {
@@ -50,7 +48,6 @@ const PhoneLogin = () => {
           window.recaptchaVerifier = null;
           console.log('✅ تم تنظيف window.recaptchaVerifier');
         }
-        
         // تنظيف الـ state المحلي
         setRecaptchaVerifier(null);
         setConfirmationResult(null);
@@ -58,24 +55,16 @@ const PhoneLogin = () => {
         setError('');
         setSuccess('');
         console.log('✅ تم تنظيف الـ state');
-        
         // تنظيف عنصر HTML
         const container = document.getElementById('recaptcha-container');
         if (container) {
           container.innerHTML = '';
           console.log('✅ تم تنظيف HTML container');
         }
-        
-        // إيقاف المؤقت إذا كان يعمل
-        if (timer > 0) {
-          setTimer(0);
-          console.log('✅ تم إيقاف المؤقت');
-        }
-        
+        // لا داعي لتنظيف المؤقت هنا لأننا نريد فقط التنظيف عند إلغاء المكون
       } catch (error) {
         console.warn('⚠️ تحذير أثناء التنظيف:', error);
       }
-      
       console.log('🎉 اكتمل تنظيف مكون PhoneLogin');
     };
   }, []);
@@ -142,8 +131,8 @@ const PhoneLogin = () => {
         console.log('🔧 تنظيف reCAPTCHA الموجود...');
         try {
           await window.recaptchaVerifier.clear();
-        } catch (e) {
-          console.log('تنظيف reCAPTCHA...');
+        } catch {
+          console.log('تنظيف reCAPTCHA القديم...');
         }
         window.recaptchaVerifier = null;
       }
@@ -241,7 +230,7 @@ const handlePhoneChange = (e) => {
     if (window.recaptchaVerifier) {
       try {
         await window.recaptchaVerifier.clear();
-      } catch (e) {
+      } catch {
         console.log('تنظيف reCAPTCHA القديم...');
       }
       window.recaptchaVerifier = null;

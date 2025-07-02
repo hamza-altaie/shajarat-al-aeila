@@ -1128,7 +1128,8 @@ const drawTreeWithD3 = useCallback((data) => {
                         borderColor: showExtendedTree ? '#7c3aed' : '#4f46e5',
                         backgroundColor: showExtendedTree ? 'rgba(139, 92, 246, 0.1)' : 'rgba(99, 102,241, 0.1)'
                       },
-                      fontFamily: 'Cairo, sans-serif'
+                      fontFamily: 'Cairo, sans-serif',
+                      gap: 1.5 // إضافة مسافة بين الأيقونة والنص
                     }}
                     size="large"
                     onClick={() => setShowLinkingPanel(true)}
