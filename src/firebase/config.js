@@ -8,7 +8,7 @@ import { getFunctions } from 'firebase/functions';
 
 // ✅ إعدادات Firebase (تأكد من أن هذه صحيحة من Firebase Console)
 const firebaseConfig = {
-  apiKey: "AIzaSyADPWJyhK_zB63x1AOIGsGSeDOLZXcyuvU",
+  apiKey: "AIzaSyC_3sC6QTgBlarZKlUZLQYUiuJtn9fjXbk",
   authDomain: "shajarat-al-aeila.firebaseapp.com",
   projectId: "shajarat-al-aeila",
   storageBucket: "shajarat-al-aeila.firebasestorage.app",
