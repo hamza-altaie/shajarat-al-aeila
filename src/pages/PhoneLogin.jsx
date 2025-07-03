@@ -84,64 +84,53 @@ const PhoneLogin = () => {
   // إعداد reCAPTCHA
   useEffect(() => {
   if (!firebaseStatus?.services?.auth) return;
-  
+
   const setupRecaptcha = async () => {
     try {
       console.log('🔧 بدء إعداد reCAPTCHA...');
       
-      // تنظيف كامل
+      // تنظيف reCAPTCHA السابق إن وُجد
       if (window.recaptchaVerifier) {
         try {
           await window.recaptchaVerifier.clear();
         } catch (e) {
-          console.log('تنظيف reCAPTCHA القديم...');
+          console.warn('تنظيف reCAPTCHA السابق...');
         }
         window.recaptchaVerifier = null;
       }
-      
-      // تنظيف العناصر الإضافية
+
+      // تنظيف حاوية reCAPTCHA
       const container = document.getElementById('recaptcha-container');
-      if (container) {
-        container.innerHTML = '';
-      }
-      
-      // إعداد جديد ومبسط
+      if (container) container.innerHTML = '';
+
+      // إنشاء reCAPTCHA من النوع المخفي
       const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         size: 'invisible',
-        callback: () => {
+        callback: (response) => {
           console.log('✅ reCAPTCHA جاهز');
         },
         'expired-callback': () => {
           console.warn('⚠️ انتهت صلاحية reCAPTCHA');
         },
-        'error-callback': (error) => {
-          console.error('❌ خطأ reCAPTCHA:', error);
+        'error-callback': (err) => {
+          console.error('❌ خطأ reCAPTCHA:', err);
         }
       });
-      
-      // تقديم مع معالجة الأخطاء
-      try {
-        await verifier.render();
-        console.log('✅ تم تقديم reCAPTCHA بنجاح');
-      } catch (renderError) {
-        console.error('❌ خطأ في تقديم reCAPTCHA:', renderError);
-        // لا نرمي خطأ هنا - سنحاول إنشاء واحد جديد عند الإرسال
-      }
-      
+
+      await verifier.render();
+      console.log('✅ تم تقديم reCAPTCHA بنجاح');
+
       setRecaptchaVerifier(verifier);
       window.recaptchaVerifier = verifier;
-      
-    } catch (error) {
-      console.error('❌ خطأ في إعداد reCAPTCHA:', error);
-      // لا نعرض خطأ للمستخدم - سنحاول إنشاء reCAPTCHA عند الحاجة
+
+    } catch (err) {
+      console.error('❌ فشل إعداد reCAPTCHA:', err);
     }
   };
-  
-  // تأخير 3 ثوان للتأكد من تحميل كل شيء
-  const timer = setTimeout(setupRecaptcha, 3000);
-  
+
+  setupRecaptcha(); // تشغيل reCAPTCHA فورًا بدون تأخير
+
   return () => {
-    clearTimeout(timer);
     if (window.recaptchaVerifier) {
       try {
         window.recaptchaVerifier.clear();
@@ -152,6 +141,7 @@ const PhoneLogin = () => {
     }
   };
 }, [firebaseStatus]);
+
 
   // عداد مؤقت لإعادة تفعيل زر الإرسال
   useEffect(() => {
