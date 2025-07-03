@@ -227,31 +227,11 @@ const handlePhoneChange = (e) => {
   try {
     // إعداد أو التأكد من reCAPTCHA
     let verifier = window.recaptchaVerifier;
-    
-    if (!verifier || !verifier._widget) {
-      console.log('🔧 إنشاء reCAPTCHA جديد للإرسال...');
-      
-      // تنظيف أي شيء موجود
-      const container = document.getElementById('recaptcha-container');
-      if (container) {
-        container.innerHTML = '';
-      }
-      
-      // إنشاء جديد
-      verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
-        callback: () => console.log('✅ reCAPTCHA للإرسال جاهز'),
-        'error-callback': (error) => {
-          console.error('❌ خطأ reCAPTCHA للإرسال:', error);
-        }
-      });
-      
-      // تقديم
-      await verifier.render();
-      window.recaptchaVerifier = verifier;
-      setRecaptchaVerifier(verifier);
-      
-      console.log('✅ reCAPTCHA جديد جاهز');
+
+    if (!verifier) {
+      setError("❌ حدثت مشكلة في التحقق الأمني، يرجى إعادة تحميل الصفحة");
+      setLoading(false);
+      return;
     }
     
     // محاولة إرسال الكود

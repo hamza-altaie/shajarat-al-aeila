@@ -8,13 +8,13 @@ import { getFunctions } from 'firebase/functions';
 
 // ✅ إعدادات Firebase (تأكد من أن هذه صحيحة من Firebase Console)
 const firebaseConfig = {
-  apiKey: "AIzaSyADPWJyhK_zB63x1AOIGsGSeDOLZXcyuvU",
-  authDomain: "shajarat-al-aeila.firebaseapp.com",
-  projectId: "shajarat-al-aeila",
-  storageBucket: "shajarat-al-aeila.firebasestorage.app",
-  messagingSenderId: "395923557025",
-  appId: "1:395923557025:web:315f774d0a02909cc57ee0",
-  measurementId: "G-9Z35NT21KG"
+  apiKey: "AIzaSyBbq9BYxf04dxpeqaK_1Y5OPceynURDuao",
+  authDomain: "shajarat-al-aeila-1.firebaseapp.com",
+  projectId: "shajarat-al-aeila-1",
+  storageBucket: "shajarat-al-aeila-1.firebasestorage.app",
+  messagingSenderId: "803509567710",
+  appId: "1:803509567710:web:6e7dfc549a605798d9424f",
+  measurementId: "G-7DVE3CHCW9"
 };
 
 // تنظيف وإعادة تهيئة Firebase
