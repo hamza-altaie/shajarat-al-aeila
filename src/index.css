@@ -504,3 +504,9 @@ table {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
 }
+
+/* إخفاء reCAPTCHA عن المستخدمين */
+#recaptcha-container {
+  position: absolute;
+  left: -9999px;
+}

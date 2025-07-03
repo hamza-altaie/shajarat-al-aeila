@@ -329,15 +329,30 @@ const handlePhoneChange = (e) => {
       // حفظ بيانات المستخدم في قاعدة البيانات
       try {
         await userService.createOrUpdateUser(user.uid, {
-          phoneNumber: user.phoneNumber,
+          phone: user.phoneNumber, // تعديل الحقل ليطابق القاعدة
           displayName: user.displayName || `مستخدم ${user.phoneNumber.replace('+964', '0')}`,
-          lastLogin: new Date(),
-          createdAt: new Date(),
           isActive: true,
           authMethod: 'phone'
         });
         
         console.log('✅ تم حفظ بيانات المستخدم في قاعدة البيانات');
+        
+        // تأكيد حفظ المستخدم قبل التوجيه
+        let retries = 0;
+        let userDoc = null;
+        while (retries < 5 && !userDoc) {
+          try {
+            userDoc = await userService.fetchUserData(user.uid);
+          } catch (e) {
+            await new Promise(res => setTimeout(res, 500));
+            retries++;
+          }
+        }
+        if (!userDoc) {
+          setError('⚠️ حدثت مشكلة في حفظ بيانات المستخدم. يرجى إعادة المحاولة لاحقاً.');
+          setConfirmationLoading(false);
+          return;
+        }
         
       } catch (dbError) {
         console.warn('⚠️ تحذير: مشكلة في حفظ البيانات:', dbError);
@@ -711,8 +726,7 @@ const handlePhoneChange = (e) => {
 
         {/* حاوية reCAPTCHA */}
         <Box 
-          id="recaptcha-container" 
-          sx={{ display: 'none' }}
+          id="recaptcha-container"
         />
       </Paper>
     </Container>
