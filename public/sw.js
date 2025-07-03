@@ -23,8 +23,8 @@ self.addEventListener('install', (event) => {
         console.log('✅ تم تثبيت Service Worker بنجاح');
         return self.skipWaiting();
       })
-      .catch(() => {
-        console.error('❌ فشل في تثبيت Service Worker');
+      .catch((error) => {
+        console.error('❌ فشل في تثبيت Service Worker:', error);
         // حتى لو فشل التخزين، استمر في التثبيت
         return self.skipWaiting();
       })
@@ -82,7 +82,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    Promise.resolve(handleFetchRequest(event.request))
+    handleFetchRequest(event.request)
   );
 });
 
@@ -98,7 +98,7 @@ async function handleFetchRequest(request) {
           cache.put(request, networkResponse.clone());
         }
         return networkResponse;
-      } catch {
+      } catch (error) {
         // في حالة فشل الشبكة، استخدم النسخة المخزنة
         const cachedResponse = await caches.match(request);
         if (cachedResponse) {

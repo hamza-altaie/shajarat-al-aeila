@@ -1,12 +1,10 @@
 {
   "firestore": {
-    "database": "(default)",
-    "location": "asia-east1",
-    "rules": "firestore-rules/firestore.rules",
+    "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
-    "public": "public",
+    "public": "dist",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -16,17 +14,6 @@
       {
         "source": "**",
         "destination": "/index.html"
-      }
-    ],
-    "headers": [
-      {
-        "source": "/index.html",
-        "headers": [
-          {
-            "key": "Content-Security-Policy",
-            "value": "default-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
-          }
-        ]
       }
     ]
   },
@@ -52,8 +39,5 @@
     "ui": {
       "enabled": true
     }
-  },
-  "storage": {
-    "rules": "storage.rules"
   }
 }
