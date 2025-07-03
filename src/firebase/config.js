@@ -1,8 +1,8 @@
 // 🔄 حل شامل - استبدل ملف src/firebase/config.js بالكامل بهذا:
 
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
 
@@ -30,7 +30,7 @@ try {
   existingApps.forEach(async (existingApp) => {
     try {
       await existingApp.delete();
-    } catch (e) {
+    } catch {
       console.log('تنظيف التطبيقات القديمة...');
     }
   });
@@ -111,7 +111,7 @@ if (typeof window !== 'undefined') {
       try {
         window.recaptchaVerifier.clear();
         window.recaptchaVerifier = null;
-      } catch (e) {
+      } catch {
         console.log('تنظيف reCAPTCHA...');
       }
     }

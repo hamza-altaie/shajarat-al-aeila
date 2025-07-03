@@ -98,7 +98,7 @@ async function handleFetchRequest(request) {
           cache.put(request, networkResponse.clone());
         }
         return networkResponse;
-      } catch (error) {
+      } catch {
         // في حالة فشل الشبكة، استخدم النسخة المخزنة
         const cachedResponse = await caches.match(request);
         if (cachedResponse) {
@@ -123,21 +123,19 @@ async function handleFetchRequest(request) {
     }
     return networkResponse;
 
-  } catch (error) {
+  } catch {
     // محاولة استخدام النسخة المخزنة
     const cachedResponse = await caches.match(request);
     if (cachedResponse) {
       return cachedResponse;
     }
-    
     // للصفحات، إرجاع صفحة احتياطية
     if (request.destination === 'document') {
       return new Response(getOfflineHTML(), {
         headers: { 'Content-Type': 'text/html; charset=utf-8' }
       });
     }
-    
-    throw error;
+    throw new Error('Network and cache both failed');
   }
 }
 

@@ -28,7 +28,6 @@ const PhoneLogin = () => {
   const [success, setSuccess] = useState('');
 
   const [firebaseStatus, setFirebaseStatus] = useState(null);
-  const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
   const [timer, setTimer] = useState(0);
   const [phoneInput, setPhoneInput] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -93,7 +92,7 @@ const PhoneLogin = () => {
       if (window.recaptchaVerifier) {
         try {
           await window.recaptchaVerifier.clear();
-        } catch (e) {
+        } catch {
           console.warn('تنظيف reCAPTCHA السابق...');
         }
         window.recaptchaVerifier = null;
@@ -106,7 +105,7 @@ const PhoneLogin = () => {
       // إنشاء reCAPTCHA من النوع المخفي
       const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         size: 'invisible',
-        callback: (response) => {
+        callback: () => {
           console.log('✅ reCAPTCHA جاهز');
         },
         'expired-callback': () => {
@@ -120,7 +119,6 @@ const PhoneLogin = () => {
       await verifier.render();
       console.log('✅ تم تقديم reCAPTCHA بنجاح');
 
-      setRecaptchaVerifier(verifier);
       window.recaptchaVerifier = verifier;
 
     } catch (err) {
@@ -135,7 +133,7 @@ const PhoneLogin = () => {
       try {
         window.recaptchaVerifier.clear();
         window.recaptchaVerifier = null;
-      } catch (e) {
+      } catch {
         console.log('تنظيف عند الخروج...');
       }
     }
@@ -239,7 +237,6 @@ const handlePhoneChange = (e) => {
   console.error('❌ خطأ في إرسال الكود:', error);
   
   let errorMessage = 'فشل في إرسال الكود';
-  let showResetButton = false;
   
   switch (error.code) {
     case 'auth/invalid-app-credential':
@@ -250,7 +247,6 @@ const handlePhoneChange = (e) => {
 • راجع إعدادات App Check إذا كان مفعل
       
 اتبع الخطوات في الدليل أدناه لحل المشكلة.`;
-      showResetButton = true;
       break;
       
     case 'auth/argument-error':
@@ -269,7 +265,6 @@ const handlePhoneChange = (e) => {
       
 أضف المجال الحالي (${window.location.hostname}) في Firebase Console:
 Authentication → Settings → Authorized domains`;
-      showResetButton = true;
       break;
       
     case 'auth/operation-not-allowed':
@@ -300,7 +295,6 @@ Authentication → Sign-in method → Phone`;
         errorMessage = `❌ مشكلة في إعدادات reCAPTCHA:
         
 راجع إعدادات App Check في Firebase Console أو عطل App Check مؤقتاً للاختبار`;
-        showResetButton = true;
       } else if (error.message.includes('network') || error.message.includes('fetch')) {
         errorMessage = 'مشكلة في الاتصال بالإنترنت. تحقق من اتصالك وأعد المحاولة';
       } else {
@@ -394,7 +388,7 @@ Authentication → Sign-in method → Phone`;
         while (retries < 5 && !userDoc) {
           try {
             userDoc = await userService.fetchUserData(user.uid);
-          } catch (e) {
+          } catch {
             await new Promise(res => setTimeout(res, 500));
             retries++;
           }
