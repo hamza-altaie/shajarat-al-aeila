@@ -81,7 +81,9 @@ const PhoneLogin = () => {
   }, [navigate]);
   
   useEffect(() => {
-  if (!firebaseStatus?.isInitialized || window.recaptchaVerifier) return;
+  if (!firebaseStatus?.isInitialized || window.recaptchaVerifier || !auth) return;
+
+
 
   console.log('🔧 إعداد reCAPTCHA لأول مرة...');
 
@@ -92,19 +94,23 @@ const PhoneLogin = () => {
   }
 
   try {
-    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+    window.recaptchaVerifier = new RecaptchaVerifier(
+    'recaptcha-container', // أولاً ID العنصر
+    {
       size: 'invisible',
       sitekey: '6LeFW3YrAAAAAH2-5H3-Bno2q7qo34TdsImWiGw8',
       callback: () => {
         console.log('✅ reCAPTCHA تم حله بنجاح');
       },
       'expired-callback': () => {
-        console.warn('⚠️ انتهت صلاحية reCAPTCHA. يُفضل إعادة التهيئة');
+        console.warn('⚠️ انتهت صلاحية reCAPTCHA');
       },
       'error-callback': (err) => {
         console.error('❌ خطأ في reCAPTCHA:', err);
       }
-    });
+    },
+    auth // ← ثالثاً كائن auth هنا
+  );
 
     window.recaptchaVerifier.render().then((widgetId) => {
       console.log('✅ تم تقديم reCAPTCHA (widgetId =', widgetId, ')');
