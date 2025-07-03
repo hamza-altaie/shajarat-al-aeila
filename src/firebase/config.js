@@ -11,7 +11,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyBbq9BYxf04dxpeqaK_1Y5OPceynURDuao",
   authDomain: "shajarat-al-aeila-1.firebaseapp.com",
   projectId: "shajarat-al-aeila-1",
-  storageBucket: "shajarat-al-aeila-1.firebasestorage.app",
+  storageBucket: "shajarat-al-aeila-1.appspot.com", // تم التصحيح هنا
   messagingSenderId: "803509567710",
   appId: "1:803509567710:web:6e7dfc549a605798d9424f",
   measurementId: "G-7DVE3CHCW9"

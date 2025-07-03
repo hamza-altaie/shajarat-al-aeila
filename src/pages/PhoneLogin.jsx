@@ -246,43 +246,104 @@ const handlePhoneChange = (e) => {
     console.log('🎉 تم إرسال الكود بنجاح!');
     
   } catch (error) {
-    console.error('❌ خطأ في إرسال الكود:', error);
-    
-    let errorMessage = 'فشل في إرسال الكود';
-    
-    switch (error.code) {
-      case 'auth/invalid-app-credential':
-        errorMessage = 'مشكلة في إعدادات التطبيق. جاري إعادة التحميل...';
-        setTimeout(() => window.location.reload(), 3000);
-        break;
+  console.error('❌ خطأ في إرسال الكود:', error);
+  
+  let errorMessage = 'فشل في إرسال الكود';
+  let showResetButton = false;
+  
+  switch (error.code) {
+    case 'auth/invalid-app-credential':
+      errorMessage = `❌ خطأ في إعدادات Firebase:
+      
+• تحقق من أن localhost مُضاف في Authorized domains
+• تأكد من تفعيل Phone Authentication في Firebase Console
+• راجع إعدادات App Check إذا كان مفعل
+      
+اتبع الخطوات في الدليل أدناه لحل المشكلة.`;
+      showResetButton = true;
+      break;
+      
+    case 'auth/argument-error':
+      errorMessage = 'خطأ في إعدادات reCAPTCHA. سيتم إعادة المحاولة...';
+      // إعادة تعيين reCAPTCHA بدلاً من إعادة تحميل الصفحة
+      setConfirmationResult(null);
+      setTimer(0);
+      if (window.recaptchaVerifier) {
+        window.recaptchaVerifier.clear();
+        window.recaptchaVerifier = null;
+      }
+      break;
+      
+    case 'auth/app-not-authorized':
+      errorMessage = `❌ التطبيق غير مُخول:
+      
+أضف المجال الحالي (${window.location.hostname}) في Firebase Console:
+Authentication → Settings → Authorized domains`;
+      showResetButton = true;
+      break;
+      
+    case 'auth/operation-not-allowed':
+      errorMessage = `❌ Phone Authentication غير مفعل:
+      
+فعل Phone Authentication في Firebase Console:
+Authentication → Sign-in method → Phone`;
+      break;
+      
+    case 'auth/invalid-phone-number':
+      errorMessage = 'رقم الهاتف غير صحيح. استخدم تنسيق: +9647xxxxxxxx';
+      break;
+      
+    case 'auth/too-many-requests':
+      errorMessage = 'تم تجاوز الحد المسموح. انتظر 15 دقيقة أو جرب من جهاز آخر';
+      break;
+      
+    case 'auth/captcha-check-failed':
+      errorMessage = 'فشل التحقق الأمني. أعد المحاولة أو حدث الصفحة';
+      break;
+      
+    case 'auth/quota-exceeded':
+      errorMessage = 'تم تجاوز حصة الرسائل اليومية. جرب غداً أو تواصل مع الدعم';
+      break;
+      
+    default:
+      if (error.message.includes('site key') || error.message.includes('Invalid site key')) {
+        errorMessage = `❌ مشكلة في إعدادات reCAPTCHA:
         
-      case 'auth/invalid-phone-number':
-        errorMessage = 'رقم الهاتف غير صحيح';
-        break;
-        
-      case 'auth/too-many-requests':
-        errorMessage = 'تم تجاوز الحد المسموح. انتظر 15 دقيقة';
-        break;
-        
-      case 'auth/captcha-check-failed':
-        errorMessage = 'فشل التحقق الأمني. جاري إعادة المحاولة...';
-        // تنظيف وإعادة محاولة
-        if (window.recaptchaVerifier) {
-          window.recaptchaVerifier.clear();
-          window.recaptchaVerifier = null;
-        }
-        setTimeout(() => window.location.reload(), 2000);
-        break;
-        
-      default:
-        errorMessage = error.message || 'خطأ غير متوقع';
-    }
-    
-    setError(errorMessage);
-    
-  } finally {
-    setLoading(false);
+راجع إعدادات App Check في Firebase Console أو عطل App Check مؤقتاً للاختبار`;
+        showResetButton = true;
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        errorMessage = 'مشكلة في الاتصال بالإنترنت. تحقق من اتصالك وأعد المحاولة';
+      } else {
+        errorMessage = `خطأ غير متوقع: ${error.message}`;
+      }
+      break;
   }
+  
+  setError(errorMessage);
+  
+  // إظهار أدوات تشخيص إضافية في بيئة التطوير
+  if (import.meta.env.DEV) {
+    console.log('🔍 معلومات تشخيصية:');
+    console.log('- Firebase Project ID:', firebaseStatus?.config?.projectId);
+    console.log('- Current domain:', window.location.hostname);
+    console.log('- Auth domain:', firebaseStatus?.config?.authDomain);
+    console.log('- Error details:', {
+      code: error.code,
+      message: error.message,
+      stack: error.stack?.split('\n').slice(0, 3)
+    });
+    
+    // اختبار Firebase status
+    if (window.firebaseDebug) {
+      window.firebaseDebug.test().then(result => {
+        console.log('🧪 Firebase connection test:', result);
+      });
+    }
+  }
+  
+} finally {
+  setLoading(false);
+}
 };
   
   // التحقق من الكود
