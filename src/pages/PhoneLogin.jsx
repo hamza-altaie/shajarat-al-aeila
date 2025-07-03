@@ -80,65 +80,41 @@ const PhoneLogin = () => {
     return () => unsubscribe();
   }, [navigate]);
   
-  // إعداد reCAPTCHA
   useEffect(() => {
-  if (!firebaseStatus?.services?.auth) return;
+  if (!firebaseStatus?.isInitialized || window.recaptchaVerifier) return;
 
-  const setupRecaptcha = async () => {
-    try {
-      console.log('🔧 بدء إعداد reCAPTCHA...');
-      
-      // تنظيف reCAPTCHA السابق إن وُجد
-      if (window.recaptchaVerifier) {
-        try {
-          await window.recaptchaVerifier.clear();
-        } catch {
-          console.warn('تنظيف reCAPTCHA السابق...');
-        }
-        window.recaptchaVerifier = null;
+  console.log('🔧 إعداد reCAPTCHA لأول مرة...');
+
+  const containerEl = document.getElementById('recaptcha-container');
+  if (!auth || !containerEl) {
+    console.warn('⛔ auth أو عنصر reCAPTCHA غير جاهز بعد');
+    return;
+  }
+
+  try {
+    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      size: 'invisible',
+      sitekey: '6LeFW3YrAAAAAH2-5H3-Bno2q7qo34TdsImWiGw8',
+      callback: () => {
+        console.log('✅ reCAPTCHA تم حله بنجاح');
+      },
+      'expired-callback': () => {
+        console.warn('⚠️ انتهت صلاحية reCAPTCHA. يُفضل إعادة التهيئة');
+      },
+      'error-callback': (err) => {
+        console.error('❌ خطأ في reCAPTCHA:', err);
       }
+    });
 
-      // تنظيف حاوية reCAPTCHA
-      const container = document.getElementById('recaptcha-container');
-      if (container) container.innerHTML = '';
-
-      // إنشاء reCAPTCHA من النوع المخفي
-      const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
-        callback: () => {
-          console.log('✅ reCAPTCHA جاهز');
-        },
-        'expired-callback': () => {
-          console.warn('⚠️ انتهت صلاحية reCAPTCHA');
-        },
-        'error-callback': (err) => {
-          console.error('❌ خطأ reCAPTCHA:', err);
-        }
-      });
-
-      await verifier.render();
-      console.log('✅ تم تقديم reCAPTCHA بنجاح');
-
-      window.recaptchaVerifier = verifier;
-
-    } catch (err) {
-      console.error('❌ فشل إعداد reCAPTCHA:', err);
-    }
-  };
-
-  setupRecaptcha(); // تشغيل reCAPTCHA فورًا بدون تأخير
-
-  return () => {
-    if (window.recaptchaVerifier) {
-      try {
-        window.recaptchaVerifier.clear();
-        window.recaptchaVerifier = null;
-      } catch {
-        console.log('تنظيف عند الخروج...');
-      }
-    }
-  };
+    window.recaptchaVerifier.render().then((widgetId) => {
+      console.log('✅ تم تقديم reCAPTCHA (widgetId =', widgetId, ')');
+    });
+  } catch (err) {
+    console.error('❌ فشل إعداد reCAPTCHA:', err);
+  }
 }, [firebaseStatus]);
+
+
 
 
   // عداد مؤقت لإعادة تفعيل زر الإرسال
