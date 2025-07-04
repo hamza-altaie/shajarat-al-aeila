@@ -109,63 +109,55 @@ const PhoneLogin = () => {
   
   // إعداد reCAPTCHA
   useEffect(() => {
-  if (!firebaseStatus?.services?.auth) return;
+    if (!firebaseStatus?.services?.auth) return;
 
-  const setupRecaptcha = async () => {
-    try {
-      console.log('🔧 بدء إعداد reCAPTCHA...');
-      
-      // تنظيف reCAPTCHA السابق إن وُجد
-      if (window.recaptchaVerifier) {
-        try {
-          await window.recaptchaVerifier.clear();
-        } catch {
-          console.warn('تنظيف reCAPTCHA السابق...');
-        }
-        window.recaptchaVerifier = null;
-      }
-
-      // تنظيف حاوية reCAPTCHA
-      const container = document.getElementById('recaptcha-container');
-      if (container) container.innerHTML = '';
-
-      // إنشاء reCAPTCHA من النوع المخفي
-      const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
-        callback: () => {
-          console.log('✅ reCAPTCHA جاهز');
-        },
-        'expired-callback': () => {
-          console.warn('⚠️ انتهت صلاحية reCAPTCHA');
-        },
-        'error-callback': (err) => {
-          console.error('❌ خطأ reCAPTCHA:', err);
-        }
-      });
-
-      await verifier.render();
-      console.log('✅ تم تقديم reCAPTCHA بنجاح');
-
-      window.recaptchaVerifier = verifier;
-
-    } catch (err) {
-      console.error('❌ فشل إعداد reCAPTCHA:', err);
-    }
-  };
-
-  setupRecaptcha(); // تشغيل reCAPTCHA فورًا بدون تأخير
-
-  return () => {
-    if (window.recaptchaVerifier) {
+    const setupRecaptcha = async () => {
       try {
-        window.recaptchaVerifier.clear();
-        window.recaptchaVerifier = null;
-      } catch {
-        console.log('تنظيف عند الخروج...');
+        console.log('🔧 بدء إعداد reCAPTCHA...');
+        
+        // تنظيف reCAPTCHA السابق
+        if (window.recaptchaVerifier) {
+          try {
+            await window.recaptchaVerifier.clear();
+          } catch {
+            console.warn('تنظيف reCAPTCHA السابق...');
+          }
+          window.recaptchaVerifier = null;
+        }
+
+        // تنظيف حاوية reCAPTCHA
+        const container = document.getElementById('recaptcha-container');
+        if (container) container.innerHTML = '';
+
+        // إنشاء reCAPTCHA v2 العادي (ليس Enterprise)
+        const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          size: 'normal',
+          callback: () => {
+            console.log('✅ reCAPTCHA تم التحقق بنجاح');
+          },
+          'expired-callback': () => {
+            console.warn('⚠️ انتهت صلاحية reCAPTCHA');
+            setError('انتهت صلاحية التحقق الأمني، يرجى المحاولة مرة أخرى');
+          },
+          'error-callback': (err) => {
+            console.error('❌ خطأ reCAPTCHA:', err);
+            setError('خطأ في نظام التحقق الأمني');
+          }
+        });
+
+        await verifier.render();
+        console.log('✅ تم تقديم reCAPTCHA بنجاح');
+
+        window.recaptchaVerifier = verifier;
+
+      } catch (err) {
+        console.error('❌ فشل إعداد reCAPTCHA:', err);
+        setError('فشل في إعداد نظام التحقق الأمني');
       }
-    }
-  };
-}, [firebaseStatus]);
+    };
+
+    setupRecaptcha();
+  }, [firebaseStatus]);
 
 
   // عداد مؤقت لإعادة تفعيل زر الإرسال
@@ -798,9 +790,9 @@ Authentication → Sign-in method → Phone`;
         </Box>
 
         {/* حاوية reCAPTCHA */}
-        <Box 
-          id="recaptcha-container"
-        />
+        <Box sx={{ mt: 2, mb: 2, textAlign: 'center' }}>
+          <div id="recaptcha-container"></div>
+        </Box>
       </Paper>
     </Container>
   );
