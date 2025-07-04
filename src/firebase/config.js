@@ -1,16 +1,12 @@
-// src/firebase/config.js - إعدادات Firebase موحدة ومصححة
-
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
-// ✅ اختر مجموعة واحدة فقط من الإعدادات
-// احصل على الإعدادات الصحيحة من Firebase Console
-
+// إعدادات مشروع Firebase
 const firebaseConfig = {
-  // 🔥 استخدم هذه الإعدادات إذا كان مشروعك هو "shajarat-al-aeila-1"
   apiKey: "AIzaSyBbq9BYxf04dxpeqaK_1Y5OPceynURDuao",
   authDomain: "shajarat-al-aeila-1.firebaseapp.com",
   projectId: "shajarat-al-aeila-1",
@@ -20,36 +16,22 @@ const firebaseConfig = {
   measurementId: "G-7DVE3CHCW9"
 };
 
-// تنظيف التطبيقات الموجودة
-const existingApps = getApps();
-existingApps.forEach(app => {
-  try {
-    app.delete();
-  } catch (error) {
-    console.log('تنظيف Firebase apps:', error);
-  }
+// 1️⃣ تهيئة التطبيق أولاً
+const app = initializeApp(firebaseConfig);
+
+// 2️⃣ ثم تفعيل App Check بعد تهيئة app
+initializeAppCheck(app, {
+  provider: new ReCaptchaV3Provider('6LeFW3YrAAAAAH2-5H3-Bno2q7qo34TdslmWiGw8'),
+  isTokenAutoRefreshEnabled: true
 });
 
-// تهيئة Firebase
-let app, auth, db, storage, functions;
+// 3️⃣ تهيئة باقي الخدمات
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+const functions = getFunctions(app);
 
-try {
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
-  storage = getStorage(app);
-  functions = getFunctions(app);
-
-  console.log('✅ Firebase تم تهيئته بنجاح');
-  console.log('📋 Project ID:', firebaseConfig.projectId);
-  console.log('🔗 Auth Domain:', firebaseConfig.authDomain);
-  
-} catch (error) {
-  console.error('❌ خطأ في تهيئة Firebase:', error);
-  throw error;
-}
-
-// تصدير الخدمات
+// ✅ تصدير الخدمات
 export { auth, db, storage, functions };
 export default app;
 

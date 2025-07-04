@@ -224,6 +224,7 @@ const handlePhoneChange = (e) => {
     
     // محاولة إرسال الكود
     console.log('📤 إرسال الكود إلى:', phoneNumber);
+    verifier._renderPromise = null;
     const confirmation = await signInWithPhoneNumber(auth, phoneNumber, verifier);
     
     // نجح الإرسال
