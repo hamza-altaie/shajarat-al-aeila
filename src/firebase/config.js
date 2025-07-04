@@ -1,108 +1,113 @@
+// src/firebase/config.js - للإنتاج
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { getAnalytics } from 'firebase/analytics';
 
-// إعدادات مشروع Firebase
+// إعدادات Firebase مع التحقق
 const firebaseConfig = {
-  apiKey: "AIzaSyBbq9BYxf04dxpeqaK_1Y5OPceynURDuao",
-  authDomain: "shajarat-al-aeila-1.firebaseapp.com",
-  projectId: "shajarat-al-aeila-1",
-  storageBucket: "shajarat-al-aeila-1.appspot.com",
-  messagingSenderId: "803509567710",
-  appId: "1:803509567710:web:6e7dfc549a605798d9424f",
-  measurementId: "G-7DVE3CHCW9"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-// 1️⃣ تهيئة التطبيق أولاً
-const app = initializeApp(firebaseConfig);
-
-// 2️⃣ ثم تفعيل App Check بعد تهيئة app
-initializeAppCheck(app, {
-  provider: new ReCaptchaV3Provider('6LeFW3YrAAAAAH2-5H3-Bno2q7qo34TdslmWiGw8'),
-  isTokenAutoRefreshEnabled: true
-});
-
-// 3️⃣ تهيئة باقي الخدمات
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
-const functions = getFunctions(app);
-
-// ✅ تصدير الخدمات
-export { auth, db, storage, functions };
-export default app;
-
-// دالة فحص الحالة
-export const getFirebaseStatus = () => {
-  const isInitialized = !!(app && auth && db);
+// التحقق من المتغيرات المطلوبة
+const validateConfig = () => {
+  const required = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
+  const missing = required.filter(key => !firebaseConfig[key]);
   
+  if (missing.length > 0) {
+    if (import.meta.env.PROD) {
+      throw new Error(`❌ Missing production Firebase config: ${missing.join(', ')}`);
+    } else {
+      console.warn('⚠️ Missing Firebase config:', missing);
+      // في التطوير، استخدم القيم الافتراضية
+      Object.assign(firebaseConfig, {
+        apiKey: firebaseConfig.apiKey || "AIzaSyBbq9BYxf04dxpeqaK_1Y5OPceynURDuao",
+        authDomain: firebaseConfig.authDomain || "shajarat-al-aeila-1.firebaseapp.com",
+        projectId: firebaseConfig.projectId || "shajarat-al-aeila-1",
+        storageBucket: firebaseConfig.storageBucket || "shajarat-al-aeila-1.appspot.com",
+        messagingSenderId: firebaseConfig.messagingSenderId || "803509567710",
+        appId: firebaseConfig.appId || "1:803509567710:web:6e7dfc549a605798d9424f"
+      });
+    }
+  }
+};
+
+// التحقق من التكوين
+validateConfig();
+
+// تهيئة Firebase
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+
+// تفعيل App Check للإنتاج فقط
+if (import.meta.env.PROD && import.meta.env.VITE_APP_CHECK_ENABLED === 'true') {
+  const appCheckSiteKey = import.meta.env.VITE_APP_CHECK_SITE_KEY;
+  if (appCheckSiteKey) {
+    try {
+      initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(appCheckSiteKey),
+        isTokenAutoRefreshEnabled: true
+      });
+      console.log('✅ App Check enabled for production');
+    } catch (error) {
+      console.error('❌ App Check initialization failed:', error);
+    }
+  }
+}
+
+// تهيئة الخدمات
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);
+export const functions = getFunctions(app);
+
+// Analytics للإنتاج فقط
+export const analytics = import.meta.env.PROD ? getAnalytics(app) : null;
+
+// دوال المساعدة المحسنة
+export const getFirebaseStatus = () => {
   return {
-    isInitialized,
+    isInitialized: !!(app && auth && db),
+    environment: import.meta.env.MODE,
     config: {
       projectId: firebaseConfig.projectId,
       authDomain: firebaseConfig.authDomain,
-      apiKey: firebaseConfig.apiKey ? 'موجود' : 'غير موجود'
+      hasApiKey: !!firebaseConfig.apiKey,
+      hasAppCheck: import.meta.env.VITE_APP_CHECK_ENABLED === 'true'
     },
     services: {
       auth: !!auth,
       firestore: !!db,
       storage: !!storage,
-      functions: !!functions
+      functions: !!functions,
+      analytics: !!analytics
     },
     timestamp: new Date().toISOString()
   };
 };
 
-// دالة اختبار الاتصال
 export const testFirebaseConnection = async () => {
   try {
-    if (!auth || !db) {
-      throw new Error('Firebase services غير متاحة');
-    }
-    
-    // اختبار بسيط للاتصال
-    const currentUser = auth.currentUser;
-    console.log('👤 Current user:', currentUser ? 'موجود' : 'غير موجود');
-    
     return {
       success: true,
-      message: 'Firebase جاهز للاستخدام',
-      services: {
-        auth: 'متاح',
-        firestore: 'متاح',
-        currentUser: currentUser ? 'مسجل الدخول' : 'غير مسجل'
-      }
+      message: 'Firebase services ready',
+      environment: import.meta.env.MODE
     };
-    
   } catch (error) {
-    console.error('❌ خطأ في اختبار Firebase:', error);
     return {
       success: false,
       error: error.message,
-      message: 'فشل في اختبار Firebase'
+      message: 'Firebase connection failed'
     };
   }
 };
 
-// دالة تشخيص شاملة
-export const diagnoseFirebase = () => {
-  console.log('🔍 تشخيص Firebase...');
-  console.log('📋 التكوين:');
-  console.log('- Project ID:', firebaseConfig.projectId);
-  console.log('- Auth Domain:', firebaseConfig.authDomain);
-  console.log('- API Key:', firebaseConfig.apiKey ? 'موجود' : '❌ غير موجود');
-  console.log('- Current Domain:', window.location.hostname);
-  console.log('- Port:', window.location.port);
-  
-  console.log('🔧 الخدمات:');
-  console.log('- App:', app ? '✅ متاح' : '❌ غير متاح');
-  console.log('- Auth:', auth ? '✅ متاح' : '❌ غير متاح');
-  console.log('- Firestore:', db ? '✅ متاح' : '❌ غير متاح');
-  console.log('- Storage:', storage ? '✅ متاح' : '❌ غير متاح');
-  console.log('- Functions:', functions ? '✅ متاح' : '❌ غير متاح');
-  
-  return getFirebaseStatus();
-};
+export default app;

@@ -16,6 +16,33 @@ import {
 
 import userService from '../userService';
 
+// ✅ إضافة الدوال المفقودة مباشرة في الملف
+const validateName = (name) => {
+  if (!name || typeof name !== 'string') return false;
+  const trimmedName = name.trim();
+  const nameRegex = /^[\u0600-\u06FFa-zA-Z\s]{2,40}$/;
+  return nameRegex.test(trimmedName) && trimmedName.length >= 2;
+};
+
+const validateBirthdate = (date) => {
+  if (!date || typeof date !== 'string') return false;
+  
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(date)) return false;
+  
+  const birthDate = new Date(date);
+  const today = new Date();
+  
+  if (isNaN(birthDate.getTime())) return false;
+  if (birthDate > today) return false;
+  
+  const age = today.getFullYear() - birthDate.getFullYear();
+  if (age < 0 || age > 150) return false;
+  if (birthDate.getFullYear() < 1850) return false;
+  
+  return true;
+};
+
 const PhoneLogin = () => {
   const navigate = useNavigate();
 
