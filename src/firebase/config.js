@@ -4,7 +4,6 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import { getAnalytics } from 'firebase/analytics';
 
 // إعدادات Firebase مع التحقق
@@ -47,21 +46,6 @@ validateConfig();
 // تهيئة Firebase
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-// تفعيل App Check للإنتاج فقط
-if (import.meta.env.PROD && import.meta.env.VITE_APP_CHECK_ENABLED === 'true') {
-  const appCheckSiteKey = import.meta.env.VITE_APP_CHECK_SITE_KEY;
-  if (appCheckSiteKey) {
-    try {
-      initializeAppCheck(app, {
-        provider: new ReCaptchaV3Provider(appCheckSiteKey),
-        isTokenAutoRefreshEnabled: true
-      });
-      console.log('✅ App Check enabled for production');
-    } catch (error) {
-      console.error('❌ App Check initialization failed:', error);
-    }
-  }
-}
 
 // تهيئة الخدمات
 export const auth = getAuth(app);
