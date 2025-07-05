@@ -131,7 +131,7 @@ const PhoneLogin = () => {
 
         // إنشاء reCAPTCHA v2 العادي (ليس Enterprise)
         const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          size: 'normal',
+          size: 'invisible',
           callback: () => {
             console.log('✅ reCAPTCHA تم التحقق بنجاح');
           },

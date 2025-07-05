@@ -184,7 +184,7 @@ export const validateUserData = (userData) => {
     errors.push('رقم الهاتف مطلوب');
   }
   
-  if (userData.phoneNumber && !/^\+966[5][0-9]{8}$/.test(userData.phoneNumber)) {
+  if (userData.phoneNumber && !/^\+9647\d{8}$/.test(userData.phoneNumber)) {
     errors.push('رقم الهاتف غير صحيح');
   }
   
