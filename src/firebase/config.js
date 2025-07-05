@@ -1,97 +1,60 @@
-// src/firebase/config.js - للإنتاج
-import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
-import { getFunctions } from 'firebase/functions';
-import { getAnalytics } from 'firebase/analytics';
+// src/firebase/config.js
 
-// إعدادات Firebase مع التحقق
+import { initializeApp } from "firebase/app";
+import { getAuth, RecaptchaVerifier } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage"; // ✅ إضافة التخزين
+
+// ✅ إعداد Firebase Config للإنتاج
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  apiKey: "AIzaSyDzRYmc0QZnjUvuI1ot4c2aO3jlqbNyXB0",
+  authDomain: "shajarat-al-aeila-iraq.firebaseapp.com",
+  projectId: "shajarat-al-aeila-iraq",
+  storageBucket: "shajarat-al-aeila-iraq.firebasestorage.app",
+  messagingSenderId: "648256795376",
+  appId: "1:648256795376:web:9257af9799c7e42abfc835",
+  measurementId: "G-ZJM5H3J2RQ"
 };
 
-// التحقق من المتغيرات المطلوبة
-const validateConfig = () => {
-  const required = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
-  const missing = required.filter(key => !firebaseConfig[key]);
-  
-  if (missing.length > 0) {
-    if (import.meta.env.PROD) {
-      throw new Error(`❌ Missing production Firebase config: ${missing.join(', ')}`);
-    } else {
-      console.warn('⚠️ Missing Firebase config:', missing);
-      // في التطوير، استخدم القيم الافتراضية
-      Object.assign(firebaseConfig, {
-        apiKey: firebaseConfig.apiKey || "AIzaSyBbq9BYxf04dxpeqaK_1Y5OPceynURDuao",
-        authDomain: firebaseConfig.authDomain || "shajarat-al-aeila-1.firebaseapp.com",
-        projectId: firebaseConfig.projectId || "shajarat-al-aeila-1",
-        storageBucket: firebaseConfig.storageBucket || "shajarat-al-aeila-1.appspot.com",
-        messagingSenderId: firebaseConfig.messagingSenderId || "803509567710",
-        appId: firebaseConfig.appId || "1:803509567710:web:6e7dfc549a605798d9424f"
-      });
-    }
-  }
-};
+// ✅ تهيئة Firebase
+const app = initializeApp(firebaseConfig);
 
-// التحقق من التكوين
-validateConfig();
+// ✅ تهيئة الخدمات المطلوبة
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app); // ✅ تهيئة التخزين
 
-// تهيئة Firebase
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-
-
-// تهيئة الخدمات
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
-export const functions = getFunctions(app);
-
-// Analytics للإنتاج فقط
-export const analytics = import.meta.env.PROD ? getAnalytics(app) : null;
-
-// دوال المساعدة المحسنة
-export const getFirebaseStatus = () => {
+// 🔍 دالة لفحص حالة Firebase
+const getFirebaseStatus = () => {
   return {
-    isInitialized: !!(app && auth && db),
-    environment: import.meta.env.MODE,
-    config: {
-      projectId: firebaseConfig.projectId,
-      authDomain: firebaseConfig.authDomain,
-      hasApiKey: !!firebaseConfig.apiKey,
-      hasAppCheck: import.meta.env.VITE_APP_CHECK_ENABLED === 'true'
-    },
+    isInitialized: !!auth,
     services: {
       auth: !!auth,
-      firestore: !!db,
-      storage: !!storage,
-      functions: !!functions,
-      analytics: !!analytics
+      db: !!db,
+      storage: !!storage
     },
-    timestamp: new Date().toISOString()
+    config: firebaseConfig
   };
 };
 
-export const testFirebaseConnection = async () => {
+// 🔌 دالة لاختبار الاتصال بقاعدة البيانات
+const testFirebaseConnection = async () => {
   try {
-    return {
-      success: true,
-      message: 'Firebase services ready',
-      environment: import.meta.env.MODE
-    };
+    // ملاحظة: لا يوجد collection('test') بشكل مباشر في Firestore v9+
+    // ممكن نستخدم الطريقة الجديدة لاحقاً
+    return { success: true };
   } catch (error) {
-    return {
-      success: false,
-      error: error.message,
-      message: 'Firebase connection failed'
-    };
+    return { success: false, error };
   }
 };
 
-export default app;
+// ✅ التصدير الموحد
+export {
+  app,
+  auth,
+  db,
+  storage,
+  RecaptchaVerifier,
+  getFirebaseStatus,
+  testFirebaseConnection
+};

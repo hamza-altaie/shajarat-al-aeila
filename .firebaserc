@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "shajarat-al-aeila"
-  }
+    "default": "shajarat-al-aeila-iraq"
+  },
+  "targets": {},
+  "etags": {}
 }

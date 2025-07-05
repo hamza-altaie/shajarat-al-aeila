@@ -71,7 +71,11 @@ exports.onFamilyMemberAdded = onDocumentCreated(
 
     } catch (error) {
       console.error("❌ خطأ في معالجة إضافة العضو:", error);
-      await logError(userId, "family_member_add_error", error);
+      if (userId) {
+        await logError(userId, "family_member_add_error", error);
+      } else {
+        console.error("⚠️ لم يتم تحديد userId أثناء تسجيل الخطأ.");
+      }
     }
   }
 );
