@@ -510,3 +510,13 @@ table {
   position: absolute;
   left: -9999px;
 }
+
+
+.family-tree-chart-container svg {
+  transform: translateZ(0) scale(1.00001) !important;
+  -webkit-transform: translateZ(0) scale(1.00001) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  overflow: visible !important;
+  display: block !important;
+}

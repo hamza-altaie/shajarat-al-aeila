@@ -1,5 +1,6 @@
 // src/components/FamilyTreeAdvanced.jsx - النسخة المصححة مع الشجرة الموسعة الحقيقية
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+
 import * as d3 from 'd3';
 import { createRoot } from 'react-dom/client';
 import ReactDOM from 'react-dom';
@@ -77,6 +78,29 @@ export default function FamilyTreeAdvanced() {
   // ===========================================================================
   // دوال مساعدة ثابتة
   // ===========================================================================
+
+// 🔧 إصلاح بسيط لـ iPhone
+  useEffect(() => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (isIOS) {
+      const style = document.createElement('style');
+      style.textContent = `
+        svg {
+          transform: translateZ(0) !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+          overflow: visible !important;
+        }
+        svg g, svg text, svg rect, svg circle {
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
+
+
 
   const sanitizeMemberData = (memberData) => {
     return {
