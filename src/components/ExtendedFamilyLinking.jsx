@@ -64,21 +64,22 @@ export default function ExtendedFamilyLinking({
 
   // مراقبة حالة المصادقة
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        console.log('✅ المستخدم مصادق:', {
-          uid: user.uid,
-          phone: user.phoneNumber
-        });
-      } else {
-        console.error('❌ المستخدم غير مصادق');
-        setMessage('يجب تسجيل الدخول أولاً');
-        setMessageType('error');
-      }
-    });
-    
-    return () => unsubscribe();
-  }, []);
+  const unsubscribe = onAuthStateChanged(auth, (user) => {
+    if (user) {
+      console.log('✅ المستخدم مصادق:', {
+        uid: user.uid,
+        phone: user.phoneNumber
+      });
+      setMessage(''); // امسح أي رسائل خطأ سابقة
+    } else {
+      console.error('❌ المستخدم غير مصادق');
+      setMessage('يجب تسجيل الدخول أولاً للوصول لميزة ربط العائلات');
+      setMessageType('warning');
+    }
+  });
+  
+  return () => unsubscribe();
+}, []);
 
   // دوال مساعدة
   const sanitizeName = useCallback((firstName, fatherName, surname) => {
@@ -110,9 +111,14 @@ export default function ExtendedFamilyLinking({
   // ===========================================================================
 
   const loadFamiliesForLinking = useCallback(async () => {
-    if (!currentUserUid) return;
-    
-    setInitialLoading(true);
+  if (!currentUserUid) {
+    console.log('❌ لا يمكن تحميل العائلات: المستخدم غير مصادق');
+    setMessage('يجب تسجيل الدخول أولاً');
+    setMessageType('warning');
+    return;
+  }
+  
+  setInitialLoading(true);
     
     try {
       // التحقق من حالة المصادقة أولاً
@@ -210,7 +216,10 @@ export default function ExtendedFamilyLinking({
   }, [currentUserUid, existingLinks, sanitizeName]);
 
   const loadLinkedFamilies = useCallback(async () => {
-    if (!currentUserUid) return;
+  if (!currentUserUid) {
+    console.log('❌ لا يمكن تحميل الروابط: المستخدم غير مصادق');
+    return;
+  }
     
     try {
       const userDoc = await getDoc(doc(db, 'users', currentUserUid));
@@ -303,68 +312,87 @@ export default function ExtendedFamilyLinking({
   // ===========================================================================
 
   const handleCreateLink = useCallback(async () => {
-    if (!selectedFamily || !linkType || !currentUserUid) {
-      setMessage('يرجى ملء جميع الحقول المطلوبة');
-      setMessageType('error');
-      return;
+  if (!selectedFamily || !linkType || !currentUserUid) {
+    setMessage('يرجى ملء جميع الحقول المطلوبة');
+    setMessageType('error');
+    return;
+  }
+  
+  setLoading(true);
+
+  try {
+    // التحقق من حالة المصادقة أولاً
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('انتهت جلسة تسجيل الدخول. يرجى تسجيل الدخول مرة أخرى');
+    }
+
+    const linkData = {
+      targetFamilyUid: selectedFamily.uid,
+      targetFamilyName: selectedFamily.name,
+      linkType,
+      relationDescription: relationDescription || '',
+      establishedAt: new Date().toISOString(),
+      establishedBy: currentUserUid
+    };
+    
+    const reverseLinkData = {
+      targetFamilyUid: currentUserUid,
+      targetFamilyName: 'عائلتك',
+      linkType: getReverseLinkType(linkType),
+      relationDescription: relationDescription || '',
+      establishedAt: new Date().toISOString(),
+      establishedBy: currentUserUid
+    };
+    
+    // إضافة الرابط للمستخدم الحالي
+    await updateDoc(doc(db, 'users', currentUserUid), {
+      linkedFamilies: arrayUnion(linkData)
+    });
+
+    // إضافة الرابط العكسي للعائلة المستهدفة
+    await updateDoc(doc(db, 'users', selectedFamily.uid), {
+      linkedFamilies: arrayUnion(reverseLinkData)
+    });
+
+    setMessage(`تم ربط عائلتك مع ${selectedFamily.name} بنجاح!`);
+    setMessageType('success');
+    setLinkingDialogOpen(false);
+
+    // إعادة تحميل البيانات
+    await Promise.all([loadFamiliesForLinking(), loadLinkedFamilies()]);
+
+    // التبديل للعائلات المرتبطة لرؤية النتيجة
+    setCurrentTab(1);
+
+    // إشعار المكون الأب لإغلاق الحوار الرئيسي
+    if (onLinkingComplete) {
+      setTimeout(() => {
+        onLinkingComplete();
+      }, 1500);
     }
     
-    setLoading(true);
+  } catch (error) {
+    console.error('❌ خطأ في إنشاء الرابط:', error);
     
-    try {
-      const linkData = {
-        targetFamilyUid: selectedFamily.uid,
-        targetFamilyName: selectedFamily.name,
-        linkType,
-        relationDescription: relationDescription || '',
-        establishedAt: new Date().toISOString(),
-        establishedBy: currentUserUid
-      };
-      
-      const reverseLinkData = {
-        targetFamilyUid: currentUserUid,
-        targetFamilyName: 'عائلتك',
-        linkType: getReverseLinkType(linkType),
-        relationDescription: relationDescription || '',
-        establishedAt: new Date().toISOString(),
-        establishedBy: currentUserUid
-      };
-      
-      // إضافة الرابط العكسي للعائلة المستهدفة
-      await updateDoc(doc(db, 'users', selectedFamily.uid), {
-        linkedFamilies: arrayUnion(reverseLinkData)
-      });
-
-      // إعادة تحميل البيانات
-      setMessage(`تم ربط عائلتك مع ${selectedFamily.name} بنجاح!`);
-      setMessageType('success');
-      setLinkingDialogOpen(false);
-
-      // إعادة تحميل البيانات
-      await Promise.all([loadFamiliesForLinking(), loadLinkedFamilies()]);
-
-      // التبديل للعائلات المرتبطة لرؤية النتيجة
-      setCurrentTab(1);
-
-      // إشعار المكون الأب لإغلاق الحوار الرئيسي
-      if (onLinkingComplete) {
-        // تأخير قصير للسماح برؤية رسالة النجاح
-        setTimeout(() => {
-          onLinkingComplete();
-        }, 1500);
-      }
-      
-    } catch (error) {
-      console.error('❌ خطأ في إنشاء الرابط:', error);
-      setMessage('حدث خطأ أثناء ربط العائلات');
-      setMessageType('error');
-    } finally {
-      setLoading(false);
-      // إغلاق أي حوارات مفتوحة فوراً
-      setLinkingDialogOpen(false);
-      setUnlinkDialogOpen(false);
+    let friendlyMessage = 'حدث خطأ أثناء ربط العائلات';
+    
+    if (error.code === 'permission-denied' || error.code === 'unauthenticated') {
+      friendlyMessage = 'ليس لديك صلاحية للقيام بهذا العمل. تحقق من تسجيل الدخول';
+    } else if (error.message.includes('Missing or insufficient permissions')) {
+      friendlyMessage = 'أذونات غير كافية. تحقق من قواعد Firestore';
+    } else if (error.code === 'unavailable') {
+      friendlyMessage = 'الخدمة غير متاحة حالياً. حاول مرة أخرى';
     }
-  }, [selectedFamily, linkType, relationDescription, currentUserUid, getReverseLinkType, loadFamiliesForLinking, loadLinkedFamilies, onLinkingComplete]);
+  
+    setMessage(friendlyMessage);
+    setMessageType('error');
+  } finally {
+    setLoading(false);
+    setLinkingDialogOpen(false);
+    setUnlinkDialogOpen(false);
+  }
+}, [selectedFamily, linkType, relationDescription, currentUserUid, getReverseLinkType, loadFamiliesForLinking, loadLinkedFamilies, onLinkingComplete]);
 
   const handleRemoveLink = useCallback(async () => {
   if (!selectedLinkToRemove || !currentUserUid) return;
