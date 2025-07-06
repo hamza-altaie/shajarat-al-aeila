@@ -1507,18 +1507,13 @@ const drawTreeWithD3 = useCallback((data) => {
           <ExtendedFamilyLinking
             currentUserUid={uid}
             onLinkingComplete={() => {
-              // إغلاق فوري لحوار الربط
               setShowLinkingPanel(false);
-              
-              // إعادة تحميل البيانات
               setExtendedTreeData(null);
+              // تحديث قائمة العائلات المرتبطة
+              loadLinkedFamilies();
               if (showExtendedTree) {
                 loadExtendedTree();
               }
-              loadLinkedFamilies();
-              
-              // إظهار رسالة نجاح
-              showSnackbar('✅ تم تحديث الروابط بنجاح', 'success');
             }}
             existingLinks={linkedFamilies.map(link => link.targetFamilyUid)}
           />
