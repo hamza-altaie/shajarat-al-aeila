@@ -1,6 +1,6 @@
 // src/components/FamilyTreeAdvanced.jsx - النسخة المصححة مع الشجرة الموسعة الحقيقية
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import IOSFamilyNodeSVG from './IOSFamilyNodeSVG';
+
 import * as d3 from 'd3';
 import { createRoot } from 'react-dom/client';
 import ReactDOM from 'react-dom';
@@ -79,46 +79,26 @@ export default function FamilyTreeAdvanced() {
   // دوال مساعدة ثابتة
   // ===========================================================================
 
-  // 🔧 إصلاح بسيط لـ iPhone
+// 🔧 إصلاح بسيط لـ iPhone
   useEffect(() => {
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-  
-  if (isIOS) {
-    console.log('🍎 إصلاح الزووم للآيفون');
-    
-    // منع الزووم على الواجهة، السماح به فقط على الشجرة
-    const preventGlobalZoom = (e) => {
-      if (e.touches && e.touches.length > 1) {
-        const treeContainer = containerRef.current;
-        if (!treeContainer || !treeContainer.contains(e.target)) {
-          e.preventDefault();
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (isIOS) {
+      const style = document.createElement('style');
+      style.textContent = `
+        svg {
+          transform: translateZ(0) !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+          overflow: visible !important;
         }
-      }
-    };
-    
-    // CSS بسيط لمنع الزووم العام
-    const style = document.createElement('style');
-    style.innerHTML = `
-      body { 
-        touch-action: manipulation !important; 
-        zoom: 1 !important; 
-      }
-      .family-tree-chart-container { 
-        touch-action: none !important; 
-      }
-    `;
-    document.head.appendChild(style);
-    
-    document.addEventListener('touchstart', preventGlobalZoom, { passive: false });
-    document.addEventListener('touchmove', preventGlobalZoom, { passive: false });
-    
-    return () => {
-      document.removeEventListener('touchstart', preventGlobalZoom);
-      document.removeEventListener('touchmove', preventGlobalZoom);
-      document.head.removeChild(style);
-    };
-  }
-}, []);
+        svg g, svg text, svg rect, svg circle {
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
 
 
 
@@ -879,62 +859,22 @@ const drawTreeWithD3 = useCallback((data) => {
 
   // إضافة محتوى العقد - نفس التصميم الأصلي تماماً
   nodes.each(function(d) {
-  const nodeGroup = d3.select(this);
-  const nodeData = d.data.attributes || d.data;
-  const uniqueId = nodeData.id || nodeData.globalId || Math.random().toString(36).substring(7);
-  
-  // إضافة خاصية highlightMatch بناءً على البحث
-  let highlightMatch = false;
-  if (searchQuery && searchQuery.length > 1) {
-    const q = searchQuery.trim();
-    if (
-      (nodeData.name && nodeData.name.includes(q)) ||
-      (nodeData.firstName && nodeData.firstName.includes(q))
-    ) {
-      highlightMatch = true;
-    }
-  }
-
-  const isIOSSafari = /iPad|iPhone|iPod/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent);
-
-  if (isIOSSafari) {
-    // === استخدام مكون iOS المنعزل ===
-    console.log('🍎 استخدام IOSFamilyNodeSVG للعقدة:', nodeData.name);
+    const nodeGroup = d3.select(this);
+    const nodeData = d.data.attributes || d.data;
+    const uniqueId = nodeData.id || nodeData.globalId || Math.random().toString(36).substring(7);
     
-    // إنشاء foreignObject خاص بـ React
-    const foreignObject = nodeGroup.append("foreignObject")
-      .attr("width", 250)
-      .attr("height", 130)
-      .attr("x", -125)
-      .attr("y", -65)
-      .style("overflow", "visible");
-
-    const reactContainer = foreignObject.append("xhtml:div")
-      .style("width", "100%")
-      .style("height", "100%");
-
-    const reactElement = reactContainer.node();
-    if (reactElement) {
-      const root = createRoot(reactElement);
-      reactRootsRef.current.set(uniqueId, root);
-      
-      // رندر مكون iOS المخصص
-      root.render(
-        <IOSFamilyNodeSVG 
-          nodeDatum={{
-            ...nodeData,
-            name: nodeData.name || buildFullName(nodeData),
-            highlightMatch,
-            birthdate: nodeData.birthdate || nodeData.birthDate
-          }}
-          onNodeClick={handleNodeClick}
-          uniqueId={uniqueId}
-        />
-      );
+    // إضافة خاصية highlightMatch بناءً على البحث
+    let highlightMatch = false;
+    if (searchQuery && searchQuery.length > 1) {
+      const q = searchQuery.trim();
+      if (
+        (nodeData.name && nodeData.name.includes(q)) ||
+        (nodeData.firstName && nodeData.firstName.includes(q))
+      ) {
+        highlightMatch = true;
+      }
     }
     
-  } else {
-    // === المتصفحات الأخرى: استخدام ModernFamilyNodeHTML الأصلي ===
     try {
       const foreignObject = nodeGroup.append("foreignObject")
         .attr("width", 350)
@@ -996,12 +936,10 @@ const drawTreeWithD3 = useCallback((data) => {
           />
         );
       }
-    } catch (error) {
-      console.error('خطأ في المتصفح العادي:', error);
+    } catch {
       // معالجة صامتة للأخطاء
     }
-  }
-});
+  });
 
   // معالجة تداخل العقد - نفس الطريقة الأصلية
   const nodesByDepth = {};
