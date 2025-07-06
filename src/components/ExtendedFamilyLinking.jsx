@@ -1,5 +1,7 @@
 // src/components/ExtendedFamilyLinking.jsx - مع إصلاحات عرض الهاتف العمودي
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../firebase/config';
 import {
   Box, Card, CardContent, Typography, Button, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, Autocomplete, Chip,
@@ -59,6 +61,25 @@ export default function ExtendedFamilyLinking({
     { value: 'extended', label: 'قرابة بعيدة', icon: '🌳', description: 'روابط أخرى' }
   ], []);
 
+
+  // مراقبة حالة المصادقة
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log('✅ المستخدم مصادق:', {
+          uid: user.uid,
+          phone: user.phoneNumber
+        });
+      } else {
+        console.error('❌ المستخدم غير مصادق');
+        setMessage('يجب تسجيل الدخول أولاً');
+        setMessageType('error');
+      }
+    });
+    
+    return () => unsubscribe();
+  }, []);
+
   // دوال مساعدة
   const sanitizeName = useCallback((firstName, fatherName, surname) => {
     const parts = [firstName, fatherName, surname].filter(part => 
@@ -71,10 +92,10 @@ export default function ExtendedFamilyLinking({
     switch (linkType) {
       case 'parent-child': return 'child-parent';
       case 'child-parent': return 'parent-child';
-      case 'sibling': return 'sibling';
-      case 'marriage': return 'marriage';
-      case 'cousin': return 'cousin';
-      case 'extended': return 'extended';
+      case 'sibling': return 'sibling'; // الأشقاء يبقون أشقاء
+      case 'marriage': return 'marriage'; // الزواج يبقى زواج
+      case 'cousin': return 'cousin'; // أبناء العم يبقون أبناء عم
+      case 'extended': return 'extended'; // القرابة البعيدة تبقى بعيدة
       default: return 'extended';
     }
   }, []);
@@ -94,6 +115,19 @@ export default function ExtendedFamilyLinking({
     setInitialLoading(true);
     
     try {
+      // التحقق من حالة المصادقة أولاً
+      const { auth } = await import('../firebase/config');
+      const currentUser = auth.currentUser;
+      
+      if (!currentUser) {
+        throw new Error('المستخدم غير مصادق عليه. يرجى تسجيل الدخول مرة أخرى.');
+      }
+      
+      // التحقق من بيانات المستخدم الحالي
+      const currentUserDoc = await getDoc(doc(db, 'users', currentUserUid));
+      if (!currentUserDoc.exists()) {
+        throw new Error('بيانات المستخدم الحالي غير موجودة في قاعدة البيانات');
+      }
       const usersSnapshot = await getDocs(collection(db, 'users'));
       const families = [];
       
@@ -153,7 +187,22 @@ export default function ExtendedFamilyLinking({
       
     } catch (error) {
       console.error('❌ خطأ في تحميل العائلات:', error);
-      setMessage('حدث خطأ أثناء تحميل العائلات');
+      
+      let errorMessage = 'حدث خطأ أثناء تحميل العائلات';
+      
+      if (error.code === 'permission-denied') {
+        errorMessage = 'ليس لديك صلاحية للوصول إلى هذه البيانات. تحقق من إعدادات Firebase وقواعد Firestore.';
+      } else if (error.code === 'unauthenticated') {
+        errorMessage = 'انتهت جلسة تسجيل الدخول. يرجى تسجيل الدخول مرة أخرى.';
+      } else if (error.code === 'unavailable') {
+        errorMessage = 'خدمة Firebase غير متاحة حالياً. حاول مرة أخرى لاحقاً.';
+      } else if (error.message.includes('مصادق')) {
+        errorMessage = 'انتهت جلسة تسجيل الدخول. يرجى تسجيل الدخول مرة أخرى.';
+      } else if (error.message.includes('بيانات المستخدم')) {
+        errorMessage = 'لم يتم العثور على بيانات حسابك. تحقق من إعداد الحساب.';
+      }
+      
+      setMessage(errorMessage);
       setMessageType('error');
     } finally {
       setInitialLoading(false);
@@ -281,25 +330,28 @@ export default function ExtendedFamilyLinking({
         establishedBy: currentUserUid
       };
       
-      // إضافة الرابط للمستخدم الحالي
-      await updateDoc(doc(db, 'users', currentUserUid), {
-        linkedFamilies: arrayUnion(linkData)
-      });
-      
       // إضافة الرابط العكسي للعائلة المستهدفة
       await updateDoc(doc(db, 'users', selectedFamily.uid), {
         linkedFamilies: arrayUnion(reverseLinkData)
       });
-      
+
+      // إعادة تحميل البيانات
       setMessage(`تم ربط عائلتك مع ${selectedFamily.name} بنجاح!`);
       setMessageType('success');
       setLinkingDialogOpen(false);
-      
+
       // إعادة تحميل البيانات
       await Promise.all([loadFamiliesForLinking(), loadLinkedFamilies()]);
-      
+
+      // التبديل للعائلات المرتبطة لرؤية النتيجة
+      setCurrentTab(1);
+
+      // إشعار المكون الأب لإغلاق الحوار الرئيسي
       if (onLinkingComplete) {
-        onLinkingComplete();
+        // تأخير قصير للسماح برؤية رسالة النجاح
+        setTimeout(() => {
+          onLinkingComplete();
+        }, 1500);
       }
       
     } catch (error) {
@@ -308,56 +360,104 @@ export default function ExtendedFamilyLinking({
       setMessageType('error');
     } finally {
       setLoading(false);
+      // إغلاق أي حوارات مفتوحة فوراً
+      setLinkingDialogOpen(false);
+      setUnlinkDialogOpen(false);
     }
   }, [selectedFamily, linkType, relationDescription, currentUserUid, getReverseLinkType, loadFamiliesForLinking, loadLinkedFamilies, onLinkingComplete]);
 
   const handleRemoveLink = useCallback(async () => {
-    if (!selectedLinkToRemove || !currentUserUid) return;
+  if (!selectedLinkToRemove || !currentUserUid) return;
+  
+  setLoading(true);
+  
+  try {
+    // التحقق من صلاحيات المستخدم أولاً
+    const { auth } = await import('../firebase/config');
+    const currentUser = auth.currentUser;
     
-    setLoading(true);
-    
-    try {
-      // حذف الرابط من المستخدم الحالي
-      const currentUserDoc = await getDoc(doc(db, 'users', currentUserUid));
-      const currentUserData = currentUserDoc.data();
-      const updatedLinks = (currentUserData?.linkedFamilies || []).filter(
-        link => link.targetFamilyUid !== selectedLinkToRemove.targetFamilyUid
-      );
-      
-      await updateDoc(doc(db, 'users', currentUserUid), {
-        linkedFamilies: updatedLinks
-      });
-      
-      // حذف الرابط العكسي من العائلة المستهدفة
-      const targetUserDoc = await getDoc(doc(db, 'users', selectedLinkToRemove.targetFamilyUid));
-      const targetUserData = targetUserDoc.data();
-      const updatedTargetLinks = (targetUserData?.linkedFamilies || []).filter(
-        link => link.targetFamilyUid !== currentUserUid
-      );
-      
-      await updateDoc(doc(db, 'users', selectedLinkToRemove.targetFamilyUid), {
-        linkedFamilies: updatedTargetLinks
-      });
-      
-      setMessage(`تم فك الرابط مع ${selectedLinkToRemove.targetFamilyName} بنجاح`);
-      setMessageType('success');
-      setUnlinkDialogOpen(false);
-      
-      // إعادة تحميل البيانات
-      await Promise.all([loadFamiliesForLinking(), loadLinkedFamilies()]);
-      
-      if (onLinkingComplete) {
-        onLinkingComplete();
-      }
-      
-    } catch (error) {
-      console.error('❌ خطأ في حذف الرابط:', error);
-      setMessage('حدث خطأ أثناء فك الرابط');
-      setMessageType('error');
-    } finally {
-      setLoading(false);
+    if (!currentUser) {
+      throw new Error('انتهت جلسة تسجيل الدخول. يرجى تسجيل الدخول مرة أخرى.');
     }
-  }, [selectedLinkToRemove, currentUserUid, loadFamiliesForLinking, loadLinkedFamilies, onLinkingComplete]);
+
+    // حذف الرابط من المستخدم الحالي
+    const currentUserDoc = await getDoc(doc(db, 'users', currentUserUid));
+    if (!currentUserDoc.exists()) {
+      throw new Error('لم يتم العثور على بيانات المستخدم');
+    }
+
+    const currentUserData = currentUserDoc.data();
+    const updatedLinks = (currentUserData?.linkedFamilies || []).filter(
+      link => link.targetFamilyUid !== selectedLinkToRemove.targetFamilyUid
+    );
+    
+    await updateDoc(doc(db, 'users', currentUserUid), {
+      linkedFamilies: updatedLinks,
+      updatedAt: new Date().toISOString()
+    });
+    
+    // محاولة حذف الرابط العكسي (مع معالجة الأخطاء)
+    try {
+      const targetUserDoc = await getDoc(doc(db, 'users', selectedLinkToRemove.targetFamilyUid));
+      if (targetUserDoc.exists()) {
+        const targetUserData = targetUserDoc.data();
+        const updatedTargetLinks = (targetUserData?.linkedFamilies || []).filter(
+          link => link.targetFamilyUid !== currentUserUid
+        );
+        
+        await updateDoc(doc(db, 'users', selectedLinkToRemove.targetFamilyUid), {
+          linkedFamilies: updatedTargetLinks,
+          updatedAt: new Date().toISOString()
+        });
+      }
+    } catch (targetError) {
+      console.warn('⚠️ تعذر حذف الرابط العكسي:', targetError);
+      // لا نوقف العملية، فالرابط من جانبك تم حذفه بنجاح
+    }
+    
+    // إشعار المكون الأب وإغلاق القائمة
+    setMessage(`تم فك الرابط مع ${selectedLinkToRemove.targetFamilyName || selectedLinkToRemove.targetFamilyUid} بنجاح`);
+    setMessageType('success');
+    setUnlinkDialogOpen(false);
+
+    // إعادة تحميل البيانات
+    await Promise.all([loadFamiliesForLinking(), loadLinkedFamilies()]);
+
+    // التبديل للعائلات المتاحة
+    setCurrentTab(0);
+
+    // إشعار المكون الأب لإغلاق الحوار الرئيسي
+    if (onLinkingComplete) {
+      // تأخير قصير للسماح برؤية رسالة النجاح
+      setTimeout(() => {
+        onLinkingComplete();
+      }, 1500);
+    }
+    
+  } catch (error) {
+    console.error('❌ خطأ في حذف الرابط:', error);
+    
+    let errorMessage = 'حدث خطأ أثناء فك الرابط';
+    
+    if (error.code === 'permission-denied') {
+      errorMessage = 'ليس لديك صلاحية لحذف هذا الرابط. تحقق من الإعدادات.';
+    } else if (error.code === 'unauthenticated') {
+      errorMessage = 'انتهت جلسة تسجيل الدخول. يرجى تسجيل الدخول مرة أخرى.';
+    } else if (error.message.includes('مصادق')) {
+      errorMessage = 'انتهت جلسة تسجيل الدخول. يرجى تسجيل الدخول مرة أخرى.';
+    } else if (error.message.includes('بيانات المستخدم')) {
+      errorMessage = 'لم يتم العثور على بيانات حسابك. تحقق من إعداد الحساب.';
+    }
+    
+    setMessage(errorMessage);
+    setMessageType('error');
+  } finally {
+    setLoading(false);
+    // إغلاق أي حوارات مفتوحة فوراً
+    setLinkingDialogOpen(false);
+    setUnlinkDialogOpen(false);
+  }
+}, [selectedLinkToRemove, currentUserUid, loadFamiliesForLinking, loadLinkedFamilies, onLinkingComplete]);
 
   // ===========================================================================
   // التأثيرات
