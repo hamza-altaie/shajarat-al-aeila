@@ -764,7 +764,7 @@ const drawTreeWithD3 = useCallback((data) => {
 
   const avatarSize = cardHeight * 0.45;
   const padding = 10;
-  const textStartX = padding + avatarSize + 8;
+  const textStartX = padding + avatarSize + 16;
 
 
   const svg = d3.select(svgRef.current);
@@ -913,14 +913,26 @@ const drawTreeWithD3 = useCallback((data) => {
   const age = calculateAge(nodeData.birthdate || nodeData.birthDate);
 
   // الكارت
+  // 🟦 تحديد الألوان حسب الجنس
+  let cardFill = "#f3f4f6";
+  let cardStroke = "#cbd5e1";
+
+  if (nodeData.gender === "male" || relation.includes("ابن")) {
+    cardFill = "#e3f2fd";
+    cardStroke = "#2196f3";
+  } else if (nodeData.gender === "female" || relation.includes("بنت")) {
+    cardFill = "#fce4ec";
+    cardStroke = "#e91e63";
+  }
+
   nodeGroup.append("rect")
     .attr("width", cardWidth)
     .attr("height", cardHeight)
     .attr("x", -cardWidth / 2)
     .attr("y", -cardHeight / 2)
     .attr("rx", 14)
-    .attr("fill", "#f3f4f6")
-    .attr("stroke", "#cbd5e1")
+    .attr("fill", cardFill)
+    .attr("stroke", cardStroke)
     .attr("stroke-width", 2)
     .attr("class", "family-node-card");
 
@@ -1012,6 +1024,15 @@ const drawTreeWithD3 = useCallback((data) => {
     .attr("text-anchor", "middle")
     .attr("dominant-baseline", "middle");
 }
+
+if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCase())) {
+  nodeGroup.select("rect.family-node-card")
+    .transition()
+    .duration(600)
+    .attr("stroke", "#f59e0b")
+    .attr("stroke-width", 3);
+}
+
   // عند الضغط
   nodeGroup.on("click", () => {
     handleNodeClick?.({
