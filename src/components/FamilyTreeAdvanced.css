@@ -831,3 +831,18 @@
 .modern-shadow:hover {
   box-shadow: 0 20px 40px rgba(0,0,0,0.15);
 }
+
+
+
+html, body {
+  touch-action: pan-x pan-y;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+svg {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}

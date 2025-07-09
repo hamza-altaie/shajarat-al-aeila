@@ -3,12 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- ✅ السطر الصحيح للـ viewport -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
   <meta name="theme-color" content="#2e7d32" />
   <meta name="description" content="تطبيق شجرة العائلة - أنشئ وأدر شجرة عائلتك بسهولة وأمان" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+  <!-- ✅ سكربت منع الزووم بالإصبع على iPhone -->
+  <script>
+    document.addEventListener('gesturestart', function (e) {
+      e.preventDefault();
+    });
+  </script>
+
   
   <!-- إضافة خطوط Cairo -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />

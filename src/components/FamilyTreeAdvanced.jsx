@@ -768,9 +768,15 @@ const drawTreeWithD3 = useCallback((data) => {
 
 
   const svg = d3.select(svgRef.current);
+  // ✅ إصلاح زووم iPhone
+  svg
+    .style("touch-action", "none")         // يمنع سحب الصفحة في iOS
+    .style("overflow", "visible");         // يسمح للخريطة بالخروج من svg
+
   svg.attr('transform', null); 
   svg.property('__zoom', d3.zoomIdentity); 
   svg.selectAll('*').remove(); 
+
 
   // إعداد الأبعاد
   const container = containerRef.current;
@@ -778,16 +784,20 @@ const drawTreeWithD3 = useCallback((data) => {
   const height = container.clientHeight;
   svg.attr('width', width).attr('height', height).style('background', 'transparent');
 
-  // إنشاء مجموعة g جديدة
-  const g = svg.append('g');
-  g.attr('transform', null); 
 
-  // إعداد الـ zoom بدون أي تحريك افتراضي
-  const zoom = d3.zoom()
-    .scaleExtent([0.1, 3])
-    .on('zoom', (event) => {
-      g.attr('transform', event.transform);
-    });
+  // ✅ أنشئ g ثم فعّل الزووم عليه
+const g = svg.append('g');
+g
+  .attr('transform', null)
+  .style("touch-action", "manipulation")
+  .style("will-change", "transform");
+
+// إعداد الزووم وربطه على g فقط
+const zoom = d3.zoom()
+  .scaleExtent([0.1, 3])
+  .on('zoom', (event) => {
+    g.attr('transform', event.transform);
+  });
   svg.call(zoom);
   svg.property('__zoom', d3.zoomIdentity); 
 
@@ -908,7 +918,7 @@ const drawTreeWithD3 = useCallback((data) => {
     let age = today.getFullYear() - birth.getFullYear();
     const m = today.getMonth() - birth.getMonth();
     if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-    return age > 0 ? `${age} سنة` : '';
+    return age > 0 ? age : '';
   };
   const age = calculateAge(nodeData.birthdate || nodeData.birthDate);
 
@@ -937,27 +947,37 @@ const drawTreeWithD3 = useCallback((data) => {
     .attr("class", "family-node-card");
 
   // صورة أو أفاتار
-  if (nodeData.avatar) {
-    nodeGroup.append("image")
-      .attr("href", nodeData.avatar)
-      .attr("x", -cardWidth / 2 + padding)
-      .attr("y", -cardHeight / 2 + padding)
-      .attr("width", avatarSize)
-      .attr("height", avatarSize)
-      .attr("clip-path", "circle(50%)");
-  } else {
-    nodeGroup.append("image")
-      .attr("href",
-        nodeData.gender === "female" || relation.includes("بنت")
-          ? "/icons/girl.png"
-          : "/icons/boy.png"
-      )
-      .attr("x", -cardWidth / 2 + padding)
-      .attr("y", -cardHeight / 2 + padding)
-      .attr("width", avatarSize)
-      .attr("height", avatarSize)
-      .attr("clip-path", "circle(50%)");
-  }
+  // ⭕️ دائرة خلفية الصورة
+nodeGroup.append("circle")
+  .attr("cx", -cardWidth / 2 + padding + avatarSize / 2)
+  .attr("cy", -cardHeight / 2 + padding + avatarSize / 2)
+  .attr("r", avatarSize / 2)
+  .attr("fill", "#fff")
+  .attr("stroke", "#ddd")
+  .attr("stroke-width", 1.5);
+
+// 🟢 ClipPath دائري للصورة
+nodeGroup.append("clipPath")
+  .attr("id", `avatar-circle-${uniqueId}`)
+  .append("circle")
+  .attr("cx", -cardWidth / 2 + padding + avatarSize / 2)
+  .attr("cy", -cardHeight / 2 + padding + avatarSize / 2)
+  .attr("r", avatarSize / 2);
+
+// 🖼️ صورة داخل الدائرة مع تقطيع وتوسيط
+nodeGroup.append("image")
+  .attr("href",
+    nodeData.avatar ||
+    (nodeData.gender === "female" || relation.includes("بنت")
+      ? "/icons/girl.png"
+      : "/icons/boy.png")
+  )
+  .attr("x", -cardWidth / 2 + padding)
+  .attr("y", -cardHeight / 2 + padding)
+  .attr("width", avatarSize)
+  .attr("height", avatarSize)
+  .attr("clip-path", `url(#avatar-circle-${uniqueId})`)
+  .attr("preserveAspectRatio", "xMidYMid slice");
 
   // الاسم
   nodeGroup.append("text")
