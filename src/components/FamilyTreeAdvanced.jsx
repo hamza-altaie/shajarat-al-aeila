@@ -747,6 +747,26 @@ export default function FamilyTreeAdvanced() {
 const drawTreeWithD3 = useCallback((data) => {
   if (!data || !svgRef.current || !containerRef.current) return;
 
+  
+
+  const screenWidth = window.innerWidth;
+
+  let cardWidth = 220;
+  let cardHeight = 110;
+
+  if (screenWidth < 480) {
+    cardWidth = 160;
+    cardHeight = 90;
+  } else if (screenWidth < 768) {
+    cardWidth = 190;
+    cardHeight = 100;
+  }
+
+  const avatarSize = cardHeight * 0.45;
+  const padding = 10;
+  const textStartX = padding + avatarSize + 8;
+
+
   const svg = d3.select(svgRef.current);
   svg.attr('transform', null); 
   svg.property('__zoom', d3.zoomIdentity); 
@@ -859,87 +879,150 @@ const drawTreeWithD3 = useCallback((data) => {
 
   // إضافة محتوى العقد - نفس التصميم الأصلي تماماً
   nodes.each(function(d) {
-    const nodeGroup = d3.select(this);
-    const nodeData = d.data.attributes || d.data;
-    const uniqueId = nodeData.id || nodeData.globalId || Math.random().toString(36).substring(7);
-    
-    // إضافة خاصية highlightMatch بناءً على البحث
-    let highlightMatch = false;
-    if (searchQuery && searchQuery.length > 1) {
-      const q = searchQuery.trim();
-      if (
-        (nodeData.name && nodeData.name.includes(q)) ||
-        (nodeData.firstName && nodeData.firstName.includes(q))
-      ) {
-        highlightMatch = true;
-      }
-    }
-    
-    try {
-      const foreignObject = nodeGroup.append("foreignObject")
-        .attr("width", 350)
-        .attr("height", 200)
-        .attr("x", -175)
-        .attr("y", -100)
-        .style("overflow", "visible");
+  const nodeGroup = d3.select(this);
+  const nodeData = d.data.attributes || d.data;
+  
+  const uniqueId = nodeData.id || nodeData.globalId || Math.random().toString(36).substring(7);
+  const name = nodeData.name || `${nodeData.firstName || ''} ${nodeData.fatherName || ''}`.trim() || 'غير محدد';
+  const relation = nodeData.relation || 'عضو';
+  const nameY = -cardHeight / 2 + padding + 14;
+  const relationY = nameY + 18;
+  const childBoxWidth = 40;
+  const childBoxHeight = 16;
+  const childBoxX = -cardWidth / 2 + padding;
+  const childBoxY = cardHeight / 2 - childBoxHeight - 4;
+  const childTextX = childBoxX + childBoxWidth / 2;
+  const childTextY = childBoxY + childBoxHeight / 2 + 1.5;
+  const ageBoxWidth = 40;
+  const ageBoxHeight = 16;
+  const ageBoxX = cardWidth / 2 - padding - ageBoxWidth;
+  const ageBoxY = cardHeight / 2 - ageBoxHeight - 4;
+  const ageTextX = ageBoxX + ageBoxWidth / 2;
+  const ageTextY = ageBoxY + ageBoxHeight / 2 + 1.5;
+  // عمر محسوب
+  const calculateAge = (birthdate) => {
+    if (!birthdate) return '';
+    const birth = new Date(birthdate);
+    const today = new Date();
+    if (isNaN(birth.getTime())) return '';
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age > 0 ? `${age} سنة` : '';
+  };
+  const age = calculateAge(nodeData.birthdate || nodeData.birthDate);
 
-      const htmlContainer = foreignObject.append("xhtml:div")
-        .style("width", "100%")
-        .style("height", "100%")
-        .style("display", "flex")
-        .style("align-items", "center")
-        .style("justify-content", "center")
-        .style("font-family", "Cairo, sans-serif");
+  // الكارت
+  nodeGroup.append("rect")
+    .attr("width", cardWidth)
+    .attr("height", cardHeight)
+    .attr("x", -cardWidth / 2)
+    .attr("y", -cardHeight / 2)
+    .attr("rx", 14)
+    .attr("fill", "#f3f4f6")
+    .attr("stroke", "#cbd5e1")
+    .attr("stroke-width", 2)
+    .attr("class", "family-node-card");
 
-      const reactContainer = htmlContainer.append("xhtml:div")
-        .attr("id", `react-node-${uniqueId}`)
-        .style("width", "320px")
-        .style("height", "180px")
-        .style("display", "flex")
-        .style("align-items", "center")
-        .style("justify-content", "center");
+  // صورة أو أفاتار
+  if (nodeData.avatar) {
+    nodeGroup.append("image")
+      .attr("href", nodeData.avatar)
+      .attr("x", -cardWidth / 2 + padding)
+      .attr("y", -cardHeight / 2 + padding)
+      .attr("width", avatarSize)
+      .attr("height", avatarSize)
+      .attr("clip-path", "circle(50%)");
+  } else {
+    nodeGroup.append("image")
+      .attr("href",
+        nodeData.gender === "female" || relation.includes("بنت")
+          ? "/icons/girl.png"
+          : "/icons/boy.png"
+      )
+      .attr("x", -cardWidth / 2 + padding)
+      .attr("y", -cardHeight / 2 + padding)
+      .attr("width", avatarSize)
+      .attr("height", avatarSize)
+      .attr("clip-path", "circle(50%)");
+  }
 
-      const reactElement = reactContainer.node();
-      if (reactElement) {
-        const root = createRoot(reactElement);
-        reactRootsRef.current.set(uniqueId, root);
-        root.render(
-          <ModernFamilyNodeHTML 
-            nodeDatum={{
-              ...nodeData,
-              name: nodeData.name || buildFullName(nodeData),
-              isExtended: showExtendedTree && nodeData.isExtended,
-              highlightMatch, // تمرير خاصية التمييز
-              birthdate: nodeData.birthdate || nodeData.birthDate
-            }}
-            onNodeClick={handleNodeClick}
-            isParent={
-              nodeData.relation?.includes('رب العائلة') || 
-              nodeData.relation === 'parent' ||
-              nodeData.relation === 'الأب' ||
-              nodeData.relation === 'الأم'
-            }
-            isChild={
-              nodeData.relation === 'ابن' || 
-              nodeData.relation === 'بنت' || 
-              nodeData.relation === 'child' ||
-              nodeData.relation === 'الابن' ||
-              nodeData.relation === 'الابنة'
-            }
-            isSpouse={
-              nodeData.relation === 'زوج' || 
-              nodeData.relation === 'زوجة' || 
-              nodeData.relation === 'spouse' ||
-              nodeData.relation === 'الزوج' ||
-              nodeData.relation === 'الزوجة'
-            }
-          />
-        );
-      }
-    } catch {
-      // معالجة صامتة للأخطاء
-    }
+  // الاسم
+  nodeGroup.append("text")
+    .text(name.length > 22 ? name.slice(0, 20) + '…' : name)
+    .attr("x", textStartX)
+    .attr("y", nameY)
+    .attr("font-size", 13)
+    .attr("font-weight", "bold")
+    .attr("fill", "#111");
+
+  // العلاقة
+  nodeGroup.append("text")
+    .text(relation)
+    .attr("x", textStartX)
+    .attr("y", relationY)
+    .attr("font-size", 11)
+    .attr("fill", "#666");
+
+
+  if (age) {
+  // الخلفية
+  nodeGroup.append("rect")
+    .attr("x", ageBoxX)
+    .attr("y", ageBoxY)
+    .attr("width", ageBoxWidth)
+    .attr("height", ageBoxHeight)
+    .attr("rx", 8)
+    .attr("fill", "rgba(25, 118, 210, 0.08)")
+    .attr("stroke", "#1976d2")
+    .attr("stroke-width", 0.8);
+
+  // النص في المنتصف تمامًا
+  nodeGroup.append("text")
+  .text(age)
+  .attr("x", ageTextX)
+  .attr("y", ageTextY)
+  .attr("font-size", 10)
+  .attr("fill", "#1976d2")
+  .attr("font-weight", "600")
+  .attr("text-anchor", "middle")
+  .attr("dominant-baseline", "middle");
+}
+
+  // ✅ الخلفية خلف عدد الأطفال
+  if (d.children && d.children.length > 0) {
+    const childText = `👶 ${d.children.length}`;
+  nodeGroup.append("rect")
+    .attr("x", childBoxX)
+    .attr("y", childBoxY)
+    .attr("width", childBoxWidth)
+    .attr("height", childBoxHeight)
+    .attr("rx", 8)
+    .attr("fill", "rgba(76, 175, 80, 0.08)")
+    .attr("stroke", "#4caf50")
+    .attr("stroke-width", 0.8);
+
+  nodeGroup.append("text")
+    .text(childText)
+    .attr("x", childTextX)
+    .attr("y", childTextY)
+    .attr("font-size", 10)
+    .attr("fill", "#4caf50")
+    .attr("font-weight", "600")
+    .attr("text-anchor", "middle")
+    .attr("dominant-baseline", "middle");
+}
+  // عند الضغط
+  nodeGroup.on("click", () => {
+    handleNodeClick?.({
+      ...nodeData,
+      name,
+      age,
+      children: d.children || []
+    });
   });
+});
+
 
   // معالجة تداخل العقد - نفس الطريقة الأصلية
   const nodesByDepth = {};
