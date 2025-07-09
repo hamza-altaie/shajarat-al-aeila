@@ -858,125 +858,88 @@ const drawTreeWithD3 = useCallback((data) => {
     .style("opacity", 1);
 
   // إضافة محتوى العقد - نفس التصميم الأصلي تماماً
-  nodes.each(function (d) {
-  const nodeGroup = d3.select(this);
-  const nodeData = d?.data?.attributes ?? d?.data ?? {};
-
-  const name = d?.data?.attributes?.name || d?.data?.name || 'غير محدد';
-const relation = d?.data?.attributes?.relation || d?.data?.relation || 'عضو';
-const gender = d?.data?.attributes?.gender || d?.data?.gender || '';
-const avatar = d?.data?.attributes?.avatar || d?.data?.avatar || '';
-const phone = d?.data?.attributes?.phone || d?.data?.phone || '';
-const location = d?.data?.attributes?.location || d?.data?.location || '';
-const birthdate = d?.data?.attributes?.birthdate || d?.data?.birthdate;
-const highlightMatch = d?.data?.attributes?.highlightMatch || d?.data?.highlightMatch || false;
-const childrenCount = d?.data?.attributes?.children?.length || d?.data?.children?.length || 0;
-
-  // حساب العمر
-  let ageText = '';
-  if (birthdate) {
-    try {
-      const birth = new Date(birthdate);
-      const today = new Date();
-      let age = today.getFullYear() - birth.getFullYear();
-      const m = today.getMonth() - birth.getMonth();
-      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-      if (age <= 0) {
-        const days = Math.floor((today - birth) / (1000 * 60 * 60 * 24));
-        ageText = days < 30 ? `${days} يوم` : `${Math.floor(days / 30)} شهر`;
-      } else {
-        ageText = `${age} سنة`;
+  nodes.each(function(d) {
+    const nodeGroup = d3.select(this);
+    const nodeData = d.data.attributes || d.data;
+    const uniqueId = nodeData.id || nodeData.globalId || Math.random().toString(36).substring(7);
+    
+    // إضافة خاصية highlightMatch بناءً على البحث
+    let highlightMatch = false;
+    if (searchQuery && searchQuery.length > 1) {
+      const q = searchQuery.trim();
+      if (
+        (nodeData.name && nodeData.name.includes(q)) ||
+        (nodeData.firstName && nodeData.firstName.includes(q))
+      ) {
+        highlightMatch = true;
       }
-    } catch {}
-  }
+    }
+    
+    try {
+      const foreignObject = nodeGroup.append("foreignObject")
+        .attr("width", 350)
+        .attr("height", 200)
+        .attr("x", -175)
+        .attr("y", -100)
+        .style("overflow", "visible");
 
-  // الصور
-  const defaultAvatar = gender === 'female'
-    ? '/icons/girl.png'
-    : '/icons/boy.png';
-  const avatarSrc = avatar || defaultAvatar;
+      const htmlContainer = foreignObject.append("xhtml:div")
+        .style("width", "100%")
+        .style("height", "100%")
+        .style("display", "flex")
+        .style("align-items", "center")
+        .style("justify-content", "center")
+        .style("font-family", "Cairo, sans-serif");
 
-  // الألوان
-  const fillColor =
-    gender === 'female' || relation.includes('بنت') || relation.includes('زوجة')
-      ? '#fff3e0'
-      : gender === 'male' || relation.includes('ابن') || relation.includes('زوج')
-      ? '#e1f5fe'
-      : '#f5f5f5';
+      const reactContainer = htmlContainer.append("xhtml:div")
+        .attr("id", `react-node-${uniqueId}`)
+        .style("width", "320px")
+        .style("height", "180px")
+        .style("display", "flex")
+        .style("align-items", "center")
+        .style("justify-content", "center");
 
-  const strokeColor =
-    gender === 'female' || relation.includes('بنت') || relation.includes('زوجة')
-      ? '#ef6c00'
-      : gender === 'male' || relation.includes('ابن') || relation.includes('زوج')
-      ? '#039be5'
-      : '#9e9e9e';
-
-  // الكارت الرئيسي
-  nodeGroup
-    .append('rect')
-    .attr('x', -150)
-    .attr('y', -60)
-    .attr('width', 300)
-    .attr('height', 120)
-    .attr('rx', 18)
-    .attr('fill', fillColor)
-    .attr('stroke', strokeColor)
-    .attr('stroke-width', highlightMatch ? 4 : 2)
-    .style(
-      'filter',
-      highlightMatch
-        ? 'drop-shadow(0 0 12px #ffeb3b)'
-        : 'drop-shadow(0 4px 12px rgba(0,0,0,0.15))'
-    )
-    .on('click', () => handleNodeClick(nodeData));
-
-  // الصورة على اليسار
-  nodeGroup
-    .append('image')
-    .attr('xlink:href', avatarSrc)
-    .attr('x', -140)
-    .attr('y', -30)
-    .attr('width', 60)
-    .attr('height', 60)
-    .attr('clip-path', 'circle(30px at center)');
-
-  // اسم الشخص
-nodeGroup
-  .append('text')
-  .text(name)
-  .attr('x', 10)        // قريب من يمين الصورة
-  .attr('y', -5)        // فوق العلاقة بشوي
-  .attr('fill', '#212121')
-  .attr('font-size', 15)
-  .attr('font-weight', '600')
-  .attr('dominant-baseline', 'middle')
-  .attr('text-anchor', 'start');
-
-// العلاقة
-nodeGroup
-  .append('text')
-  .text(relation)
-  .attr('x', 10)
-  .attr('y', 15)        // تحت الاسم بشوي
-  .attr('fill', '#616161')
-  .attr('font-size', 13)
-  .attr('text-anchor', 'start')
-  .attr('dominant-baseline', 'middle');
-
-
-  // العمر (بالأسفل)
-  if (ageText) {
-    nodeGroup
-      .append('text')
-      .text(ageText)
-      .attr('x', 0)
-      .attr('y', 45)
-      .attr('fill', '#607d8b')
-      .attr('font-size', 12)
-      .attr('text-anchor', 'middle');
-  }
-});
-
+      const reactElement = reactContainer.node();
+      if (reactElement) {
+        const root = createRoot(reactElement);
+        reactRootsRef.current.set(uniqueId, root);
+        root.render(
+          <ModernFamilyNodeHTML 
+            nodeDatum={{
+              ...nodeData,
+              name: nodeData.name || buildFullName(nodeData),
+              isExtended: showExtendedTree && nodeData.isExtended,
+              highlightMatch, // تمرير خاصية التمييز
+              birthdate: nodeData.birthdate || nodeData.birthDate
+            }}
+            onNodeClick={handleNodeClick}
+            isParent={
+              nodeData.relation?.includes('رب العائلة') || 
+              nodeData.relation === 'parent' ||
+              nodeData.relation === 'الأب' ||
+              nodeData.relation === 'الأم'
+            }
+            isChild={
+              nodeData.relation === 'ابن' || 
+              nodeData.relation === 'بنت' || 
+              nodeData.relation === 'child' ||
+              nodeData.relation === 'الابن' ||
+              nodeData.relation === 'الابنة'
+            }
+            isSpouse={
+              nodeData.relation === 'زوج' || 
+              nodeData.relation === 'زوجة' || 
+              nodeData.relation === 'spouse' ||
+              nodeData.relation === 'الزوج' ||
+              nodeData.relation === 'الزوجة'
+            }
+          />
+        );
+      }
+    } catch {
+      // معالجة صامتة للأخطاء
+    }
+  });
 
   // معالجة تداخل العقد - نفس الطريقة الأصلية
   const nodesByDepth = {};
