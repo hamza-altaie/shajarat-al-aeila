@@ -54,6 +54,7 @@ export default function Family() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [search, setSearch] = useState('');
   const [filteredMembers, setFilteredMembers] = useState([]);
+  const [showAddForm, setShowAddForm] = useState(false); // حالة إظهار/إخفاء نموذج إضافة العضو
   
   // حالات النوافذ المنبثقة
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -354,6 +355,7 @@ export default function Family() {
       await loadFamily();
       setForm(DEFAULT_FORM);
       setAvatarUploadSuccess(false); // ✅ إعادة تعيين حالة رفع الصورة
+      setShowAddForm(false); // ✅ إخفاء النموذج بعد الإضافة
       return true;
     } catch (error) {
       console.error('خطأ في حفظ البيانات:', error);
@@ -751,23 +753,8 @@ useEffect(() => {
                     {`${m.firstName || ''} ${m.fatherName || ''} ${m.grandfatherName || ''} ${m.surname || ''}`} ({m.relation})
                   </option>
                 ))}
-              <option value="manual">إضافة أب غير موجود في القائمة</option>
             </TextField>
           </Box>
-          
-          {form.parentId === 'manual' && (
-            <Box sx={{ mb: 3 }}>
-              <TextField
-                label="اسم الأب الكامل"
-                name="manualParentName"
-                value={form.manualParentName || ''}
-                onChange={(e) => setForm(prev => ({ ...prev, manualParentName: e.target.value }))}
-                fullWidth
-                size="medium"
-                placeholder="أدخل اسم الأب الكامل"
-              />
-            </Box>
-          )}
         </Box>
       </Paper>
 
@@ -1044,10 +1031,23 @@ useEffect(() => {
         <Typography variant="h5" fontWeight="bold" gutterBottom sx={{ mb: 3 }}>
           إضافة عضو جديد
         </Typography>
-        
-        <Box component="form" onSubmit={handleSubmit}>
-          {renderForm()}
-        </Box>
+        {!showAddForm && (
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<AddIcon />}
+            onClick={() => setShowAddForm(true)}
+            sx={{ fontWeight: 'bold', fontSize: 18, px: 4, py: 2 }}
+            fullWidth
+          >
+            إضافة العضو
+          </Button>
+        )}
+        {showAddForm && (
+          <Box component="form" onSubmit={handleSubmit}>
+            {renderForm()}
+          </Box>
+        )}
       </Paper>
 
       {/* قسم قائمة الأفراد */}
@@ -1106,6 +1106,7 @@ useEffect(() => {
                     startIcon={<AddIcon />}
                     onClick={() => {
                       setForm(DEFAULT_FORM);
+                      setAvatarUploadSuccess(false); // ✅ إعادة تعيين حالة رفع الصورة
                       document.querySelector('input[name="firstName"]')?.focus();
                     }}
                     sx={{ borderRadius: 2 }}
