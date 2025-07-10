@@ -135,7 +135,6 @@ const Statistics = () => {
 
   // تحميل بيانات الشجرة العادية
   const loadSimpleTreeData = async (uid) => {
-    console.log('🌳 تحميل الشجرة العادية...');
     
     const familySnapshot = await getDocs(collection(db, 'users', uid, 'family'));
     const familyMembers = [];
@@ -574,16 +573,6 @@ const Statistics = () => {
                 sx={{ mr: 2, '& .MuiFormControlLabel-label': { fontSize: '0.875rem' } }}
               />
             )}
-
-            <Tooltip title="تصدير JSON">
-              <IconButton 
-                color="inherit" 
-                onClick={() => handleExport('json')}
-                disabled={!analysis}
-              >
-                <DownloadIcon />
-              </IconButton>
-            </Tooltip>
             
             <Tooltip title="تحديث البيانات">
               <IconButton 

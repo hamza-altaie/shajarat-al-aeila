@@ -1719,6 +1719,13 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
                 )}
               </Box>
               {selectedNode.age && <Typography variant="body2" sx={{ mb: 1 }}>العمر: {selectedNode.age} سنة</Typography>}
+              {/* أضف هذا الجزء هنا - عدد الأطفال */}
+                    {(selectedNode.relation === 'رب العائلة' && selectedNode.children && selectedNode.children.length > 0) && (
+                      <Typography variant="body2" sx={{ mb: 1, color: '#4caf50', fontWeight: 'bold' }}>
+                         عدد الأطفال: {selectedNode.children.length}
+                      </Typography>
+                    )}
+
               {selectedNode.phone && <Typography variant="body2" sx={{ mb: 1 }}>الهاتف: {selectedNode.phone}</Typography>}
               {selectedNode.location && (
                 <Typography variant="body2">المكان: {selectedNode.location}</Typography>
