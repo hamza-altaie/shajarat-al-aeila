@@ -47,6 +47,14 @@ const Statistics = () => {
   const [showExtendedTree, setShowExtendedTree] = useState(false);
   const [linkedFamilies, setLinkedFamilies] = useState([]);
   const [hasLinkedFamilies, setHasLinkedFamilies] = useState(false);
+  const theme = {
+  palette: {
+    warning: {
+      main: '#ed6c02',
+      dark: '#e65100'
+    }
+  }
+};
 
   // تحميل بيانات العائلة مباشرة من Firebase
   useEffect(() => {
@@ -492,7 +500,7 @@ const Statistics = () => {
         <ListItem>
           <ListItemText 
             primary={emptyMessage}
-            sx={{ textAlign: 'center', fontStyle: 'italic', color: 'text.secondary' }}
+            sx={{ textAlign: 'center', fontStyle: 'italic', color: '#666666' }}
           />
         </ListItem>
       ) : (
@@ -931,10 +939,10 @@ const Statistics = () => {
                                   </Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
-                                  <Typography variant="caption" color="primary.main">
+                                  <Typography variant="caption" sx={{ color: '#1976d2' }}>
                                     ذكور: {range.males}
                                   </Typography>
-                                  <Typography variant="caption" color="secondary.main">
+                                  <Typography variant="caption" sx={{ color: '#9c27b0' }}>
                                     إناث: {range.females}
                                   </Typography>
                                 </Box>
@@ -952,7 +960,7 @@ const Statistics = () => {
                     {/* التوزيع الجنسي حسب الأجيال */}
                     <Grid item xs={12} md={6}>
                       <Paper sx={{ p: 3, height: '100%' }}>
-                        <Typography variant="h6" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           ⚖️ التوزيع الجنسي حسب الأجيال
                         </Typography>
                         {analysis?.demographicAnalysis?.genderByGeneration?.length > 0 ? (
@@ -993,7 +1001,7 @@ const Statistics = () => {
                     {/* نسبة الإعالة */}
                     <Grid item xs={12} md={6}>
                       <Paper sx={{ p: 3, height: '100%' }}>
-                        <Typography variant="h6" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           👨‍👩‍👧‍👦 إحصائيات الإعالة
                         </Typography>
                         <Grid container spacing={2}>
@@ -1074,7 +1082,7 @@ const Statistics = () => {
                     {/* تفاصيل الأجيال */}
                     <Grid item xs={12} md={8}>
                       <Paper sx={{ p: 3, height: '400px', overflow: 'auto' }}>
-                        <Typography variant="h6" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           📋 تفاصيل كل جيل
                         </Typography>
                         {analysis?.generationAnalysis?.generations?.length > 0 ? (
@@ -1130,7 +1138,7 @@ const Statistics = () => {
                     {/* نمو الأجيال */}
                     <Grid item xs={12} md={4}>
                       <Paper sx={{ p: 3, height: '400px' }}>
-                        <Typography variant="h6" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           📈 نمو الأجيال
                         </Typography>
                         {analysis?.generationAnalysis?.generationGrowth?.length > 0 ? (
@@ -1183,7 +1191,7 @@ const Statistics = () => {
                     {/* المهن */}
                     <Grid item xs={12} md={6}>
                       <Paper sx={{ p: 3, height: '400px' }}>
-                        <Typography variant="h6" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           💼 توزيع المهن
                         </Typography>
                         <Box sx={{ height: '300px', overflow: 'auto' }}>
@@ -1199,7 +1207,7 @@ const Statistics = () => {
                     {/* التعليم */}
                     <Grid item xs={12} md={6}>
                       <Paper sx={{ p: 3, height: '400px' }}>
-                        <Typography variant="h6" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           🎓 المستوى التعليمي
                         </Typography>
                         <Box sx={{ height: '300px', overflow: 'auto' }}>
@@ -1215,7 +1223,7 @@ const Statistics = () => {
                     {/* المواقع الجغرافية */}
                     <Grid item xs={12} md={6}>
                       <Paper sx={{ p: 3, height: '400px' }}>
-                        <Typography variant="h6" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           🌍 التوزيع الجغرافي
                         </Typography>
                         <Box sx={{ height: '300px', overflow: 'auto' }}>
@@ -1231,7 +1239,7 @@ const Statistics = () => {
                     {/* إحصائيات متقدمة */}
                     <Grid item xs={12} md={6}>
                       <Paper sx={{ p: 3, height: '400px' }}>
-                        <Typography variant="h6" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           📊 إحصائيات متقدمة
                         </Typography>
                         <Grid container spacing={2}>
@@ -1284,7 +1292,7 @@ const Statistics = () => {
                     {/* الرؤى الذكية */}
                     <Grid item xs={12}>
                       <Paper sx={{ p: 3, mb: 3 }}>
-                        <Typography variant="h6" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           🧠 تحليل ذكي للبيانات
                         </Typography>
                         {analysis?.insights?.length > 0 ? (
@@ -1311,7 +1319,7 @@ const Statistics = () => {
                           </Grid>
                         ) : (
                           <Alert severity="info">
-                            <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'Cairo, sans-serif' }}>
                               💭 يتم توليد الرؤى الذكية عند توفر بيانات أكثر تفصيلاً
                             </Typography>
                           </Alert>
@@ -1322,7 +1330,7 @@ const Statistics = () => {
                     {/* توصيات لتحسين البيانات */}
                     <Grid item xs={12} md={6}>
                       <Paper sx={{ p: 3, height: '400px' }}>
-                        <Typography variant="h6" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           ✨ توصيات لتحسين البيانات
                         </Typography>
                         <List>
@@ -1388,7 +1396,7 @@ const Statistics = () => {
                     {/* ملخص الأداء */}
                     <Grid item xs={12} md={6}>
                       <Paper sx={{ p: 3, height: '400px' }}>
-                        <Typography variant="h6" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           ⚡ ملخص الأداء
                         </Typography>
                         <Grid container spacing={2}>
