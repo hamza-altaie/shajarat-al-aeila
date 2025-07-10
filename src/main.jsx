@@ -164,8 +164,7 @@ try {
       </ErrorBoundary>
     </React.StrictMode>
   );
-  
-  console.log('✅ تم تحميل التطبيق بنجاح');
+
 } catch (renderError) {
   console.error('❌ خطأ في عرض التطبيق:', renderError);
   handleGlobalError(renderError, { phase: 'render' });
@@ -244,7 +243,6 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
         }
       });
       
-      console.log('✅ Service Worker مسجل بنجاح');
     } catch (error) {
       console.warn('⚠️ تحذير: فشل تسجيل Service Worker:', error);
     }
@@ -285,7 +283,6 @@ if (import.meta.env.DEV) {
         try {
           localStorage.clear();
           sessionStorage.clear();
-          console.log('🧹 تم مسح جميع البيانات المحلية');
         } catch (error) {
           console.error('❌ فشل في مسح البيانات المحلية:', error);
         }

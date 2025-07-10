@@ -776,20 +776,20 @@ const drawTreeWithD3 = useCallback((data) => {
 
 
   // ✅ أنشئ g ثم فعّل الزووم عليه
-const g = svg.append('g');
-g
-  .attr('transform', null)
-  .style("touch-action", "manipulation")
-  .style("will-change", "transform");
+  const g = svg.append('g');
+  g
+    .attr('transform', null)
+    .style("touch-action", "manipulation")
+    .style("will-change", "transform");
 
-// إعداد الزووم وربطه على g فقط
-const zoom = d3.zoom()
-  .scaleExtent([0.1, 3])
-  .on('zoom', (event) => {
-    g.attr('transform', event.transform);
-  });
-  svg.call(zoom);
-  svg.property('__zoom', d3.zoomIdentity); 
+  // إعداد الزووم وربطه على g فقط
+  const zoom = d3.zoom()
+    .scaleExtent([0.1, 3])
+    .on('zoom', (event) => {
+      g.attr('transform', event.transform);
+    });
+    svg.call(zoom);
+    svg.property('__zoom', d3.zoomIdentity); 
 
   // إعداد بيانات الشجرة
   const root = d3.hierarchy(data);
@@ -1013,7 +1013,7 @@ nodeGroup.append("image")
 
   // ✅ الخلفية خلف عدد الأطفال
   if (d.children && d.children.length > 0) {
-    const childText = `👶 ${d.children.length}`;
+    const childText = ` ${d.children.length}`;
   nodeGroup.append("rect")
     .attr("x", childBoxX)
     .attr("y", childBoxY)

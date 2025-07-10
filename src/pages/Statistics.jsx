@@ -1,6 +1,4 @@
 // src/pages/Statistics.jsx
-// صفحة الإحصائيات المستقلة
-
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Box, Typography, Grid, Paper, Chip, Divider,
@@ -14,16 +12,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 
 // الأيقونات
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import BarChartIcon from '@mui/icons-material/BarChart';
-import PieChartIcon from '@mui/icons-material/PieChart';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import PeopleIcon from '@mui/icons-material/People';
-import FamilyRestroomIcon from '@mui/icons-material/FamilyRestroom';
-import WorkIcon from '@mui/icons-material/Work';
-import LocationOnIcon from '@mui/icons-material/LocationOn';
-import SchoolIcon from '@mui/icons-material/School';
-import InsightsIcon from '@mui/icons-material/Insights';
 import DownloadIcon from '@mui/icons-material/Download';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
