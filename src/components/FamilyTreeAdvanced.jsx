@@ -1,8 +1,6 @@
 // src/components/FamilyTreeAdvanced.jsx - النسخة المصححة مع الشجرة الموسعة الحقيقية
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-
 import * as d3 from 'd3';
-import { createRoot } from 'react-dom/client';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -14,7 +12,6 @@ import {
 
 // استيراد الأيقونات بشكل منفصل لتحسين الأداء
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
-import EditIcon from '@mui/icons-material/Edit';
 import PersonIcon from '@mui/icons-material/Person';
 import CloseIcon from '@mui/icons-material/Close';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -29,10 +26,8 @@ import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 
 // استيراد المكونات
 import ExtendedFamilyLinking from './ExtendedFamilyLinking';
-import ModernFamilyNodeHTML from './ModernFamilyNodeHTML';
 import './FamilyTreeAdvanced.css';
 import { useSearchZoom } from '../hooks/useSearchZoom';
-import FamilyStatisticsDashboard from './FamilyStatisticsDashboard';
 import BarChartIcon from '@mui/icons-material/BarChart';
 
 export default function FamilyTreeAdvanced() {
@@ -60,7 +55,6 @@ export default function FamilyTreeAdvanced() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [showStatistics, setShowStatistics] = useState(false);
   const [error, setError] = useState(null);
   
   const uid = localStorage.getItem('verifiedUid');
@@ -367,7 +361,7 @@ export default function FamilyTreeAdvanced() {
               relationships.cousins.push(linkedFamily);
               break;
               
-            case 'extended':
+            case 'extended':{
               // تحديد إذا كان عم أم قريب عادي
               const isUncle = link.relationDescription?.includes('عم') || 
                             link.relationDescription?.includes('uncle') ||
@@ -379,7 +373,7 @@ export default function FamilyTreeAdvanced() {
                 relationships.others.push({family: linkedFamily, type: 'extended'});
               }
               break;
-              
+              }
             default:
               relationships.others.push({family: linkedFamily, type: link.linkType});
           }
@@ -1448,7 +1442,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
           <Button 
             variant="contained" 
             size="small" 
-            onClick={() => setShowStatistics(true)} 
+            onClick={() => navigate('/statistics')}  // ← التغيير هنا: الانتقال للصفحة المستقلة
             disabled={loading} 
             startIcon={<BarChartIcon />} 
             sx={{ 
@@ -1752,35 +1746,6 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
           {snackbarMessage}
         </Alert>
       </Snackbar>
-
-      <FamilyStatisticsDashboard
-      open={showStatistics}
-      onClose={() => setShowStatistics(false)}
-      treeData={currentTreeData}
-      familyMembers={(() => {
-        // استخراج البيانات من مصادر متعددة
-        const members = [];
-        
-        // من الشجرة المحددة
-        if (currentTreeData) {
-          const extractMembers = (node) => {
-            if (node && node.attributes) {
-              members.push({
-                id: node.id,
-                name: node.name,
-                ...node.attributes
-              });
-            }
-            if (node && node.children) {
-              node.children.forEach(child => extractMembers(child));
-            }
-          };
-          extractMembers(currentTreeData);
-        }
-        
-        return members;
-      })()}
-    />
 
     </Box>
   );

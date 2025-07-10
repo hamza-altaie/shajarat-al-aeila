@@ -8,6 +8,7 @@ import Family from './pages/Family.jsx';
 import FamilyTree from './pages/FamilyTree.jsx';
 import FamilySelection from './pages/FamilySelection.jsx';
 import PrivacyPolicy from './pages/PrivacyPolicy.jsx';
+import Statistics from './pages/Statistics.jsx';
 
 export default function AppRoutes() {
   return (
@@ -51,6 +52,16 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <FamilyTree />
+          </ProtectedRoute>
+        } 
+      />
+
+      {/* صفحة الإحصائيات المستقلة */}
+      <Route 
+        path="/statistics" 
+        element={
+          <ProtectedRoute>
+            <Statistics />
           </ProtectedRoute>
         } 
       />
