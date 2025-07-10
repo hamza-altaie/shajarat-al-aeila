@@ -71,7 +71,6 @@ const PhoneLogin = () => {
         setError('❌ خطأ في تهيئة Firebase. يرجى التحقق من الإعدادات.');
       } else {
         setError('');
-        console.log('✅ Firebase جاهز للاستخدام');
         
         // اختبار اتصال Firebase
         testFirebaseConnection().then(result => {
@@ -100,7 +99,6 @@ const PhoneLogin = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user && localStorage.getItem('verifiedUid') && localStorage.getItem('verifiedPhone')) {
-        console.log('✅ المستخدم مكتمل التحقق، توجيه إلى الصفحة الرئيسية');
         navigate('/family');
       }
     });
@@ -113,7 +111,6 @@ const PhoneLogin = () => {
 
     const setupRecaptcha = async () => {
       try {
-        console.log('🔧 بدء إعداد reCAPTCHA...');
         
         // تنظيف reCAPTCHA السابق
         if (window.recaptchaVerifier) {
@@ -133,7 +130,6 @@ const PhoneLogin = () => {
         const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
           size: 'invisible',
           callback: () => {
-            console.log('✅ reCAPTCHA تم التحقق بنجاح');
           },
           'expired-callback': () => {
             console.warn('⚠️ انتهت صلاحية reCAPTCHA');
@@ -146,7 +142,6 @@ const PhoneLogin = () => {
         });
 
         await verifier.render();
-        console.log('✅ تم تقديم reCAPTCHA بنجاح');
 
         window.recaptchaVerifier = verifier;
 
@@ -213,8 +208,6 @@ const handlePhoneChange = (e) => {
 
   // 1. تحديث دالة handleSendCode للإنتاج النهائي:
   const handleSendCode = async () => {
-  console.log('🚀 بدء عملية إرسال الكود...');
-  console.log('📞 الرقم:', phoneNumber);
   
   // فحص أساسي
   if (!phoneNumber || phoneNumber.length < 13) {
@@ -242,15 +235,12 @@ const handlePhoneChange = (e) => {
     }
     
     // محاولة إرسال الكود
-    console.log('📤 إرسال الكود إلى:', phoneNumber);
     const confirmation = await signInWithPhoneNumber(auth, phoneNumber, verifier);
     
     // نجح الإرسال
     setConfirmationResult(confirmation);
     setSuccess(`✅ تم إرسال كود التحقق إلى ${phoneNumber}`);
     setTimer(120);
-    
-    console.log('🎉 تم إرسال الكود بنجاح!');
     
   } catch (error) {
   console.error('❌ خطأ في إرسال الكود:', error);
@@ -326,10 +316,6 @@ Authentication → Sign-in method → Phone`;
   
   // إظهار أدوات تشخيص إضافية في بيئة التطوير
   if (import.meta.env.DEV) {
-    console.log('🔍 معلومات تشخيصية:');
-    console.log('- Firebase Project ID:', firebaseStatus?.config?.projectId);
-    console.log('- Current domain:', window.location.hostname);
-    console.log('- Auth domain:', firebaseStatus?.config?.authDomain);
     console.log('- Error details:', {
       code: error.code,
       message: error.message,
@@ -371,12 +357,8 @@ Authentication → Sign-in method → Phone`;
     setError('');
     
     try {
-      console.log('🔐 التحقق من كود SMS...');
-      
       const result = await confirmationResult.confirm(verificationCode.trim());
       const user = result.user;
-      
-      console.log('✅ تم التحقق من كود SMS بنجاح:', user.uid);
       
       // حفظ بيانات المصادقة محلياً
       localStorage.setItem('verifiedUid', user.uid);
@@ -398,8 +380,6 @@ Authentication → Sign-in method → Phone`;
           isActive: true,
           authMethod: 'phone'
         });
-        
-        console.log('✅ تم حفظ بيانات المستخدم في قاعدة البيانات');
         
         // تأكيد حفظ المستخدم قبل التوجيه
         let retries = 0;

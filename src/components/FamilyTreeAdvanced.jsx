@@ -426,7 +426,6 @@ export default function FamilyTreeAdvanced() {
 
     // **سيناريو 1: يوجد أب وعم - إنشاء جد وهمي**
     if (relationships.directParent && relationships.uncle) {
-      console.log('👴 يوجد أب وعم - إنشاء شجرة ثلاثية المستويات');
       
       const grandparentNode = {
         name: "الجد",
@@ -466,7 +465,6 @@ export default function FamilyTreeAdvanced() {
 
     // **سيناريو 2: يوجد أب فقط - الأب هو الجذر**
     else if (relationships.directParent) {
-      console.log('👨‍👦 يوجد أب فقط - الأب هو الجذر');
       
       const parentNode = createPersonNode(relationships.directParent, 'الأب', 'الأب');
       
@@ -484,7 +482,6 @@ export default function FamilyTreeAdvanced() {
 
     // **سيناريو 3: يوجد عم فقط - العم هو الجذر**
     else if (relationships.uncle) {
-      console.log('👨‍👦‍👦 يوجد عم فقط - العم هو الجذر');
       
       const uncleNode = createPersonNode(relationships.uncle, 'العم', 'عم');
       
@@ -502,7 +499,6 @@ export default function FamilyTreeAdvanced() {
 
     // **سيناريو 4: لا يوجد أب أو عم - جذر وهمي مع الإخوة بجانب بعض**
     else {
-      console.log('👥 لا يوجد أب أو عم - إنشاء جذر غير محدد');
       
       const virtualRoot = {
         name: "العائلة",
@@ -1125,7 +1121,6 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
         }
       } catch {
         // Removed unused 'error'
-        console.log('تعذر حساب حدود الشجرة للتمركز التلقائي');
       }
     }
   }, 1200);

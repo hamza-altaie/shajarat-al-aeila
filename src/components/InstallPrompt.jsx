@@ -29,7 +29,6 @@ const InstallPrompt = () => {
 
     // مستمع لحدث التنصيب التلقائي
     const handleBeforeInstallPrompt = (e) => {
-      console.log('💡 إمكانية التنصيب التلقائي متاحة!');
       e.preventDefault();
       setDeferredPrompt(e);
       
@@ -55,7 +54,6 @@ const InstallPrompt = () => {
 
     // مستمع لحدث التنصيب المكتمل
     const handleAppInstalled = () => {
-      console.log('✅ تم تنصيب التطبيق بنجاح!');
       setIsInstalled(true);
       setShowInstallScreen(false);
       setDeferredPrompt(null);
@@ -76,15 +74,12 @@ const InstallPrompt = () => {
     if (deferredPrompt) {
       // تنصيب تلقائي للأجهزة التي تدعمه
       try {
-        console.log('💡 تنصيب تلقائي...');
         const result = await deferredPrompt.prompt();
         console.log('✅ نتيجة التنصيب:', result.outcome);
         
         if (result.outcome === 'accepted') {
-          console.log('🎉 تم التنصيب بنجاح!');
           localStorage.removeItem('install-declined');
         } else {
-          console.log('❌ المستخدم رفض التنصيب');
           localStorage.setItem('install-declined', 'true');
         }
         
@@ -97,7 +92,6 @@ const InstallPrompt = () => {
       }
     } else {
       // تنصيب عادي للأجهزة التي لا تدعم التنصيب التلقائي
-      console.log('📱 تنصيب عادي...');
       showManualInstructions();
     }
   };

@@ -70,6 +70,7 @@ const Statistics = () => {
 
         // تحميل العائلات المرتبطة أولاً
         const linkedData = await loadLinkedFamilies(uid);
+        setLinkedFamilies(linkedData);
         
         // التحقق من وجود روابط
         const userDoc = await getDoc(doc(db, 'users', uid));
@@ -165,13 +166,10 @@ const Statistics = () => {
     setFamilyMembers(familyMembers);
     const treeData = buildTreeData(familyMembers);
     setTreeData(treeData);
-
-    console.log('📊 تم تحميل الشجرة العادية:', familyMembers.length, 'أفراد');
   };
 
   // تحميل بيانات الشجرة الموسعة
   const loadExtendedTreeData = async (uid) => {
-    console.log('🏛️ تحميل الشجرة الموسعة...');
     
     const allFamilies = await findAllLinkedFamilies(uid);
     const allMembers = [];
@@ -211,7 +209,7 @@ const Statistics = () => {
     const treeData = buildExtendedTreeData(allMembers);
     setTreeData(treeData);
 
-    console.log('📊 تم تحميل الشجرة الموسعة:', allMembers.length, 'أفراد من', familyCount, 'عائلة');
+    ('📊 تم تحميل الشجرة الموسعة:', allMembers.length, 'أفراد من', familyCount, 'عائلة');
   };
 
   // البحث عن جميع العائلات المرتبطة
@@ -226,7 +224,7 @@ const Statistics = () => {
       if (processed.has(currentUid)) continue;
       processed.add(currentUid);
 
-      try {
+      try {console.log
         const userDoc = await getDoc(doc(db, 'users', currentUid));
         if (userDoc.exists()) {
           const userData = userDoc.data();
@@ -384,15 +382,11 @@ const Statistics = () => {
   // تحليل البيانات
   const analyzeData = useMemo(() => {
     if (!familyMembers?.length) {
-      console.log('⚠️ لا توجد بيانات للتحليل:', familyMembers);
       return null;
     }
     
-    console.log('🔍 بدء تحليل البيانات:', familyMembers);
-    
     try {
       const result = familyAnalytics.analyzeFamily(treeData, familyMembers);
-      console.log('✅ نتيجة التحليل:', result);
       return result;
     } catch (error) {
       console.error('❌ خطأ في التحليل:', error);
