@@ -693,7 +693,7 @@ const Statistics = () => {
             {/* تنبيه حول نوع الشجرة */}
             {!hasLinkedFamilies && (
               <Alert severity="info" sx={{ mb: 3 }}>
-                <Typography variant="h6" sx={{ mb: 1 }}>
+                <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
                   🌳 إحصائيات العائلة العادية
                 </Typography>
                 <Typography variant="body2">
@@ -704,7 +704,7 @@ const Statistics = () => {
 
             {showExtendedTree && hasLinkedFamilies && (
               <Alert severity="success" sx={{ mb: 3 }}>
-                <Typography variant="h6" sx={{ mb: 1 }}>
+                <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
                   🏛️ إحصائيات الشجرة الموسعة
                 </Typography>
                 <Typography variant="body2">
@@ -847,7 +847,7 @@ const Statistics = () => {
                     {/* توزيع الأعمار */}
                     <Grid item xs={12} md={6}>
                       <Paper sx={{ p: 3, height: '100%' }}>
-                        <Typography variant="h6" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           🎂 توزيع الأعمار
                         </Typography>
                         <DataList 
@@ -861,7 +861,7 @@ const Statistics = () => {
                     {/* أكبر الأجيال */}
                     <Grid item xs={12} md={6}>
                       <Paper sx={{ p: 3, height: '100%' }}>
-                        <Typography variant="h6" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           🏛️ توزيع الأجيال
                         </Typography>
                         <DataList 
@@ -895,7 +895,7 @@ const Statistics = () => {
                     {/* توزيع الأعمار المفصل */}
                     <Grid item xs={12} md={6}>
                       <Paper sx={{ p: 3, height: '100%' }}>
-                        <Typography variant="h6" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           🎂 فئات الأعمار التفصيلية
                         </Typography>
                         <DataList 
@@ -909,7 +909,7 @@ const Statistics = () => {
                     {/* الهرم السكاني */}
                     <Grid item xs={12} md={6}>
                       <Paper sx={{ p: 3, height: '100%' }}>
-                        <Typography variant="h6" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           📊 الهرم السكاني
                         </Typography>
                         {analysis?.demographicAnalysis?.populationPyramid?.length > 0 ? (
@@ -1040,7 +1040,7 @@ const Statistics = () => {
                   <Grid container spacing={3}>
                     {/* العنوان */}
                     <Grid item xs={12}>
-                      <Typography variant="h5" sx={{ 
+                      <Typography variant="h5" color="text.secondary" sx={{ 
                         mb: 3, 
                         color: 'info.main', 
                         fontWeight: 'bold', 
