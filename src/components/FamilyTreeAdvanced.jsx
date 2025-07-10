@@ -1125,7 +1125,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
     }
   }, 1200);
 
-}, [showExtendedTree, handleNodeClick, buildFullName, searchQuery]);
+}, [showExtendedTree, handleNodeClick, searchQuery]);
 
   // دالة البحث المحلية
   const performSearch = useCallback((query) => {

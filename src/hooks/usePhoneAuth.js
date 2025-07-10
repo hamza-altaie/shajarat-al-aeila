@@ -102,7 +102,7 @@ export default function usePhoneAuth() {
       // إنشاء reCAPTCHA بالطريقة الصحيحة
       window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         size: 'invisible',
-        callback: (response) => {
+        callback: () => {
           console.log('✅ reCAPTCHA verified successfully');
         },
         'expired-callback': () => {

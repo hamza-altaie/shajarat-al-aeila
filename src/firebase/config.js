@@ -38,14 +38,10 @@ const getFirebaseStatus = () => {
 };
 
 // 🔌 دالة لاختبار الاتصال بقاعدة البيانات
+// ملاحظة: لا يوجد collection('test') بشكل مباشر في Firestore v9+
+// ممكن نستخدم الطريقة الجديدة لاحقاً
 const testFirebaseConnection = async () => {
-  try {
-    // ملاحظة: لا يوجد collection('test') بشكل مباشر في Firestore v9+
-    // ممكن نستخدم الطريقة الجديدة لاحقاً
-    return { success: true };
-  } catch (error) {
-    return { success: false, error };
-  }
+  return { success: true };
 };
 
 // ✅ التصدير الموحد
