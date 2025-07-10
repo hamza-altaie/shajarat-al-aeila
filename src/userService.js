@@ -33,8 +33,13 @@ export const fetchUserData = async (uid) => {
         ...userSnap.data()
       };
     } else {
-      console.warn('لا توجد بيانات للمستخدم في Firestore:', uid);
-      return null;
+      // إذا لم توجد بيانات، أنشئ مستند جديد للمستخدم ببيانات أساسية
+      const newUserData = {
+        uid,
+        createdAt: serverTimestamp(),
+      };
+      await setDoc(userRef, newUserData);
+      return { uid, ...newUserData };
     }
   } catch (err) {
     console.error('خطأ في جلب بيانات المستخدم:', err);
