@@ -1002,7 +1002,7 @@ nodeGroup.append("image")
 
   // النص في المنتصف تمامًا
   nodeGroup.append("text")
-  .text(age)
+  .text(age + " سنة") // إضافة كلمة سنة بجانب العمر
   .attr("x", ageTextX)
   .attr("y", ageTextY)
   .attr("font-size", 10)
