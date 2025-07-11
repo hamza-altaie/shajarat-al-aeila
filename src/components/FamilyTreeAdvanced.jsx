@@ -56,6 +56,7 @@ export default function FamilyTreeAdvanced() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [error, setError] = useState(null);
+  const [isZoomedToNode, setIsZoomedToNode] = useState(false);
   
   const uid = localStorage.getItem('verifiedUid');
   const navigate = useNavigate();
@@ -1088,6 +1089,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
 
   // تمركز تلقائي بسيط (اختياري)
   setTimeout(() => {
+    if (isZoomedToNode) return; // لا تعيد التمركز إذا الكاميرا مقفلة على كارت
     if (svgRef.current && containerRef.current) {
       const svg = d3.select(svgRef.current);
       const g = svg.select('g');
@@ -1125,7 +1127,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
     }
   }, 1200);
 
-}, [showExtendedTree, handleNodeClick, searchQuery]);
+}, [showExtendedTree, handleNodeClick, searchQuery, isZoomedToNode]);
 
   // دالة البحث المحلية
   const performSearch = useCallback((query) => {
@@ -1484,6 +1486,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
                       onClick={() => {
                         setSearchQuery('');
                         setSearchResults([]);
+                        setIsZoomedToNode(false); // إرجاع الكاميرا للوضع الافتراضي
                         if (svgRef.current) {
                           const svg = d3.select(svgRef.current);
                           const g = svg.select('g');
@@ -1540,11 +1543,9 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
                                         result.node?.data?.name || 
                                         result.node?.attributes?.name || 
                                         result.name || '';
-                        
                         if (nodeName) {
                           searchZoomHook.searchAndZoom(nodeName);
-                          
-                          // ثانياً: تحديث حالة البحث بعد تأخير قصير
+                          setIsZoomedToNode(true); // قفل الكاميرا على الكارت المطلوب
                           setTimeout(() => {
                             setSearchQuery(nodeName);
                             setSearchResults([]);
