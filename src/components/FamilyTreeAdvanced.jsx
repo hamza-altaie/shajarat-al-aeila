@@ -1539,18 +1539,28 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
                     <Box
                       key={index}
                       onClick={() => {
-                        const nodeName = result.node?.name || 
-                                        result.node?.data?.name || 
-                                        result.node?.attributes?.name || 
-                                        result.name || '';
-                        if (nodeName) {
-                          searchZoomHook.searchAndZoom(nodeName);
-                          setIsZoomedToNode(true); // قفل الكاميرا على الكارت المطلوب
-                          setTimeout(() => {
-                            setSearchQuery(nodeName);
-                            setSearchResults([]);
-                          }, 300);
+                        // ابحث عن الـ node object المطابق في الشجرة
+                        const treeData = showExtendedTree ? extendedTreeData : simpleTreeData;
+                        let foundNode = null;
+                        function findNode(node) {
+                          if (!node) return null;
+                          const name = node.name || node.attributes?.name || node.data?.name;
+                          if (name === (result.node?.name || result.node?.attributes?.name || result.node?.data?.name)) {
+                            foundNode = node;
+                            return;
+                          }
+                          if (node.children && Array.isArray(node.children)) {
+                            node.children.forEach(findNode);
+                          }
                         }
+                        findNode(treeData);
+                        if (foundNode) {
+                          searchZoomHook.zoomToPerson(foundNode);
+                        }
+                        setTimeout(() => {
+                          setSearchQuery(result.node?.name || result.node?.attributes?.name || result.node?.data?.name || '');
+                          setSearchResults([]);
+                        }, 300);
                       }}
                       sx={{
                         p: 2,
