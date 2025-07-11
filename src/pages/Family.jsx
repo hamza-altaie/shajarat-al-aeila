@@ -7,8 +7,6 @@ import {
   Grid, Menu, MenuItem, Divider, Chip, InputAdornment, Fab
 } from '@mui/material';
 
-// ✅ استيراد Grid العادي (متوفر في جميع الإصدارات)
-
 import {
   Delete as DeleteIcon, Edit as EditIcon, Settings as SettingsIcon,
   Logout as LogoutIcon, WhatsApp as WhatsAppIcon, PhoneIphone as PhoneIphoneIcon,
@@ -453,43 +451,43 @@ export default function Family() {
   };
 
   // تحديث البحث والتصفية مع الترتيب
-useEffect(() => {
-  let filtered;
+  useEffect(() => {
+    let filtered;
 
-  if (!search.trim()) {
-    filtered = members;
-  } else {
-    filtered = members.filter(member => {
-      const fullName = `${member.firstName} ${member.fatherName}`.toLowerCase();
-      return fullName.includes(search.toLowerCase());
+    if (!search.trim()) {
+      filtered = members;
+    } else {
+      filtered = members.filter(member => {
+        const fullName = `${member.firstName} ${member.fatherName}`.toLowerCase();
+        return fullName.includes(search.toLowerCase());
+      });
+    }
+
+    // ✅ ترتيب الأعضاء: الأب أولاً ثم الأبناء حسب العمر
+    const sortedMembers = filtered.sort((a, b) => {
+      // 1. رب العائلة أولاً
+      if (a.relation === 'رب العائلة' && b.relation !== 'رب العائلة') return -1;
+      if (b.relation === 'رب العائلة' && a.relation !== 'رب العائلة') return 1;
+
+      // 2. إذا كان كلاهما رب عائلة، ترتيب حسب تاريخ الإنشاء
+      if (a.relation === 'رب العائلة' && b.relation === 'رب العائلة') {
+        return new Date(a.createdAt) - new Date(b.createdAt);
+      }
+
+      // 3. إذا كان كلاهما ابن/بنت، ترتيب حسب العمر (الأكبر أولاً)
+      if ((a.relation === 'ابن' || a.relation === 'بنت') && 
+          (b.relation === 'ابن' || b.relation === 'بنت')) {
+        return b.age - a.age;
+      }
+
+      // 4. ترتيب باقي العلاقات حسب الاسم
+      const nameA = `${a.firstName} ${a.fatherName}`.toLowerCase();
+      const nameB = `${b.firstName} ${b.fatherName}`.toLowerCase();
+      return nameA.localeCompare(nameB, 'ar');
     });
-  }
 
-  // ✅ ترتيب الأعضاء: الأب أولاً ثم الأبناء حسب العمر
-  const sortedMembers = filtered.sort((a, b) => {
-    // 1. رب العائلة أولاً
-    if (a.relation === 'رب العائلة' && b.relation !== 'رب العائلة') return -1;
-    if (b.relation === 'رب العائلة' && a.relation !== 'رب العائلة') return 1;
-
-    // 2. إذا كان كلاهما رب عائلة، ترتيب حسب تاريخ الإنشاء
-    if (a.relation === 'رب العائلة' && b.relation === 'رب العائلة') {
-      return new Date(a.createdAt) - new Date(b.createdAt);
-    }
-
-    // 3. إذا كان كلاهما ابن/بنت، ترتيب حسب العمر (الأكبر أولاً)
-    if ((a.relation === 'ابن' || a.relation === 'بنت') && 
-        (b.relation === 'ابن' || b.relation === 'بنت')) {
-      return b.age - a.age;
-    }
-
-    // 4. ترتيب باقي العلاقات حسب الاسم
-    const nameA = `${a.firstName} ${a.fatherName}`.toLowerCase();
-    const nameB = `${b.firstName} ${b.fatherName}`.toLowerCase();
-    return nameA.localeCompare(nameB, 'ar');
-  });
-
-  setFilteredMembers(sortedMembers);
-}, [search, members]);
+    setFilteredMembers(sortedMembers);
+  }, [search, members]);
 
   // تحميل البيانات عند بداية المكون
   useEffect(() => {
@@ -719,40 +717,6 @@ useEffect(() => {
                   {relation.label}
                 </option>
               ))}
-            </TextField>
-          </Box>
-
-          <Box sx={{ mb: 3 }}>
-            <TextField
-              select
-              label="يتبع لـ"
-              name="parentId"
-              value={form.parentId}
-              onChange={handleChange}
-              fullWidth
-              size="medium"
-              SelectProps={{ native: true }}
-              helperText={fieldErrors.parentId || "اختر الأب إذا لم يكن رب العائلة"}
-              InputLabelProps={{ shrink: true }}
-              sx={{
-                '& .MuiFormHelperText-root': {
-                  minHeight: '20px',
-                  textAlign: 'right'
-                },
-                '& .MuiSelect-select': {
-                  textAlign: 'right'
-                }
-              }}
-            >
-              <option value="">لا يتبع لأحد (رب العائلة)</option>
-              {members
-                .filter(m => m.relation === 'رب العائلة' || m.relation === 'ابن')
-                .filter(m => m.id !== form.id)
-                .map(m => (
-                  <option key={m.id} value={m.id}>
-                    {`${m.firstName || ''} ${m.fatherName || ''} ${m.grandfatherName || ''} ${m.surname || ''}`} ({m.relation})
-                  </option>
-                ))}
             </TextField>
           </Box>
         </Box>
@@ -1120,7 +1084,6 @@ useEffect(() => {
         )}
       </Paper>
 
-      {/* باقي المكونات... */}
       {/* زر عائم */}
       <Fab
         color="primary"
