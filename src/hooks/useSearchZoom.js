@@ -2,7 +2,7 @@
 import { useCallback, useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
 
-export const useSearchZoom = (svgRef, treeData) => {
+export const useSearchZoom = (svgRef, treeData, lastZoomTransformRef, zoomRef, highlightedPersonName) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [highlightedNode, setHighlightedNode] = useState(null);
@@ -13,10 +13,14 @@ export const useSearchZoom = (svgRef, treeData) => {
    */
   const clearHighlights = useCallback(() => {
     if (!svgRef.current) return;
-
     const svg = d3.select(svgRef.current);
-    svg.select('g').remove();
-
+    const g = svg.select('g');
+    if (!g.empty()) {
+      g.selectAll('.node').classed('search-highlight', false);
+      g.selectAll('rect, .family-node-card')
+        .attr('stroke', null)
+        .attr('stroke-width', null);
+    }
     setHighlightedNode(null);
   }, [svgRef]);
 
@@ -85,49 +89,22 @@ export const useSearchZoom = (svgRef, treeData) => {
    */
   const highlightNode = useCallback((nodeElement) => {
     if (!svgRef.current || !nodeElement || nodeElement.empty()) return;
-
-    // إزالة تعريف المتغير غير المستخدم
-    d3.select(svgRef.current);
-
-    // إزالة التمييز السابق
-    clearHighlights();
-
-    // إضافة التمييز الجديد
     nodeElement.classed('search-highlight', true);
-    nodeElement.select('foreignObject > div').classed('search-highlight', true);
-
-    // إضافة تأثير النبض
     nodeElement.select('rect, .family-node-card')
-      .transition()
-      .duration(300)
-      .attr('stroke', '#ffeb3b')
-      .attr('stroke-width', '4px')
-      .transition()
-      .duration(300)
       .attr('stroke', '#ff9800')
-      .transition()
-      .duration(300)
-      .attr('stroke', '#ffeb3b');
-
-  }, [svgRef, clearHighlights]);
+      .attr('stroke-width', 3);
+  }, [svgRef]);
 
   /**
    * دالة الزووم إلى شخص محدد - محسنة
    */
   const zoomToPerson = useCallback((targetNode, duration = 900) => {
-    console.log('🎯 بدء zoomToPerson:', targetNode);
-    
-    if (!svgRef.current || !targetNode) {
-      console.warn('❌ لا يوجد SVG أو عقدة مستهدفة');
-      return;
-    }
-
+    if (!svgRef.current || !targetNode) return;
     const svg = d3.select(svgRef.current);
     const groupElement = svg.select('g');
     
     // إعداد سلوك الزووم إذا لم يكن موجوداً
     if (!zoomBehavior.current) {
-      console.log('⚙️ إعداد سلوك الزووم');
       zoomBehavior.current = d3.zoom()
         .scaleExtent([0.1, 3])
         .on('zoom', (event) => {
@@ -156,7 +133,6 @@ export const useSearchZoom = (svgRef, treeData) => {
       const targetName = targetNode.name || targetNode.data?.name || targetNode.attributes?.name;
       
       if (targetName) {
-        console.log('🔍 البحث بالاسم:', targetName);
         nodeElement = groupElement.selectAll('.node')
           .filter(d => {
             const nodeName = d.data?.name || d.data?.attributes?.name || d.name;
@@ -184,47 +160,44 @@ export const useSearchZoom = (svgRef, treeData) => {
     const nodeData = nodeElement.datum();
     const containerRect = svgRef.current.getBoundingClientRect();
     
-    console.log('📍 موقع العقدة:', nodeData.x, nodeData.y);
-    console.log('📏 أبعاد الحاوية:', containerRect.width, containerRect.height);
-    
     // حساب الموقع المركزي
     const scale = 1.8; // مستوى الزووم المحسن
     const centerX = containerRect.width / 2 - nodeData.x * scale;
     const centerY = containerRect.height / 2 - nodeData.y * scale;
-
-    console.log(`🎯 الزووم إلى: x=${centerX}, y=${centerY}, scale=${scale}`);
 
     // تطبيق التحويل مع الأنيميشن
     svg.transition()
       .duration(duration)
       .ease(d3.easeCubicInOut)
       .call(
-        zoomBehavior.current.transform,
+        (zoomRef && zoomRef.current) ? zoomRef.current.transform : zoomBehavior.current.transform,
         d3.zoomIdentity.translate(centerX, centerY).scale(scale)
       );
 
-    // تمييز العقدة بعد تأخير قصير
+    // بعد الزووم، أضف التمييز مباشرة
     setTimeout(() => {
-      highlightNode(nodeElement);
-      setHighlightedNode(targetNode);
-    }, 100);
+      let nodeElement = groupElement.selectAll('.node')
+        .filter(d => {
+          const name = d.data?.name || d.data?.attributes?.name || d.name;
+          return highlightedPersonName ? name === highlightedPersonName : (d === targetNode || d.data === targetNode);
+        });
+      if (!nodeElement.empty()) {
+        highlightNode(nodeElement);
+        setHighlightedNode(targetNode);
+      }
+    }, duration + 50);
 
-    console.log('✅ تم تطبيق الزووم بنجاح');
-
-  }, [svgRef, highlightNode]);
+  }, [svgRef, highlightNode, zoomRef, highlightedPersonName]);
 
   /**
    * البحث والزووم المدمج
    */
   const searchAndZoom = useCallback((query) => {
     const results = searchInTree(query);
-    
     if (results.length > 0) {
-      // الزووم إلى أول نتيجة
       zoomToPerson(results[0].node);
       return results[0].node;
     }
-    
     return null;
   }, [searchInTree, zoomToPerson]);
 
@@ -291,6 +264,23 @@ export const useSearchZoom = (svgRef, treeData) => {
       }
     };
   }, [svgRef]);
+
+  // حفظ آخر زووم مطبق في كل عملية زووم
+  useEffect(() => {
+    if (!svgRef.current) return;
+    const svg = d3.select(svgRef.current);
+    const g = svg.select('g');
+    const handleZoom = (event) => {
+      g.attr('transform', event.transform);
+      if (lastZoomTransformRef) {
+        lastZoomTransformRef.current = event.transform.toString();
+      }
+    };
+    svg.call(d3.zoom().on('zoom', handleZoom));
+    return () => {
+      svg.on('.zoom', null);
+    };
+  }, [svgRef, lastZoomTransformRef]);
 
   return {
     searchQuery,
