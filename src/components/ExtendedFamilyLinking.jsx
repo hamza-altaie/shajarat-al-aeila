@@ -327,7 +327,14 @@ export default function ExtendedFamilyLinking({
       throw new Error('انتهت جلسة تسجيل الدخول. يرجى تسجيل الدخول مرة أخرى');
     }
 
-    
+    const linkData = {
+      targetFamilyUid: selectedFamily.uid,
+      targetFamilyName: selectedFamily.name,
+      linkType,
+      relationDescription: relationDescription || '',
+      establishedAt: new Date().toISOString(),
+      establishedBy: currentUserUid
+    };
     
     const reverseLinkData = {
       targetFamilyUid: currentUserUid,
@@ -338,8 +345,11 @@ export default function ExtendedFamilyLinking({
       establishedBy: currentUserUid
     };
     
-    await handleLinkingToFamily(currentUserUid, selectedFamily, linkType, currentUserUid);
-    
+    // إضافة الرابط للمستخدم الحالي
+    await updateDoc(doc(db, 'users', currentUserUid), {
+      linkedFamilies: arrayUnion(linkData)
+    });
+
     // إضافة الرابط العكسي للعائلة المستهدفة
     await updateDoc(doc(db, 'users', selectedFamily.uid), {
       linkedFamilies: arrayUnion(reverseLinkData)
@@ -1051,44 +1061,4 @@ export default function ExtendedFamilyLinking({
       </Dialog>
     </Box>
   );
-}
-
-
-async function handleLinkingToFamily(currentUserUid, selectedFamily, linkType, createdByUid, relationDescription = '') {
-  const now = new Date().toISOString();
-
-  // بناء بيانات الرابط بنفس البنية المتوقعة في linkedFamilies
-  const linkData = {
-    targetFamilyUid: selectedFamily.uid,
-    targetFamilyName: selectedFamily.name || '',
-    linkType: linkType,
-    relationDescription: relationDescription || '',
-    establishedAt: now,
-    establishedBy: createdByUid
-  };
-
-  try {
-    // دائمًا نضيف الرابط إلى linkedFamilies
-    await updateDoc(doc(db, 'users', currentUserUid), {
-      linkedFamilies: arrayUnion(linkData)
-    });
-
-    // إذا كان نوع الرابط أب-ابن، حدث بيانات رب العائلة
-    if (linkType === 'parent-child') {
-      const familySnapshot = await getDocs(collection(db, 'users', currentUserUid, 'family'));
-      const familyMembers = familySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-      const mainMember = familyMembers.find(m => m.relation === 'رب العائلة') || familyMembers[0];
-      if (mainMember) {
-        await updateDoc(doc(db, 'users', currentUserUid, 'family', mainMember.id), {
-          linkedParentUid: selectedFamily.uid,
-          manualParentName: selectedFamily.userData?.displayName || '',
-          updatedAt: now
-        });
-      }
-    }
-
-    console.log('✅ تم الربط بنجاح');
-  } catch (error) {
-    console.error('❌ فشل في الربط:', error);
-  }
 }

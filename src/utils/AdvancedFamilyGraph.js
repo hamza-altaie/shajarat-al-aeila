@@ -1,8 +1,6 @@
 // src/utils/AdvancedFamilyGraph.js - إضافة الدالة المفقودة
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { buildExtendedTreeStructure } from './buildExtendedTreeStructure';
-
 
 export class AdvancedFamilyGraph {
   constructor() {
@@ -74,7 +72,7 @@ export class AdvancedFamilyGraph {
       
       // الخطوة 3: بناء العلاقات الهرمية الشاملة
       updateProgress('بناء العلاقات الهرمية الشاملة...', 60);
-      
+      await this.buildCompleteTribalRelationships();
       
       // الخطوة 4: تحسين وتنظيم الشجرة
       updateProgress('تحسين وتنظيم الشجرة...', 80);
@@ -82,9 +80,7 @@ export class AdvancedFamilyGraph {
       
       // الخطوة 5: إنشاء بيانات الشجرة الهرمية
       updateProgress('إنشاء بيانات الشجرة الهرمية...', 90);
-      const allMembers = Array.from(this.nodes.values());
-      const treeData = buildExtendedTreeStructure(allMembers, tribalRoot.uid || tribalRoot);
-
+      const treeData = this.generateTribalTreeData(tribalRoot);
       
       updateProgress('اكتمل التحميل الشامل', 100);
       
@@ -346,7 +342,77 @@ export class AdvancedFamilyGraph {
     };
   }
 
+  /**
+   * بناء العلاقات الهرمية الشاملة للقبيلة
+   */
+  async buildCompleteTribalRelationships() {
+    console.log('🔗 بناء العلاقات الهرمية الشاملة...');
+    
+    // 1. بناء العلاقات داخل كل عائلة
+    this.families.forEach(family => {
+      this.buildInternalFamilyRelations(family);
+    });
+    
+    // 2. بناء العلاقات بين العائلات
+    await this.buildInterFamilyTribalRelations();
+    
+    // 3. بناء علاقات الأقارب الموسعة
+    this.buildExtendedFamilyRelations();
+    
+    console.log('✅ تم بناء العلاقات الهرمية الشاملة');
+  }
 
+  /**
+   * بناء العلاقات داخل العائلة الواحدة
+   */
+  buildInternalFamilyRelations(family) {
+    const head = family.head;
+    if (!head) return;
+    
+    family.members.forEach(member => {
+      if (member.relation === 'ابن' || member.relation === 'بنت') {
+        head.children.add(member.globalId);
+        member.parents.add(head.globalId);
+      }
+    });
+    
+    // ربط الأشقاء
+    const children = family.members.filter(m => m.relation === 'ابن' || m.relation === 'بنت');
+    for (let i = 0; i < children.length; i++) {
+      for (let j = i + 1; j < children.length; j++) {
+        children[i].siblings.add(children[j].globalId);
+        children[j].siblings.add(children[i].globalId);
+      }
+    }
+  }
+
+  /**
+   * بناء العلاقات بين العائلات في القبيلة
+   */
+  async buildInterFamilyTribalRelations() {
+    console.log('🔗 بناء العلاقات بين العائلات...');
+    
+    const familiesByLevel = new Map();
+    this.families.forEach(family => {
+      const familyLevel = family.level || 0;
+      if (!familiesByLevel.has(familyLevel)) {
+        familiesByLevel.set(familyLevel, []);
+      }
+      familiesByLevel.get(familyLevel).push(family);
+    });
+    
+    for (const [, families] of familiesByLevel) { // Removed unused 'familyLevel'
+      for (const family of families) {
+        if (family.parentFamilyUid) {
+          await this.linkFamilyToParent(family, family.parentFamilyUid);
+        }
+      }
+    }
+  }
+
+  /**
+   * ربط عائلة بعائلة الوالد
+   */
   async linkFamilyToParent(childFamily, parentFamilyUid) {
     const parentFamily = this.families.get(parentFamilyUid);
     if (!parentFamily) return;
@@ -365,7 +431,90 @@ export class AdvancedFamilyGraph {
     }
   }
 
-  
+  /**
+   * بناء علاقات الأقارب الموسعة
+   */
+  buildExtendedFamilyRelations() {
+    console.log('👥 بناء علاقات الأقارب الموسعة...');
+    
+    const familiesByLevel = new Map();
+    this.families.forEach(family => {
+      const level = family.level || 0;
+      const parentUid = family.parentFamilyUid;
+      const key = `${level}_${parentUid || 'root'}`;
+      
+      if (!familiesByLevel.has(key)) {
+        familiesByLevel.set(key, []);
+      }
+      familiesByLevel.get(key).push(family);
+    });
+    
+    familiesByLevel.forEach(families => {
+      if (families.length > 1) {
+        this.linkSiblingFamilies(families);
+      }
+    });
+    
+    this.buildCousinRelations();
+  }
+
+  /**
+   * ربط العائلات الشقيقة
+   */
+  linkSiblingFamilies(siblingFamilies) {
+    for (let i = 0; i < siblingFamilies.length; i++) {
+      for (let j = i + 1; j < siblingFamilies.length; j++) {
+        const family1 = siblingFamilies[i];
+        const family2 = siblingFamilies[j];
+        
+        if (family1.head && family2.head) {
+          family1.head.siblings.add(family2.head.globalId);
+          family2.head.siblings.add(family1.head.globalId);
+          
+          console.log(`👥 ربط أشقاء: ${family1.head.name} ←→ ${family2.head.name}`);
+        }
+      }
+    }
+  }
+
+  /**
+   * بناء علاقات أولاد العم
+   */
+  buildCousinRelations() {
+    console.log('👨‍👩‍👧‍👦 بناء علاقات أولاد العم...');
+    
+    this.nodes.forEach(person => {
+      const parentIds = Array.from(person.parents);
+      
+      parentIds.forEach(parentId => {
+        const parent = this.nodes.get(parentId);
+        if (!parent) return;
+        
+        const uncleIds = Array.from(parent.siblings);
+        
+        uncleIds.forEach(uncleId => {
+          const uncle = this.nodes.get(uncleId);
+          if (!uncle) return;
+          
+          const cousinIds = Array.from(uncle.children);
+          
+          cousinIds.forEach(cousinId => {
+            if (cousinId !== person.globalId) {
+              person.cousins = person.cousins || new Set();
+              person.cousins.add(cousinId);
+              
+              const cousin = this.nodes.get(cousinId);
+              if (cousin) {
+                cousin.cousins = cousin.cousins || new Set();
+                cousin.cousins.add(person.globalId);
+              }
+            }
+          });
+        });
+      });
+    });
+  }
+
   /**
    * تحسين وتنظيم الشجرة
    */
@@ -423,7 +572,67 @@ export class AdvancedFamilyGraph {
     });
   }
 
-  
+  /**
+   * إنشاء بيانات الشجرة الهرمية للقبيلة
+   */
+  generateTribalTreeData(tribalRoot) {
+    console.log('🌳 إنشاء بيانات الشجرة الهرمية...');
+    
+    const rootFamily = this.families.get(tribalRoot.uid);
+    if (!rootFamily || !rootFamily.head) {
+      console.warn('⚠️ لم يتم العثور على رب العائلة الجذر');
+      return null;
+    }
+    
+    const rootPerson = rootFamily.head;
+    const visited = new Set();
+    
+    const buildTreeNode = (person, depth = 0) => {
+      if (visited.has(person.globalId) || depth > 8) {
+        return null;
+      }
+      
+      visited.add(person.globalId);
+      
+      const node = {
+        name: person.name,
+        id: person.globalId,
+        avatar: person.avatar,
+        attributes: {
+          ...person,
+          depth,
+          generation: person.calculatedGeneration || person.generation || 0,
+          importance: person.importance || 0,
+          isTribalRoot: person.globalId === rootPerson.globalId,
+          familyUid: person.familyUid,
+          tribalLevel: person.tribalLevel || 0
+        },
+        children: []
+      };
+      
+      const childrenArray = Array.from(person.children)
+        .map(childId => this.nodes.get(childId))
+        .filter(Boolean)
+        .sort((a, b) => (b.importance || 0) - (a.importance || 0));
+      
+      const children = []; // Defined 'children' to fix the no-undef error
+
+      childrenArray.forEach(child => {
+        const childNode = buildTreeNode(child, depth + 1);
+        if (childNode) {
+          children.push(childNode);
+        }
+      });
+      
+      return node;
+    };
+    
+    const treeData = buildTreeNode(rootPerson);
+    
+    console.log('✅ تم إنشاء بيانات الشجرة الهرمية');
+    return treeData;
+  }
+
   /**
    * إحصائيات القبيلة
    */
