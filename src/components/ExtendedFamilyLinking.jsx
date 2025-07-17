@@ -110,6 +110,27 @@ export default function ExtendedFamilyLinking({
   // دوال التحميل
   // ===========================================================================
 
+  // دالة للتحقق من وجود أعضاء مكررين بين عائلتين
+  const checkFamilyForDuplicates = useCallback(async (familyMembers, currentUserMembers) => {
+    for (const member of familyMembers) {
+      const memberName = {
+        firstName: member.firstName?.trim().toLowerCase() || '',
+        fatherName: member.fatherName?.trim().toLowerCase() || '',
+        surname: member.surname?.trim().toLowerCase() || ''
+      };
+      
+      for (const currentMember of currentUserMembers) {
+        // تحقق من تطابق الاسم الأول واسم الأب
+        if (memberName.firstName === currentMember.firstName && 
+            memberName.fatherName === currentMember.fatherName &&
+            memberName.firstName !== '' && memberName.fatherName !== '') {
+          return true; // يوجد تكرار
+        }
+      }
+    }
+    return false; // لا يوجد تكرار
+  }, []);
+
   const loadFamiliesForLinking = useCallback(async () => {
   if (!currentUserUid) {
     console.log('❌ لا يمكن تحميل العائلات: المستخدم غير مصادق');
@@ -134,12 +155,33 @@ export default function ExtendedFamilyLinking({
       if (!currentUserDoc.exists()) {
         throw new Error('بيانات المستخدم الحالي غير موجودة في قاعدة البيانات');
       }
+
+      // تحميل عائلة المستخدم الحالي للمقارنة
+      const currentUserFamilySnapshot = await getDocs(collection(db, 'users', currentUserUid, 'family'));
+      const currentUserMembers = [];
+      currentUserFamilySnapshot.forEach(doc => {
+        const memberData = doc.data();
+        if (memberData.firstName && memberData.firstName.trim() !== '') {
+          currentUserMembers.push({
+            firstName: memberData.firstName.trim().toLowerCase(),
+            fatherName: (memberData.fatherName || '').trim().toLowerCase(),
+            surname: (memberData.surname || '').trim().toLowerCase()
+          });
+        }
+      });
+
       const usersSnapshot = await getDocs(collection(db, 'users'));
       const families = [];
       
       for (const userDoc of usersSnapshot.docs) {
         const userId = userDoc.id;
         const userData = userDoc.data();
+        
+        // التحقق من صحة معرف المستخدم
+        if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
+          console.warn('تجاهل مستخدم بمعرف غير صحيح:', userId);
+          continue;
+        }
         
         if (userId === currentUserUid || existingLinks.includes(userId)) {
           continue;
@@ -161,23 +203,30 @@ export default function ExtendedFamilyLinking({
           });
           
           if (members.length > 0) {
-            const familyHead = members.find(m => m.relation === 'رب العائلة') || members[0];
-            const membersCount = members.length;
+            // التحقق من عدم وجود تكرار مع عائلة المستخدم الحالي
+            const hasDuplicateMembers = await checkFamilyForDuplicates(members, currentUserMembers);
             
-            const familyName = familyHead 
-              ? `عائلة ${sanitizeName(familyHead.firstName, familyHead.fatherName, familyHead.surname)}`
-              : `عائلة ${userData.displayName || userData.email || 'غير محدد'}`;
-            
-            families.push({
-              uid: userId,
-              name: familyName,
-              head: familyHead,
-              members,
-              membersCount,
-              phone: userData.phone || familyHead?.phone || 'غير محدد',
-              email: userData.email || 'غير محدد',
-              userData
-            });
+            if (!hasDuplicateMembers) {
+              const familyHead = members.find(m => m.relation === 'رب العائلة') || members[0];
+              const membersCount = members.length;
+              
+              const familyName = familyHead 
+                ? `عائلة ${sanitizeName(familyHead.firstName, familyHead.fatherName, familyHead.surname)}`
+                : `عائلة ${userData.displayName || userData.email || 'غير محدد'}`;
+              
+              families.push({
+                uid: userId,
+                name: familyName,
+                head: familyHead,
+                members,
+                membersCount,
+                phone: userData.phone || familyHead?.phone || 'غير محدد',
+                email: userData.email || 'غير محدد',
+                userData
+              });
+            } else {
+              console.log(`تجاهل العائلة ${userId} بسبب وجود أعضاء مكررين`);
+            }
           }
         } catch (error) {
           console.warn(`تجاهل العائلة ${userId}:`, error);
@@ -213,7 +262,7 @@ export default function ExtendedFamilyLinking({
     } finally {
       setInitialLoading(false);
     }
-  }, [currentUserUid, existingLinks, sanitizeName]);
+  }, [currentUserUid, existingLinks, sanitizeName, checkFamilyForDuplicates]);
 
   const loadLinkedFamilies = useCallback(async () => {
   if (!currentUserUid) {
@@ -223,14 +272,38 @@ export default function ExtendedFamilyLinking({
     
     try {
       const userDoc = await getDoc(doc(db, 'users', currentUserUid));
+      if (!userDoc.exists()) {
+        console.warn('❌ لم يتم العثور على بيانات المستخدم');
+        return;
+      }
+      
       const userData = userDoc.data();
       const linkedFamiliesData = userData?.linkedFamilies || [];
+      
+      // التحقق من أن linkedFamiliesData هو مصفوفة صحيحة
+      if (!Array.isArray(linkedFamiliesData)) {
+        console.warn('❌ بيانات العائلات المرتبطة ليست مصفوفة صحيحة:', linkedFamiliesData);
+        setLinkedFamilies([]);
+        return;
+      }
       
       if (linkedFamiliesData.length > 0) {
         const enrichedLinkedFamilies = [];
         
         for (const link of linkedFamiliesData) {
+          // التحقق من صحة بيانات الرابط
+          if (!link || !link.targetFamilyUid || typeof link.targetFamilyUid !== 'string') {
+            console.warn('تجاهل رابط غير صحيح:', link);
+            continue;
+          }
+
           try {
+            // التأكد من أن targetFamilyUid صالح قبل إرساله لـ Firebase
+            if (!link.targetFamilyUid || link.targetFamilyUid.length === 0) {
+              console.warn('معرف عائلة فارغ، تجاهل الرابط');
+              continue;
+            }
+            
             const targetDoc = await getDoc(doc(db, 'users', link.targetFamilyUid));
             const targetUserData = targetDoc.data();
             
@@ -258,14 +331,19 @@ export default function ExtendedFamilyLinking({
               });
             }
           } catch (error) {
-            console.warn(`تجاهل الرابط مع ${link.targetFamilyUid}:`, error);
+            console.warn(`تجاهل الرابط مع ${link?.targetFamilyUid || 'معرف غير صحيح'}:`, error);
           }
         }
         
         setLinkedFamilies(enrichedLinkedFamilies);
+      } else {
+        // إذا لم توجد عائلات مرتبطة، تعيين مصفوفة فارغة
+        setLinkedFamilies([]);
       }
     } catch (error) {
       console.error('❌ خطأ في تحميل العائلات المرتبطة:', error);
+      // في حالة الخطأ، تعيين مصفوفة فارغة لمنع أخطاء الواجهة
+      setLinkedFamilies([]);
     }
   }, [currentUserUid]);
 
@@ -311,6 +389,72 @@ export default function ExtendedFamilyLinking({
   // دوال الربط وفك الربط
   // ===========================================================================
 
+  // دالة للتحقق من تكرار الأشخاص بين العائلتين
+  const checkForDuplicatePersons = useCallback(async (familyUid1, familyUid2) => {
+    try {
+      // التحقق من صحة معرفات العائلات
+      if (!familyUid1 || !familyUid2 || typeof familyUid1 !== 'string' || typeof familyUid2 !== 'string') {
+        console.warn('معرفات عائلات غير صحيحة في checkForDuplicatePersons:', { familyUid1, familyUid2 });
+        return false;
+      }
+      
+      // تحميل أعضاء العائلة الأولى
+      const family1Snapshot = await getDocs(collection(db, 'users', familyUid1, 'family'));
+      const family1Members = [];
+      family1Snapshot.forEach(doc => {
+        const memberData = doc.data();
+        if (memberData.firstName && memberData.firstName.trim() !== '') {
+          family1Members.push({
+            firstName: memberData.firstName.trim().toLowerCase(),
+            fatherName: (memberData.fatherName || '').trim().toLowerCase(),
+            surname: (memberData.surname || '').trim().toLowerCase()
+          });
+        }
+      });
+
+      // تحميل أعضاء العائلة الثانية
+      const family2Snapshot = await getDocs(collection(db, 'users', familyUid2, 'family'));
+      const family2Members = [];
+      family2Snapshot.forEach(doc => {
+        const memberData = doc.data();
+        if (memberData.firstName && memberData.firstName.trim() !== '') {
+          family2Members.push({
+            firstName: memberData.firstName.trim().toLowerCase(),
+            fatherName: (memberData.fatherName || '').trim().toLowerCase(),
+            surname: (memberData.surname || '').trim().toLowerCase()
+          });
+        }
+      });
+
+      // التحقق من التطابق
+      for (const member1 of family1Members) {
+        for (const member2 of family2Members) {
+          // إذا تطابق الاسم الأول واسم الأب
+          if (member1.firstName === member2.firstName && 
+              member1.fatherName === member2.fatherName &&
+              member1.firstName !== '' && member1.fatherName !== '') {
+            console.warn('تم العثور على شخص مكرر:', member1);
+            return true;
+          }
+          
+          // تحقق أكثر صرامة: الاسم الكامل
+          if (member1.firstName === member2.firstName && 
+              member1.fatherName === member2.fatherName &&
+              member1.surname === member2.surname &&
+              member1.firstName !== '') {
+            console.warn('تم العثور على شخص مكرر (الاسم الكامل):', member1);
+            return true;
+          }
+        }
+      }
+
+      return false; // لا يوجد تكرار
+    } catch (error) {
+      console.error('خطأ في التحقق من التكرار:', error);
+      return false; // في حالة الخطأ، نسمح بالربط
+    }
+  }, []);
+
   const handleCreateLink = useCallback(async () => {
   if (!selectedFamily || !linkType || !currentUserUid) {
     setMessage('يرجى ملء جميع الحقول المطلوبة');
@@ -325,6 +469,12 @@ export default function ExtendedFamilyLinking({
     const currentUser = auth.currentUser;
     if (!currentUser) {
       throw new Error('انتهت جلسة تسجيل الدخول. يرجى تسجيل الدخول مرة أخرى');
+    }
+
+    // التحقق من عدم وجود تكرار في الأشخاص
+    const isDuplicatePerson = await checkForDuplicatePersons(currentUserUid, selectedFamily.uid);
+    if (isDuplicatePerson) {
+      throw new Error('يبدو أن هناك أشخاص مشتركين بين العائلتين. لا يمكن الربط لتجنب التكرار.');
     }
 
     const linkData = {
@@ -377,7 +527,9 @@ export default function ExtendedFamilyLinking({
     
     let friendlyMessage = 'حدث خطأ أثناء ربط العائلات';
     
-    if (error.code === 'permission-denied' || error.code === 'unauthenticated') {
+    if (error.message.includes('تكرار')) {
+      friendlyMessage = error.message;
+    } else if (error.code === 'permission-denied' || error.code === 'unauthenticated') {
       friendlyMessage = 'ليس لديك صلاحية للقيام بهذا العمل. تحقق من تسجيل الدخول';
     } else if (error.message.includes('Missing or insufficient permissions')) {
       friendlyMessage = 'أذونات غير كافية. تحقق من قواعد Firestore';
@@ -392,7 +544,7 @@ export default function ExtendedFamilyLinking({
     setLinkingDialogOpen(false);
     setUnlinkDialogOpen(false);
   }
-}, [selectedFamily, linkType, relationDescription, currentUserUid, getReverseLinkType, loadFamiliesForLinking, loadLinkedFamilies, onLinkingComplete]);
+}, [selectedFamily, linkType, relationDescription, currentUserUid, getReverseLinkType, loadFamiliesForLinking, loadLinkedFamilies, onLinkingComplete, checkForDuplicatePersons]);
 
   const handleRemoveLink = useCallback(async () => {
   if (!selectedLinkToRemove || !currentUserUid) return;
@@ -408,6 +560,11 @@ export default function ExtendedFamilyLinking({
       throw new Error('انتهت جلسة تسجيل الدخول. يرجى تسجيل الدخول مرة أخرى.');
     }
 
+    // التحقق من صحة البيانات المطلوبة
+    if (!selectedLinkToRemove || !selectedLinkToRemove.targetFamilyUid) {
+      throw new Error('بيانات الرابط المراد حذفه غير صحيحة');
+    }
+
     // حذف الرابط من المستخدم الحالي
     const currentUserDoc = await getDoc(doc(db, 'users', currentUserUid));
     if (!currentUserDoc.exists()) {
@@ -416,7 +573,7 @@ export default function ExtendedFamilyLinking({
 
     const currentUserData = currentUserDoc.data();
     const updatedLinks = (currentUserData?.linkedFamilies || []).filter(
-      link => link.targetFamilyUid !== selectedLinkToRemove.targetFamilyUid
+      link => link && link.targetFamilyUid && link.targetFamilyUid !== selectedLinkToRemove.targetFamilyUid
     );
     
     await updateDoc(doc(db, 'users', currentUserUid), {
@@ -430,7 +587,7 @@ export default function ExtendedFamilyLinking({
       if (targetUserDoc.exists()) {
         const targetUserData = targetUserDoc.data();
         const updatedTargetLinks = (targetUserData?.linkedFamilies || []).filter(
-          link => link.targetFamilyUid !== currentUserUid
+          link => link && link.targetFamilyUid && link.targetFamilyUid !== currentUserUid
         );
         
         await updateDoc(doc(db, 'users', selectedLinkToRemove.targetFamilyUid), {
