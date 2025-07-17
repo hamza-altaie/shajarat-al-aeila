@@ -110,8 +110,10 @@ export default function ExtendedFamilyLinking({
   // دوال التحميل
   // ===========================================================================
 
-  // دالة للتحقق من وجود أعضاء مكررين بين عائلتين
-  const checkFamilyForDuplicates = useCallback(async (familyMembers, currentUserMembers) => {
+  // دالة للتحقق من وجود هويات متعددة لنفس الشخص (للدمج وليس للتجاهل)
+  const checkForPersonIdentities = useCallback(async (familyMembers, currentUserMembers) => {
+    const duplicatePersons = [];
+    
     for (const member of familyMembers) {
       const memberName = {
         firstName: member.firstName?.trim().toLowerCase() || '',
@@ -124,11 +126,26 @@ export default function ExtendedFamilyLinking({
         if (memberName.firstName === currentMember.firstName && 
             memberName.fatherName === currentMember.fatherName &&
             memberName.firstName !== '' && memberName.fatherName !== '') {
-          return true; // يوجد تكرار
+          
+          duplicatePersons.push({
+            sourceAccount: member,
+            targetAccount: currentMember,
+            mergedIdentity: {
+              firstName: member.firstName || currentMember.firstName,
+              fatherName: member.fatherName || currentMember.fatherName,
+              surname: member.surname || currentMember.surname,
+              // دمج البيانات من كلا الهويتين
+              roles: [
+                { account: 'source', relation: member.relation || 'عضو' },
+                { account: 'target', relation: currentMember.relation || 'عضو' }
+              ]
+            }
+          });
         }
       }
     }
-    return false; // لا يوجد تكرار
+    
+    return duplicatePersons; // إرجاع قائمة الهويات المتعددة للدمج
   }, []);
 
   const loadFamiliesForLinking = useCallback(async () => {
@@ -203,29 +220,38 @@ export default function ExtendedFamilyLinking({
           });
           
           if (members.length > 0) {
-            // التحقق من عدم وجود تكرار مع عائلة المستخدم الحالي
-            const hasDuplicateMembers = await checkFamilyForDuplicates(members, currentUserMembers);
+            // التحقق من الهويات المتعددة للدمج (بدلاً من التجاهل)
+            const duplicatePersons = await checkForPersonIdentities(members, currentUserMembers);
             
-            if (!hasDuplicateMembers) {
-              const familyHead = members.find(m => m.relation === 'رب العائلة') || members[0];
-              const membersCount = members.length;
-              
-              const familyName = familyHead 
-                ? `عائلة ${sanitizeName(familyHead.firstName, familyHead.fatherName, familyHead.surname)}`
-                : `عائلة ${userData.displayName || userData.email || 'غير محدد'}`;
-              
-              families.push({
-                uid: userId,
-                name: familyName,
-                head: familyHead,
-                members,
-                membersCount,
-                phone: userData.phone || familyHead?.phone || 'غير محدد',
-                email: userData.email || 'غير محدد',
-                userData
+            const familyHead = members.find(m => m.relation === 'رب العائلة') || members[0];
+            const membersCount = members.length;
+            
+            const familyName = familyHead 
+              ? `عائلة ${sanitizeName(familyHead.firstName, familyHead.fatherName, familyHead.surname)}`
+              : `عائلة ${userData.displayName || userData.email || 'غير محدد'}`;
+            
+            // إضافة العائلة مع معلومات الدمج
+            families.push({
+              uid: userId,
+              name: familyName,
+              head: familyHead,
+              members,
+              membersCount,
+              phone: userData.phone || familyHead?.phone || 'غير محدد',
+              email: userData.email || 'غير محدد',
+              userData,
+              // إضافة معلومات الهويات المتعددة للدمج
+              multipleIdentities: duplicatePersons.length > 0 ? duplicatePersons : null,
+              hasSharedPersons: duplicatePersons.length > 0
+            });
+            
+            if (duplicatePersons.length > 0) {
+              console.log(`🔗 تم العثور على ${duplicatePersons.length} هوية مشتركة مع العائلة ${userId} - سيتم دمجها في الشجرة`);
+              duplicatePersons.forEach(dp => {
+                console.log(`👤 هوية مشتركة: ${dp.mergedIdentity.firstName} ${dp.mergedIdentity.fatherName}`);
+                console.log(`   📋 الأدوار: ${dp.mergedIdentity.roles.map(r => r.relation).join(' + ')}`);
+                console.log(`   🏠 المصدر: ${userId.slice(0,8)}... -> الهدف: ${currentUserUid.slice(0,8)}...`);
               });
-            } else {
-              console.log(`تجاهل العائلة ${userId} بسبب وجود أعضاء مكررين`);
             }
           }
         } catch (error) {
@@ -262,7 +288,7 @@ export default function ExtendedFamilyLinking({
     } finally {
       setInitialLoading(false);
     }
-  }, [currentUserUid, existingLinks, sanitizeName, checkFamilyForDuplicates]);
+  }, [currentUserUid, existingLinks, sanitizeName, checkForPersonIdentities]);
 
   const loadLinkedFamilies = useCallback(async () => {
   if (!currentUserUid) {
@@ -471,10 +497,11 @@ export default function ExtendedFamilyLinking({
       throw new Error('انتهت جلسة تسجيل الدخول. يرجى تسجيل الدخول مرة أخرى');
     }
 
-    // التحقق من عدم وجود تكرار في الأشخاص
+    // التحقق من وجود هويات مشتركة (للإعلام وليس للمنع)
     const isDuplicatePerson = await checkForDuplicatePersons(currentUserUid, selectedFamily.uid);
     if (isDuplicatePerson) {
-      throw new Error('يبدو أن هناك أشخاص مشتركين بين العائلتين. لا يمكن الربط لتجنب التكرار.');
+      console.log('🔗 تم اكتشاف هويات مشتركة - سيتم دمجها في الشجرة الموسعة');
+      // لا نوقف الربط، بل نستمر لأن النظام الآن يدعم الدمج
     }
 
     const linkData = {
@@ -796,7 +823,7 @@ export default function ExtendedFamilyLinking({
       <Card 
         key={`${linkedFamily.targetFamilyUid}_${linkedFamily.establishedAt}`} 
         sx={{ 
-          mb: 2, 
+          mb: 2,
           border: '1px solid #e3f2fd',
           backgroundColor: '#fafafa',
           borderRadius: 2,
