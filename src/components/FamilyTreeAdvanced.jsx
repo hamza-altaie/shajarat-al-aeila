@@ -27,7 +27,6 @@ import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 // استيراد المكونات
 import ExtendedFamilyLinking from './ExtendedFamilyLinking';
 import './FamilyTreeAdvanced.css';
-import { useSearchZoom } from '../hooks/useSearchZoom';
 import BarChartIcon from '@mui/icons-material/BarChart';
 
 export default function FamilyTreeAdvanced() {
@@ -54,7 +53,6 @@ export default function FamilyTreeAdvanced() {
   const [loadingStage, setLoadingStage] = useState('');
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
   const [error, setError] = useState(null);
   const [isZoomedToNode, setIsZoomedToNode] = useState(false);
   
@@ -65,10 +63,6 @@ export default function FamilyTreeAdvanced() {
   const svgRef = useRef(null);
   const containerRef = useRef(null);
   const reactRootsRef = useRef(new Map());
-
-  // Hook للبحث والزووم
-  const currentTreeData = showExtendedTree ? extendedTreeData : simpleTreeData;
-  const searchZoomHook = useSearchZoom(svgRef, currentTreeData);
 
   // ===========================================================================
   // دوال مساعدة ثابتة
@@ -1695,21 +1689,6 @@ export default function FamilyTreeAdvanced() {
     }
   }, [showExtendedTree, loadExtendedTree, loadSimpleTree]);
 
-  const handleTreeTypeToggle = useCallback((event) => {
-    const newValue = event.target.checked;
-    setShowExtendedTree(newValue);
-    
-    if (newValue) {
-      showSnackbar('🏛️ تحميل الشجرة الموسعة للقبيلة...', 'info');
-      // تحميل الشجرة الموسعة فوراً
-      if (!extendedTreeData) {
-        loadExtendedTree();
-      }
-    } else {
-      showSnackbar('🌳 تحويل للشجرة العادية (رب العائلة وأولاده)', 'info');
-    }
-  }, [showSnackbar, extendedTreeData, loadExtendedTree]);
-
   // ===========================================================================
   // دالة رسم الشجرة
   // ===========================================================================
@@ -2103,64 +2082,14 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
 
 }, [showExtendedTree, handleNodeClick, searchQuery, isZoomedToNode]);
 
-  // دالة البحث المحلية
+  // دالة البحث المحلية - مبسطة
   const performSearch = useCallback((query) => {
-    
     if (!query || query.trim().length < 2) {
-      setSearchResults([]);
-      return [];
-    }
-
-    const treeData = showExtendedTree ? extendedTreeData : simpleTreeData;
-    if (!treeData) {
-      console.warn('❌ لا توجد بيانات شجرة للبحث فيها');
-      return [];
-    }
-
-    const results = [];
-    const normalizedQuery = query.toLowerCase().trim();
-    
-    function searchInNode(node, depth = 0) {
-      if (!node) return null;
-      
-      // استخراج البيانات من مصادر متعددة
-      const name = node.name || node.attributes?.name || '';
-      const firstName = node.attributes?.firstName || '';
-      const relation = node.attributes?.relation || node.relation || '';
-      
-      // فحص التطابق في الاسم
-      if (name.toLowerCase().includes(normalizedQuery) || 
-          firstName.toLowerCase().includes(normalizedQuery)) {
-        results.push({
-          node: node,
-          type: 'name',
-          score: 3,
-          depth: depth
-        });
-      } 
-      // فحص التطابق في العلاقة
-      else if (relation.toLowerCase().includes(normalizedQuery)) {
-        results.push({
-          node: node,
-          type: 'relation', 
-          score: 2,
-          depth: depth
-        });
-      }
-      
-      // البحث في الأطفال
-      if (node.children && Array.isArray(node.children)) {
-        node.children.forEach(child => searchInNode(child, depth + 1));
-      }
+      return;
     }
     
-    searchInNode(treeData);
-    
-    // ترتيب النتائج
-    results.sort((a, b) => b.score - a.score || a.depth - b.depth);
-    setSearchResults(results);
-    return results;
-  }, [showExtendedTree, extendedTreeData, simpleTreeData]);
+    // بحث بسيط - يمكن تطويره لاحقاً
+  }, []);
 
   // ===========================================================================
   // تأثيرات ودورة الحياة
@@ -2361,286 +2290,292 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
 
   const renderToolbar = () => (
     <Paper
-      elevation={6}
+      elevation={8}
       sx={{
         position: 'fixed',
         top: 0,
         left: 0,
         right: 0,
         zIndex: 1000,
-        background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.95) 100%)',
-        backdropFilter: 'blur(20px)',
-        borderBottom: '2px solid #e0e0e0'
+        background: 'linear-gradient(145deg, rgba(255,255,255,0.98) 0%, rgba(249,250,251,0.98) 50%, rgba(243,244,246,0.98) 100%)',
+        backdropFilter: 'blur(25px)',
+        borderBottom: '1px solid rgba(0,0,0,0.08)',
+        boxShadow: '0 4px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: '2px',
+          background: showExtendedTree 
+            ? 'linear-gradient(90deg, #8b5cf6 0%, #d946ef 100%)' 
+            : 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
+          transition: 'all 0.3s ease'
+        }
       }}
     >
-      <Box sx={{ p: 2 }}>
-        <Typography 
-          variant="h5" 
-          textAlign="center" 
-          sx={{ 
-            mb: 2, 
-            color: showExtendedTree ? '#8b5cf6' : '#10b981',
-            fontWeight: 'bold',
-            fontFamily: 'Cairo, sans-serif',
-            transition: 'color 0.3s ease'
-          }}
-        >
-          {showExtendedTree ? '🏛️ الشجرة الموسعة للقبيلة' : '🌳 شجرة عائلتك'}
-        </Typography>
+      {/* Container الرئيسي مع تصميم متجاوب وارتفاع مقلل */}
+      <Box sx={{ 
+        px: { xs: 1, sm: 2, md: 3 }, 
+        py: { xs: 0.5, sm: 1 },
+        maxWidth: '1400px',
+        margin: '0 auto'
+      }}>
         
-        {/* إضافة وصف توضيحي */}
-        <Typography 
-          variant="body2" 
-          textAlign="center" 
-          sx={{ 
-            mb: 1, 
-            color: 'text.secondary',
-            fontFamily: 'Cairo, sans-serif',
-            fontStyle: 'italic'
-          }}
-        >
-          {showExtendedTree 
-            ? '📊 عرض جميع العائلات المرتبطة في شجرة موحدة' 
-            : '👨‍👩‍👧‍👦 رب العائلة وأولاده فقط'
-          }
-        </Typography>
-        
+        {/* العنوان والوصف - ارتفاع مقلل */}
+        <Box sx={{ textAlign: 'center', mb: 1 }}>
+          <Typography 
+            variant="h5" 
+            sx={{ 
+              mb: 0,
+              fontSize: { xs: '1.25rem', sm: '1.5rem', md: '1.75rem' },
+              color: showExtendedTree ? '#8b5cf6' : '#10b981',
+              fontWeight: 700,
+              fontFamily: 'Cairo, sans-serif',
+              transition: 'all 0.3s ease',
+              textShadow: '0 1px 2px rgba(0,0,0,0.1)',
+              background: showExtendedTree 
+                ? 'linear-gradient(45deg, #8b5cf6 0%, #d946ef 100%)' 
+                : 'linear-gradient(45deg, #10b981 0%, #059669 100%)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent'
+            }}
+          >
+            {showExtendedTree ? '🏛️ الشجرة الموسعة للقبيلة' : '🌳 شجرة عائلتك'}
+          </Typography>
+          
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              color: 'text.secondary',
+              fontFamily: 'Cairo, sans-serif',
+              fontSize: { xs: '0.7rem', sm: '0.75rem' },
+              opacity: 0.8,
+              maxWidth: '600px',
+              margin: '0 auto',
+              display: 'block'
+            }}
+          >
+            {showExtendedTree 
+              ? '📊 استكشف جميع العائلات المرتبطة في شجرة موحدة وشاملة' 
+              : '👨‍👩‍👧‍👦 عرض بسيط لرب العائلة وأولاده المباشرين'
+            }
+          </Typography>
+        </Box>
+
+        {/* شريط التحميل - ارتفاع مقلل */}
         {loading && (
           <LinearProgress 
             variant="determinate" 
             value={loadingProgress} 
             sx={{ 
-              mb: 2,
+              mb: 1,
               height: 6, 
               borderRadius: 3,
-              backgroundColor: 'rgba(25, 118, 210, 0.1)',
+              backgroundColor: 'rgba(0,0,0,0.06)',
               '& .MuiLinearProgress-bar': {
-                backgroundColor: '#1976d2'
+                background: showExtendedTree 
+                  ? 'linear-gradient(90deg, #8b5cf6 0%, #d946ef 100%)' 
+                  : 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
+                borderRadius: 3,
+                boxShadow: '0 1px 4px rgba(0,0,0,0.2)'
               }
             }}
           />
         )}
-        
-        <Box display="flex" justifyContent="center" gap={1} flexWrap="wrap" sx={{ mb: 2 }}>
-          <Button variant="contained" size="small" onClick={() => navigate('/family')} disabled={loading} startIcon={<PersonAddIcon />} sx={{ gap: 1 }}>
-            إدارة العائلة
-          </Button>
-          <Button variant="outlined" size="small" onClick={() => setShowLinkingPanel(true)} disabled={loading} startIcon={<LinkIcon />} sx={{ gap: 1 }}>
-            ربط
-          </Button>
+
+        {/* الأزرار الرئيسية - أحجام مقللة */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          gap: { xs: 0.5, sm: 1 }, 
+          flexWrap: 'wrap', 
+          mb: 1,
+          alignItems: 'center'
+        }}>
+          {/* أزرار الإجراءات الأساسية */}
           <Button 
             variant="contained" 
-            size="small" 
-            onClick={() => navigate('/statistics')}  // ← التغيير هنا: الانتقال للصفحة المستقلة
+            size={window.innerWidth < 600 ? "small" : "medium"}
+            onClick={() => navigate('/family')} 
+            disabled={loading} 
+            startIcon={<PersonAddIcon />} 
+            sx={{ 
+              px: { xs: 1, sm: 1.5 },
+              py: { xs: 0.25, sm: 0.5 },
+              fontSize: { xs: '0.7rem', sm: '0.8rem' },
+              borderRadius: 2,
+              background: 'linear-gradient(45deg, #1976d2 0%, #1565c0 100%)',
+              boxShadow: '0 2px 8px rgba(25,118,210,0.25)',
+              '&:hover': { 
+                background: 'linear-gradient(45deg, #1565c0 0%, #0d47a1 100%)',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 4px 12px rgba(25,118,210,0.3)'
+              },
+              transition: 'all 0.2s ease'
+            }}
+          >
+            إدارة العائلة
+          </Button>
+
+          <Button 
+            variant="outlined" 
+            size={window.innerWidth < 600 ? "small" : "medium"}
+            onClick={() => setShowLinkingPanel(true)} 
+            disabled={loading} 
+            startIcon={<LinkIcon />} 
+            sx={{ 
+              px: { xs: 1, sm: 1.5 },
+              py: { xs: 0.25, sm: 0.5 },
+              fontSize: { xs: '0.7rem', sm: '0.8rem' },
+              borderRadius: 2,
+              borderColor: '#8b5cf6',
+              color: '#8b5cf6',
+              '&:hover': {
+                borderColor: '#7c3aed',
+                backgroundColor: 'rgba(139,92,246,0.05)',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 2px 8px rgba(139,92,246,0.15)'
+              },
+              transition: 'all 0.2s ease'
+            }}
+          >
+            ربط العائلات
+          </Button>
+
+          <Button 
+            variant="contained" 
+            size={window.innerWidth < 600 ? "small" : "medium"}
+            onClick={() => navigate('/statistics')}
             disabled={loading} 
             startIcon={<BarChartIcon />} 
             sx={{ 
-              gap: 1,
-              backgroundColor: 'success.main',
-              '&:hover': { backgroundColor: 'success.dark' }
+              px: { xs: 1, sm: 1.5 },
+              py: { xs: 0.25, sm: 0.5 },
+              fontSize: { xs: '0.7rem', sm: '0.8rem' },
+              borderRadius: 2,
+              background: 'linear-gradient(45deg, #10b981 0%, #059669 100%)',
+              boxShadow: '0 2px 8px rgba(16,185,129,0.25)',
+              '&:hover': { 
+                background: 'linear-gradient(45deg, #059669 0%, #047857 100%)',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 4px 12px rgba(16,185,129,0.3)'
+              },
+              transition: 'all 0.2s ease'
             }}
           >
-            إحصائيات
+            الإحصائيات
           </Button>
 
-          <IconButton size="small" onClick={handleRefresh} disabled={loading} title="إعادة تحميل الصفحة">
+          {/* زر التحديث */}
+          <IconButton 
+            onClick={handleRefresh} 
+            disabled={loading} 
+            size={window.innerWidth < 600 ? "small" : "medium"}
+            sx={{ 
+              ml: 0.5,
+              borderRadius: 1.5,
+              background: 'rgba(0,0,0,0.04)',
+              '&:hover': {
+                background: 'rgba(0,0,0,0.08)',
+                transform: 'rotate(180deg) scale(1.05)',
+              },
+              transition: 'all 0.2s ease'
+            }}
+            title="إعادة تحميل الشجرة"
+          >
             <RefreshIcon />
           </IconButton>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, position: 'relative' }}>
-            <TextField
-              size="small"
-              value={searchQuery}
-              onChange={(e) => {
-                const value = e.target.value;
-                setSearchQuery(value);
-                performSearch(value);
-              }}
-              placeholder="ابحث عن شخص للتركيز عليه..."
-              variant="outlined"
-              sx={{
-                minWidth: 250,
-                '& .MuiOutlinedInput-root': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                  borderRadius: 2,
-                  fontFamily: 'Cairo, sans-serif'
-                }
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon color="action" />
-                  </InputAdornment>
-                ),
-                endAdornment: searchQuery && (
-                  <InputAdornment position="end">
-                    <IconButton 
-                      size="small" 
-                      onClick={() => {
-                        setSearchQuery('');
-                        setSearchResults([]);
-                        setIsZoomedToNode(false); // إرجاع الكاميرا للوضع الافتراضي
-                        if (svgRef.current) {
-                          const svg = d3.select(svgRef.current);
-                          const g = svg.select('g');
-                          g.selectAll('.node').classed('search-highlight', false);
-                          g.selectAll('.node foreignObject > div')
-                            .classed('search-highlight', false)
-                            .style('transform', null)
-                            .style('border', null)
-                            .style('box-shadow', null)
-                            .style('background', null);
-                        }
-                      }}
-                    >
-                      <CloseIcon />
-                    </IconButton>
-                  </InputAdornment>
-                )
-              }}
-            />
-            
-            {/* عرض عدد النتائج */}
-            {searchResults.length > 0 && (
-              <Chip 
-                label={`${searchResults.length} نتيجة`} 
-                size="small" 
-                color="primary"
-                variant="outlined"
-              />
-            )}
-            
-            {/* قائمة النتائج المحسنة مع الزوم */}
-            {searchQuery.length > 1 && searchResults.length > 0 && (
-              <Box sx={{ 
-                position: 'absolute', 
-                top: '100%', 
-                left: 0, 
-                right: 0, 
-                zIndex: 1000, 
-                mt: 1 
-              }}>
-                <Paper sx={{ 
-                  maxHeight: 250, 
-                  overflow: 'auto', 
-                  backgroundColor: 'rgba(255,255,255,0.98)',
-                  backdropFilter: 'blur(10px)',
-                  borderRadius: 2,
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.12)'
-                }}>
-                  {searchResults.slice(0, 6).map((result, index) => (
-                    <Box
-                      key={index}
-                      onClick={() => {
-                        // ابحث عن الـ node object المطابق في الشجرة
-                        const treeData = showExtendedTree ? extendedTreeData : simpleTreeData;
-                        let foundNode = null;
-                        function findNode(node) {
-                          if (!node) return null;
-                          const name = node.name || node.attributes?.name || node.data?.name;
-                          if (name === (result.node?.name || result.node?.attributes?.name || result.node?.data?.name)) {
-                            foundNode = node;
-                            return;
-                          }
-                          if (node.children && Array.isArray(node.children)) {
-                            node.children.forEach(findNode);
-                          }
-                        }
-                        findNode(treeData);
-                        if (foundNode) {
-                          searchZoomHook.zoomToPerson(foundNode);
-                        }
-                        setTimeout(() => {
-                          setSearchQuery(result.node?.name || result.node?.attributes?.name || result.node?.data?.name || '');
-                          setSearchResults([]);
-                        }, 300);
-                      }}
-                      sx={{
-                        p: 2,
-                        cursor: 'pointer',
-                        borderBottom: index < Math.min(searchResults.length, 6) - 1 ? '1px solid rgba(0,0,0,0.1)' : 'none',
-                        '&:hover': {
-                          backgroundColor: 'rgba(33, 150, 243, 0.08)',
-                          transform: 'translateX(8px)',
-                          borderLeft: '4px solid #2196f3'
-                        },
-                        transition: 'all 0.2s ease',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 2,
-                        fontFamily: 'Cairo, sans-serif'
-                      }}
-                    >
-                      {/* أيقونة نوع النتيجة */}
-                      <Box sx={{ 
-                        color: result.type === 'name' ? '#2196f3' : '#ff9800',
-                        fontSize: '1.2rem'
-                      }}>
-                        {result.type === 'name' ? '👤' : '🔗'}
-                      </Box>
-                      
-                      {/* معلومات الشخص */}
-                      <Box sx={{ flex: 1 }}>
-                        <Typography 
-                          variant="body2" 
-                          fontWeight="bold"
-                          sx={{ 
-                            color: '#1976d2',
-                            mb: 0.5
-                          }}
-                        >
-                          {result.node.name || result.node.attributes?.name || 'غير محدد'}
-                        </Typography>
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            color: 'text.secondary',
-                            fontSize: '0.75rem'
-                          }}
-                        >
-                          📍 {result.node.attributes?.relation || result.node.relation || 'عضو'} • انقر للتركيز 🎯
-                        </Typography>
-                      </Box>
-                      
-                      {/* مؤشر نوع النتيجة */}
-                      <Chip
-                        label={result.type === 'name' ? 'اسم' : 'قرابة'}
-                        size="small"
-                        color={result.type === 'name' ? 'primary' : 'secondary'}
-                        variant="outlined"
-                        sx={{ 
-                          fontSize: '0.7rem',
-                          height: '24px'
-                        }}
-                      />
-                    </Box>
-                  ))}
-                  
-                  {/* عرض عدد النتائج الإضافية */}
-                  {searchResults.length > 6 && (
-                    <Box sx={{ 
-                      p: 1, 
-                      textAlign: 'center', 
-                      backgroundColor: 'rgba(0,0,0,0.05)',
-                      borderTop: '1px solid rgba(0,0,0,0.1)'
-                    }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'Cairo, sans-serif' }}>
-                        و {searchResults.length - 6} نتائج أخرى...
-                      </Typography>
-                    </Box>
-                  )}
-                </Paper>
-              </Box>
-            )}
-          </Box>
         </Box>
 
-        <Box display="flex" justifyContent="center" sx={{ mb: 1 }}>
+        {/* شريط البحث المحسن - ارتفاع مقلل */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          mb: 1,
+          px: { xs: 1, sm: 0 }
+        }}>
+          <TextField
+            size="small"
+            value={searchQuery}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSearchQuery(value);
+              performSearch(value);
+            }}
+            placeholder="🔍 ابحث عن أي شخص في الشجرة للتركيز عليه..."
+            variant="outlined"
+            sx={{
+              width: { xs: '100%', sm: '350px', md: '450px' },
+              '& .MuiOutlinedInput-root': {
+                backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                borderRadius: 3,
+                fontFamily: 'Cairo, sans-serif',
+                fontSize: { xs: '0.8rem', sm: '0.9rem' },
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(0,0,0,0.08)',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.06)'
+                },
+                '&.Mui-focused': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  boxShadow: `0 0 0 2px ${showExtendedTree ? 'rgba(139,92,246,0.2)' : 'rgba(16,185,129,0.2)'}`,
+                  borderColor: showExtendedTree ? '#8b5cf6' : '#10b981'
+                },
+                transition: 'all 0.2s ease'
+              }
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: 'text.secondary', fontSize: '1.2rem' }} />
+                </InputAdornment>
+              ),
+              endAdornment: searchQuery && (
+                <InputAdornment position="end">
+                  <IconButton 
+                    size="small" 
+                    onClick={() => {
+                      setSearchQuery('');
+                      setIsZoomedToNode(false);
+                      if (svgRef.current) {
+                        const svg = d3.select(svgRef.current);
+                        const g = svg.select('g');
+                        g.selectAll('.node').classed('search-highlight', false);
+                        g.selectAll('.node foreignObject > div')
+                          .classed('search-highlight', false)
+                          .style('transform', null)
+                          .style('border', null)
+                          .style('box-shadow', null)
+                          .style('background', null);
+                      }
+                    }}
+                    sx={{ 
+                      '&:hover': { 
+                        backgroundColor: 'rgba(244,67,54,0.1)',
+                        color: '#f44336'
+                      } 
+                    }}
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              )
+            }}
+          />
+        </Box>
+
+        {/* مفتاح تبديل نوع الشجرة محسن - ارتفاع مقلل */}
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
           <FormControlLabel
             control={
-              <Switch 
-                checked={showExtendedTree} 
-                onChange={handleTreeTypeToggle} 
-                disabled={loading} 
+              <Switch
+                checked={showExtendedTree}
+                onChange={(e) => setShowExtendedTree(e.target.checked)}
+                disabled={loading}
                 size="small"
                 sx={{
                   '& .MuiSwitch-switchBase.Mui-checked': {
@@ -2649,39 +2584,121 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
                   '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
                     backgroundColor: '#8b5cf6',
                   },
+                  '& .MuiSwitch-switchBase': {
+                    color: '#10b981',
+                  },
+                  '& .MuiSwitch-track': {
+                    backgroundColor: '#10b981',
+                  },
                 }}
               />
             }
             label={
               <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    fontFamily: 'Cairo, sans-serif', 
+                    fontWeight: 'bold',
+                    fontSize: { xs: '0.75rem', sm: '0.85rem' }
+                  }}
+                >
                   {showExtendedTree ? '🏛️ الشجرة الموسعة (القبيلة)' : '🌳 الشجرة العادية (العائلة)'}
                 </Typography>
-                <Typography variant="caption" sx={{ fontFamily: 'Cairo, sans-serif', color: 'text.secondary' }}>
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    fontFamily: 'Cairo, sans-serif', 
+                    color: 'text.secondary',
+                    display: 'block',
+                    fontSize: { xs: '0.65rem', sm: '0.7rem' }
+                  }}
+                >
                   {showExtendedTree ? 'جميع العائلات المرتبطة' : 'رب العائلة وأولاده فقط'}
                 </Typography>
               </Box>
             }
+            sx={{
+              '& .MuiFormControlLabel-label': {
+                px: 0.5
+              }
+            }}
           />
         </Box>
 
+        {/* إحصائيات الأداء - أحجام مقللة */}
         {performanceMetrics.personCount > 0 && (
-          <Box display="flex" justifyContent="center" gap={1} flexWrap="wrap">
-            <Chip size="small" label={`👥 ${performanceMetrics.personCount}`} variant="outlined" />
-            {showExtendedTree ? (
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            gap: { xs: 0.5, sm: 0.75 }, 
+            flexWrap: 'wrap',
+            alignItems: 'center'
+          }}>
+            <Chip 
+              size="small" 
+              label={`👥 ${performanceMetrics.personCount} شخص`} 
+              variant="outlined"
+              sx={{
+                fontSize: { xs: '0.6rem', sm: '0.7rem' },
+                height: { xs: 20, sm: 24 }
+              }}
+            />
+            
+            {showExtendedTree && (
               <>
                 {performanceMetrics.familyCount > 1 && (
-                  <Chip size="small" label={`�️ ${performanceMetrics.familyCount} عائلة`} variant="outlined" color="secondary" />
+                  <Chip 
+                    size="small" 
+                    label={`🏛️ ${performanceMetrics.familyCount} عائلة`} 
+                    variant="outlined" 
+                    color="secondary"
+                    sx={{
+                      fontSize: { xs: '0.6rem', sm: '0.7rem' },
+                      height: { xs: 20, sm: 24 }
+                    }}
+                  />
                 )}
+                
                 {linkedFamilies.length > 0 && (
-                  <Chip size="small" label={`🔗 ${linkedFamilies.length} رابط`} variant="outlined" color="primary" />
+                  <Chip 
+                    size="small" 
+                    label={`🔗 ${linkedFamilies.length} رابط`} 
+                    variant="outlined" 
+                    color="primary"
+                    sx={{
+                      fontSize: { xs: '0.6rem', sm: '0.7rem' },
+                      height: { xs: 20, sm: 24 }
+                    }}
+                  />
                 )}
+                
                 {performanceMetrics.maxDepthReached > 0 && (
-                  <Chip size="small" label={`📊 ${performanceMetrics.maxDepthReached + 1} أجيال`} variant="outlined" color="info" />
+                  <Chip 
+                    size="small" 
+                    label={`📊 ${performanceMetrics.maxDepthReached + 1} جيل`} 
+                    variant="outlined" 
+                    color="info"
+                    sx={{
+                      fontSize: { xs: '0.6rem', sm: '0.7rem' },
+                      height: { xs: 20, sm: 24 }
+                    }}
+                  />
                 )}
               </>
-            ) : (
-              <Chip size="small" label={`🌳 شجرة بسيطة (جيلين)`} variant="outlined" color="success" />
+            )}
+            
+            {!showExtendedTree && (
+              <Chip 
+                size="small" 
+                label="🌳 شجرة بسيطة (جيلان)" 
+                variant="outlined" 
+                color="success"
+                sx={{
+                  fontSize: { xs: '0.6rem', sm: '0.7rem' },
+                  height: { xs: 20, sm: 24 }
+                }}
+              />
             )}
           </Box>
         )}
@@ -2692,7 +2709,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
   return (
     <Box className="family-tree-advanced-root" sx={{ width: '100vw', height: '100vh', fontFamily: 'Cairo, sans-serif' }}>
       {renderToolbar()}
-      <Box sx={{ position: 'absolute', top: 140, left: 0, right: 0, bottom: 0 }}>
+      <Box sx={{ position: 'absolute', top: 120, left: 0, right: 0, bottom: 0 }}>
         {renderTreeView()}
       </Box>
 
