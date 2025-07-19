@@ -155,17 +155,45 @@ export default function FamilyTreeAdvanced() {
   }, []);
 
   const monitorPerformance = useCallback((metrics) => {
+    // دمج الإحصائيات من النافذة العامة إن وجدت
+    const globalMetrics = window.familyTreeMetrics || {};
+    
     setPerformanceMetrics(prev => ({
       ...prev,
-      ...metrics
+      ...metrics,
+      maxDepthReached: Math.max(prev.maxDepthReached || 0, globalMetrics.maxDepthReached || 0, metrics.maxDepthReached || 0)
     }));
     
-    if (metrics.personCount > 50) {
+    // رسائل تحسينية بناءً على الأداء
+    if (metrics.personCount > 100) {
+      showSnackbar(`🚀 أداء استثنائي! تم تحميل ${metrics.personCount} شخص بنجاح`, 'success');
+    } else if (metrics.personCount > 50) {
       showSnackbar(`✅ تم تحميل ${metrics.personCount} شخص بنجاح`, 'success');
     }
     
-    if (metrics.familyCount > 1) {
+    if (metrics.familyCount > 5) {
+      showSnackbar(`🏛️ شجرة كبيرة: تم ربط ${metrics.familyCount} عائلة`, 'info');
+    } else if (metrics.familyCount > 1) {
       showSnackbar(`🏛️ تم ربط ${metrics.familyCount} عائلة`, 'info');
+    }
+    
+    // تتبع العمق المحقق مع تقييم متقدم للأجيال
+    const actualDepth = globalMetrics.maxDepthReached || metrics.maxDepthReached;
+    if (actualDepth >= 15) {
+      showSnackbar(`🏛️ شجرة قبيلة عظيمة! ${actualDepth} جيل - نظام متقدم جداً`, 'success');
+    } else if (actualDepth >= 10) {
+      showSnackbar(`🌳 شجرة عميقة ممتازة: ${actualDepth} جيل`, 'success');
+    } else if (actualDepth >= 5) {
+      showSnackbar(`🌿 عمق جيد: ${actualDepth} أجيال`, 'info');
+    } else if (actualDepth >= 2) {
+      showSnackbar(`👨‍👩‍👧‍👦 شجرة عائلية: ${actualDepth} أجيال`, 'info');
+    }
+    
+    // تقرير تفصيلي للإحصائيات المتقدمة
+    if (globalMetrics.maxDepthReached) {
+      console.log(`📏 التقرير النهائي: ${globalMetrics.maxDepthReached} جيل تم بناؤه بنجاح`);
+      console.log(`🏆 تقييم النظام: ${actualDepth >= 15 ? 'قبيلة عظيمة' : actualDepth >= 10 ? 'متقدم جداً' : actualDepth >= 5 ? 'جيد جداً' : 'عائلة بسيطة'}`);
+      console.log(`💡 الإمكانيات: يدعم حتى 15+ جيل مع أداء محسّن`);
     }
   }, [showSnackbar]);
 
@@ -438,14 +466,24 @@ export default function FamilyTreeAdvanced() {
 
     // **خطوة جديدة: البحث المتقدم عن جميع الأجيال**
     
-    // دالة للبحث عن جميع الأجداد (تصاعدي)
-    function findAllAncestors(startFamily, maxDepth = 10) {
+    // دالة للبحث عن جميع الأجداد (تصاعدي) - محسنة للأعماق الكبيرة
+    function findAllAncestors(startFamily, maxDepth = 15) {
       console.log('🔍 البحث عن جميع الأجداد...');
+      console.log(`   📊 البحث حتى عمق: ${maxDepth} أجيال`);
+      
       const ancestors = [];
+      const visitedFamilies = new Set(); // تجنب الدورات اللانهائية
       let currentFamily = startFamily;
       let depth = 0;
       
       while (currentFamily && depth < maxDepth) {
+        // تجنب الدورات اللانهائية
+        if (visitedFamilies.has(currentFamily.uid)) {
+          console.log(`   ⚠️ تم اكتشاف دورة في العائلة: ${currentFamily.head?.firstName} - توقف البحث`);
+          break;
+        }
+        visitedFamilies.add(currentFamily.uid);
+        
         // البحث عن أب هذه العائلة
         const parentFamily = mergedFamiliesData.find(family => {
           return family.members.some(member => 
@@ -461,31 +499,108 @@ export default function FamilyTreeAdvanced() {
           );
         });
         
-        if (parentFamily && parentFamily.uid !== currentFamily.uid) {
+        if (parentFamily && parentFamily.uid !== currentFamily.uid && !visitedFamilies.has(parentFamily.uid)) {
+          // تحسين تسمية الأجداد للأعماق الكبيرة - إصدار موسع
+          let relationName;
+          switch(depth) {
+            case 0:
+              relationName = 'أب';
+              break;
+            case 1:
+              relationName = 'جد';
+              break;
+            case 2:
+              relationName = 'جد الجد';
+              break;
+            case 3:
+              relationName = 'جد الأجداد';
+              break;
+            case 4:
+              relationName = 'جد الجيل الخامس';
+              break;
+            case 5:
+              relationName = 'جد الجيل السادس';
+              break;
+            case 6:
+              relationName = 'جد الجيل السابع';
+              break;
+            case 7:
+              relationName = 'جد الجيل الثامن';
+              break;
+            case 8:
+              relationName = 'جد الجيل التاسع';
+              break;
+            case 9:
+              relationName = 'جد الجيل العاشر';
+              break;
+            case 10:
+              relationName = 'جد الجيل الحادي عشر';
+              break;
+            case 11:
+              relationName = 'جد الجيل الثاني عشر';
+              break;
+            case 12:
+              relationName = 'جد الجيل الثالث عشر';
+              break;
+            case 13:
+              relationName = 'جد الجيل الرابع عشر';
+              break;
+            case 14:
+              relationName = 'جد الجيل الخامس عشر';
+              break;
+            default:
+              if (depth < 20) {
+                relationName = `جد الجيل ${depth + 1}`;
+              } else {
+                relationName = `جد الأسلاف الجيل ${depth + 1}`;
+              }
+          }
+          
           ancestors.push({
             family: parentFamily,
             depth: depth + 1,
-            relation: depth === 0 ? 'أب' : depth === 1 ? 'جد' : `جد الأجداد ${depth}`
+            relation: relationName
           });
-          console.log(`   👴 وجد ${depth === 0 ? 'أب' : 'جد'}: ${parentFamily.head?.firstName} (عمق: ${depth + 1})`);
+          
+          console.log(`   👴 وجد ${relationName}: ${parentFamily.head?.firstName} (عمق: ${depth + 1})`);
           currentFamily = parentFamily;
           depth++;
         } else {
+          if (parentFamily && visitedFamilies.has(parentFamily.uid)) {
+            console.log(`   ⚠️ توقف: العائلة الأب موجودة مسبقاً في المسار - تجنب الدورة`);
+          }
           break;
         }
       }
       
-      console.log(`✅ تم العثور على ${ancestors.length} من الأجداد`);
+      if (depth >= maxDepth) {
+        console.log(`   ⚠️ تم الوصول للحد الأقصى للبحث: ${maxDepth} أجيال`);
+      }
+      
+      console.log(`✅ تم العثور على ${ancestors.length} من الأجداد (حتى الجيل ${depth})`);
       return ancestors;
     }
     
-    // دالة للبحث عن جميع الأحفاد (تنازلي)  
-    function findAllDescendants(personFamily, maxDepth = 10) {
+    // دالة للبحث عن جميع الأحفاد (تنازلي) - محسنة للأعماق الكبيرة
+    function findAllDescendants(personFamily, maxDepth = 15) {
       console.log(`🔍 البحث عن جميع أحفاد ${personFamily.head?.firstName}...`);
+      console.log(`   📊 البحث حتى عمق: ${maxDepth} أجيال`);
+      
       const descendants = [];
+      const visitedFamilies = new Set(); // تجنب الدورات اللانهائية
       
       function searchDeeper(currentFamily, currentDepth) {
-        if (currentDepth >= maxDepth) return;
+        if (currentDepth >= maxDepth) {
+          console.log(`   ⚠️ تم الوصول للحد الأقصى للعمق: ${maxDepth} - توقف البحث`);
+          return;
+        }
+        
+        // تجنب الدورات اللانهائية
+        if (visitedFamilies.has(currentFamily.uid)) {
+          console.log(`   ⚠️ تم اكتشاف دورة في العائلة: ${currentFamily.head?.firstName} - تجاهل`);
+          return;
+        }
+        visitedFamilies.add(currentFamily.uid);
         
         // البحث عن عائلات الأطفال
         const childrenFamilies = mergedFamiliesData.filter(family => {
@@ -499,14 +614,66 @@ export default function FamilyTreeAdvanced() {
               role.familyUid === family.uid && 
               role.relation === 'رب العائلة'
             )
-          );
+          ) && !visitedFamilies.has(family.uid);
         });
         
         childrenFamilies.forEach(childFamily => {
           if (childFamily.uid !== currentFamily.uid) {
-            const relationName = currentDepth === 0 ? 'ابن' : 
-                               currentDepth === 1 ? 'حفيد' : 
-                               `حفيد الأحفاد ${currentDepth}`;
+            // تحسين تسمية الأحفاد للأعماق الكبيرة - إصدار موسع
+            let relationName;
+            switch(currentDepth) {
+              case 0:
+                relationName = 'ابن';
+                break;
+              case 1:
+                relationName = 'حفيد';
+                break;
+              case 2:
+                relationName = 'حفيد الحفيد';
+                break;
+              case 3:
+                relationName = 'ابن الجيل الرابع';
+                break;
+              case 4:
+                relationName = 'ابن الجيل الخامس';
+                break;
+              case 5:
+                relationName = 'ابن الجيل السادس';
+                break;
+              case 6:
+                relationName = 'ابن الجيل السابع';
+                break;
+              case 7:
+                relationName = 'ابن الجيل الثامن';
+                break;
+              case 8:
+                relationName = 'ابن الجيل التاسع';
+                break;
+              case 9:
+                relationName = 'ابن الجيل العاشر';
+                break;
+              case 10:
+                relationName = 'ابن الجيل الحادي عشر';
+                break;
+              case 11:
+                relationName = 'ابن الجيل الثاني عشر';
+                break;
+              case 12:
+                relationName = 'ابن الجيل الثالث عشر';
+                break;
+              case 13:
+                relationName = 'ابن الجيل الرابع عشر';
+                break;
+              case 14:
+                relationName = 'ابن الجيل الخامس عشر';
+                break;
+              default:
+                if (currentDepth < 20) {
+                  relationName = `ابن الجيل ${currentDepth + 1}`;
+                } else {
+                  relationName = `من ذرية الجيل ${currentDepth + 1}`;
+                }
+            }
             
             descendants.push({
               family: childFamily,
@@ -950,11 +1117,15 @@ export default function FamilyTreeAdvanced() {
           `جد القبيلة`
         );
         
-        // بناء الشجرة بشكل تدريجي من الأعلى للأسفل
-        function buildGenerationLevel(parentNode, parentFamily, currentDepth, maxDepth = 8) {
-          if (currentDepth >= maxDepth) return;
+        // بناء الشجرة بشكل تدريجي من الأعلى للأسفل - محسن للأجيال العميقة
+        function buildGenerationLevel(parentNode, parentFamily, currentDepth, maxDepth = 15) {
+          if (currentDepth >= maxDepth) {
+            console.log(`⚠️ تم الوصول للحد الأقصى للعمق: ${maxDepth} - توقف البناء`);
+            return;
+          }
           
           console.log(`🔄 بناء المستوى ${currentDepth} للعائلة: ${parentFamily.head?.firstName}`);
+          console.log(`   📊 العمق الحالي: ${currentDepth}/${maxDepth-1} - عدد العائلات المتاحة: ${mergedFamiliesData.length}`);
           
           // البحث عن أطفال هذا المستوى (الذين لهم عائلات منفصلة)
           console.log(`   🔍 البحث في ${mergedFamiliesData.length} عائلة عن أطفال ${parentFamily.head?.firstName} (${parentFamily.uid.slice(0,8)})`);
@@ -1006,17 +1177,86 @@ export default function FamilyTreeAdvanced() {
             if (childFamily.uid !== parentFamily.uid) {
               console.log(`   ✅ تمرير شرط العائلة المختلفة`);
               
-              const relationName = currentDepth === 0 ? 'ابن' :
-                                currentDepth === 1 ? 'حفيد' :
-                                `الجيل ${currentDepth + 1}`;
+              // تحسين تسمية الأجيال للأعماق الكبيرة - إصدار موسع
+              let relationName, displayLabel;
+              
+              switch(currentDepth) {
+                case 0:
+                  relationName = 'ابن';
+                  displayLabel = 'ابن';
+                  break;
+                case 1:
+                  relationName = 'حفيد';
+                  displayLabel = 'حفيد';
+                  break;
+                case 2:
+                  relationName = 'حفيد الحفيد';
+                  displayLabel = 'حفيد الحفيد';
+                  break;
+                case 3:
+                  relationName = 'ابن الجيل الرابع';
+                  displayLabel = 'الجيل الرابع';
+                  break;
+                case 4:
+                  relationName = 'ابن الجيل الخامس';
+                  displayLabel = 'الجيل الخامس';
+                  break;
+                case 5:
+                  relationName = 'ابن الجيل السادس';
+                  displayLabel = 'الجيل السادس';
+                  break;
+                case 6:
+                  relationName = 'ابن الجيل السابع';
+                  displayLabel = 'الجيل السابع';
+                  break;
+                case 7:
+                  relationName = 'ابن الجيل الثامن';
+                  displayLabel = 'الجيل الثامن';
+                  break;
+                case 8:
+                  relationName = 'ابن الجيل التاسع';
+                  displayLabel = 'الجيل التاسع';
+                  break;
+                case 9:
+                  relationName = 'ابن الجيل العاشر';
+                  displayLabel = 'الجيل العاشر';
+                  break;
+                case 10:
+                  relationName = 'ابن الجيل الحادي عشر';
+                  displayLabel = 'الجيل الحادي عشر';
+                  break;
+                case 11:
+                  relationName = 'ابن الجيل الثاني عشر';
+                  displayLabel = 'الجيل الثاني عشر';
+                  break;
+                case 12:
+                  relationName = 'ابن الجيل الثالث عشر';
+                  displayLabel = 'الجيل الثالث عشر';
+                  break;
+                case 13:
+                  relationName = 'ابن الجيل الرابع عشر';
+                  displayLabel = 'الجيل الرابع عشر';
+                  break;
+                case 14:
+                  relationName = 'ابن الجيل الخامس عشر';
+                  displayLabel = 'الجيل الخامس عشر';
+                  break;
+                default:
+                  if (currentDepth < 20) {
+                    relationName = `ابن الجيل ${currentDepth + 1}`;
+                    displayLabel = `الجيل ${currentDepth + 1}`;
+                  } else {
+                    relationName = `من نسل الجيل ${currentDepth + 1}`;
+                    displayLabel = `نسل الجيل ${currentDepth + 1}`;
+                  }
+              }
               
               const isCurrentUser = childFamily.uid === rootFamilyUid;
-              const displayLabel = isCurrentUser ? 'أنت' : 
-                                 currentDepth === 0 ? 'ابن' :
-                                 currentDepth === 1 ? 'حفيد' : 
-                                 relationName;
+              if (isCurrentUser) {
+                displayLabel = 'أنت';
+              }
               
-              console.log(`   🏗️ إنشاء عقدة للطفل: ${childFamily.head?.firstName} بعلاقة: ${relationName}`);
+              console.log(`   🏗️ إنشاء عقدة للطفل: ${childFamily.head?.firstName} بعلاقة: ${relationName} (${displayLabel}) - العمق: ${currentDepth + 1}`);
               
               const childNode = createPersonNodeWithoutChildren(
                 childFamily,
@@ -1025,7 +1265,11 @@ export default function FamilyTreeAdvanced() {
                 isCurrentUser
               );
               
-              console.log(`   📦 العقدة المُنشأة: ${childNode.name}`);
+              // إضافة معلومات العمق للعقدة
+              childNode.attributes.generationDepth = currentDepth + 1;
+              childNode.attributes.generationLevel = `الجيل ${currentDepth + 1}`;
+              
+              console.log(`   📦 العقدة المُنشأة: ${childNode.name} - العمق: ${childNode.attributes.generationDepth}`);
               
               parentNode.children.push(childNode);
               console.log(`   ✅ أضيف طفل بعائلة منفصلة: ${childFamily.head?.firstName} (${relationName})`);
@@ -1034,7 +1278,16 @@ export default function FamilyTreeAdvanced() {
               // إضافة الأطفال الفعليين من عائلة هذا الشخص
               addChildrenToNode(childNode, childFamily);
               
-              // الاستمرار في البناء للمستوى التالي
+              // تتبع العمق الحقيقي للشجرة
+              const currentActualDepth = currentDepth + 1;
+              if (currentActualDepth > (window.familyTreeMetrics?.maxDepthReached || 0)) {
+                window.familyTreeMetrics = window.familyTreeMetrics || {};
+                window.familyTreeMetrics.maxDepthReached = currentActualDepth;
+                console.log(`📏 عمق جديد تم الوصول إليه: ${currentActualDepth} أجيال`);
+              }
+              
+              // الاستمرار في البناء للمستوى التالي مع حماية من التكرار اللانهائي
+              console.log(`   🔄 الاستمرار للمستوى ${currentDepth + 1}...`);
               buildGenerationLevel(childNode, childFamily, currentDepth + 1, maxDepth);
             } else {
               console.log(`   ❌ تجاهل: نفس العائلة`);
@@ -1052,6 +1305,33 @@ export default function FamilyTreeAdvanced() {
         
         console.log(`✅ تم بناء شجرة شاملة من الجد الأقدم:`);
         console.log(`   👤 الجذر: ${rootNode.name} - أطفال مباشرين: ${rootNode.children.length}`);
+        
+        // إحصائيات شاملة للشجرة المبنية
+        const treeStats = {
+          totalNodes: createdNodes.size,
+          maxDepthReached: window.familyTreeMetrics?.maxDepthReached || 0,
+          generationsCovered: relationships.ancestors.length + relationships.descendants.length + 1,
+          ancestorGenerations: relationships.ancestors.length,
+          descendantGenerations: relationships.descendants.length,
+          lateralRelatives: relationships.siblings.length + relationships.uncles.length + relationships.cousins.length
+        };
+        
+        console.log(`📊 إحصائيات الشجرة النهائية الشاملة:`);
+        console.log(`   🔢 إجمالي العقد: ${treeStats.totalNodes}`);
+        console.log(`   📏 أقصى عمق تم بناؤه: ${treeStats.maxDepthReached} جيل`);
+        console.log(`   🌳 الأجيال المغطاة: ${treeStats.generationsCovered} جيل`);
+        console.log(`   📈 أجيال الأجداد: ${treeStats.ancestorGenerations}`);
+        console.log(`   📉 أجيال الأحفاد: ${treeStats.descendantGenerations}`);
+        console.log(`   👥 الأقارب الجانبيون: ${treeStats.lateralRelatives}`);
+        
+        // تقييم كفاءة النظام
+        if (treeStats.maxDepthReached >= 10) {
+          console.log(`🏆 النظام يعمل بكفاءة عالية - شجرة عميقة (${treeStats.maxDepthReached} جيل)`);
+        } else if (treeStats.maxDepthReached >= 5) {
+          console.log(`✅ النظام يعمل بشكل جيد - شجرة متوسطة (${treeStats.maxDepthReached} جيل)`);
+        } else {
+          console.log(`ℹ️ شجرة بسيطة - العمق: ${treeStats.maxDepthReached} جيل`);
+        }
         
         // طباعة تفاصيل الأطفال
         rootNode.children.forEach((child, index) => {
