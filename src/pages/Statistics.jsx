@@ -1,5 +1,5 @@
 // src/pages/Statistics.jsx
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   Box, Typography, Grid, Paper, Chip, Divider,
   Tabs, Tab, Card, CardContent, LinearProgress,
@@ -27,6 +27,9 @@ import { familyAnalytics } from '../utils/FamilyAnalytics';
 
 const Statistics = () => {
   const navigate = useNavigate();
+  
+  // مرجع لتتبع التحميل الأولي
+  const initialLoadRef = useRef(true);
   
   // الحالات المحلية
   const [activeTab, setActiveTab] = useState(0);
@@ -323,20 +326,25 @@ const Statistics = () => {
         setError('فشل في تحميل بيانات العائلة');
       } finally {
         setLoading(false);
+        // تعيين أن التحميل الأولي قد انتهى
+        initialLoadRef.current = false;
       }
     };
 
     loadFamilyData();
   }, [loadSimpleTreeData]);
 
-  // تحديث البيانات عند تغيير نوع الشجرة
+  // تحديث البيانات عند تغيير نوع الشجرة فقط
   useEffect(() => {
+    // تجنب التشغيل في التحميل الأولي
+    if (initialLoadRef.current || familyMembers.length === 0) return;
+
     const updateTreeData = async () => {
-      if (!familyMembers.length && !showExtendedTree) return;
+      const uid = localStorage.getItem('verifiedUid');
+      if (!uid) return;
       
       try {
         setLoading(true);
-        const uid = localStorage.getItem('verifiedUid');
         
         if (showExtendedTree && hasLinkedFamilies) {
           await loadExtendedTreeData(uid);
@@ -351,7 +359,8 @@ const Statistics = () => {
     };
 
     updateTreeData();
-  }, [showExtendedTree, familyMembers.length, hasLinkedFamilies, loadExtendedTreeData, loadSimpleTreeData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showExtendedTree]); // الاستماع فقط لتغيير نوع الشجرة
 
   // دالة التبديل بين أنواع الشجرة
   const handleTreeTypeToggle = (event) => {
