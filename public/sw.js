@@ -11,16 +11,13 @@ const STATIC_CACHE_FILES = [
 
 // تثبيت Service Worker
 self.addEventListener('install', (event) => {
-  console.log('🔧 تثبيت Service Worker...', CACHE_VERSION);
   
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('📦 تخزين الملفات الأساسية...');
         return cache.addAll(STATIC_CACHE_FILES);
       })
       .then(() => {
-        console.log('✅ تم تثبيت Service Worker بنجاح');
         return self.skipWaiting();
       })
       .catch((error) => {
@@ -33,7 +30,6 @@ self.addEventListener('install', (event) => {
 
 // تفعيل Service Worker
 self.addEventListener('activate', (event) => {
-  console.log('🚀 تفعيل Service Worker...', CACHE_VERSION);
   
   event.waitUntil(
     Promise.all([
@@ -42,7 +38,6 @@ self.addEventListener('activate', (event) => {
         return Promise.all(
           cacheNames.map((cacheName) => {
             if (cacheName !== CACHE_NAME) {
-              console.log('🗑️ حذف التخزين المؤقت القديم:', cacheName);
               return caches.delete(cacheName);
             }
           })
@@ -50,9 +45,7 @@ self.addEventListener('activate', (event) => {
       }),
       // السيطرة على جميع العملاء
       self.clients.claim()
-    ]).then(() => {
-      console.log('✅ تم تفعيل Service Worker بنجاح');
-    })
+    ])
   );
 });
 
@@ -147,19 +140,16 @@ self.addEventListener('message', (event) => {
   
   switch (data.type) {
     case 'SKIP_WAITING':
-      console.log('⏩ تخطي الانتظار...');
       self.skipWaiting();
       break;
       
     case 'GET_VERSION':
-      console.log('📱 طلب نسخة التطبيق');
       if (event.ports && event.ports[0]) {
         event.ports[0].postMessage({ version: CACHE_VERSION });
       }
       break;
       
     case 'CLEAR_CACHE':
-      console.log('🧹 مسح التخزين المؤقت...');
       clearAllCaches().then(() => {
         if (event.ports && event.ports[0]) {
           event.ports[0].postMessage({ success: true });
@@ -180,7 +170,6 @@ async function clearAllCaches() {
     await Promise.all(
       cacheNames.map(cacheName => caches.delete(cacheName))
     );
-    console.log('✅ تم مسح جميع التخزين المؤقت');
   } catch (error) {
     console.error('❌ فشل في مسح التخزين المؤقت:', error);
     throw error;
@@ -263,13 +252,6 @@ function getOfflineHTML() {
   `;
 }
 
-// معلومات Service Worker
-console.log(`
-🌳 Service Worker لشجرة العائلة
-📱 النسخة: ${CACHE_VERSION}
-🚀 جاهز للعمل!
-`);
-
 // تنظيف دوري للتخزين المؤقت (كل 24 ساعة)
 if (typeof setInterval !== 'undefined') {
   setInterval(async () => {
@@ -287,7 +269,6 @@ if (typeof setInterval !== 'undefined') {
             const responseDate = new Date(dateHeader).getTime();
             if (now - responseDate > maxAge) {
               await cache.delete(request);
-              console.log('🗑️ تم حذف ملف قديم:', request.url);
             }
           }
         }

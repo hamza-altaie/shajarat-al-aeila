@@ -54,8 +54,6 @@ export default function useAdvancedFamilyGraph(options = {}) {
       setLoadingProgress(0);
       setLoadingStage('بدء التحميل...');
 
-      console.log(`🚀 تحميل الشجرة للمستخدم: ${userUid}`);
-
       // إعدادات التحميل
       const loadOptions = {
         maxDepth: config.maxDepth,
@@ -83,7 +81,6 @@ export default function useAdvancedFamilyGraph(options = {}) {
         setLoadingProgress(100);
         setLoadingStage('اكتمل التحميل');
 
-        console.log('✅ تم تحميل الشجرة بنجاح');
       } else {
         throw new Error(result.error || 'فشل في تحميل البيانات');
       }
@@ -108,8 +105,6 @@ export default function useAdvancedFamilyGraph(options = {}) {
     }
 
     try {
-      console.log(`🔍 البحث عن: "${query}"`);
-      
       // تحويل Map إلى Array للبحث
       const allPersons = Array.from(familyGraph.nodes.values());
       
@@ -126,7 +121,6 @@ export default function useAdvancedFamilyGraph(options = {}) {
       });
 
       setSearchResults(results);
-      console.log(`📊 نتائج البحث: ${results.length} شخص`);
       
       return results;
     } catch (err) {

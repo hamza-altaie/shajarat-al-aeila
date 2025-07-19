@@ -145,14 +145,6 @@ export const useSearchZoom = (svgRef, treeData, lastZoomTransformRef, zoomRef, h
 
     if (nodeElement.empty()) {
       console.error('❌ لم يتم العثور على العقدة في DOM');
-      
-      // طباعة العقد المتاحة للتشخيص
-      console.log('📋 العقد المتاحة:');
-      groupElement.selectAll('.node').each(function(d, i) {
-        const name = d.data?.name || d.data?.attributes?.name || d.name || 'بدون اسم';
-        console.log(`  ${i + 1}: ${name}`, d);
-      });
-      
       return;
     }
 

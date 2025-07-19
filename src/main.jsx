@@ -261,14 +261,6 @@ const appInfo = {
   timestamp: new Date().toISOString()
 };
 
-console.log(`
-🌳 ${appInfo.name}
-📱 النسخة: ${appInfo.version}
-🔧 البيئة: ${appInfo.mode}
-⏰ وقت التحميل: ${appInfo.timestamp}
-🚀 تم التحميل بنجاح!
-`);
-
 // أدوات التطوير (بيئة التطوير فقط)
 if (import.meta.env.DEV) {
   window.debugApp = {
@@ -291,7 +283,6 @@ if (import.meta.env.DEV) {
         try {
           const { getFirebaseStatus } = await import('./firebase/config');
           const status = getFirebaseStatus();
-          console.log('🔥 حالة Firebase:', status);
           return status;
         } catch (error) {
           console.error('❌ خطأ في فحص Firebase:', error);
@@ -300,8 +291,6 @@ if (import.meta.env.DEV) {
       }
     }
   };
-
-  console.log('Tools available in window.debugApp');
 }
 
 // ===========================================================================

@@ -69,14 +69,12 @@ const InstallPrompt = () => {
   }, []);
 
   const handleInstallClick = async () => {
-    console.log('🔄 محاولة التنصيب...', { deferredPrompt: !!deferredPrompt });
-    
+
     if (deferredPrompt) {
       // تنصيب تلقائي للأجهزة التي تدعمه
       try {
         const result = await deferredPrompt.prompt();
-        console.log('✅ نتيجة التنصيب:', result.outcome);
-        
+
         if (result.outcome === 'accepted') {
           localStorage.removeItem('install-declined');
         } else {

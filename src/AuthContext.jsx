@@ -119,7 +119,6 @@ export const AuthProvider = ({ children }) => {
   };
 }, [validateLocalStorage, updateLastLogin, clearLocalStorage]);
 
-
   const login = useCallback(async (user, additionalData = {}) => {
     try {
       setError(null);

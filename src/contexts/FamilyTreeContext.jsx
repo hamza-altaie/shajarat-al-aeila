@@ -347,8 +347,7 @@ export function FamilyTreeProvider({ children }) {
       dispatch({ type: ACTION_TYPES.SET_LOADING, payload: false });
     }
     }, [startRealtimeListeners]);
- 
-  
+
   const updateUserSettings = useCallback(async (settings) => {
     try {
       const userId = state.user?.id;

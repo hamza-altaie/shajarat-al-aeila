@@ -14,14 +14,12 @@ export class FamilyAnalytics {
    * @returns {Object} تحليل شامل للعائلة
    */
   analyzeFamily(treeData, familyMembers = []) {
-    console.log('🔍 بدء تحليل شجرة العائلة...');
-    
+
     const startTime = Date.now();
     
     // استخراج البيانات
     const allMembers = this.extractAllMembers(treeData, familyMembers);
-    console.log(`📊 تم استخراج ${allMembers.length} عضو`);
-    
+
     // التحليل الأساسي
     const basicStats = this.calculateBasicStatistics(allMembers);
     
@@ -47,9 +45,7 @@ export class FamilyAnalytics {
     
     // استخدام عدد الشجرة الفعلي إذا كان متوفراً، وإلا العدد المحسوب
     const finalMembersCount = actualTreeNodes !== null ? actualTreeNodes : allMembers.length;
-    
-    console.log(`🔄 تحديد العدد النهائي: ${actualTreeNodes !== null ? `الشجرة الفعلية (${actualTreeNodes})` : `المحسوب (${allMembers.length})`}`);
-    
+
     const analysis = {
       metadata: {
         totalMembers: finalMembersCount,
@@ -76,9 +72,7 @@ export class FamilyAnalytics {
     };
     
     this.lastAnalysis = analysis;
-    console.log(`✅ انتهى التحليل في ${analysis.metadata.processingTime}ms`);
-    console.log(`📊 النتيجة النهائية: ${analysis.metadata.totalMembers} عضو ${analysis.metadata.treeMetrics ? '(مصحح من الشجرة الفعلية)' : '(محسوب)'}`);
-    
+
     return analysis;
   }
 
@@ -112,10 +106,8 @@ export class FamilyAnalytics {
     // إزالة التكرار بناءً على الاسم الكامل + تاريخ الميلاد (أكثر دقة)
     const uniqueMembers = [];
     const seenNames = new Set();
-    
-    console.log(`🔍 بدء فحص ${allMembers.length} عضو لإزالة التكرار:`);
-    
-    allMembers.forEach((member, index) => {
+
+    allMembers.forEach((member) => {
       // بناء مفتاح فريد بناءً على الاسم الكامل مع تنظيف إضافي
       let fullName = this.buildFullName(member).trim().toLowerCase();
       // إزالة المسافات الإضافية والنصوص الزائدة
@@ -131,36 +123,20 @@ export class FamilyAnalytics {
       if (!seenNames.has(uniqueKey)) {
         seenNames.add(uniqueKey);
         uniqueMembers.push(member);
-        console.log(`   ✅ ${index + 1}. ${this.buildFullName(member)} - تم القبول`);
-      } else {
-        console.log(`   🔄 ${index + 1}. ${this.buildFullName(member)} - تجاهل التكرار (${fullName})`);
       }
     });
-    
-    console.log(`🔧 إزالة التكرار: من ${allMembers.length} إلى ${uniqueMembers.length} عضو فريد`);
-    
-    // طباعة معلومات window.familyTreeMetrics إذا كانت متوفرة
-    if (typeof window !== 'undefined' && window.familyTreeMetrics) {
-      console.log(`📊 معلومات الشجرة من المتغيرات العامة:`);
-      console.log(`   totalNodes: ${window.familyTreeMetrics.totalNodes}`);
-      console.log(`   actualMembersCount: ${window.familyTreeMetrics.actualMembersCount}`);
-      console.log(`   maxDepthReached: ${window.familyTreeMetrics.maxDepthReached}`);
-      console.log(`🔄 سيتم استخدام عدد العقد الفعلي: ${window.familyTreeMetrics.totalNodes}`);
-    }
-    
+
     // إعطاء الأولوية المطلقة لعدد العقد من window.familyTreeMetrics
     const finalCount = (typeof window !== 'undefined' && window.familyTreeMetrics && window.familyTreeMetrics.totalNodes) 
                       ? window.familyTreeMetrics.totalNodes 
                       : uniqueMembers.length;
-                      
-    console.log(`📊 العدد النهائي المعتمد: ${finalCount} عضو (${finalCount !== uniqueMembers.length ? 'مأخوذ من الشجرة الفعلية' : 'محسوب من القائمة'})`);
-    
+
     // إذا كان لدينا عدد من الشجرة الفعلية مختلف، نحتاج لتطبيقه
     const finalMembers = uniqueMembers.map(member => this.normalizeMemberData(member));
     
     // تطبيق العدد الصحيح عبر تقليل الأعضاء إذا لزم الأمر
     if (finalCount < finalMembers.length) {
-      console.log(`⚠️ تقليل الأعضاء من ${finalMembers.length} إلى ${finalCount} حسب الشجرة الفعلية`);
+
       return finalMembers.slice(0, finalCount);
     }
     
@@ -253,8 +229,7 @@ export class FamilyAnalytics {
     }
     // طباعة العمر المحسوب وصيغة تاريخ الميلاد
     const fullNameForLog = this.buildFullName(member);
-    console.log('عضو:', fullNameForLog, '| birthDate:', member.birthDate || member.birthdate, '| العمر المحسوب:', age);
-    
+
     return {
       ...member,
       name: member.name || fullNameForLog,

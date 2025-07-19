@@ -69,8 +69,6 @@ export const createOrUpdateUser = async (uid, userData) => {
 
     await setDoc(userRef, dataToSave, { merge: true });
     
-    console.log('✅ تم حفظ بيانات المستخدم بنجاح:', uid);
-    
     return {
       success: true,
       data: dataToSave,
@@ -100,7 +98,6 @@ export const updateUser = async (uid, updates) => {
 
     await updateDoc(userRef, dataToUpdate);
     
-    console.log('✅ تم تحديث بيانات المستخدم بنجاح:', uid);
     return true;
     
   } catch (error) {
@@ -119,7 +116,6 @@ export const deleteUser = async (uid) => {
     const userRef = doc(db, 'users', uid);
     await deleteDoc(userRef);
     
-    console.log('✅ تم حذف بيانات المستخدم بنجاح:', uid);
     return true;
     
   } catch (error) {

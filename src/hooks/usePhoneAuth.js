@@ -81,7 +81,6 @@ export default function usePhoneAuth() {
     setMessage('');
 
     try {
-      console.log('🔍 محاولة إرسال رمز التحقق إلى:', formattedPhone);
 
       // تنظيف reCAPTCHA السابق
       if (window.recaptchaVerifier) {
@@ -103,7 +102,7 @@ export default function usePhoneAuth() {
       window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         size: 'invisible',
         callback: () => {
-          console.log('✅ reCAPTCHA verified successfully');
+
         },
         'expired-callback': () => {
           console.warn('⚠️ reCAPTCHA expired');
@@ -119,14 +118,13 @@ export default function usePhoneAuth() {
       await new Promise(resolve => setTimeout(resolve, 500));
 
       // إرسال رمز التحقق
-      console.log('📱 إرسال رمز التحقق إلى:', formattedPhone);
+
       const result = await signInWithPhoneNumber(auth, formattedPhone, window.recaptchaVerifier);
       
       setConfirmationResult(result);
       setPhone(formattedPhone);
       setMessage('✅ تم إرسال كود التحقق إلى هاتفك');
-      
-      console.log('✅ تم إرسال رمز التحقق بنجاح');
+
       return { success: true };
       
     } catch (error) {
@@ -206,13 +204,11 @@ export default function usePhoneAuth() {
     setMessage('');
 
     try {
-      console.log('🔐 التحقق من الكود...');
+
       const result = await confirmationResult.confirm(code);
       const user = result.user;
       const uid = user.uid;
       const phoneNumber = user.phoneNumber;
-
-      console.log('✅ تم التحقق من الكود بنجاح');
 
       // حفظ البيانات محلياً
       localStorage.setItem('verifiedUid', uid);

@@ -248,11 +248,6 @@ function AuthMonitor({ children }) {
     // محاكاة فحص المصادقة
     const checkAuth = () => {
       try {
-        const uid = localStorage.getItem('verifiedUid');
-        const phone = localStorage.getItem('verifiedPhone');
-        
-        console.log('🔐 فحص المصادقة:', { uid: !!uid, phone: !!phone });
-        
         // تأخير بسيط لمحاكاة التحميل
         setTimeout(() => {
           setAuthLoading(false);

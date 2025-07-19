@@ -61,15 +61,10 @@ export default function ExtendedFamilyLinking({
     { value: 'extended', label: 'قرابة بعيدة', icon: '🌳', description: 'روابط أخرى' }
   ], []);
 
-
   // مراقبة حالة المصادقة
   useEffect(() => {
   const unsubscribe = onAuthStateChanged(auth, (user) => {
     if (user) {
-      console.log('✅ المستخدم مصادق:', {
-        uid: user.uid,
-        phone: user.phoneNumber
-      });
       setMessage(''); // امسح أي رسائل خطأ سابقة
     } else {
       console.error('❌ المستخدم غير مصادق');
@@ -150,7 +145,7 @@ export default function ExtendedFamilyLinking({
 
   const loadFamiliesForLinking = useCallback(async () => {
   if (!currentUserUid) {
-    console.log('❌ لا يمكن تحميل العائلات: المستخدم غير مصادق');
+
     setMessage('يجب تسجيل الدخول أولاً');
     setMessageType('warning');
     return;
@@ -245,14 +240,6 @@ export default function ExtendedFamilyLinking({
               hasSharedPersons: duplicatePersons.length > 0
             });
             
-            if (duplicatePersons.length > 0) {
-              console.log(`🔗 تم العثور على ${duplicatePersons.length} هوية مشتركة مع العائلة ${userId} - سيتم دمجها في الشجرة`);
-              duplicatePersons.forEach(dp => {
-                console.log(`👤 هوية مشتركة: ${dp.mergedIdentity.firstName} ${dp.mergedIdentity.fatherName}`);
-                console.log(`   📋 الأدوار: ${dp.mergedIdentity.roles.map(r => r.relation).join(' + ')}`);
-                console.log(`   🏠 المصدر: ${userId.slice(0,8)}... -> الهدف: ${currentUserUid.slice(0,8)}...`);
-              });
-            }
           }
         } catch (error) {
           console.warn(`تجاهل العائلة ${userId}:`, error);
@@ -292,7 +279,7 @@ export default function ExtendedFamilyLinking({
 
   const loadLinkedFamilies = useCallback(async () => {
   if (!currentUserUid) {
-    console.log('❌ لا يمكن تحميل الروابط: المستخدم غير مصادق');
+
     return;
   }
     
@@ -500,7 +487,7 @@ export default function ExtendedFamilyLinking({
     // التحقق من وجود هويات مشتركة (للإعلام وليس للمنع)
     const isDuplicatePerson = await checkForDuplicatePersons(currentUserUid, selectedFamily.uid);
     if (isDuplicatePerson) {
-      console.log('🔗 تم اكتشاف هويات مشتركة - سيتم دمجها في الشجرة الموسعة');
+
       // لا نوقف الربط، بل نستمر لأن النظام الآن يدعم الدمج
     }
 

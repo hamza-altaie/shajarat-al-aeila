@@ -253,7 +253,6 @@ const Statistics = () => {
     
     const allFamilies = await findAllLinkedFamilies(uid);
     const allMembers = [];
-    let familyCount = 0;
 
     // تحميل بيانات جميع العائلات
     for (const familyUid of allFamilies) {
@@ -278,7 +277,6 @@ const Statistics = () => {
 
         if (familyMembers.length > 0) {
           allMembers.push(...familyMembers);
-          familyCount++;
         }
       } catch (error) {
         console.error(`خطأ في تحميل عائلة ${familyUid}:`, error);
@@ -289,7 +287,6 @@ const Statistics = () => {
     const treeData = buildExtendedTreeData(allMembers);
     setTreeData(treeData);
 
-    console.log('📊 تم تحميل الشجرة الموسعة:', allMembers.length, 'أفراد من', familyCount, 'عائلة');
   }, [findAllLinkedFamilies, buildExtendedTreeData, buildCleanMember]);
 
   // تحميل بيانات العائلة مباشرة من Firebase

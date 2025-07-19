@@ -40,8 +40,6 @@ const PhoneLogin = () => {
           testFirebaseConnection().then(result => {
             if (!result.success) {
               console.warn('⚠️ تحذير Firebase:', result.error);
-            } else {
-              console.log('🎉 جميع خدمات Firebase تعمل بشكل ممتاز!');
             }
           });
         }
