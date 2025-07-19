@@ -30,7 +30,7 @@ function processDirectory(dirPath) {
     } else if (item.endsWith('.js') || item.endsWith('.jsx')) {
       removeConsoleLog(fullPath);
       processedFiles++;
-      console.log(`✅ تم تنظيف: ${fullPath}`);
+      console.warn(`✅ تم تنظيف: ${fullPath}`);
     }
   });
 
@@ -38,6 +38,6 @@ function processDirectory(dirPath) {
 }
 
 const srcPath = path.join(__dirname, 'src');
-console.log('🧹 بدء تنظيف ملفات console.log...');
+console.warn('🧹 بدء تنظيف ملفات console.log...');
 const totalFiles = processDirectory(srcPath);
-console.log(`✅ تم تنظيف ${totalFiles} ملف بنجاح!`);
+console.warn(`✅ تم تنظيف ${totalFiles} ملف بنجاح!`);
