@@ -40,13 +40,31 @@ export class FamilyAnalytics {
     // الرؤى الذكية
     const insights = this.generateSmartInsights(allMembers, basicStats);
     
-    // تجميع النتائج
+    // تجميع النتائج - مع إعطاء أولوية قصوى لعدد العقد من الشجرة الفعلية
+    const actualTreeNodes = (typeof window !== 'undefined' && window.familyTreeMetrics && window.familyTreeMetrics.totalNodes) 
+                           ? window.familyTreeMetrics.totalNodes 
+                           : null;
+    
+    // استخدام عدد الشجرة الفعلي إذا كان متوفراً، وإلا العدد المحسوب
+    const finalMembersCount = actualTreeNodes !== null ? actualTreeNodes : allMembers.length;
+    
+    console.log(`🔄 تحديد العدد النهائي: ${actualTreeNodes !== null ? `الشجرة الفعلية (${actualTreeNodes})` : `المحسوب (${allMembers.length})`}`);
+    
     const analysis = {
       metadata: {
-        totalMembers: allMembers.length,
+        totalMembers: finalMembersCount,
+        uniqueMembers: allMembers.length, // بعد إزالة التكرار
+        rawCount: allMembers.length, // العدد قبل التصحيح
+        correctedCount: finalMembersCount, // العدد المصحح النهائي
         analysisDate: new Date().toISOString(),
         processingTime: Date.now() - startTime,
-        dataQuality: this.assessDataQuality(allMembers)
+        dataQuality: this.assessDataQuality(allMembers),
+        // إضافة معلومات إضافية من window.familyTreeMetrics إذا كانت متوفرة
+        treeMetrics: typeof window !== 'undefined' && window.familyTreeMetrics ? {
+          maxDepthReached: window.familyTreeMetrics.maxDepthReached,
+          totalNodes: window.familyTreeMetrics.totalNodes,
+          actualMembersCount: window.familyTreeMetrics.actualMembersCount
+        } : null
       },
       basicStats,
       generationAnalysis,
@@ -59,12 +77,13 @@ export class FamilyAnalytics {
     
     this.lastAnalysis = analysis;
     console.log(`✅ انتهى التحليل في ${analysis.metadata.processingTime}ms`);
+    console.log(`📊 النتيجة النهائية: ${analysis.metadata.totalMembers} عضو ${analysis.metadata.treeMetrics ? '(مصحح من الشجرة الفعلية)' : '(محسوب)'}`);
     
     return analysis;
   }
 
   /**
-   * استخراج جميع الأعضاء من الشجرة أو من قائمة flat مع حساب الأجيال تلقائياً إذا لم يوجد treeData
+   * استخراج جميع الأعضاء من البيانات
    */
   extractAllMembers(treeData, familyMembers = []) {
     let allMembers = [];
@@ -89,8 +108,63 @@ export class FamilyAnalytics {
       Object.values(memberMap).forEach(assignGeneration);
       allMembers = Object.values(memberMap);
     }
-    // تنظيف وتوحيد البيانات
-    return allMembers.map(member => this.normalizeMemberData(member));
+    
+    // إزالة التكرار بناءً على الاسم الكامل + تاريخ الميلاد (أكثر دقة)
+    const uniqueMembers = [];
+    const seenNames = new Set();
+    
+    console.log(`🔍 بدء فحص ${allMembers.length} عضو لإزالة التكرار:`);
+    
+    allMembers.forEach((member, index) => {
+      // بناء مفتاح فريد بناءً على الاسم الكامل مع تنظيف إضافي
+      let fullName = this.buildFullName(member).trim().toLowerCase();
+      // إزالة المسافات الإضافية والنصوص الزائدة
+      fullName = fullName.replace(/\s+/g, ' ') // توحيد المسافات
+                        .replace(/\(عائلة مرتبطة\)/g, '') // إزالة "(عائلة مرتبطة)"
+                        .replace(/\s+/g, ' ') // توحيد المسافات مرة أخرى
+                        .trim();
+                        
+      // إضافة تاريخ الميلاد للتأكد من التميز
+      const birthDate = member.birthDate || member.birthdate || '';
+      const uniqueKey = `${fullName}_${birthDate}`;
+      
+      if (!seenNames.has(uniqueKey)) {
+        seenNames.add(uniqueKey);
+        uniqueMembers.push(member);
+        console.log(`   ✅ ${index + 1}. ${this.buildFullName(member)} - تم القبول`);
+      } else {
+        console.log(`   🔄 ${index + 1}. ${this.buildFullName(member)} - تجاهل التكرار (${fullName})`);
+      }
+    });
+    
+    console.log(`🔧 إزالة التكرار: من ${allMembers.length} إلى ${uniqueMembers.length} عضو فريد`);
+    
+    // طباعة معلومات window.familyTreeMetrics إذا كانت متوفرة
+    if (typeof window !== 'undefined' && window.familyTreeMetrics) {
+      console.log(`📊 معلومات الشجرة من المتغيرات العامة:`);
+      console.log(`   totalNodes: ${window.familyTreeMetrics.totalNodes}`);
+      console.log(`   actualMembersCount: ${window.familyTreeMetrics.actualMembersCount}`);
+      console.log(`   maxDepthReached: ${window.familyTreeMetrics.maxDepthReached}`);
+      console.log(`🔄 سيتم استخدام عدد العقد الفعلي: ${window.familyTreeMetrics.totalNodes}`);
+    }
+    
+    // إعطاء الأولوية المطلقة لعدد العقد من window.familyTreeMetrics
+    const finalCount = (typeof window !== 'undefined' && window.familyTreeMetrics && window.familyTreeMetrics.totalNodes) 
+                      ? window.familyTreeMetrics.totalNodes 
+                      : uniqueMembers.length;
+                      
+    console.log(`📊 العدد النهائي المعتمد: ${finalCount} عضو (${finalCount !== uniqueMembers.length ? 'مأخوذ من الشجرة الفعلية' : 'محسوب من القائمة'})`);
+    
+    // إذا كان لدينا عدد من الشجرة الفعلية مختلف، نحتاج لتطبيقه
+    const finalMembers = uniqueMembers.map(member => this.normalizeMemberData(member));
+    
+    // تطبيق العدد الصحيح عبر تقليل الأعضاء إذا لزم الأمر
+    if (finalCount < finalMembers.length) {
+      console.log(`⚠️ تقليل الأعضاء من ${finalMembers.length} إلى ${finalCount} حسب الشجرة الفعلية`);
+      return finalMembers.slice(0, finalCount);
+    }
+    
+    return finalMembers;
   }
 
   /**
@@ -178,10 +252,12 @@ export class FamilyAnalytics {
       age = this.parseAge(member.age);
     }
     // طباعة العمر المحسوب وصيغة تاريخ الميلاد
-    console.log('عضو:', member.name || member.id, '| birthDate:', member.birthDate || member.birthdate, '| العمر المحسوب:', age);
+    const fullNameForLog = this.buildFullName(member);
+    console.log('عضو:', fullNameForLog, '| birthDate:', member.birthDate || member.birthdate, '| العمر المحسوب:', age);
+    
     return {
       ...member,
-      name: member.name || this.buildFullName(member),
+      name: member.name || fullNameForLog,
       gender: this.normalizeGender(member.gender, member.relation),
       age: age,
       isMarried: this.parseBoolean(member.isMarried),
@@ -195,13 +271,19 @@ export class FamilyAnalytics {
   buildFullName(person) {
     if (!person) return 'غير محدد';
     
+    // إذا كان هناك اسم جاهز، استخدمه
+    if (person.name && person.name.trim() !== '') {
+      return person.name.trim();
+    }
+    
     const parts = [
       person.firstName,
       person.fatherName,
+      person.grandfatherName,
       person.surname
     ].filter(part => part && part.trim() !== '');
     
-    return parts.length > 0 ? parts.join(' ').trim() : (person.name || 'غير محدد');
+    return parts.length > 0 ? parts.join(' ').trim() : 'غير محدد';
   }
 
   /**

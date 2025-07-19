@@ -1316,6 +1316,11 @@ export default function FamilyTreeAdvanced() {
           lateralRelatives: relationships.siblings.length + relationships.uncles.length + relationships.cousins.length
         };
         
+        // تحديث المتغيرات العامة للتتبع
+        window.familyTreeMetrics = window.familyTreeMetrics || {};
+        window.familyTreeMetrics.totalNodes = treeStats.totalNodes;
+        window.familyTreeMetrics.actualMembersCount = treeStats.totalNodes; // العدد الفعلي للعقد
+        
         console.log(`📊 إحصائيات الشجرة النهائية الشاملة:`);
         console.log(`   🔢 إجمالي العقد: ${treeStats.totalNodes}`);
         console.log(`   📏 أقصى عمق تم بناؤه: ${treeStats.maxDepthReached} جيل`);
@@ -1324,6 +1329,11 @@ export default function FamilyTreeAdvanced() {
         console.log(`   📉 أجيال الأحفاد: ${treeStats.descendantGenerations}`);
         console.log(`   👥 الأقارب الجانبيون: ${treeStats.lateralRelatives}`);
         
+        // طباعة معلومات التحديث العام
+        console.log(`🌍 تحديث المتغيرات العامة:`);
+        console.log(`   window.familyTreeMetrics.totalNodes = ${window.familyTreeMetrics.totalNodes}`);
+        console.log(`   window.familyTreeMetrics.actualMembersCount = ${window.familyTreeMetrics.actualMembersCount}`);
+        
         // تقييم كفاءة النظام
         if (treeStats.maxDepthReached >= 10) {
           console.log(`🏆 النظام يعمل بكفاءة عالية - شجرة عميقة (${treeStats.maxDepthReached} جيل)`);
@@ -1331,6 +1341,15 @@ export default function FamilyTreeAdvanced() {
           console.log(`✅ النظام يعمل بشكل جيد - شجرة متوسطة (${treeStats.maxDepthReached} جيل)`);
         } else {
           console.log(`ℹ️ شجرة بسيطة - العمق: ${treeStats.maxDepthReached} جيل`);
+        }
+        
+        // عرض تنبيه للمستخدم حول حالة الشجرة
+        if (treeStats.totalNodes >= 50) {
+          console.log(`🎯 شجرة كبيرة: ${treeStats.totalNodes} عضو - أداء ممتاز!`);
+        } else if (treeStats.totalNodes >= 20) {
+          console.log(`👍 شجرة متوسطة: ${treeStats.totalNodes} عضو - أداء جيد`);
+        } else {
+          console.log(`📝 شجرة بسيطة: ${treeStats.totalNodes} عضو - يمكن إضافة المزيد`);
         }
         
         // طباعة تفاصيل الأطفال

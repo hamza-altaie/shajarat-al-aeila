@@ -1,5 +1,5 @@
 // src/pages/Statistics.jsx
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Box, Typography, Grid, Paper, Chip, Divider,
   Tabs, Tab, Card, CardContent, LinearProgress,
@@ -38,213 +38,26 @@ const Statistics = () => {
   const [showExtendedTree, setShowExtendedTree] = useState(false);
   const [linkedFamilies, setLinkedFamilies] = useState([]);
   const [hasLinkedFamilies, setHasLinkedFamilies] = useState(false);
-  const theme = {
-  palette: {
-    warning: {
-      main: '#ed6c02',
-      dark: '#e65100'
-    }
-  }
-};
 
-  // تحميل بيانات العائلة مباشرة من Firebase
-  useEffect(() => {
-    const loadFamilyData = async () => {
-      try {
-        setLoading(true);
-        const uid = localStorage.getItem('verifiedUid');
-        
-        if (!uid) {
-          setError('لم يتم العثور على معرف المستخدم');
-          return;
-        }
-
-        // تحميل العائلات المرتبطة أولاً
-        const linkedData = await loadLinkedFamilies(uid);
-        setLinkedFamilies(linkedData);
-        
-        // التحقق من وجود روابط
-        const userDoc = await getDoc(doc(db, 'users', uid));
-        let hasLinks = false;
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          hasLinks = (userData.linkedFamilies && userData.linkedFamilies.length > 0) || 
-                    userData.linkedToFamilyHead;
-        }
-        setHasLinkedFamilies(hasLinks);
-
-        // تحميل الشجرة العادية افتراضياً
-        await loadSimpleTreeData(uid);
-
-      } catch (err) {
-        console.error('خطأ في تحميل البيانات:', err);
-        setError('فشل في تحميل بيانات العائلة');
-      } finally {
-        setLoading(false);
+    // دالة حساب العمر
+  const calculateAge = useCallback((birthdate) => {
+    if (!birthdate) return null;
+    try {
+      const birth = new Date(birthdate);
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
       }
-    };
-
-    loadFamilyData();
+      return age > 0 ? age : null;
+    } catch {
+      return null;
+    }
   }, []);
 
-  // تحديث البيانات عند تغيير نوع الشجرة
-  useEffect(() => {
-    const updateTreeData = async () => {
-      if (!familyMembers.length && !showExtendedTree) return;
-      
-      try {
-        setLoading(true);
-        const uid = localStorage.getItem('verifiedUid');
-        
-        if (showExtendedTree && hasLinkedFamilies) {
-          await loadExtendedTreeData(uid);
-        } else {
-          await loadSimpleTreeData(uid);
-        }
-      } catch (err) {
-        console.error('خطأ في تحديث البيانات:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    updateTreeData();
-  }, [showExtendedTree]);
-
-  // دالة التبديل بين أنواع الشجرة
-  const handleTreeTypeToggle = (event) => {
-    setShowExtendedTree(event.target.checked);
-  };
-
-  // تحميل العائلات المرتبطة
-  const loadLinkedFamilies = async (uid) => {
-    try {
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const linked = userData.linkedFamilies || [];
-        setLinkedFamilies(linked);
-        return linked;
-      }
-      return [];
-    } catch (error) {
-      console.error('خطأ في تحميل العائلات المرتبطة:', error);
-      return [];
-    }
-  };
-
-  // تحميل بيانات الشجرة العادية
-  const loadSimpleTreeData = async (uid) => {
-    
-    const familySnapshot = await getDocs(collection(db, 'users', uid, 'family'));
-    const familyMembers = [];
-    
-    familySnapshot.forEach(doc => {
-      const memberData = { 
-        ...doc.data(), 
-        id: doc.id,
-        globalId: `${uid}_${doc.id}`,
-        familyUid: uid
-      };
-      
-      if (memberData.firstName && memberData.firstName.trim() !== '') {
-        const cleanMember = buildCleanMember(memberData);
-        familyMembers.push(cleanMember);
-      }
-    });
-
-    setFamilyMembers(familyMembers);
-    const treeData = buildTreeData(familyMembers);
-    setTreeData(treeData);
-  };
-
-  // تحميل بيانات الشجرة الموسعة
-  const loadExtendedTreeData = async (uid) => {
-    
-    const allFamilies = await findAllLinkedFamilies(uid);
-    const allMembers = [];
-    let familyCount = 0;
-
-    // تحميل بيانات جميع العائلات
-    for (const familyUid of allFamilies) {
-      try {
-        const familySnapshot = await getDocs(collection(db, 'users', familyUid, 'family'));
-        const familyMembers = [];
-        
-        familySnapshot.forEach(doc => {
-          const memberData = { 
-            ...doc.data(), 
-            id: doc.id,
-            globalId: `${familyUid}_${doc.id}`,
-            familyUid: familyUid,
-            isExtended: familyUid !== uid // تحديد إذا كان من عائلة مرتبطة
-          };
-          
-          if (memberData.firstName && memberData.firstName.trim() !== '') {
-            const cleanMember = buildCleanMember(memberData);
-            familyMembers.push(cleanMember);
-          }
-        });
-
-        if (familyMembers.length > 0) {
-          allMembers.push(...familyMembers);
-          familyCount++;
-        }
-      } catch (error) {
-        console.error(`خطأ في تحميل عائلة ${familyUid}:`, error);
-      }
-    }
-
-    setFamilyMembers(allMembers);
-    const treeData = buildExtendedTreeData(allMembers);
-    setTreeData(treeData);
-
-    ('📊 تم تحميل الشجرة الموسعة:', allMembers.length, 'أفراد من', familyCount, 'عائلة');
-  };
-
-  // البحث عن جميع العائلات المرتبطة
-  const findAllLinkedFamilies = async (startUid) => {
-    const allFamilies = new Set([startUid]);
-    const toProcess = [startUid];
-    const processed = new Set();
-
-    while (toProcess.length > 0) {
-      const currentUid = toProcess.shift();
-      
-      if (processed.has(currentUid)) continue;
-      processed.add(currentUid);
-
-      try {console.log
-        const userDoc = await getDoc(doc(db, 'users', currentUid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          
-          // العائلات المرتبطة
-          const linkedFamilies = userData.linkedFamilies || [];
-          linkedFamilies.forEach(link => {
-            const familyUid = link.targetFamilyUid || link;
-            if (!processed.has(familyUid)) {
-              allFamilies.add(familyUid);
-              toProcess.push(familyUid);
-            }
-          });
-
-          // العائلة الأساسية
-          if (userData.linkedToFamilyHead && !processed.has(userData.linkedToFamilyHead)) {
-            allFamilies.add(userData.linkedToFamilyHead);
-            toProcess.push(userData.linkedToFamilyHead);
-          }
-        }
-      } catch (error) {
-        console.error(`خطأ في معالجة ${currentUid}:`, error);
-      }
-    }
-
-    return Array.from(allFamilies);
-  };
-
   // بناء عضو نظيف
-  const buildCleanMember = (memberData) => {
+  const buildCleanMember = useCallback((memberData) => {
     const fullName = [
       memberData.firstName,
       memberData.fatherName,
@@ -260,27 +73,10 @@ const Statistics = () => {
              memberData.relation === 'ابن' ? 'ذكر' : 
              memberData.gender || 'غير محدد'
     };
-  };
+  }, [calculateAge]);
 
-  // دالة حساب العمر (من الكود الأصلي)
-  const calculateAge = (birthdate) => {
-    if (!birthdate) return null;
-    try {
-      const birth = new Date(birthdate);
-      const today = new Date();
-      let age = today.getFullYear() - birth.getFullYear();
-      const monthDiff = today.getMonth() - birth.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-        age--;
-      }
-      return age > 0 ? age : null;
-    } catch {
-      return null;
-    }
-  };
-
-  // دالة بناء بيانات الشجرة (من الكود الأصلي)
-  const buildTreeData = (members) => {
+  // دالة بناء بيانات الشجرة
+  const buildTreeData = useCallback((members) => {
     if (!members || members.length === 0) return null;
     
     // البحث عن رب العائلة
@@ -301,10 +97,10 @@ const Statistics = () => {
         children: []
       }))
     };
-  };
+  }, []);
 
   // دالة بناء بيانات الشجرة الموسعة
-  const buildExtendedTreeData = (allMembers) => {
+  const buildExtendedTreeData = useCallback((allMembers) => {
     if (!allMembers || allMembers.length === 0) return null;
     
     // تجميع الأعضاء حسب العائلة
@@ -367,6 +163,202 @@ const Statistics = () => {
     });
 
     return rootNode;
+  }, []);
+
+  // البحث عن جميع العائلات المرتبطة
+  const findAllLinkedFamilies = useCallback(async (startUid) => {
+    const allFamilies = new Set([startUid]);
+    const toProcess = [startUid];
+    const processed = new Set();
+
+    while (toProcess.length > 0) {
+      const currentUid = toProcess.shift();
+      
+      if (processed.has(currentUid)) continue;
+      processed.add(currentUid);
+
+      try {
+        const userDoc = await getDoc(doc(db, 'users', currentUid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          
+          // العائلات المرتبطة
+          const linkedFamilies = userData.linkedFamilies || [];
+          linkedFamilies.forEach(link => {
+            const familyUid = link.targetFamilyUid || link;
+            if (!processed.has(familyUid)) {
+              allFamilies.add(familyUid);
+              toProcess.push(familyUid);
+            }
+          });
+
+          // العائلة الأساسية
+          if (userData.linkedToFamilyHead && !processed.has(userData.linkedToFamilyHead)) {
+            allFamilies.add(userData.linkedToFamilyHead);
+            toProcess.push(userData.linkedToFamilyHead);
+          }
+        }
+      } catch (error) {
+        console.error(`خطأ في معالجة ${currentUid}:`, error);
+      }
+    }
+
+    return Array.from(allFamilies);
+  }, []);
+
+  // تحميل العائلات المرتبطة
+  const loadLinkedFamilies = async (uid) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const linked = userData.linkedFamilies || [];
+        setLinkedFamilies(linked);
+        return linked;
+      }
+      return [];
+    } catch (error) {
+      console.error('خطأ في تحميل العائلات المرتبطة:', error);
+      return [];
+    }
+  };
+
+  // تحميل بيانات الشجرة العادية
+  const loadSimpleTreeData = useCallback(async (uid) => {
+    
+    const familySnapshot = await getDocs(collection(db, 'users', uid, 'family'));
+    const familyMembers = [];
+    
+    familySnapshot.forEach(doc => {
+      const memberData = { 
+        ...doc.data(), 
+        id: doc.id,
+        globalId: `${uid}_${doc.id}`,
+        familyUid: uid
+      };
+      
+      if (memberData.firstName && memberData.firstName.trim() !== '') {
+        const cleanMember = buildCleanMember(memberData);
+        familyMembers.push(cleanMember);
+      }
+    });
+
+    setFamilyMembers(familyMembers);
+    const treeData = buildTreeData(familyMembers);
+    setTreeData(treeData);
+  }, [buildTreeData, buildCleanMember]);
+
+  // تحميل بيانات الشجرة الموسعة
+  const loadExtendedTreeData = useCallback(async (uid) => {
+    
+    const allFamilies = await findAllLinkedFamilies(uid);
+    const allMembers = [];
+    let familyCount = 0;
+
+    // تحميل بيانات جميع العائلات
+    for (const familyUid of allFamilies) {
+      try {
+        const familySnapshot = await getDocs(collection(db, 'users', familyUid, 'family'));
+        const familyMembers = [];
+        
+        familySnapshot.forEach(doc => {
+          const memberData = { 
+            ...doc.data(), 
+            id: doc.id,
+            globalId: `${familyUid}_${doc.id}`,
+            familyUid: familyUid,
+            isExtended: familyUid !== uid // تحديد إذا كان من عائلة مرتبطة
+          };
+          
+          if (memberData.firstName && memberData.firstName.trim() !== '') {
+            const cleanMember = buildCleanMember(memberData);
+            familyMembers.push(cleanMember);
+          }
+        });
+
+        if (familyMembers.length > 0) {
+          allMembers.push(...familyMembers);
+          familyCount++;
+        }
+      } catch (error) {
+        console.error(`خطأ في تحميل عائلة ${familyUid}:`, error);
+      }
+    }
+
+    setFamilyMembers(allMembers);
+    const treeData = buildExtendedTreeData(allMembers);
+    setTreeData(treeData);
+
+    console.log('📊 تم تحميل الشجرة الموسعة:', allMembers.length, 'أفراد من', familyCount, 'عائلة');
+  }, [findAllLinkedFamilies, buildExtendedTreeData, buildCleanMember]);
+
+  // تحميل بيانات العائلة مباشرة من Firebase
+  useEffect(() => {
+    const loadFamilyData = async () => {
+      try {
+        setLoading(true);
+        const uid = localStorage.getItem('verifiedUid');
+        
+        if (!uid) {
+          setError('لم يتم العثور على معرف المستخدم');
+          return;
+        }
+
+        // تحميل العائلات المرتبطة أولاً
+        const linkedData = await loadLinkedFamilies(uid);
+        setLinkedFamilies(linkedData);
+        
+        // التحقق من وجود روابط
+        const userDoc = await getDoc(doc(db, 'users', uid));
+        let hasLinks = false;
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          hasLinks = (userData.linkedFamilies && userData.linkedFamilies.length > 0) || 
+                    userData.linkedToFamilyHead;
+        }
+        setHasLinkedFamilies(hasLinks);
+
+        // تحميل الشجرة العادية افتراضياً
+        await loadSimpleTreeData(uid);
+
+      } catch (err) {
+        console.error('خطأ في تحميل البيانات:', err);
+        setError('فشل في تحميل بيانات العائلة');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFamilyData();
+  }, [loadSimpleTreeData]);
+
+  // تحديث البيانات عند تغيير نوع الشجرة
+  useEffect(() => {
+    const updateTreeData = async () => {
+      if (!familyMembers.length && !showExtendedTree) return;
+      
+      try {
+        setLoading(true);
+        const uid = localStorage.getItem('verifiedUid');
+        
+        if (showExtendedTree && hasLinkedFamilies) {
+          await loadExtendedTreeData(uid);
+        } else {
+          await loadSimpleTreeData(uid);
+        }
+      } catch (err) {
+        console.error('خطأ في تحديث البيانات:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    updateTreeData();
+  }, [showExtendedTree, familyMembers.length, hasLinkedFamilies, loadExtendedTreeData, loadSimpleTreeData]);
+
+  // دالة التبديل بين أنواع الشجرة
+  const handleTreeTypeToggle = (event) => {
+    setShowExtendedTree(event.target.checked);
   };
 
   // تحليل البيانات
@@ -390,7 +382,8 @@ const Statistics = () => {
     }
   }, [analyzeData]);
 
-  // تصدير البيانات
+  // تصدير البيانات - متغير غير مستخدم حالياً
+  /*
   const handleExport = (format) => {
     if (!analysis) return;
     
@@ -409,6 +402,7 @@ const Statistics = () => {
       console.error('خطأ في التصدير:', error);
     }
   };
+  */
 
   // مكونات واجهة المستخدم
   const StatCard = ({ title, value, subtitle, color = 'primary', progress }) => (
@@ -701,7 +695,7 @@ const Statistics = () => {
                     fontWeight: 'bold',
                     mb: 1
                   }}>
-                    {showExtendedTree ? '🏛️' : '🌳'} تم تحليل {analysis?.metadata?.totalMembers || 0} عضو في {analysis?.metadata?.processingTime || 0} ms
+                    {showExtendedTree ? '🏛️' : '🌳'} تم تحليل {analysis?.metadata?.treeMetrics?.totalNodes || analysis?.metadata?.totalMembers || 0} عضو في {analysis?.metadata?.processingTime || 0} ms
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'Cairo, sans-serif' }}>
                     جودة البيانات: {analysis?.metadata?.dataQuality || 'غير محددة'} • آخر تحديث: {analysis?.metadata?.analysisDate ? new Date(analysis.metadata.analysisDate).toLocaleString('ar-SA') : 'غير محدد'}
@@ -781,7 +775,7 @@ const Statistics = () => {
                     <Grid item xs={12} sm={6} md={3}>
                       <StatCard
                         title="إجمالي الأعضاء"
-                        value={analysis?.basicStats?.totalMembers || 0}
+                        value={analysis?.metadata?.treeMetrics?.totalNodes || analysis?.metadata?.totalMembers || 0}
                         subtitle="في الشجرة"
                         color="primary"
                       />
@@ -1047,7 +1041,7 @@ const Statistics = () => {
                       <StatCard
                         title="متوسط حجم الجيل"
                         value={analysis?.generationAnalysis?.totalGenerations > 0 ? 
-                               Math.round((analysis?.metadata?.totalMembers || 0) / analysis.generationAnalysis.totalGenerations) : 0}
+                               Math.round((analysis?.metadata?.treeMetrics?.totalNodes || analysis?.metadata?.totalMembers || 0) / analysis.generationAnalysis.totalGenerations) : 0}
                         subtitle="أفراد لكل جيل"
                         color="warning"
                       />
@@ -1320,7 +1314,7 @@ const Statistics = () => {
                             </ListItem>
                           )}
                           
-                          {(analysis?.metadata?.totalMembers || 0) < 10 && (
+                          {(analysis?.metadata?.treeMetrics?.totalNodes || analysis?.metadata?.totalMembers || 0) < 10 && (
                             <ListItem>
                               <ListItemIcon>
                                 <Chip label="+" color="info" size="small" />
@@ -1385,7 +1379,7 @@ const Statistics = () => {
                           <Grid item xs={6}>
                             <StatCard
                               title="الأعضاء"
-                              value={analysis?.metadata?.totalMembers || 0}
+                              value={analysis?.metadata?.treeMetrics?.totalNodes || analysis?.metadata?.totalMembers || 0}
                               subtitle="تم تحليلهم"
                               color="primary"
                             />
