@@ -52,13 +52,57 @@ export default function ExtendedFamilyLinking({
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('info');
   
-  // أنواع الروابط
+  // أنواع الروابط - نظام محسن مع العلاقات العائلية الصحيحة
   const linkTypes = useMemo(() => [
-    { value: 'parent-child', label: 'أب-ابن', icon: '👨‍👦', description: 'رابط بين الآباء والأبناء' },
-    { value: 'sibling', label: 'أشقاء', icon: '👥', description: 'رابط بين الإخوة والأخوات' },
-    { value: 'marriage', label: 'زواج', icon: '💒', description: 'رابط الزواج' },
-    { value: 'cousin', label: 'أبناء عم', icon: '👨‍👩‍👧‍👦', description: 'رابط بين أبناء العم' },
-    { value: 'extended', label: 'قرابة بعيدة', icon: '🌳', description: 'روابط أخرى' }
+    { 
+      value: 'father', 
+      label: 'أب', 
+      icon: '👨‍👦', 
+      description: 'رابط مع الأب (هو أبي)',
+      examples: ['أبي', 'والدي']
+    },
+    { 
+      value: 'son', 
+      label: 'ابن', 
+      icon: '👦‍👨', 
+      description: 'رابط مع الابن (هو ابني)',
+      examples: ['ابني', 'ولدي']
+    },
+    { 
+      value: 'brother', 
+      label: 'أخ', 
+      icon: '👥', 
+      description: 'رابط مع الأخ (هو أخي)',
+      examples: ['أخي', 'شقيقي']
+    },
+    { 
+      value: 'uncle', 
+      label: 'عم', 
+      icon: '👨‍🦱👦', 
+      description: 'رابط مع العم (هو عمي)',
+      examples: ['عمي', 'أخ والدي']
+    },
+    { 
+      value: 'nephew', 
+      label: 'ابن أخ', 
+      icon: '�👨‍🦱', 
+      description: 'رابط مع ابن الأخ (هو ابن أخي)',
+      examples: ['ابن أخي', 'ابن شقيقي']
+    },
+    { 
+      value: 'grandfather', 
+      label: 'جد', 
+      icon: '👴', 
+      description: 'رابط مع الجد (هو جدي)',
+      examples: ['جدي', 'أبو أبي']
+    },
+    { 
+      value: 'grandson', 
+      label: 'حفيد', 
+      icon: '👶👴', 
+      description: 'رابط مع الحفيد (هو حفيدي)',
+      examples: ['حفيدي', 'ابن ابني']
+    }
   ], []);
 
   // مراقبة حالة المصادقة
@@ -86,13 +130,14 @@ export default function ExtendedFamilyLinking({
 
   const getReverseLinkType = useCallback((linkType) => {
     switch (linkType) {
-      case 'parent-child': return 'child-parent';
-      case 'child-parent': return 'parent-child';
-      case 'sibling': return 'sibling'; // الأشقاء يبقون أشقاء
-      case 'marriage': return 'marriage'; // الزواج يبقى زواج
-      case 'cousin': return 'cousin'; // أبناء العم يبقون أبناء عم
-      case 'extended': return 'extended'; // القرابة البعيدة تبقى بعيدة
-      default: return 'extended';
+      case 'father': return 'son';
+      case 'son': return 'father';
+      case 'brother': return 'brother'; // الأشقاء يبقون أشقاء
+      case 'uncle': return 'nephew';
+      case 'nephew': return 'uncle';
+      case 'grandfather': return 'grandson';
+      case 'grandson': return 'grandfather';
+      default: return 'brother'; // افتراضياً نعتبرهم أشقاء
     }
   }, []);
 
