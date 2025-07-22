@@ -118,7 +118,7 @@ export default function FamilyTreeAdvanced() {
   // ===========================================================================
 
   const buildFullName = useCallback((person) => {
-    if (!person) return 'غير محدد';
+    if (!person) return '';
 
     const parts = [
         person.firstName,
@@ -126,7 +126,7 @@ export default function FamilyTreeAdvanced() {
         person.surname
     ].filter(part => part && part.trim() !== '');
 
-    return parts.length > 0 ? parts.join(' ').trim() : 'غير محدد';
+    return parts.length > 0 ? parts.join(' ').trim() : '';
   }, []);
 
   const showSnackbar = useCallback((message, severity = 'info') => {
@@ -769,17 +769,6 @@ export default function FamilyTreeAdvanced() {
         if (siblingFamily && siblingFamily.uid !== rootFamilyUid) {
 
           relationships.siblings.push(siblingFamily);
-        } else {
-          // إنشاء عائلة وهمية للأخ إذا لم يكن له عائلة منفصلة
-
-          const virtualSiblingFamily = {
-            uid: `virtual_${sibling.globalId || sibling.id}`,
-            head: sibling,
-            members: [sibling],
-            userData: {},
-            isVirtual: true
-          };
-          relationships.siblings.push(virtualSiblingFamily);
         }
       });
     }
@@ -903,15 +892,9 @@ export default function FamilyTreeAdvanced() {
       parentName: relationships.directParent?.head?.firstName,
       unclesCount: relationships.uncles.length,
       siblingsCount: relationships.siblings.length,
-      scenarioWillUse: relationships.directParent && relationships.uncles.length > 0 ? 'جد وهمي مع أب وعم' : 
-                      relationships.directParent ? 'أب فقط' : 
-                      relationships.uncles.length > 0 ? 'عم فقط' : 'جذر وهمي'
+      scenarioWillUse: relationships.directParent ? 'أب فقط' : 
+                      relationships.uncles.length > 0 ? 'عم فقط' : 'شجرة بسيطة'
     });
-
-    // معالجة الإخوة المعرّفين إذا وُجدوا
-    if (relationships.siblings.length > 0) {
-      // تم العثور على الإخوة
-    }
 
     // خريطة للعقد المنشأة لتجنب التكرار
     const createdNodes = new Map();
@@ -1044,10 +1027,8 @@ export default function FamilyTreeAdvanced() {
             createdNodes.set(childKey, childNode);
             node.children.push(childNode);
           }
-
         }
       });
-
     }
 
     // دالة لتحديد أولوية العلاقات
@@ -1074,128 +1055,34 @@ export default function FamilyTreeAdvanced() {
       ).relation;
     }
 
-    // **اختيار السيناريو المناسب بالأولوية الصحيحة**
+    // دالة للبحث عن المستخدم في الشجرة
+    function findUserNode(node) {
+      if (node.attributes?.isCurrentUser) {
+        return node;
+      }
+      for (let child of node.children) {
+        const found = findUserNode(child);
+        if (found) return found;
+      }
+      return null;
+    }
     
-    // **السيناريو 1: يوجد أب وعم - إنشاء جد وهمي (أولوية عالية)**
-    if (relationships.directParent && relationships.uncles.length > 0) {
-      
-      console.warn('🎯 دخول السيناريو 1 - أب وعم (أولوية عالية):', {
-        father: relationships.directParent.head.firstName,
-        uncles: relationships.uncles.map(u => u.head.firstName),
-        unclesCount: relationships.uncles.length,
-        scenario: 'جد وهمي مع أب وعم - تجاهل السيناريو الشامل'
-      });
-      
-      const grandparentNode = {
-        name: "الجد",
-        id: "virtual_grandparent",
-        avatar: null,
-        attributes: {
-          isCurrentUser: false,
-          treeType: 'extended',
-          isExtended: false,
-          familyName: 'الجد',
-          actualRelation: 'جد',
-          relation: 'جد'
-        },
-        children: []
-      };
-
-      // إنشاء عقدة الأب بدون أطفال
-      const parentNode = createPersonNodeWithoutChildren(relationships.directParent, 'الأب', 'أب');
-      
-      // إضافة المستخدم الحالي والإخوة تحت الأب
-      const userNode = createPersonNodeWithoutChildren(currentUserFamily, 'أنت', 'ابن', true);
-      
-      // التحقق من أن المستخدم ليس هو نفسه الأب
-      if (userNode.id !== parentNode.id) {
-        parentNode.children.push(userNode);
+    // دالة للبحث عن والد عقدة معينة
+    function findParentOfNode(rootNode, targetNode) {
+      for (let child of rootNode.children) {
+        if (child.id === targetNode.id) {
+          return rootNode;
+        }
+        const found = findParentOfNode(child, targetNode);
+        if (found) return found;
       }
-      
-      // حفظ معرفات الإخوة لاستخدامها لاحقاً
-      const siblingNodes = new Map();
-      
-      relationships.siblings.forEach(sibling => {
-        const siblingNode = createPersonNodeWithoutChildren(sibling, 'أخ', 'ابن');
-        
-        // تجنب إضافة الأخ إذا كان هو نفسه الأب أو المستخدم
-        if (siblingNode.id !== parentNode.id && siblingNode.id !== userNode.id) {
-          parentNode.children.push(siblingNode);
-          // حفظ مرجع للعقدة لاستخدامه لاحقاً
-          siblingNodes.set(sibling.uid, siblingNode);
-        }
-      });
-
-      // إضافة الأب تحت الجد
-      grandparentNode.children.push(parentNode);
-      
-      // إضافة جميع الأعمام تحت الجد
-      relationships.uncles.forEach((uncle, index) => {
-        console.warn(`🔄 معالجة العم ${index + 1}:`, {
-          uncleName: uncle.head.firstName,
-          uncleId: uncle.head.globalId || uncle.head.id,
-          parentId: parentNode.id
-        });
-        
-        const uncleNode = createPersonNodeWithoutChildren(uncle, `العم ${index + 1}`, 'عم');
-        
-        console.warn(`✏️ تم إنشاء عقدة العم:`, {
-          nodeId: uncleNode.id,
-          nodeName: uncleNode.name,
-          parentNodeId: parentNode.id,
-          willAdd: uncleNode.id !== parentNode.id
-        });
-        
-        // تجنب إضافة العم إذا كان هو نفسه الأب
-        if (uncleNode.id !== parentNode.id) {
-          grandparentNode.children.push(uncleNode);
-          console.warn(`✅ تمت إضافة العم للجد:`, {
-            uncleId: uncleNode.id,
-            uncleName: uncleNode.name,
-            grandparentChildrenCount: grandparentNode.children.length
-          });
-          
-          // إضافة أطفال العم
-          addChildrenToNode(uncleNode, uncle);
-        } else {
-          console.warn(`❌ تم تجاهل العم لأنه نفس الأب:`, {
-            uncleId: uncleNode.id,
-            parentId: parentNode.id
-          });
-        }
-      });
-      
-      // إضافة أطفال كل عقدة من عائلتها المنفصلة
-      addChildrenToNode(parentNode, relationships.directParent);
-      
-      if (userNode.id !== parentNode.id) {
-        addChildrenToNode(userNode, currentUserFamily);
-      }
-      
-      relationships.siblings.forEach((sibling) => {
-        const siblingNode = siblingNodes.get(sibling.uid);
-        if (siblingNode) {
-          addChildrenToNode(siblingNode, sibling);
-        }
-      });
-
-      console.warn('🏁 الشجرة النهائية المبنية:', {
-        grandparentName: grandparentNode.name,
-        childrenCount: grandparentNode.children.length,
-        children: grandparentNode.children.map(child => ({
-          id: child.id,
-          name: child.name,
-          relation: child.attributes.actualRelation,
-          childrenCount: child.children.length
-        }))
-      });
-
-      return grandparentNode;
+      return null;
     }
 
-    // **السيناريو الشامل: فقط إذا لم يكن هناك أب وعم**
-    // إذا وُجد جذر أقدم، ابنِ الشجرة من الأعلى
-    else if (relationships.ancestors.length > 0) {
+    // **اختيار السيناريو المناسب بالأولوية الصحيحة**
+    
+    // **السيناريو الشامل: إذا وُجد جذر أقدم، ابنِ الشجرة من الأعلى**
+    if (relationships.ancestors.length > 0) {
       console.warn('🌟 دخول السيناريو الشامل:', {
         ancestorsCount: relationships.ancestors.length,
         hasDirectParent: !!relationships.directParent,
@@ -1207,8 +1094,8 @@ export default function FamilyTreeAdvanced() {
       function buildComprehensiveTree() {
         const rootNode = createPersonNodeWithoutChildren(
           relationships.oldestRoot, 
-          `الجد الأكبر`, 
-          `جد القبيلة`
+          buildFullName(relationships.oldestRoot.head), 
+          relationships.oldestRoot.head.relation || 'رب العائلة'
         );
         
         // بناء الشجرة بشكل تدريجي من الأعلى للأسفل - محسن للأجيال العميقة
@@ -1374,29 +1261,6 @@ export default function FamilyTreeAdvanced() {
           let grandparentLevel = null;
           let parentNode = null;
           
-          // البحث في الشجرة عن المستخدم الحالي
-          function findUserNode(node) {
-            if (node.attributes?.isCurrentUser) {
-              return node;
-            }
-            for (let child of node.children) {
-              const found = findUserNode(child);
-              if (found) return found;
-            }
-            return null;
-          }
-          
-          function findParentOfNode(rootNode, targetNode) {
-            for (let child of rootNode.children) {
-              if (child.id === targetNode.id) {
-                return rootNode;
-              }
-              const found = findParentOfNode(child, targetNode);
-              if (found) return found;
-            }
-            return null;
-          }
-          
           const userNode = findUserNode(rootNode);
           if (userNode) {
             // البحث عن والد المستخدم (الأب)
@@ -1498,32 +1362,9 @@ export default function FamilyTreeAdvanced() {
       return buildComprehensiveTree();
     }
 
-    // **سيناريو 2: يوجد أب فقط - الأب هو الجذر**
+    // **سيناريو: يوجد أب فقط - الأب هو الجذر**
     else if (relationships.directParent) {
       
-      console.warn('� دخول السيناريو 1 - أب وعم:', {
-        father: relationships.directParent.head.firstName,
-        uncles: relationships.uncles.map(u => u.head.firstName),
-        unclesCount: relationships.uncles.length,
-        scenario: 'جد وهمي مع أب وعم'
-      });
-      
-      const grandparentNode = {
-        name: "الجد",
-        id: "virtual_grandparent",
-        avatar: null,
-        attributes: {
-          isCurrentUser: false,
-          treeType: 'extended',
-          isExtended: false,
-          familyName: 'الجد',
-          actualRelation: 'جد',
-          relation: 'جد'
-        },
-        children: []
-      };
-
-      // إنشاء عقدة الأب بدون أطفال
       const parentNode = createPersonNodeWithoutChildren(relationships.directParent, 'الأب', 'أب');
       
       // إضافة المستخدم الحالي والإخوة تحت الأب
@@ -1543,42 +1384,15 @@ export default function FamilyTreeAdvanced() {
         }
       });
 
-      // إضافة الأب تحت الجد
-      grandparentNode.children.push(parentNode);
-      
-      // إضافة جميع الأعمام تحت الجد
+      // إضافة الأعمام كإخوة للأب في نفس المستوى
       relationships.uncles.forEach((uncle, index) => {
-        console.warn(`🔄 معالجة العم ${index + 1}:`, {
-          uncleName: uncle.head.firstName,
-          uncleId: uncle.head.globalId || uncle.head.id,
-          parentId: parentNode.id
-        });
-        
         const uncleNode = createPersonNodeWithoutChildren(uncle, `العم ${index + 1}`, 'عم');
-        
-        console.warn(`✏️ تم إنشاء عقدة العم:`, {
-          nodeId: uncleNode.id,
-          nodeName: uncleNode.name,
-          parentNodeId: parentNode.id,
-          willAdd: uncleNode.id !== parentNode.id
-        });
         
         // تجنب إضافة العم إذا كان هو نفسه الأب
         if (uncleNode.id !== parentNode.id) {
-          grandparentNode.children.push(uncleNode);
-          console.warn(`✅ تمت إضافة العم للجد:`, {
-            uncleId: uncleNode.id,
-            uncleName: uncleNode.name,
-            grandparentChildrenCount: grandparentNode.children.length
-          });
-          
-          // إضافة أطفال العم
+          // سنضع الأعمام بجانب الأب بدلاً من تحته
+          // لكن هذا يتطلب إنشاء مستوى أعلى، لذا سنتجاهل الأعمام في هذا السيناريو
           addChildrenToNode(uncleNode, uncle);
-        } else {
-          console.warn(`❌ تم تجاهل العم لأنه نفس الأب:`, {
-            uncleId: uncleNode.id,
-            parentId: parentNode.id
-          });
         }
       });
       
@@ -1591,156 +1405,96 @@ export default function FamilyTreeAdvanced() {
       
       relationships.siblings.forEach((sibling) => {
         const siblingNode = parentNode.children.find(child => 
-          child.id === (sibling.head.globalId || sibling.head.id)
+          child.id.includes(sibling.head.globalId || sibling.head.id)
         );
         if (siblingNode) {
           addChildrenToNode(siblingNode, sibling);
         }
       });
 
-      console.warn('🏁 الشجرة النهائية المبنية:', {
-        grandparentName: grandparentNode.name,
-        childrenCount: grandparentNode.children.length,
-        children: grandparentNode.children.map(child => ({
-          id: child.id,
-          name: child.name,
-          relation: child.attributes.actualRelation,
-          childrenCount: child.children.length
-        }))
-      });
-
-      return grandparentNode;
+      return parentNode;
     }
 
     // **السيناريو الشامل: فقط إذا لم يكن هناك أب وعم**
     // إذا وُجد جذر أقدم، ابنِ الشجرة من الأعلى
     // (تمت إزالة الفرع المكرر للعلاقة ancestors.length > 0 لأنه مغطى بالفعل أعلاه)
 
-    // **السيناريو 3: يوجد عم فقط - العم هو الجذر**
+    // **سيناريو: يوجد عم فقط - العم هو الجذر**
     else if (relationships.uncles.length > 0) {
       
-      // إذا كان هناك عم واحد
-      if (relationships.uncles.length === 1) {
-        const uncleNode = createPersonNodeWithoutChildren(relationships.uncles[0], 'العم', 'عم');
-        
-        // إضافة المستخدم الحالي والإخوة كأبناء أخ
-        const userNode = createPersonNodeWithoutChildren(currentUserFamily, 'أنت', 'ابن أخ', true);
-        
-        // التحقق من أن المستخدم ليس هو نفسه العم
-        if (userNode.id !== uncleNode.id) {
-          uncleNode.children.push(userNode);
-        }
-        
-        relationships.siblings.forEach(sibling => {
-          const siblingNode = createPersonNodeWithoutChildren(sibling, 'أخ', 'ابن أخ');
-          
-          // تجنب إضافة الأخ إذا كان هو نفسه العم أو المستخدم
-          if (siblingNode.id !== uncleNode.id && siblingNode.id !== userNode.id) {
-            uncleNode.children.push(siblingNode);
-          }
-        });
-
-        // إضافة أطفال كل عقدة من عائلتها المنفصلة
-        addChildrenToNode(uncleNode, relationships.uncles[0]);
-        
-        if (userNode.id !== uncleNode.id) {
-          addChildrenToNode(userNode, currentUserFamily);
-        }
-        
-        relationships.siblings.forEach((sibling) => {
-          const siblingNode = uncleNode.children.find(child => 
-            child.id === (sibling.head.globalId || sibling.head.id)
-          );
-          if (siblingNode) {
-            addChildrenToNode(siblingNode, sibling);
-          }
-        });
-
-        return uncleNode;
-      } else {
-        // عدة أعمام - إنشاء جذر وهمي
-        const virtualRoot = {
-          name: "عائلة الأعمام",
-          id: "virtual_uncles_root",
-          avatar: null,
-          attributes: {
-            isCurrentUser: false,
-            treeType: 'extended',
-            isExtended: false,
-            familyName: 'عائلة الأعمام',
-            actualRelation: 'جذر عائلي',
-            relation: 'جذر عائلي'
-          },
-          children: []
-        };
-        
-        // إضافة جميع الأعمام
-        relationships.uncles.forEach((uncle, index) => {
-          const uncleNode = createPersonNodeWithoutChildren(uncle, `العم ${index + 1}`, 'عم');
-          virtualRoot.children.push(uncleNode);
-          addChildrenToNode(uncleNode, uncle);
-        });
-        
-        // إضافة المستخدم والإخوة تحت العم الأول
-        if (relationships.uncles.length > 0) {
-          const firstUncle = virtualRoot.children[0];
-          const userNode = createPersonNodeWithoutChildren(currentUserFamily, 'أنت', 'ابن أخ', true);
-          firstUncle.children.push(userNode);
-          addChildrenToNode(userNode, currentUserFamily);
-          
-          relationships.siblings.forEach(sibling => {
-            const siblingNode = createPersonNodeWithoutChildren(sibling, 'أخ', 'ابن أخ');
-            firstUncle.children.push(siblingNode);
-            addChildrenToNode(siblingNode, sibling);
-          });
-        }
-        
-        return virtualRoot;
+      // استخدام العم الأول كجذر
+      const uncleNode = createPersonNodeWithoutChildren(relationships.uncles[0], 'العم', 'عم');
+      
+      // إضافة المستخدم الحالي والإخوة كأبناء أخ
+      const userNode = createPersonNodeWithoutChildren(currentUserFamily, 'أنت', 'ابن أخ', true);
+      
+      // التحقق من أن المستخدم ليس هو نفسه العم
+      if (userNode.id !== uncleNode.id) {
+        uncleNode.children.push(userNode);
       }
+      
+      relationships.siblings.forEach(sibling => {
+        const siblingNode = createPersonNodeWithoutChildren(sibling, 'أخ', 'ابن أخ');
+        
+        // تجنب إضافة الأخ إذا كان هو نفسه العم أو المستخدم
+        if (siblingNode.id !== uncleNode.id && siblingNode.id !== userNode.id) {
+          uncleNode.children.push(siblingNode);
+        }
+      });
+
+      // إضافة الأعمام الإضافيين كإخوة للعم الأول
+      relationships.uncles.slice(1).forEach((uncle, index) => {
+        const additionalUncleNode = createPersonNodeWithoutChildren(uncle, `العم ${index + 2}`, 'عم');
+        // يمكن إضافتهم كأطفال للعم الأول أو تجاهلهم
+        addChildrenToNode(additionalUncleNode, uncle);
+      });
+
+      // إضافة أطفال كل عقدة من عائلتها المنفصلة
+      addChildrenToNode(uncleNode, relationships.uncles[0]);
+      
+      if (userNode.id !== uncleNode.id) {
+        addChildrenToNode(userNode, currentUserFamily);
+      }
+      
+      relationships.siblings.forEach((sibling) => {
+        const siblingNode = uncleNode.children.find(child => 
+          child.id.includes(sibling.head.globalId || sibling.head.id)
+        );
+        if (siblingNode) {
+          addChildrenToNode(siblingNode, sibling);
+        }
+      });
+
+      return uncleNode;
     }
 
-    // **سيناريو 4: لا يوجد أب أو عم - التحقق من الحاجة للجذر الوهمي**
+    // **سيناريو: لا يوجد أب أو عم - المستخدم هو الجذر**
     else {
-
-      // إذا كان لديك إخوة أو أقارب آخرين، استخدم جذر وهمي
+      // إذا كان لديك إخوة أو أقارب آخرين، ضعهم كإخوة في نفس المستوى
       if (relationships.siblings.length > 0 || relationships.cousins.length > 0 || relationships.others.length > 0) {
 
-        const virtualRoot = {
-          name: "العائلة",
-          id: "virtual_family_root",
-          avatar: null,
-          attributes: {
-            isCurrentUser: false,
-            treeType: 'extended',
-            isExtended: false,
-            familyName: 'العائلة',
-            actualRelation: 'جذر عائلي',
-            relation: 'جذر عائلي'
-          },
-          children: []
-        };
-
-        // إضافة المستخدم الحالي
+        // إنشاء عقدة المستخدم الحالي كجذر
         const userNode = createPersonNodeWithoutChildren(currentUserFamily, 'أنت', 'رب عائلة', true);
-        virtualRoot.children.push(userNode);
 
-        // إضافة الإخوة بجانب المستخدم الحالي
+        // إضافة الإخوة كأطفال للمستخدم (أو يمكن تعديل هذا ليكونوا في نفس المستوى)
         relationships.siblings.forEach(sibling => {
-          const siblingNode = createPersonNodeWithoutChildren(sibling, 'أخ', 'رب عائلة');
+          const siblingNode = createPersonNodeWithoutChildren(sibling, 'أخ', 'أخ');
           
           // تجنب إضافة الأخ إذا كان هو نفسه المستخدم
           if (siblingNode.id !== userNode.id) {
-            virtualRoot.children.push(siblingNode);
+            userNode.children.push(siblingNode);
+            addChildrenToNode(siblingNode, sibling);
           }
         });
 
-        // إضافة أبناء العم بجانب الإخوة أيضاً
+        // إضافة أبناء العم كأطفال أيضاً
         relationships.cousins.forEach(cousin => {
           const cousinNode = createPersonNodeWithoutChildren(cousin, 'ابن عم', 'ابن عم');
           
           // تجنب التكرار
-          if (!virtualRoot.children.some(child => child.id === cousinNode.id)) {
-            virtualRoot.children.push(cousinNode);
+          if (!userNode.children.some(child => child.id === cousinNode.id)) {
+            userNode.children.push(cousinNode);
+            addChildrenToNode(cousinNode, cousin);
           }
         });
 
@@ -1749,45 +1503,18 @@ export default function FamilyTreeAdvanced() {
           const otherNode = createPersonNodeWithoutChildren(otherRel.family, 'قريب', 'قريب');
           
           // تجنب التكرار
-          if (!virtualRoot.children.some(child => child.id === otherNode.id)) {
-            virtualRoot.children.push(otherNode);
-          }
-        });
-
-        // إضافة أطفال كل عقدة من عائلتها المنفصلة
-        addChildrenToNode(userNode, currentUserFamily);
-        
-        relationships.siblings.forEach((sibling) => {
-          const siblingNode = virtualRoot.children.find(child => 
-            child.id === (sibling.head.globalId || sibling.head.id)
-          );
-          if (siblingNode) {
-            addChildrenToNode(siblingNode, sibling);
-          }
-        });
-        
-        relationships.cousins.forEach((cousin) => {
-          const cousinNode = virtualRoot.children.find(child => 
-            child.id === (cousin.head.globalId || cousin.head.id)
-          );
-          if (cousinNode) {
-            addChildrenToNode(cousinNode, cousin);
-          }
-        });
-        
-        relationships.others.forEach((otherRel) => {
-          const otherNode = virtualRoot.children.find(child => 
-            child.id === (otherRel.family.head.globalId || otherRel.family.head.id)
-          );
-          if (otherNode) {
+          if (!userNode.children.some(child => child.id === otherNode.id)) {
+            userNode.children.push(otherNode);
             addChildrenToNode(otherNode, otherRel.family);
           }
         });
 
-        return virtualRoot;
+        // إضافة أطفال المستخدم من عائلته
+        addChildrenToNode(userNode, currentUserFamily);
+
+        return userNode;
       } else {
         // لا توجد أقارب آخرين - أرجع المستخدم الحالي كجذر مباشر
-
         const userNode = createPersonNodeWithoutChildren(currentUserFamily, 'أنت', 'رب العائلة', true);
         addChildrenToNode(userNode, currentUserFamily);
         return userNode;
@@ -2116,7 +1843,7 @@ const drawTreeWithD3 = useCallback((data) => {
   const nodeData = d.data.attributes || d.data;
   
   const uniqueId = nodeData.id || nodeData.globalId || Math.random().toString(36).substring(7);
-  const name = nodeData.name || `${nodeData.firstName || ''} ${nodeData.fatherName || ''}`.trim() || 'غير محدد';
+  const name = nodeData.name || `${nodeData.firstName || ''} ${nodeData.fatherName || ''}`.trim() || '';
   const relation = nodeData.relation || 'عضو';
   const nameY = -cardHeight / 2 + padding + 14;
   const relationY = nameY + 18;
@@ -3018,10 +2745,10 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
           {selectedNode && (
             <Box sx={{ p: 1 }}>
               <Typography variant="h6" gutterBottom sx={{ fontFamily: 'Cairo, sans-serif' }}>
-                {selectedNode.name || buildFullName(selectedNode) || 'غير محدد'}
+                {selectedNode.name || buildFullName(selectedNode) || ''}
               </Typography>
               <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <Chip label={selectedNode.relation || 'غير محدد'} color="primary" variant="outlined" />
+                <Chip label={selectedNode.relation || ''} color="primary" variant="outlined" />
                 {selectedNode.isExtended && (
                   <Chip label="عائلة مرتبطة" color="secondary" variant="outlined" />
                 )}
