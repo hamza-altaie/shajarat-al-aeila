@@ -460,71 +460,18 @@ export default function FamilyTreeAdvanced() {
             member.multipleRoles && 
             member.multipleRoles.some(role => 
               role.familyUid === currentFamily.uid && 
-              (role.relation === 'رب العائلة' || role.relation === 'child')
+              (isFamilyHeadRelation(role.relation) || role.relation === 'child')
             ) &&
             member.multipleRoles.some(role => 
               role.familyUid === family.uid && 
-              (role.relation === 'ابن' || role.relation === 'بنت')
+              isChildRelation(role.relation)
             )
           );
         });
         
         if (parentFamily && parentFamily.uid !== currentFamily.uid && !visitedFamilies.has(parentFamily.uid)) {
-          // تحسين تسمية الأجداد للأعماق الكبيرة - إصدار موسع
-          let relationName;
-          switch(depth) {
-            case 0:
-              relationName = 'أب';
-              break;
-            case 1:
-              relationName = 'جد';
-              break;
-            case 2:
-              relationName = 'جد الجد';
-              break;
-            case 3:
-              relationName = 'جد الأجداد';
-              break;
-            case 4:
-              relationName = 'جد الجيل الخامس';
-              break;
-            case 5:
-              relationName = 'جد الجيل السادس';
-              break;
-            case 6:
-              relationName = 'جد الجيل السابع';
-              break;
-            case 7:
-              relationName = 'جد الجيل الثامن';
-              break;
-            case 8:
-              relationName = 'جد الجيل التاسع';
-              break;
-            case 9:
-              relationName = 'جد الجيل العاشر';
-              break;
-            case 10:
-              relationName = 'جد الجيل الحادي عشر';
-              break;
-            case 11:
-              relationName = 'جد الجيل الثاني عشر';
-              break;
-            case 12:
-              relationName = 'جد الجيل الثالث عشر';
-              break;
-            case 13:
-              relationName = 'جد الجيل الرابع عشر';
-              break;
-            case 14:
-              relationName = 'جد الجيل الخامس عشر';
-              break;
-            default:
-              if (depth < 20) {
-                relationName = `جد الجيل ${depth + 1}`;
-              } else {
-                relationName = `جد الأسلاف الجيل ${depth + 1}`;
-              }
-          }
+          // استخدام الدالة المشتركة لتسمية الأجداد
+          const relationName = getGenerationName(depth, 'ancestor');
           
           ancestors.push({
             family: parentFamily,
@@ -574,72 +521,19 @@ export default function FamilyTreeAdvanced() {
             member.multipleRoles && 
             member.multipleRoles.some(role => 
               role.familyUid === currentFamily.uid && 
-              (role.relation === 'ابن' || role.relation === 'بنت')
+              isChildRelation(role.relation)
             ) &&
             member.multipleRoles.some(role => 
               role.familyUid === family.uid && 
-              role.relation === 'رب العائلة'
+              isFamilyHeadRelation(role.relation)
             )
           ) && !visitedFamilies.has(family.uid);
         });
         
         childrenFamilies.forEach(childFamily => {
           if (childFamily.uid !== currentFamily.uid) {
-            // تحسين تسمية الأحفاد للأعماق الكبيرة - إصدار موسع
-            let relationName;
-            switch(currentDepth) {
-              case 0:
-                relationName = 'ابن';
-                break;
-              case 1:
-                relationName = 'حفيد';
-                break;
-              case 2:
-                relationName = 'حفيد الحفيد';
-                break;
-              case 3:
-                relationName = 'ابن الجيل الرابع';
-                break;
-              case 4:
-                relationName = 'ابن الجيل الخامس';
-                break;
-              case 5:
-                relationName = 'ابن الجيل السادس';
-                break;
-              case 6:
-                relationName = 'ابن الجيل السابع';
-                break;
-              case 7:
-                relationName = 'ابن الجيل الثامن';
-                break;
-              case 8:
-                relationName = 'ابن الجيل التاسع';
-                break;
-              case 9:
-                relationName = 'ابن الجيل العاشر';
-                break;
-              case 10:
-                relationName = 'ابن الجيل الحادي عشر';
-                break;
-              case 11:
-                relationName = 'ابن الجيل الثاني عشر';
-                break;
-              case 12:
-                relationName = 'ابن الجيل الثالث عشر';
-                break;
-              case 13:
-                relationName = 'ابن الجيل الرابع عشر';
-                break;
-              case 14:
-                relationName = 'ابن الجيل الخامس عشر';
-                break;
-              default:
-                if (currentDepth < 20) {
-                  relationName = `ابن الجيل ${currentDepth + 1}`;
-                } else {
-                  relationName = `من ذرية الجيل ${currentDepth + 1}`;
-                }
-            }
+            // استخدام الدالة المشتركة لتسمية الأحفاد
+            const relationName = getGenerationName(currentDepth, 'descendant');
             
             descendants.push({
               family: childFamily,
@@ -670,11 +564,11 @@ export default function FamilyTreeAdvanced() {
             member.multipleRoles && 
             member.multipleRoles.some(role => 
               role.familyUid === ancestor.family.uid && 
-              (role.relation === 'ابن' || role.relation === 'بنت')
+              isChildRelation(role.relation)
             ) &&
             member.multipleRoles.some(role => 
               role.familyUid === family.uid && 
-              role.relation === 'رب العائلة'
+              isFamilyHeadRelation(role.relation)
             )
           ) && family.uid !== ancestor.family.uid;
         });
@@ -752,7 +646,7 @@ export default function FamilyTreeAdvanced() {
     if (relationships.directParent) {
       // البحث عن الإخوة في عائلة الأب المباشرة
       const siblingsInParentFamily = relationships.directParent.members.filter(member => 
-        (member.relation === 'ابن' || member.relation === 'بنت') &&
+        isChildRelation(member.relation) &&
         member.globalId !== currentUserFamily.head.globalId && // ليس المستخدم الحالي
         member.id !== currentUserFamily.head.id
       );
@@ -898,6 +792,100 @@ export default function FamilyTreeAdvanced() {
 
     // خريطة للعقد المنشأة لتجنب التكرار
     const createdNodes = new Map();
+    
+    // دالة مساعدة لتحديد اسم الجيل/العلاقة بناءً على العمق والنوع
+    function getGenerationName(depth, type = 'descendant') {
+      if (type === 'ancestor') {
+        // تسمية الأجداد
+        switch(depth) {
+          case 1:
+            return 'أب';
+          case 2:
+            return 'جد';
+          case 3:
+            return 'جد الجد';
+          case 4:
+            return 'جد الجيل الرابع';
+          case 5:
+            return 'جد الجيل الخامس';
+          case 6:
+            return 'جد الجيل السادس';
+          case 7:
+            return 'جد الجيل السابع';
+          case 8:
+            return 'جد الجيل الثامن';
+          case 9:
+            return 'جد الجيل التاسع';
+          case 10:
+            return 'جد الجيل العاشر';
+          case 11:
+            return 'جد الجيل الحادي عشر';
+          case 12:
+            return 'جد الجيل الثاني عشر';
+          case 13:
+            return 'جد الجيل الثالث عشر';
+          case 14:
+            return 'جد الجيل الرابع عشر';
+          case 15:
+            return 'جد الجيل الخامس عشر';
+          default:
+            if (depth < 20) {
+              return `جد الجيل ${depth}`;
+            } else {
+              return `من أجداد الجيل ${depth}`;
+            }
+        }
+      } else {
+        // تسمية الأحفاد/الأبناء
+        switch(depth) {
+          case 0:
+            return 'ابن';
+          case 1:
+            return 'حفيد';
+          case 2:
+            return 'حفيد الحفيد';
+          case 3:
+            return 'ابن الجيل الرابع';
+          case 4:
+            return 'ابن الجيل الخامس';
+          case 5:
+            return 'ابن الجيل السادس';
+          case 6:
+            return 'ابن الجيل السابع';
+          case 7:
+            return 'ابن الجيل الثامن';
+          case 8:
+            return 'ابن الجيل التاسع';
+          case 9:
+            return 'ابن الجيل العاشر';
+          case 10:
+            return 'ابن الجيل الحادي عشر';
+          case 11:
+            return 'ابن الجيل الثاني عشر';
+          case 12:
+            return 'ابن الجيل الثالث عشر';
+          case 13:
+            return 'ابن الجيل الرابع عشر';
+          case 14:
+            return 'ابن الجيل الخامس عشر';
+          default:
+            if (depth < 20) {
+              return `ابن الجيل ${depth + 1}`;
+            } else {
+              return `من ذرية الجيل ${depth + 1}`;
+            }
+        }
+      }
+    }
+
+    // دالة مساعدة للتحقق من العلاقات الشائعة
+    function isChildRelation(relation) {
+      return relation === 'ابن' || relation === 'بنت';
+    }
+
+    function isFamilyHeadRelation(relation) {
+      return relation === 'رب العائلة';
+    }
     
     // دالة مساعدة لإنشاء عقدة شخص بدون إضافة الأطفال تلقائياً
     function createPersonNodeWithoutChildren(familyData, familyLabel, relationLabel, isCurrentUser = false) {
@@ -1113,12 +1101,12 @@ export default function FamilyTreeAdvanced() {
           // البحث في عائلة الوالد عن الأطفال الذين لهم عائلات منفصلة
           parentFamily.members.forEach(member => {
 
-            if (member.multipleRoles && (member.relation === 'ابن' || member.relation === 'بنت')) {
+            if (member.multipleRoles && isChildRelation(member.relation)) {
 
               // البحث عن العائلة التي يكون فيها رب عائلة
               const separateFamily = mergedFamiliesData.find(family => {
                 return member.multipleRoles.some(role => 
-                  role.familyUid === family.uid && role.relation === 'رب العائلة'
+                  role.familyUid === family.uid && isFamilyHeadRelation(role.relation)
                 );
               });
               
@@ -1136,78 +1124,17 @@ export default function FamilyTreeAdvanced() {
 
             if (childFamily.uid !== parentFamily.uid) {
 
-              // تحسين تسمية الأجيال للأعماق الكبيرة - إصدار موسع
-              let relationName, displayLabel;
+              // استخدام الدالة المشتركة لتسمية الأجيال
+              const relationName = getGenerationName(currentDepth, 'descendant');
               
-              switch(currentDepth) {
-                case 0:
-                  relationName = 'ابن';
-                  displayLabel = 'ابن';
-                  break;
-                case 1:
-                  relationName = 'حفيد';
-                  displayLabel = 'حفيد';
-                  break;
-                case 2:
-                  relationName = 'حفيد الحفيد';
-                  displayLabel = 'حفيد الحفيد';
-                  break;
-                case 3:
-                  relationName = 'ابن الجيل الرابع';
-                  displayLabel = 'الجيل الرابع';
-                  break;
-                case 4:
-                  relationName = 'ابن الجيل الخامس';
-                  displayLabel = 'الجيل الخامس';
-                  break;
-                case 5:
-                  relationName = 'ابن الجيل السادس';
-                  displayLabel = 'الجيل السادس';
-                  break;
-                case 6:
-                  relationName = 'ابن الجيل السابع';
-                  displayLabel = 'الجيل السابع';
-                  break;
-                case 7:
-                  relationName = 'ابن الجيل الثامن';
-                  displayLabel = 'الجيل الثامن';
-                  break;
-                case 8:
-                  relationName = 'ابن الجيل التاسع';
-                  displayLabel = 'الجيل التاسع';
-                  break;
-                case 9:
-                  relationName = 'ابن الجيل العاشر';
-                  displayLabel = 'الجيل العاشر';
-                  break;
-                case 10:
-                  relationName = 'ابن الجيل الحادي عشر';
-                  displayLabel = 'الجيل الحادي عشر';
-                  break;
-                case 11:
-                  relationName = 'ابن الجيل الثاني عشر';
-                  displayLabel = 'الجيل الثاني عشر';
-                  break;
-                case 12:
-                  relationName = 'ابن الجيل الثالث عشر';
-                  displayLabel = 'الجيل الثالث عشر';
-                  break;
-                case 13:
-                  relationName = 'ابن الجيل الرابع عشر';
-                  displayLabel = 'الجيل الرابع عشر';
-                  break;
-                case 14:
-                  relationName = 'ابن الجيل الخامس عشر';
-                  displayLabel = 'الجيل الخامس عشر';
-                  break;
-                default:
-                  if (currentDepth < 20) {
-                    relationName = `ابن الجيل ${currentDepth + 1}`;
-                    displayLabel = `الجيل ${currentDepth + 1}`;
-                  } else {
-                    relationName = `من نسل الجيل ${currentDepth + 1}`;
-                    displayLabel = `نسل الجيل ${currentDepth + 1}`;
-                  }
+              // تحديد التسمية المعروضة
+              let displayLabel;
+              if (currentDepth <= 2) {
+                displayLabel = relationName;
+              } else if (currentDepth < 20) {
+                displayLabel = `الجيل ${currentDepth + 1}`;
+              } else {
+                displayLabel = `نسل الجيل ${currentDepth + 1}`;
               }
               
               const isCurrentUser = childFamily.uid === rootFamilyUid;
