@@ -76,20 +76,6 @@ export default function ExtendedFamilyLinking({
       examples: ['أخي', 'شقيقي']
     },
     { 
-      value: 'uncle', 
-      label: 'عم', 
-      icon: '👨‍🦱👦', 
-      description: 'رابط مع العم (هو عمي)',
-      examples: ['عمي', 'أخ والدي']
-    },
-    { 
-      value: 'nephew', 
-      label: 'ابن أخ', 
-      icon: '�👨‍🦱', 
-      description: 'رابط مع ابن الأخ (هو ابن أخي)',
-      examples: ['ابن أخي', 'ابن شقيقي']
-    },
-    { 
       value: 'grandfather', 
       label: 'جد', 
       icon: '👴', 
@@ -133,8 +119,6 @@ export default function ExtendedFamilyLinking({
       case 'father': return 'son';
       case 'son': return 'father';
       case 'brother': return 'brother'; // الأشقاء يبقون أشقاء
-      case 'uncle': return 'nephew';
-      case 'nephew': return 'uncle';
       case 'grandfather': return 'grandson';
       case 'grandson': return 'grandfather';
       default: return 'brother'; // افتراضياً نعتبرهم أشقاء

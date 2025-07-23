@@ -728,17 +728,99 @@ export default function FamilyTreeAdvanced() {
       });
     }
 
-    // **خطوة إضافية: البحث عن الأعمام عبر الروابط المتبادلة**
-    // البحث في جميع العائلات عن من يكون مرتبط بأبي كأخ
-    console.warn('🔍 البحث عن الأعمام...', {
+    // **خطوة إضافية: الاكتشاف التلقائي للأعمام**
+    // المنطق: "إذا كان لأبي أخ → يظهر كعم تلقائياً"
+    console.warn('🔍 البحث التلقائي عن الأعمام...', {
       hasDirectParent: !!relationships.directParent,
       currentUnclesCount: relationships.uncles.length,
       allFamiliesCount: mergedFamiliesData.length
     });
     
     if (relationships.directParent) {
-      console.warn('👨 والدي:', relationships.directParent.head.firstName);
+      const parentName = relationships.directParent.head.firstName;
+      const parentGlobalId = relationships.directParent.head.globalId;
       
+      console.warn('👨 البحث عن إخوة الأب:', parentName);
+      
+      // البحث التلقائي عن إخوة الأب في جميع العائلات
+      mergedFamiliesData.forEach(family => {
+        if (family.uid !== currentUserFamily.uid && family.uid !== relationships.directParent.uid) {
+          const familyHead = family.head;
+          
+          // التحقق من الروابط المدموجة أولاً
+          if (familyHead.multipleRoles) {
+            const hasBrotherRelationWithParent = familyHead.multipleRoles.some(role => 
+              role.relation === 'أخ' && role.parentName === parentName
+            );
+            
+            if (hasBrotherRelationWithParent) {
+              console.warn('✅ وجدت عم تلقائياً عبر الهويات المدموجة:', familyHead.firstName, 'أخ لـ', parentName);
+              if (!relationships.uncles.some(u => u.uid === family.uid)) {
+                relationships.uncles.push(family);
+              }
+            }
+          }
+          
+          // البحث في الروابط اليدوية لهذه العائلة
+          if (family.userData?.linkedFamilies) {
+            const hasBrotherLinkWithParent = family.userData.linkedFamilies.some(link => 
+              link.targetFamilyUid === relationships.directParent.uid && link.linkType === 'brother'
+            );
+            
+            if (hasBrotherLinkWithParent) {
+              console.warn('✅ وجدت عم تلقائياً عبر الروابط اليدوية:', familyHead.firstName, 'مرتبط كأخ مع', parentName);
+              if (!relationships.uncles.some(u => u.uid === family.uid)) {
+                relationships.uncles.push(family);
+              }
+            }
+          }
+          
+          // البحث في أفراد العائلة عن من يطابق الأب كأخ
+          const foundBrotherOfParent = family.members.find(member => 
+            member.relation === 'أخ' && 
+            (member.linkedWith === parentGlobalId || 
+             member.linkedWith === parentName ||
+             member.fatherName === relationships.directParent.head.fatherName)
+          );
+          
+          if (foundBrotherOfParent) {
+            console.warn('✅ وجدت عم تلقائياً عبر أفراد العائلة:', familyHead.firstName, 'أخ لـ', parentName);
+            if (!relationships.uncles.some(u => u.uid === family.uid)) {
+              relationships.uncles.push(family);
+            }
+          }
+          
+          // البحث بناء على اسم الأب المشترك (نفس الجد)
+          if (relationships.directParent.head.fatherName && familyHead.fatherName) {
+            if (relationships.directParent.head.fatherName === familyHead.fatherName && 
+                familyHead.firstName !== relationships.directParent.head.firstName) {
+              console.warn('✅ وجدت عم تلقائياً عبر اسم الأب المشترك:', familyHead.firstName, 'و', parentName, 'لهما نفس الأب:', familyHead.fatherName);
+              if (!relationships.uncles.some(u => u.uid === family.uid)) {
+                relationships.uncles.push(family);
+              }
+            }
+          }
+        }
+      });
+      
+      // البحث العكسي: البحث في روابط الأب عن من هو مرتبط معه كأخ
+      if (relationships.directParent.userData?.linkedFamilies) {
+        relationships.directParent.userData.linkedFamilies.forEach(link => {
+          if (link.linkType === 'brother') {
+            const uncleFamily = mergedFamiliesData.find(f => f.uid === link.targetFamilyUid);
+            if (uncleFamily && uncleFamily.uid !== currentUserFamily.uid) {
+              console.warn('✅ وجدت عم تلقائياً عبر روابط الأب:', uncleFamily.head.firstName, 'مرتبط كأخ مع', parentName);
+              if (!relationships.uncles.some(u => u.uid === uncleFamily.uid)) {
+                relationships.uncles.push(uncleFamily);
+              }
+            }
+          }
+        });
+      }
+    }
+    
+    // **البحث عن الروابط اليدوية المتبقية (للتوافق مع النظام القديم)**
+    if (relationships.directParent) {
       mergedFamiliesData.forEach(family => {
         if (family.userData?.linkedFamilies && family.uid !== currentUserFamily.uid) {
           family.userData.linkedFamilies.forEach(link => {
@@ -761,7 +843,7 @@ export default function FamilyTreeAdvanced() {
       });
     }
 
-    // **خطوة أخرى: البحث عن من هو مرتبط معي كعم مباشرة**
+    // **البحث عن من هو مرتبط معي كعم مباشرة (للتوافق مع النظام القديم)**
     mergedFamiliesData.forEach(family => {
       if (family.userData?.linkedFamilies && family.uid !== currentUserFamily.uid) {
         family.userData.linkedFamilies.forEach(link => {
@@ -775,9 +857,10 @@ export default function FamilyTreeAdvanced() {
       }
     });
     
-    console.warn('📊 نتائج البحث عن الأعمام:', {
+    console.warn('📊 نتائج الاكتشاف التلقائي للأعمام:', {
       unclesFound: relationships.uncles.length,
-      uncleNames: relationships.uncles.map(u => u.head.firstName)
+      uncleNames: relationships.uncles.map(u => u.head.firstName),
+      detectionMethod: 'تلقائي + روابط يدوية'
     });
 
     console.warn('🏗️ حالة العلاقات قبل بناء الشجرة:', {
