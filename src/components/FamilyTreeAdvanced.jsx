@@ -54,7 +54,6 @@ export default function FamilyTreeAdvanced() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState(null);
-  const [isZoomedToNode, setIsZoomedToNode] = useState(false);
   
   const uid = localStorage.getItem('verifiedUid');
   const navigate = useNavigate();
@@ -1973,7 +1972,6 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
 
   // تمركز تلقائي بسيط (اختياري)
   setTimeout(() => {
-    if (isZoomedToNode) return; // لا تعيد التمركز إذا الكاميرا مقفلة على كارت
     if (svgRef.current && containerRef.current) {
       const svg = d3.select(svgRef.current);
       const g = svg.select('g');
@@ -2011,15 +2009,48 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
     }
   }, 1200);
 
-}, [showExtendedTree, handleNodeClick, searchQuery, isZoomedToNode]);
+}, [showExtendedTree, handleNodeClick, searchQuery]);
 
   // دالة البحث المحلية - مبسطة
   const performSearch = useCallback((query) => {
     if (!query || query.trim().length < 2) {
+      // إزالة التميز إذا كان البحث فارغ
+      if (svgRef.current) {
+        const svg = d3.select(svgRef.current);
+        svg.selectAll('.node rect')
+          .style('stroke', '#ddd')
+          .style('stroke-width', '2px');
+        svg.selectAll('.node text')
+          .style('font-weight', 'normal');
+      }
       return;
     }
     
-    // بحث بسيط - يمكن تطويره لاحقاً
+    const queryLower = query.trim().toLowerCase();
+    
+    if (svgRef.current) {
+      const svg = d3.select(svgRef.current);
+      
+      // إعادة تعيين كل العقد لحالتها الطبيعية أولاً
+      svg.selectAll('.node rect')
+        .style('stroke', '#ddd')
+        .style('stroke-width', '2px');
+      svg.selectAll('.node text')
+        .style('font-weight', 'normal');
+      
+      // البحث وتميز العقد المطابقة
+      svg.selectAll('.node').each(function(d) {
+        const name = d.data?.name?.toLowerCase() || '';
+        if (name.includes(queryLower)) {
+          // تميز العقدة المطابقة
+          d3.select(this).select('rect')
+            .style('stroke', '#ffeb3b')
+            .style('stroke-width', '4px');
+          d3.select(this).select('text')
+            .style('font-weight', 'bold');
+        }
+      });
+    }
   }, []);
 
   // ===========================================================================
@@ -2055,6 +2086,11 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
       return () => clearTimeout(timer);
     }
   }, [drawTreeWithD3, showExtendedTree, simpleTreeData, extendedTreeData]);
+
+  // تأثير البحث
+  useEffect(() => {
+    performSearch(searchQuery);
+  }, [searchQuery, performSearch]);
 
   // تنظيف عند إلغاء التحميل
   useEffect(() => {
@@ -2471,7 +2507,6 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
                     size="small" 
                     onClick={() => {
                       setSearchQuery('');
-                      setIsZoomedToNode(false);
                       if (svgRef.current) {
                         const svg = d3.select(svgRef.current);
                         const g = svg.select('g');
@@ -2717,5 +2752,3 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
     </Box>
   );
 }
-
-
