@@ -16,7 +16,6 @@ import PersonIcon from '@mui/icons-material/Person';
 import CloseIcon from '@mui/icons-material/Close';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import WarningIcon from '@mui/icons-material/Warning';
-import LinkIcon from '@mui/icons-material/Link';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import SearchIcon from '@mui/icons-material/Search';
 
@@ -25,7 +24,6 @@ import { db } from '../firebase/config';
 import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 
 // استيراد المكونات
-import ExtendedFamilyLinking from './ExtendedFamilyLinking';
 import './FamilyTreeAdvanced.css';
 import BarChartIcon from '@mui/icons-material/BarChart';
 
@@ -36,8 +34,6 @@ export default function FamilyTreeAdvanced() {
   
   const [showExtendedTree, setShowExtendedTree] = useState(false);
   const [selectedNode, setSelectedNode] = useState(null);
-  const [linkedFamilies, setLinkedFamilies] = useState([]);
-  const [showLinkingPanel, setShowLinkingPanel] = useState(false);
   const [performanceMetrics, setPerformanceMetrics] = useState({
     loadTime: 0,
     personCount: 0,
@@ -284,59 +280,6 @@ export default function FamilyTreeAdvanced() {
       return null;
     }
   }, [uid]);
-
-  const findAllLinkedFamilies = useCallback(async (startUid) => {
-    try {
-      const linkedFamilyUids = new Set([startUid]);
-      
-      // البحث في بيانات المستخدم الحالي
-      const userDoc = await getDoc(doc(db, 'users', startUid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        
-        // إضافة العائلات من linkedFamilies
-        if (userData.linkedFamilies && Array.isArray(userData.linkedFamilies)) {
-          userData.linkedFamilies.forEach(link => {
-            if (link.targetFamilyUid) {
-              linkedFamilyUids.add(link.targetFamilyUid);
-            }
-          });
-        }
-        
-        // إضافة العائلة الرئيسية إن وجدت
-        if (userData.linkedToFamilyHead) {
-          linkedFamilyUids.add(userData.linkedToFamilyHead);
-        }
-      }
-      
-      // البحث في جميع المستخدمين عن روابط معكوسة
-      const allUsersSnapshot = await getDocs(collection(db, 'users'));
-      allUsersSnapshot.forEach(userDoc => {
-        const userData = userDoc.data();
-        const userId = userDoc.id;
-        
-        // إذا كان مرتبط بعائلتك
-        if (userData.linkedToFamilyHead === startUid) {
-          linkedFamilyUids.add(userId);
-        }
-        
-        // إذا كان لديه روابط معك
-        if (userData.linkedFamilies && Array.isArray(userData.linkedFamilies)) {
-          userData.linkedFamilies.forEach(link => {
-            if (link.targetFamilyUid === startUid) {
-              linkedFamilyUids.add(userId);
-            }
-          });
-        }
-      });
-      
-      const result = Array.from(linkedFamilyUids);
-      return result;
-      
-    } catch {
-      return [startUid]; // إرجاع العائلة الحالية فقط في حالة الخطأ
-    }
-  }, []);
 
   // دالة دمج الهويات المتعددة لنفس الشخص
   const mergePersonIdentities = useCallback((allFamiliesData) => {
@@ -686,181 +629,13 @@ export default function FamilyTreeAdvanced() {
 
     relationships.descendants = findAllDescendants(currentUserFamily, 10);
 
-    // **خطوة 4: معالجة الروابط التقليدية إذا لم نجد ما يكفي من الهويات المدموجة**
-    if ((!relationships.directParent || relationships.siblings.length === 0) && currentUserFamily?.userData?.linkedFamilies) {
+    // تم إزالة نظام الروابط اليدوية - نعتمد على البيانات المحلية فقط
 
-      currentUserFamily.userData.linkedFamilies.forEach(link => {
-        const linkedFamily = mergedFamiliesData.find(f => f.uid === link.targetFamilyUid);
-        
-        if (linkedFamily?.head) {
-
-          switch (link.linkType) {
-            case 'father':
-              if (!relationships.directParent) {
-                relationships.directParent = linkedFamily;
-              }
-              break;
-              
-            case 'brother':
-              if (!relationships.siblings.some(s => s.uid === linkedFamily.uid)) {
-                relationships.siblings.push(linkedFamily);
-              }
-              break;
-              
-            case 'uncle':
-            case 'nephew':
-              if (!relationships.uncles.some(u => u.uid === linkedFamily.uid)) {
-                relationships.uncles.push(linkedFamily);
-              }
-              break;
-              
-            case 'grandfather':
-            case 'grandson':
-              if (!relationships.others.some(o => o.family.uid === linkedFamily.uid)) {
-                relationships.others.push({family: linkedFamily, type: 'grandparent'});
-              }
-              break;
-              
-            default:
-              relationships.others.push({family: linkedFamily, type: link.linkType});
-          }
-        }
-      });
-    }
-
-    // **خطوة إضافية: الاكتشاف التلقائي للأعمام**
-    // المنطق: "إذا كان لأبي أخ → يظهر كعم تلقائياً"
-    console.warn('🔍 البحث التلقائي عن الأعمام...', {
-      hasDirectParent: !!relationships.directParent,
-      currentUnclesCount: relationships.uncles.length,
-      allFamiliesCount: mergedFamiliesData.length
-    });
-    
-    if (relationships.directParent) {
-      const parentName = relationships.directParent.head.firstName;
-      const parentGlobalId = relationships.directParent.head.globalId;
-      
-      console.warn('👨 البحث عن إخوة الأب:', parentName);
-      
-      // البحث التلقائي عن إخوة الأب في جميع العائلات
-      mergedFamiliesData.forEach(family => {
-        if (family.uid !== currentUserFamily.uid && family.uid !== relationships.directParent.uid) {
-          const familyHead = family.head;
-          
-          // التحقق من الروابط المدموجة أولاً
-          if (familyHead.multipleRoles) {
-            const hasBrotherRelationWithParent = familyHead.multipleRoles.some(role => 
-              role.relation === 'أخ' && role.parentName === parentName
-            );
-            
-            if (hasBrotherRelationWithParent) {
-              console.warn('✅ وجدت عم تلقائياً عبر الهويات المدموجة:', familyHead.firstName, 'أخ لـ', parentName);
-              if (!relationships.uncles.some(u => u.uid === family.uid)) {
-                relationships.uncles.push(family);
-              }
-            }
-          }
-          
-          // البحث في الروابط اليدوية لهذه العائلة
-          if (family.userData?.linkedFamilies) {
-            const hasBrotherLinkWithParent = family.userData.linkedFamilies.some(link => 
-              link.targetFamilyUid === relationships.directParent.uid && link.linkType === 'brother'
-            );
-            
-            if (hasBrotherLinkWithParent) {
-              console.warn('✅ وجدت عم تلقائياً عبر الروابط اليدوية:', familyHead.firstName, 'مرتبط كأخ مع', parentName);
-              if (!relationships.uncles.some(u => u.uid === family.uid)) {
-                relationships.uncles.push(family);
-              }
-            }
-          }
-          
-          // البحث في أفراد العائلة عن من يطابق الأب كأخ
-          const foundBrotherOfParent = family.members.find(member => 
-            member.relation === 'أخ' && 
-            (member.linkedWith === parentGlobalId || 
-             member.linkedWith === parentName ||
-             member.fatherName === relationships.directParent.head.fatherName)
-          );
-          
-          if (foundBrotherOfParent) {
-            console.warn('✅ وجدت عم تلقائياً عبر أفراد العائلة:', familyHead.firstName, 'أخ لـ', parentName);
-            if (!relationships.uncles.some(u => u.uid === family.uid)) {
-              relationships.uncles.push(family);
-            }
-          }
-          
-          // البحث بناء على اسم الأب المشترك (نفس الجد)
-          if (relationships.directParent.head.fatherName && familyHead.fatherName) {
-            if (relationships.directParent.head.fatherName === familyHead.fatherName && 
-                familyHead.firstName !== relationships.directParent.head.firstName) {
-              console.warn('✅ وجدت عم تلقائياً عبر اسم الأب المشترك:', familyHead.firstName, 'و', parentName, 'لهما نفس الأب:', familyHead.fatherName);
-              if (!relationships.uncles.some(u => u.uid === family.uid)) {
-                relationships.uncles.push(family);
-              }
-            }
-          }
-        }
-      });
-      
-      // البحث العكسي: البحث في روابط الأب عن من هو مرتبط معه كأخ
-      if (relationships.directParent.userData?.linkedFamilies) {
-        relationships.directParent.userData.linkedFamilies.forEach(link => {
-          if (link.linkType === 'brother') {
-            const uncleFamily = mergedFamiliesData.find(f => f.uid === link.targetFamilyUid);
-            if (uncleFamily && uncleFamily.uid !== currentUserFamily.uid) {
-              console.warn('✅ وجدت عم تلقائياً عبر روابط الأب:', uncleFamily.head.firstName, 'مرتبط كأخ مع', parentName);
-              if (!relationships.uncles.some(u => u.uid === uncleFamily.uid)) {
-                relationships.uncles.push(uncleFamily);
-              }
-            }
-          }
-        });
-      }
-    }
-    
-    // **البحث عن الروابط اليدوية المتبقية (للتوافق مع النظام القديم)**
-    if (relationships.directParent) {
-      mergedFamiliesData.forEach(family => {
-        if (family.userData?.linkedFamilies && family.uid !== currentUserFamily.uid) {
-          family.userData.linkedFamilies.forEach(link => {
-            // إذا كانت هذه العائلة مرتبطة مع أبي كأخ، إذن هي عمي
-            if (link.targetFamilyUid === relationships.directParent.uid && link.linkType === 'brother') {
-              console.warn('✅ وجدت عم عبر رابط أخ مع الأب:', family.head.firstName);
-              if (!relationships.uncles.some(u => u.uid === family.uid)) {
-                relationships.uncles.push(family);
-              }
-            }
-            // أو إذا كانت مرتبطة معي كعم
-            else if (link.targetFamilyUid === currentUserFamily.uid && link.linkType === 'nephew') {
-              console.warn('✅ وجدت عم عبر رابط ابن أخ معي:', family.head.firstName);
-              if (!relationships.uncles.some(u => u.uid === family.uid)) {
-                relationships.uncles.push(family);
-              }
-            }
-          });
-        }
-      });
-    }
-
-    // **البحث عن من هو مرتبط معي كعم مباشرة (للتوافق مع النظام القديم)**
-    mergedFamiliesData.forEach(family => {
-      if (family.userData?.linkedFamilies && family.uid !== currentUserFamily.uid) {
-        family.userData.linkedFamilies.forEach(link => {
-          if (link.targetFamilyUid === currentUserFamily.uid && link.linkType === 'nephew') {
-            console.warn('✅ وجدت عم مرتبط معي مباشرة:', family.head.firstName);
-            if (!relationships.uncles.some(u => u.uid === family.uid)) {
-              relationships.uncles.push(family);
-            }
-          }
-        });
-      }
-    });
-    
-    console.warn('📊 نتائج الاكتشاف التلقائي للأعمام:', {
-      unclesFound: relationships.uncles.length,
-      uncleNames: relationships.uncles.map(u => u.head.firstName),
-      detectionMethod: 'تلقائي + روابط يدوية'
+    console.warn('� نتائج تحليل العلاقات:', {
+      directParent: relationships.directParent?.head?.firstName || 'لا يوجد',
+      siblings: relationships.siblings.length,
+      uncles: relationships.uncles.length,
+      others: relationships.others.length
     });
 
     console.warn('🏗️ حالة العلاقات قبل بناء الشجرة:', {
@@ -1608,33 +1383,14 @@ export default function FamilyTreeAdvanced() {
     setLoadingStage('📋 تحميل بيانات عائلتك...');
     const myFamilyData = await loadFamilyData(uid);
     
-    // الخطوة 2: البحث عن العائلات المرتبطة
-    setLoadingProgress(30);
-    setLoadingStage('🔗 البحث عن الروابط...');
-    const allLinkedFamilies = await findAllLinkedFamilies(uid);
-    
-    // الخطوة 3: تحميل بيانات جميع العائلات
+    // الخطوة 2: بدون روابط خارجية - فقط العائلة الحالية
     setLoadingProgress(50);
-    setLoadingStage('🏠 تحميل بيانات العائلات...');
+    setLoadingStage('🏠 معالجة بيانات العائلة...');
     const allFamiliesData = [];
     
-    // إضافة عائلتك
+    // إضافة عائلتك فقط
     if (myFamilyData && myFamilyData.members.length > 0) {
       allFamiliesData.push(myFamilyData);
-    }
-    
-    // إضافة العائلات المرتبطة
-    for (const familyUid of allLinkedFamilies) {
-      if (familyUid !== uid) {
-        try {
-          const familyData = await loadFamilyData(familyUid);
-          if (familyData && familyData.members.length > 0) {
-            allFamiliesData.push(familyData);
-          }
-        } catch {
-          // تعذر تحميل العائلة - متابعة صامتة
-        }
-      }
     }
     
     setLoadingProgress(70);
@@ -1670,22 +1426,7 @@ export default function FamilyTreeAdvanced() {
   } finally {
     setLoading(false);
   }
-  }, [uid, showSnackbar, monitorPerformance, buildExtendedTreeStructure, calculateTreeDepth, loadFamilyData, findAllLinkedFamilies]);
-
-  const loadLinkedFamilies = useCallback(async () => {
-    if (!uid) return;
-    
-    try {
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const linked = userData.linkedFamilies || [];
-        setLinkedFamilies(linked);
-      }
-    } catch {
-      // خطأ صامت في تحميل العائلات المرتبطة
-    }
-  }, [uid]);
+  }, [uid, showSnackbar, monitorPerformance, buildExtendedTreeStructure, calculateTreeDepth, loadFamilyData]);
 
   // ===========================================================================
   // دوال التحكم
@@ -2147,8 +1888,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
     }
 
     loadSimpleTree();
-    loadLinkedFamilies();
-  }, [uid, navigate, loadSimpleTree, loadLinkedFamilies]);
+  }, [uid, navigate, loadSimpleTree]);
 
   useEffect(() => {
     if (!uid) return;
@@ -2312,23 +2052,6 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
                   >
                     إضافة أفراد العائلة
                   </Button>
-                  <Button
-                    variant="outlined"
-                    sx={{ 
-                      borderColor: showExtendedTree ? '#8b5cf6' : '#10b981',
-                      color: showExtendedTree ? '#8b5cf6' : '#10b981',
-                      '&:hover': { 
-                        borderColor: showExtendedTree ? '#7c3aed' : '#059669',
-                        backgroundColor: showExtendedTree ? 'rgba(139, 92, 246, 0.1)' : 'rgba(16, 185, 129, 0.1)'
-                      },
-                      fontFamily: 'Cairo, sans-serif'
-                    }}
-                    size="large"
-                    onClick={() => setShowLinkingPanel(true)}
-                    startIcon={<LinkIcon />}
-                  >
-                    ربط عائلات
-                  </Button>
                 </Box>
               </Box>
             )}
@@ -2468,31 +2191,6 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
             }}
           >
             إدارة العائلة
-          </Button>
-
-          <Button 
-            variant="outlined" 
-            size={window.innerWidth < 600 ? "small" : "medium"}
-            onClick={() => setShowLinkingPanel(true)} 
-            disabled={loading} 
-            startIcon={<LinkIcon />} 
-            sx={{ 
-              px: { xs: 1, sm: 1.5 },
-              py: { xs: 0.25, sm: 0.5 },
-              fontSize: { xs: '0.7rem', sm: '0.8rem' },
-              borderRadius: 2,
-              borderColor: '#8b5cf6',
-              color: '#8b5cf6',
-              '&:hover': {
-                borderColor: '#7c3aed',
-                backgroundColor: 'rgba(139,92,246,0.05)',
-                transform: 'translateY(-1px)',
-                boxShadow: '0 2px 8px rgba(139,92,246,0.15)'
-              },
-              transition: 'all 0.2s ease'
-            }}
-          >
-            ربط العائلات
           </Button>
 
           <Button 
@@ -2709,19 +2407,6 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
                   />
                 )}
                 
-                {linkedFamilies.length > 0 && (
-                  <Chip 
-                    size="small" 
-                    label={`🔗 ${linkedFamilies.length} رابط`} 
-                    variant="outlined" 
-                    color="primary"
-                    sx={{
-                      fontSize: { xs: '0.6rem', sm: '0.7rem' },
-                      height: { xs: 20, sm: 24 }
-                    }}
-                  />
-                )}
-                
                 {performanceMetrics.maxDepthReached > 0 && (
                   <Chip 
                     size="small" 
@@ -2763,25 +2448,6 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
       </Box>
 
       {/* الحوارات */}
-      <Dialog open={showLinkingPanel} onClose={() => setShowLinkingPanel(false)} maxWidth="lg" fullWidth>
-        <DialogTitle>🔗 ربط العائلات للشجرة الموسعة</DialogTitle>
-        <DialogContent>
-          <ExtendedFamilyLinking
-            currentUserUid={uid}
-            onLinkingComplete={() => {
-              setShowLinkingPanel(false);
-              setExtendedTreeData(null);
-              // تحديث قائمة العائلات المرتبطة
-              loadLinkedFamilies();
-              if (showExtendedTree) {
-                loadExtendedTree();
-              }
-            }}
-            existingLinks={linkedFamilies.map(link => link.targetFamilyUid)}
-          />
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={!!selectedNode} onClose={() => setSelectedNode(null)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ color: '#1976d2', fontWeight: 'bold', fontFamily: 'Cairo, sans-serif' }}>
           {(selectedNode?.gender === 'female' || selectedNode?.relation === 'بنت') ? '♀️' : '♂️'} {selectedNode?.name || 'تفاصيل الشخص'}

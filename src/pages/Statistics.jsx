@@ -7,14 +7,13 @@ import {
   List, ListItem, ListItemText, ListItemIcon,
   IconButton, Tooltip, Alert, CircularProgress,
   AppBar, Toolbar, Container, Button, Breadcrumbs,
-  Link, Fab, Switch, FormControlLabel
+  Link, Fab
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 
 // الأيقونات
 import BarChartIcon from '@mui/icons-material/BarChart';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import PeopleIcon from '@mui/icons-material/People';
 import DownloadIcon from '@mui/icons-material/Download';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -22,7 +21,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 
 import { db } from '../firebase/config';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { familyAnalytics } from '../utils/FamilyAnalytics';
 
 const Statistics = () => {
@@ -38,9 +37,6 @@ const Statistics = () => {
   const [familyMembers, setFamilyMembers] = useState([]);
   const [treeData, setTreeData] = useState(null);
   const [error, setError] = useState(null);
-  const [showExtendedTree, setShowExtendedTree] = useState(false);
-  const [linkedFamilies, setLinkedFamilies] = useState([]);
-  const [hasLinkedFamilies, setHasLinkedFamilies] = useState(false);
 
     // دالة حساب العمر
   const calculateAge = useCallback((birthdate) => {
@@ -102,129 +98,9 @@ const Statistics = () => {
     };
   }, []);
 
-  // دالة بناء بيانات الشجرة الموسعة
-  const buildExtendedTreeData = useCallback((allMembers) => {
-    if (!allMembers || allMembers.length === 0) return null;
-    
-    // تجميع الأعضاء حسب العائلة
-    const familiesByUid = {};
-    allMembers.forEach(member => {
-      const familyUid = member.familyUid;
-      if (!familiesByUid[familyUid]) {
-        familiesByUid[familyUid] = [];
-      }
-      familiesByUid[familyUid].push(member);
-    });
+  // تم حذف دالة بناء الشجرة الموسعة
 
-    // بناء شجرة موسعة
-    const rootFamilyUid = localStorage.getItem('verifiedUid');
-    const rootFamily = familiesByUid[rootFamilyUid] || [];
-    const head = rootFamily.find(m => m.relation === 'رب العائلة') || rootFamily[0];
-    
-    if (!head) return null;
-
-    const rootNode = {
-      name: head.name,
-      id: head.globalId,
-      attributes: { ...head, isRoot: true },
-      children: []
-    };
-
-    // إضافة أطفال العائلة الأساسية
-    rootFamily.filter(m => 
-      (m.relation === 'ابن' || m.relation === 'بنت') && m.id !== head.id
-    ).forEach(child => {
-      rootNode.children.push({
-        name: child.name,
-        id: child.globalId,
-        attributes: child,
-        children: []
-      });
-    });
-
-    // إضافة العائلات المرتبطة كأطفال للجذر
-    Object.entries(familiesByUid).forEach(([familyUid, familyMembers]) => {
-      if (familyUid !== rootFamilyUid && familyMembers.length > 0) {
-        const familyHead = familyMembers.find(m => m.relation === 'رب العائلة') || familyMembers[0];
-        if (familyHead) {
-          const familyNode = {
-            name: familyHead.name + ' (عائلة مرتبطة)',
-            id: familyHead.globalId,
-            attributes: { ...familyHead, isExtended: true },
-            children: familyMembers.filter(m => 
-              (m.relation === 'ابن' || m.relation === 'بنت') && m.id !== familyHead.id
-            ).map(child => ({
-              name: child.name,
-              id: child.globalId,
-              attributes: { ...child, isExtended: true },
-              children: []
-            }))
-          };
-          rootNode.children.push(familyNode);
-        }
-      }
-    });
-
-    return rootNode;
-  }, []);
-
-  // البحث عن جميع العائلات المرتبطة
-  const findAllLinkedFamilies = useCallback(async (startUid) => {
-    const allFamilies = new Set([startUid]);
-    const toProcess = [startUid];
-    const processed = new Set();
-
-    while (toProcess.length > 0) {
-      const currentUid = toProcess.shift();
-      
-      if (processed.has(currentUid)) continue;
-      processed.add(currentUid);
-
-      try {
-        const userDoc = await getDoc(doc(db, 'users', currentUid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          
-          // العائلات المرتبطة
-          const linkedFamilies = userData.linkedFamilies || [];
-          linkedFamilies.forEach(link => {
-            const familyUid = link.targetFamilyUid || link;
-            if (!processed.has(familyUid)) {
-              allFamilies.add(familyUid);
-              toProcess.push(familyUid);
-            }
-          });
-
-          // العائلة الأساسية
-          if (userData.linkedToFamilyHead && !processed.has(userData.linkedToFamilyHead)) {
-            allFamilies.add(userData.linkedToFamilyHead);
-            toProcess.push(userData.linkedToFamilyHead);
-          }
-        }
-      } catch (error) {
-        console.error(`خطأ في معالجة ${currentUid}:`, error);
-      }
-    }
-
-    return Array.from(allFamilies);
-  }, []);
-
-  // تحميل العائلات المرتبطة
-  const loadLinkedFamilies = async (uid) => {
-    try {
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const linked = userData.linkedFamilies || [];
-        setLinkedFamilies(linked);
-        return linked;
-      }
-      return [];
-    } catch (error) {
-      console.error('خطأ في تحميل العائلات المرتبطة:', error);
-      return [];
-    }
-  };
+  // تم حذف دالة البحث عن العائلات المرتبطة
 
   // تحميل بيانات الشجرة العادية
   const loadSimpleTreeData = useCallback(async (uid) => {
@@ -251,46 +127,7 @@ const Statistics = () => {
     setTreeData(treeData);
   }, [buildTreeData, buildCleanMember]);
 
-  // تحميل بيانات الشجرة الموسعة
-  const loadExtendedTreeData = useCallback(async (uid) => {
-    
-    const allFamilies = await findAllLinkedFamilies(uid);
-    const allMembers = [];
-
-    // تحميل بيانات جميع العائلات
-    for (const familyUid of allFamilies) {
-      try {
-        const familySnapshot = await getDocs(collection(db, 'users', familyUid, 'family'));
-        const familyMembers = [];
-        
-        familySnapshot.forEach(doc => {
-          const memberData = { 
-            ...doc.data(), 
-            id: doc.id,
-            globalId: `${familyUid}_${doc.id}`,
-            familyUid: familyUid,
-            isExtended: familyUid !== uid // تحديد إذا كان من عائلة مرتبطة
-          };
-          
-          if (memberData.firstName && memberData.firstName.trim() !== '') {
-            const cleanMember = buildCleanMember(memberData);
-            familyMembers.push(cleanMember);
-          }
-        });
-
-        if (familyMembers.length > 0) {
-          allMembers.push(...familyMembers);
-        }
-      } catch (error) {
-        console.error(`خطأ في تحميل عائلة ${familyUid}:`, error);
-      }
-    }
-
-    setFamilyMembers(allMembers);
-    const treeData = buildExtendedTreeData(allMembers);
-    setTreeData(treeData);
-
-  }, [findAllLinkedFamilies, buildExtendedTreeData, buildCleanMember]);
+  // تم حذف دالة تحميل الشجرة الموسعة
 
   // تحميل بيانات العائلة مباشرة من Firebase
   useEffect(() => {
@@ -305,18 +142,10 @@ const Statistics = () => {
         }
 
         // تحميل العائلات المرتبطة أولاً
-        const linkedData = await loadLinkedFamilies(uid);
-        setLinkedFamilies(linkedData);
+        // لا حاجة لتحميل روابط إضافية
         
         // التحقق من وجود روابط
-        const userDoc = await getDoc(doc(db, 'users', uid));
-        let hasLinks = false;
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          hasLinks = (userData.linkedFamilies && userData.linkedFamilies.length > 0) || 
-                    userData.linkedToFamilyHead;
-        }
-        setHasLinkedFamilies(hasLinks);
+        // تم إزالة نظام الروابط كاملاً
 
         // تحميل الشجرة العادية افتراضياً
         await loadSimpleTreeData(uid);
@@ -346,11 +175,8 @@ const Statistics = () => {
       try {
         setLoading(true);
         
-        if (showExtendedTree && hasLinkedFamilies) {
-          await loadExtendedTreeData(uid);
-        } else {
-          await loadSimpleTreeData(uid);
-        }
+        // يتم عرض الشجرة العادية دائماً
+        await loadSimpleTreeData(uid);
       } catch (err) {
         console.error('خطأ في تحديث البيانات:', err);
       } finally {
@@ -360,12 +186,9 @@ const Statistics = () => {
 
     updateTreeData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showExtendedTree]); // الاستماع فقط لتغيير نوع الشجرة
+  }, []); // تم حذف تغيير نوع الشجرة
 
-  // دالة التبديل بين أنواع الشجرة
-  const handleTreeTypeToggle = (event) => {
-    setShowExtendedTree(event.target.checked);
-  };
+  // تم حذف دالة التبديل بين أنواع الشجرة
 
   // تحليل البيانات
   const analyzeData = useMemo(() => {
@@ -550,29 +373,11 @@ const Statistics = () => {
             fontFamily: 'Cairo, sans-serif',
             fontWeight: 'bold'
           }}>
-            {showExtendedTree ? '🏛️ إحصائيات الشجرة الموسعة' : '📊 إحصائيات العائلة'}
+            📊 إحصائيات العائلة
           </Typography>
 
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            {/* مفتاح تبديل نوع الشجرة */}
-            {hasLinkedFamilies && (
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={showExtendedTree}
-                    onChange={handleTreeTypeToggle}
-                    size="small"
-                    color="warning"
-                  />
-                }
-                label={
-                  <Typography variant="body2" sx={{ color: 'white', fontFamily: 'Cairo, sans-serif' }}>
-                    {showExtendedTree ? '🏛️ موسعة' : '🌳 عادية'}
-                  </Typography>
-                }
-                sx={{ mr: 2, '& .MuiFormControlLabel-label': { fontSize: '0.875rem' } }}
-              />
-            )}
+            {/* تم إزالة مفتاح تبديل نوع الشجرة */}
             
             <Tooltip title="تحديث البيانات">
               <IconButton 
@@ -664,28 +469,8 @@ const Statistics = () => {
           </Alert>
         ) : (
           <Box>
-            {/* تنبيه حول نوع الشجرة */}
-            {!hasLinkedFamilies && (
-              <Alert severity="info" sx={{ mb: 3 }}>
-                <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-                  🌳 إحصائيات العائلة العادية
-                </Typography>
-                <Typography variant="body2">
-                  يتم عرض إحصائيات عائلتك فقط. لعرض إحصائيات شاملة لجميع العائلات المرتبطة، قم بربط عائلات أخرى من صفحة شجرة العائلة.
-                </Typography>
-              </Alert>
-            )}
-
-            {showExtendedTree && hasLinkedFamilies && (
-              <Alert severity="success" sx={{ mb: 3 }}>
-                <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-                  🏛️ إحصائيات الشجرة الموسعة
-                </Typography>
-                <Typography variant="body2">
-                  يتم عرض إحصائيات شاملة تشمل عائلتك وجميع العائلات المرتبطة ({linkedFamilies.length + 1} عائلة).
-                </Typography>
-              </Alert>
-            )}
+            {/* تم إزالة تنبيهات الروابط */}
+            
             {/* معلومات سريعة */}
             <Paper sx={{ 
               p: 3, 
@@ -697,17 +482,14 @@ const Statistics = () => {
                 <Grid item xs={12} md={8}>
                   <Typography variant="h5" sx={{ 
                     fontFamily: 'Cairo, sans-serif', 
-                    color: showExtendedTree ? '#ff9800' : '#1976d2',
+                    color: '#1976d2',
                     fontWeight: 'bold',
                     mb: 1
                   }}>
-                    {showExtendedTree ? '🏛️' : '🌳'} تم تحليل {analysis?.metadata?.treeMetrics?.totalNodes || analysis?.metadata?.totalMembers || 0} عضو في {analysis?.metadata?.processingTime || 0} ms
+                    🌳 تم تحليل {analysis?.metadata?.treeMetrics?.totalNodes || analysis?.metadata?.totalMembers || 0} عضو في {analysis?.metadata?.processingTime || 0} ms
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'Cairo, sans-serif' }}>
                     جودة البيانات: {analysis?.metadata?.dataQuality || 'غير محددة'} • آخر تحديث: {analysis?.metadata?.analysisDate ? new Date(analysis.metadata.analysisDate).toLocaleString('ar-SA') : 'غير محدد'}
-                    {showExtendedTree && linkedFamilies.length > 0 && (
-                      <> • {linkedFamilies.length} عائلة مرتبطة</>
-                    )}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={4}>
@@ -724,14 +506,7 @@ const Statistics = () => {
                       color="success"
                       variant="outlined"
                     />
-                    {showExtendedTree && (
-                      <Chip
-                        icon={<PeopleIcon />}
-                        label="شجرة موسعة"
-                        color="warning"
-                        variant="outlined"
-                      />
-                    )}
+                    {/* تم حذف شريحة الشجرة الموسعة */}
                   </Box>
                 </Grid>
               </Grid>
@@ -1328,18 +1103,6 @@ const Statistics = () => {
                               <ListItemText
                                 primary="إضافة المزيد من الأعضاء"
                                 secondary="أضف المزيد من أفراد العائلة للحصول على إحصائيات أكثر دقة"
-                              />
-                            </ListItem>
-                          )}
-
-                          {!showExtendedTree && linkedFamilies.length === 0 && (
-                            <ListItem>
-                              <ListItemIcon>
-                                <Chip label="🔗" color="success" size="small" />
-                              </ListItemIcon>
-                              <ListItemText
-                                primary="ربط العائلات"
-                                secondary="اربط عائلتك مع عائلات أخرى لبناء شجرة عائلية أوسع"
                               />
                             </ListItem>
                           )}

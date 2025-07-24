@@ -6,7 +6,6 @@ import ProtectedRoute from './ProtectedRoute.jsx';
 import PhoneLogin from './pages/PhoneLogin.jsx';
 import Family from './pages/Family.jsx';
 import FamilyTree from './pages/FamilyTree.jsx';
-import FamilySelection from './pages/FamilySelection.jsx';
 import PrivacyPolicy from './pages/PrivacyPolicy.jsx';
 import Statistics from './pages/Statistics.jsx';
 
@@ -22,16 +21,6 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute requireAuth={false}>
             <PhoneLogin />
-          </ProtectedRoute>
-        } 
-      />
-      
-      {/* صفحة اختيار العائلة */}
-      <Route 
-        path="/family-selection" 
-        element={
-          <ProtectedRoute>
-            <FamilySelection />
           </ProtectedRoute>
         } 
       />

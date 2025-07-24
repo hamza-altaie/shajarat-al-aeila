@@ -61,15 +61,12 @@ src/
       useSmartCache.js
   components/
     AdvancedFamilyFeatures.jsx
-    ExtendedFamilyLinking.jsx
-    FamilySelectionPage.jsx
     FamilyTreeAdvanced.css
     FamilyTreeAdvanced.jsx
     ModernFamilyNodeHTML.jsx
     SearchBar.jsx
   pages/
     Family.jsx
-    FamilySelection.jsx
     FamilyTree.jsx
     PhoneLogin.jsx
     PrivacyPolicy.jsx
