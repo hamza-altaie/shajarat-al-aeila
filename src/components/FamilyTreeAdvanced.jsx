@@ -1,13 +1,13 @@
-// src/components/FamilyTreeAdvanced.jsx - النسخة المصححة مع الشجرة الموسعة الحقيقية
+// src/components/FamilyTreeAdvanced.jsx - شجرة العائلة البسيطة
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as d3 from 'd3';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Button, Typography, Alert, Snackbar, CircularProgress, 
-  Chip, IconButton, Tooltip, Paper, LinearProgress, 
-  Dialog, DialogTitle, DialogContent, DialogActions, Divider, 
-  FormControlLabel, Switch, TextField, InputAdornment
+  Chip, IconButton, Paper, LinearProgress, 
+  Dialog, DialogTitle, DialogContent, DialogActions, 
+  TextField, InputAdornment
 } from '@mui/material';
 
 // استيراد الأيقونات بشكل منفصل لتحسين الأداء
@@ -21,7 +21,7 @@ import SearchIcon from '@mui/icons-material/Search';
 
 // استيرادات Firebase
 import { db } from '../firebase/config';
-import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 
 // استيراد المكونات
 import './FamilyTreeAdvanced.css';
@@ -32,7 +32,6 @@ export default function FamilyTreeAdvanced() {
   // الحالات الأساسية
   // ===========================================================================
   
-  const [showExtendedTree, setShowExtendedTree] = useState(false);
   const [selectedNode, setSelectedNode] = useState(null);
   const [performanceMetrics, setPerformanceMetrics] = useState({
     loadTime: 0,
@@ -43,8 +42,7 @@ export default function FamilyTreeAdvanced() {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('info');
-  const [simpleTreeData, setSimpleTreeData] = useState(null);
-  const [extendedTreeData, setExtendedTreeData] = useState(null);
+  const [treeData, setTreeData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState('');
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -181,7 +179,7 @@ export default function FamilyTreeAdvanced() {
   // دوال البناء
   // ===========================================================================
 
-  const buildSimpleTreeStructure = useCallback((familyMembers) => {
+  const buildTreeStructure = useCallback((familyMembers) => {
     if (!familyMembers || familyMembers.length === 0) {
       return null;
     }
@@ -198,8 +196,7 @@ export default function FamilyTreeAdvanced() {
       attributes: {
         ...head,
         isCurrentUser: true,
-        treeType: 'simple',
-        isExtended: false
+        treeType: 'simple'
       },
       children: []
     };
@@ -216,8 +213,7 @@ export default function FamilyTreeAdvanced() {
         avatar: child.avatar || null,
         attributes: {
           ...child,
-          treeType: 'simple',
-          isExtended: false
+          treeType: 'simple'
         },
         children: []
       });
@@ -240,52 +236,11 @@ export default function FamilyTreeAdvanced() {
     return maxDepth;
   }, []);
 
-  const loadFamilyData = useCallback(async (familyUid) => {
-  try {
-    // إضافة تحميل بيانات المستخدم
-    const userDoc = await getDoc(doc(db, 'users', familyUid));
-    const userData = userDoc.exists() ? userDoc.data() : null;
-    
-    const familySnapshot = await getDocs(collection(db, 'users', familyUid, 'family'));
-    const members = [];
-      
-      familySnapshot.forEach(doc => {
-        const memberData = sanitizeMemberData({ 
-          ...doc.data(), 
-          id: doc.id,
-          globalId: `${familyUid}_${doc.id}`,
-          familyUid: familyUid,
-          isExtended: familyUid !== uid
-        });
-        
-        if (memberData.firstName && memberData.firstName.trim() !== '') {
-          members.push(memberData);
-        }
-      });
-
-      if (members.length > 0) {
-        const head = findFamilyHead(members);
-        
-        return {
-          uid: familyUid,
-          members,
-          head,
-          userData, // إضافة هذا السطر
-          isExtended: familyUid !== uid
-        };
-      }
-      
-      return null;
-    } catch {
-      return null;
-    }
-  }, [uid]);
-
   // ===========================================================================
   // دوال التحميل الرئيسية
   // ===========================================================================
 
-  const loadSimpleTree = useCallback(async () => {
+  const loadTree = useCallback(async () => {
     if (!uid) {
       return;
     }
@@ -316,12 +271,12 @@ export default function FamilyTreeAdvanced() {
       setLoadingProgress(60);
       setLoadingStage('بناء الشجرة...');
 
-      const treeData = buildSimpleTreeStructure(familyMembers);
+      const builtTreeData = buildTreeStructure(familyMembers);
       
       setLoadingProgress(100);
       setLoadingStage('اكتمل التحميل');
       
-      setSimpleTreeData(treeData);
+      setTreeData(builtTreeData);
       
       // تسجيل مقاييس الأداء
       monitorPerformance({
@@ -339,68 +294,7 @@ export default function FamilyTreeAdvanced() {
     } finally {
       setLoading(false);
     }
-  }, [uid, showSnackbar, monitorPerformance, buildSimpleTreeStructure]);
-
-  const loadExtendedTree = useCallback(async () => {
-  if (!uid) return;
-
-  const startTime = Date.now();
-  setLoading(true);
-  
-  // 🔵 يمكنك تغيير هذه النصوص ولونها
-  setLoadingStage('🔍 البحث عن العائلات المرتبطة...');
-  setLoadingProgress(0);
-
-  try {
-    // الخطوة 1: تحميل عائلتك
-    setLoadingProgress(10);
-    setLoadingStage('📋 تحميل بيانات عائلتك...');
-    const myFamilyData = await loadFamilyData(uid);
-    
-    // الخطوة 2: بدون روابط خارجية - فقط العائلة الحالية
-    setLoadingProgress(50);
-    setLoadingStage('🏠 معالجة بيانات العائلة...');
-    const allFamiliesData = [];
-    
-    // إضافة عائلتك فقط
-    if (myFamilyData && myFamilyData.members.length > 0) {
-      allFamiliesData.push(myFamilyData);
-    }
-    
-    setLoadingProgress(70);
-    setLoadingStage('🌳 بناء الشجرة البسيطة...');
-    
-    // الخطوة 4: استخدام الشجرة البسيطة بدلاً من الموسعة
-    const simpleTree = buildSimpleTreeStructure(myFamilyData.members);
-    
-    setLoadingProgress(90);
-    setLoadingStage('⚡ تحسين وتنسيق الشجرة...');
-    
-    // الخطوة 5: حساب المقاييس
-    const totalPersons = allFamiliesData.reduce((sum, family) => sum + family.members.length, 0);
-    const endTime = Date.now();
-    
-    monitorPerformance({
-      personCount: totalPersons,
-      familyCount: allFamiliesData.length,
-      maxDepthReached: calculateTreeDepth(simpleTree),
-      loadTime: endTime - startTime
-    });
-    
-    setLoadingProgress(100);
-    setLoadingStage('✅ اكتمل التحميل بنجاح!');
-    
-    setExtendedTreeData(simpleTree);
-    
-    showSnackbar(`🏛️ تم تحميل ${allFamiliesData.length} عائلة بـ ${totalPersons} شخص في الشجرة`, 'success');
-
-  } catch {
-    setError('فشل في تحميل الشجرة الموسعة');
-    showSnackbar('❌ فشل في تحميل الشجرة الموسعة', 'error');
-  } finally {
-    setLoading(false);
-  }
-  }, [uid, showSnackbar, monitorPerformance, calculateTreeDepth, loadFamilyData, buildSimpleTreeStructure]);
+  }, [uid, showSnackbar, monitorPerformance, buildTreeStructure]);
 
   // ===========================================================================
   // دوال التحكم
@@ -408,14 +302,9 @@ export default function FamilyTreeAdvanced() {
 
   const handleRefresh = useCallback(() => {
     // تنظيف البيانات السابقة
-    if (showExtendedTree) {
-      setExtendedTreeData(null);
-      loadExtendedTree();
-    } else {
-      setSimpleTreeData(null);
-      loadSimpleTree();
-    }
-  }, [showExtendedTree, loadExtendedTree, loadSimpleTree]);
+    setTreeData(null);
+    loadTree();
+  }, [loadTree]);
 
   // ===========================================================================
   // دالة رسم الشجرة
@@ -487,20 +376,10 @@ const drawTreeWithD3 = useCallback((data) => {
     if (generationCounts[d.depth] > maxBreadth) maxBreadth = generationCounts[d.depth];
   });
 
-  // تمييز بين الشجرة العادية والموسعة
-  let verticalGap, dynamicHeight, horizontalGap, dynamicWidth;
-  if (showExtendedTree) {
-    // الشجرة الموسعة: مساحة رأسية أكبر لكن ليست مبالغ فيها، ومسافة أفقية أكبر
-    verticalGap = 80; 
-    horizontalGap = 220; 
-    dynamicHeight = Math.max(verticalGap * maxDepth, 350);
-    dynamicWidth = Math.max(horizontalGap * maxBreadth, width - 100);
-  } else {
-    verticalGap = 55;
-    horizontalGap = 180;
-    dynamicHeight = Math.max(verticalGap * maxDepth, 180);
-    dynamicWidth = width - 100;
-  }
+  // إعدادات الشجرة العادية
+  const verticalGap = 55;
+  const dynamicHeight = Math.max(verticalGap * maxDepth, 180);
+  const dynamicWidth = width - 100;
 
   // إعداد تخطيط الشجرة مع توزيع أفقي متساوٍ تماماً (بدون أي تراكب)
   const treeLayout = d3.tree()
@@ -807,7 +686,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
     }
   }, 1200);
 
-}, [showExtendedTree, handleNodeClick, searchQuery]);
+}, [handleNodeClick, searchQuery]);
 
   // دالة البحث المحلية - مبسطة
   const performSearch = useCallback((query) => {
@@ -861,28 +740,19 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
       return;
     }
 
-    loadSimpleTree();
-  }, [uid, navigate, loadSimpleTree]);
-
-  useEffect(() => {
-    if (!uid) return;
-    
-    if (showExtendedTree && !extendedTreeData) {
-      loadExtendedTree();
-    }
-  }, [showExtendedTree, uid, extendedTreeData, loadExtendedTree]);
+    loadTree();
+  }, [uid, navigate, loadTree]);
 
   // تأثير رسم الشجرة
   useEffect(() => {
-    const currentTreeData = showExtendedTree ? extendedTreeData : simpleTreeData;
-    if (currentTreeData && svgRef.current && containerRef.current) {
+    if (treeData && svgRef.current && containerRef.current) {
       const timer = setTimeout(() => {
-        drawTreeWithD3(currentTreeData);
+        drawTreeWithD3(treeData);
       }, 200);
       
       return () => clearTimeout(timer);
     }
-  }, [drawTreeWithD3, showExtendedTree, simpleTreeData, extendedTreeData]);
+  }, [drawTreeWithD3, treeData]);
 
   // تأثير البحث
   useEffect(() => {
@@ -911,8 +781,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
   // ===========================================================================
 
   const renderTreeView = () => {
-    const currentTreeData = showExtendedTree ? extendedTreeData : simpleTreeData;
-    const treeTitle = showExtendedTree ? 'الشجرة الموسعة للقبيلة' : 'شجرة عائلتك';
+    const treeTitle = 'شجرة عائلتك';
     
     return (
       <Box
@@ -953,7 +822,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
               إعادة المحاولة
             </Button>
           </Box>
-        ) : currentTreeData ? (
+        ) : treeData ? (
           <svg
             ref={svgRef}
             width="100%"
@@ -978,7 +847,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
           >
             {loading ? (
               <Box textAlign="center" maxWidth={600}>
-                <CircularProgress size={80} sx={{ color: showExtendedTree ? '#8b5cf6' : '#10b981', mb: 3 }} />
+                <CircularProgress size={80} sx={{ color: '#10b981', mb: 3 }} />
                 <Typography variant="h5" sx={{ mb: 2, fontFamily: 'Cairo, sans-serif' }}>
                   {loadingStage || `جاري تحميل ${treeTitle}...`}
                 </Typography>
@@ -992,25 +861,22 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
                     mb: 2,
                     backgroundColor: 'rgba(255,255,255,0.1)',
                     '& .MuiLinearProgress-bar': {
-                      backgroundColor: showExtendedTree ? '#8b5cf6' : '#10b981'
+                      backgroundColor: '#10b981'
                     }
                   }}
                 />
-                <Typography variant="body2" sx={{ color: showExtendedTree ? '#8b5cf6' : '#10b981', fontFamily: 'Cairo, sans-serif' }}>
+                <Typography variant="body2" sx={{ color: '#10b981', fontFamily: 'Cairo, sans-serif' }}>
                   {Math.round(loadingProgress)}% مكتمل
                 </Typography>
               </Box>
             ) : (
               <Box textAlign="center">
-                <AccountTreeIcon sx={{ fontSize: 120, color: showExtendedTree ? '#8b5cf6' : '#10b981', mb: 2 }} />
-                <Typography variant="h4" sx={{ mb: 1, fontFamily: 'Cairo, sans-serif', color: showExtendedTree ? '#8b5cf6' : '#10b981' }}>
-                  {showExtendedTree ? '🏛️ ابنِ شجرة قبيلتك الموسعة' : '🌳 ابنِ شجرة عائلتك'}
+                <AccountTreeIcon sx={{ fontSize: 120, color: '#10b981', mb: 2 }} />
+                <Typography variant="h4" sx={{ mb: 1, fontFamily: 'Cairo, sans-serif', color: '#10b981' }}>
+                  🌳 ابنِ شجرة عائلتك
                 </Typography>
                 <Typography variant="body1" sx={{ color: 'text.secondary', mb: 3, maxWidth: 500, fontFamily: 'Cairo, sans-serif' }}>
-                  {showExtendedTree 
-                    ? '🔗 اربط عائلتك مع العائلات الأخرى لبناء شجرة قبيلة شاملة تضم جميع الأقارب والفروع'
-                    : '👨‍👩‍👧‍👦 أضف أفراد عائلتك المباشرين: رب العائلة وأولاده وبناته'
-                  }
+                  ‍👩‍👧‍👦 أضف أفراد عائلتك المباشرين: رب العائلة وأولاده وبناته
                 </Typography>
                 <Box display="flex" gap={2} justifyContent="center">
                   <Button
@@ -1055,9 +921,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
           left: 0,
           right: 0,
           height: '2px',
-          background: showExtendedTree 
-            ? 'linear-gradient(90deg, #8b5cf6 0%, #d946ef 100%)' 
-            : 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
+          background: 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
           transition: 'all 0.3s ease'
         }
       }}
@@ -1077,20 +941,18 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
             sx={{ 
               mb: 0,
               fontSize: { xs: '1.25rem', sm: '1.5rem', md: '1.75rem' },
-              color: showExtendedTree ? '#8b5cf6' : '#10b981',
+              color: '#10b981',
               fontWeight: 700,
               fontFamily: 'Cairo, sans-serif',
               transition: 'all 0.3s ease',
               textShadow: '0 1px 2px rgba(0,0,0,0.1)',
-              background: showExtendedTree 
-                ? 'linear-gradient(45deg, #8b5cf6 0%, #d946ef 100%)' 
-                : 'linear-gradient(45deg, #10b981 0%, #059669 100%)',
+              background: 'linear-gradient(45deg, #10b981 0%, #059669 100%)',
               backgroundClip: 'text',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent'
             }}
           >
-            {showExtendedTree ? '🏛️ الشجرة الموسعة للقبيلة' : '🌳 شجرة عائلتك'}
+             شجرة عائلتك
           </Typography>
           
           <Typography 
@@ -1105,10 +967,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
               display: 'block'
             }}
           >
-            {showExtendedTree 
-              ? '📊 استكشف جميع العائلات المرتبطة في شجرة موحدة وشاملة' 
-              : '👨‍👩‍👧‍👦 عرض بسيط لرب العائلة وأولاده المباشرين'
-            }
+            ‍👩‍👧‍👦 عرض بسيط لرب العائلة وأولاده المباشرين
           </Typography>
         </Box>
 
@@ -1123,9 +982,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
               borderRadius: 3,
               backgroundColor: 'rgba(0,0,0,0.06)',
               '& .MuiLinearProgress-bar': {
-                background: showExtendedTree 
-                  ? 'linear-gradient(90deg, #8b5cf6 0%, #d946ef 100%)' 
-                  : 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
+                background: 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
                 borderRadius: 3,
                 boxShadow: '0 1px 4px rgba(0,0,0,0.2)'
               }
@@ -1244,8 +1101,8 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
                 },
                 '&.Mui-focused': {
                   backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                  boxShadow: `0 0 0 2px ${showExtendedTree ? 'rgba(139,92,246,0.2)' : 'rgba(16,185,129,0.2)'}`,
-                  borderColor: showExtendedTree ? '#8b5cf6' : '#10b981'
+                  boxShadow: '0 0 0 2px rgba(16,185,129,0.2)',
+                  borderColor: '#10b981'
                 },
                 transition: 'all 0.2s ease'
               }
@@ -1289,64 +1146,6 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
           />
         </Box>
 
-        {/* مفتاح تبديل نوع الشجرة محسن - ارتفاع مقلل */}
-        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={showExtendedTree}
-                onChange={(e) => setShowExtendedTree(e.target.checked)}
-                disabled={loading}
-                size="small"
-                sx={{
-                  '& .MuiSwitch-switchBase.Mui-checked': {
-                    color: '#8b5cf6',
-                  },
-                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                    backgroundColor: '#8b5cf6',
-                  },
-                  '& .MuiSwitch-switchBase': {
-                    color: '#10b981',
-                  },
-                  '& .MuiSwitch-track': {
-                    backgroundColor: '#10b981',
-                  },
-                }}
-              />
-            }
-            label={
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    fontFamily: 'Cairo, sans-serif', 
-                    fontWeight: 'bold',
-                    fontSize: { xs: '0.75rem', sm: '0.85rem' }
-                  }}
-                >
-                  {showExtendedTree ? '🏛️ الشجرة الموسعة (القبيلة)' : '🌳 الشجرة العادية (العائلة)'}
-                </Typography>
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
-                    fontFamily: 'Cairo, sans-serif', 
-                    color: 'text.secondary',
-                    display: 'block',
-                    fontSize: { xs: '0.65rem', sm: '0.7rem' }
-                  }}
-                >
-                  {showExtendedTree ? 'جميع العائلات المرتبطة' : 'رب العائلة وأولاده فقط'}
-                </Typography>
-              </Box>
-            }
-            sx={{
-              '& .MuiFormControlLabel-label': {
-                px: 0.5
-              }
-            }}
-          />
-        </Box>
-
         {/* إحصائيات الأداء - أحجام مقللة */}
         {performanceMetrics.personCount > 0 && (
           <Box sx={{ 
@@ -1366,48 +1165,16 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
               }}
             />
             
-            {showExtendedTree && (
-              <>
-                {performanceMetrics.familyCount > 1 && (
-                  <Chip 
-                    size="small" 
-                    label={`🏛️ ${performanceMetrics.familyCount} عائلة`} 
-                    variant="outlined" 
-                    color="secondary"
-                    sx={{
-                      fontSize: { xs: '0.6rem', sm: '0.7rem' },
-                      height: { xs: 20, sm: 24 }
-                    }}
-                  />
-                )}
-                
-                {performanceMetrics.maxDepthReached > 0 && (
-                  <Chip 
-                    size="small" 
-                    label={`📊 ${performanceMetrics.maxDepthReached + 1} جيل`} 
-                    variant="outlined" 
-                    color="info"
-                    sx={{
-                      fontSize: { xs: '0.6rem', sm: '0.7rem' },
-                      height: { xs: 20, sm: 24 }
-                    }}
-                  />
-                )}
-              </>
-            )}
-            
-            {!showExtendedTree && (
-              <Chip 
-                size="small" 
-                label="🌳 شجرة بسيطة (جيلان)" 
-                variant="outlined" 
-                color="success"
-                sx={{
-                  fontSize: { xs: '0.6rem', sm: '0.7rem' },
-                  height: { xs: 20, sm: 24 }
-                }}
-              />
-            )}
+            <Chip 
+              size="small" 
+              label="🌳 شجرة بسيطة (جيلان)" 
+              variant="outlined" 
+              color="success"
+              sx={{
+                fontSize: { xs: '0.6rem', sm: '0.7rem' },
+                height: { xs: 20, sm: 24 }
+              }}
+            />
           </Box>
         )}
       </Box>
