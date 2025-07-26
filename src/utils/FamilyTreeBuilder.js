@@ -79,6 +79,37 @@ export class FamilyTreeBuilder {
     return isChildByFatherName || isChildByParentId || isChildByFullLineage;
   };
 
+  // التحقق من انتماء أبناء العم للعم
+  isCousinOfUncle = (cousin, uncle) => {
+    // تجنب إضافة نفس الطفل مرتين
+    if (this.addedChildrenIds.has(cousin.globalId)) {
+      return false;
+    }
+
+    // الطريقة الأولى: التحقق من علاقة ابن عم مباشرة مع اسم العم
+    const isDirectCousin = (
+      (cousin.relation === 'ابن عم' || cousin.relation === 'بنت عم') &&
+      cousin.fatherName === uncle.firstName &&
+      cousin.globalId !== uncle.globalId
+    );
+    
+    // الطريقة الثانية: التحقق من النسب - العم والوالد إخوة
+    const isCousinByLineage = (
+      (cousin.relation === 'ابن عم' || cousin.relation === 'بنت عم') &&
+      cousin.grandfatherName === uncle.fatherName && // نفس الجد
+      cousin.fatherName !== uncle.firstName && // ليس ابن مباشر للعم
+      cousin.globalId !== uncle.globalId
+    );
+
+    // الطريقة الثالثة: التحقق من معرف العم
+    const isCousingByUncleId = (
+      cousin.uncleId === uncle.globalId ||
+      cousin.parentId === uncle.globalId
+    );
+
+    return isDirectCousin || isCousinByLineage || isCousingByUncleId;
+  };
+
   // إضافة الأطفال للعقدة
   addChildrenToNode = (parentNode, children, treeType) => {
     children.forEach(child => {
@@ -99,27 +130,9 @@ export class FamilyTreeBuilder {
     });
   };
 
-  // بناء الشجرة الهرمية (مع وجود والد)
-  buildHierarchicalTree = (familyMembers) => {
-    const father = familyMembers.find(m => m.relation === 'والد');
-    const accountOwner = familyMembers.find(m => m.relation === 'رب العائلة');
-    
-    if (!father || !accountOwner) return null;
-
-    // إنشاء عقدة الوالد (الجذر)
-    const rootNode = {
-      name: this.buildFullName(father),
-      id: father.globalId,
-      avatar: father.avatar || null,
-      attributes: {
-        ...father,
-        isRoot: true,
-        treeType: 'hierarchical'
-      },
-      children: []
-    };
-
-    // إضافة رب العائلة
+  // دالة مساعدة لإضافة الأطفال للوالد
+  addChildrenToFather = (fatherNode, familyMembers, father, accountOwner) => {
+    // إضافة رب العائلة كطفل للوالد
     const ownerNode = {
       name: this.buildFullName(accountOwner),
       id: accountOwner.globalId,
@@ -139,9 +152,9 @@ export class FamilyTreeBuilder {
     );
 
     this.addChildrenToNode(ownerNode, ownerChildren, 'hierarchical');
-    rootNode.children.push(ownerNode);
+    fatherNode.children.push(ownerNode);
 
-    // إضافة الإخوة والأخوات
+    // إضافة الإخوة والأخوات كأطفال للوالد
     const siblings = familyMembers.filter(m => 
       RelationUtils.isSibling(m.relation) && 
       m.globalId !== accountOwner.globalId && 
@@ -164,17 +177,17 @@ export class FamilyTreeBuilder {
       const siblingChildren = familyMembers.filter(m => this.isChildOfParent(m, sibling));
       this.addChildrenToNode(siblingNode, siblingChildren, 'hierarchical');
 
-      rootNode.children.push(siblingNode);
+      fatherNode.children.push(siblingNode);
     });
 
-    // إضافة الزوجات
+    // إضافة الزوجات كأطفال للوالد
     const spouses = familyMembers.filter(m => 
       (m.relation === 'زوجة' || RelationUtils.isAdditionalWife(m.relation)) && 
       m.globalId !== father.globalId
     );
 
     spouses.forEach(spouse => {
-      rootNode.children.push({
+      fatherNode.children.push({
         name: this.buildFullName(spouse),
         id: spouse.globalId,
         avatar: spouse.avatar || null,
@@ -185,6 +198,97 @@ export class FamilyTreeBuilder {
         children: []
       });
     });
+
+    // ترتيب أطفال الوالد
+    this.sortNodeChildren(fatherNode);
+  };
+
+  // بناء الشجرة الهرمية (مع وجود والد)
+  buildHierarchicalTree = (familyMembers) => {
+    const father = familyMembers.find(m => m.relation === 'والد');
+    const accountOwner = familyMembers.find(m => m.relation === 'رب العائلة');
+    
+    if (!father || !accountOwner) return null;
+
+    // البحث عن الأعمام
+    const unclesAunts = familyMembers.filter(m => 
+      RelationUtils.isUncleAunt(m.relation) && 
+      m.globalId !== father.globalId && 
+      m.globalId !== accountOwner.globalId
+    );
+
+    let rootNode;
+
+    if (unclesAunts.length > 0) {
+      // إنشاء عقدة جد افتراضية مخفية كجذر عندما يوجد أعمام
+      rootNode = {
+        name: father.fatherName || "الجد",
+        id: "generation-root",
+        avatar: null,
+        attributes: {
+          relation: "جد",
+          isVirtualRoot: true,
+          isGenerationRoot: true,
+          isHidden: true, // إخفاء هذه العقدة من العرض
+          treeType: 'hierarchical'
+        },
+        children: []
+      };
+
+      // إضافة الوالد كطفل للجد
+      const fatherNode = {
+        name: this.buildFullName(father),
+        id: father.globalId,
+        avatar: father.avatar || null,
+        attributes: {
+          ...father,
+          isMainFather: true, // تمييز الوالد الرئيسي
+          treeType: 'hierarchical'
+        },
+        children: []
+      };
+
+      rootNode.children.push(fatherNode);
+
+      // إضافة الأعمام كإخوة للوالد (أطفال الجد)
+      unclesAunts.forEach(uncleAunt => {
+        const uncleAuntNode = {
+          name: this.buildFullName(uncleAunt),
+          id: uncleAunt.globalId,
+          avatar: uncleAunt.avatar || null,
+          attributes: {
+            ...uncleAunt,
+            treeType: 'hierarchical'
+          },
+          children: []
+        };
+
+        // إضافة أبناء العم/العمة
+        const cousins = familyMembers.filter(m => this.isCousinOfUncle(m, uncleAunt));
+        this.addChildrenToNode(uncleAuntNode, cousins, 'hierarchical');
+
+        rootNode.children.push(uncleAuntNode);
+      });
+
+      // الآن نضيف الأطفال للوالد
+      this.addChildrenToFather(fatherNode, familyMembers, father, accountOwner);
+
+    } else {
+      // إذا لم يكن هناك أعمام، الوالد هو الجذر
+      rootNode = {
+        name: this.buildFullName(father),
+        id: father.globalId,
+        avatar: father.avatar || null,
+        attributes: {
+          ...father,
+          isRoot: true,
+          treeType: 'hierarchical'
+        },
+        children: []
+      };
+
+      this.addChildrenToFather(rootNode, familyMembers, father, accountOwner);
+    }
 
     // ترتيب العقد
     this.sortNodeChildren(rootNode);

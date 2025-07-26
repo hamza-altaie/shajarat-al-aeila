@@ -82,10 +82,11 @@ export const RelationUtils = {
   getRelationPriority: (relation) => {
     if (relation === 'رب العائلة') return 1;
     if (RelationUtils.isSibling(relation)) return 2;
-    if (RelationUtils.isAdditionalWife(relation) || relation === 'زوجة') return 3;
-    if (RelationUtils.isImmediateFamily(relation)) return 4;
-    if (RelationUtils.isParentOrGrandparent(relation)) return 5;
-    return 6;
+    if (RelationUtils.isUncleAunt(relation)) return 3; // الأعمام والعمات بعد الإخوة
+    if (RelationUtils.isAdditionalWife(relation) || relation === 'زوجة') return 4;
+    if (RelationUtils.isImmediateFamily(relation)) return 5;
+    if (RelationUtils.isParentOrGrandparent(relation)) return 6;
+    return 7;
   },
   
   // الحصول على الأيقونة المناسبة للعلاقة
@@ -94,8 +95,15 @@ export const RelationUtils = {
     if (relation === 'رب العائلة') return '👑';
     if (relation === 'والد') return '👨';
     if (relation === 'والدة') return '👩';
+    if (relation === 'جد') return '👴';
+    if (relation === 'جدة') return '👵';
     if (RelationUtils.isSibling(relation)) return RelationUtils.isMaleRelation(relation) ? '👨‍🦰' : '👩‍🦰';
     if (relation === 'زوجة' || RelationUtils.isAdditionalWife(relation)) return '👰';
+    if (relation === 'عم') return '👨‍🦳';
+    if (relation === 'عمة') return '👩‍🦳';
+    if (relation === 'خال') return '👨‍🦲';
+    if (relation === 'خالة') return '👩‍🦲';
+    if (RelationUtils.isCousin(relation)) return '👤';
     return '';
   }
 };
@@ -117,6 +125,22 @@ export const RELATION_COLORS = {
   NEPHEW_NIECE_FEMALE: {
     fill: "#fde8f0",
     stroke: "#ec407a"
+  },
+  UNCLE_AUNT_MALE: {
+    fill: "#f3e5f5",
+    stroke: "#9c27b0"
+  },
+  UNCLE_AUNT_FEMALE: {
+    fill: "#fce4ec",
+    stroke: "#e91e63"
+  },
+  COUSIN_MALE: {
+    fill: "#e8f5e8",
+    stroke: "#4caf50"
+  },
+  COUSIN_FEMALE: {
+    fill: "#f1f8e9",
+    stroke: "#8bc34a"
   },
   VIRTUAL_ROOT: {
     fill: "#f8fafc",

@@ -378,19 +378,24 @@ const drawTreeWithD3 = useCallback((data) => {
     .attr("class", "node")
     .attr("data-depth", d => d.depth) // للأنيميشن CSS
     .attr("transform", d => `translate(${d.x},${d.y})`)
-    .style("opacity", 0); // بدء مخفي للأنيميشن
+    .style("opacity", d => d.data.attributes?.isHidden ? 0 : 0); // بدء مخفي للأنيميشن، العقد المخفية تبقى شفافة
 
   // أنيميشن بسيط للعقد
   nodes.transition()
     .delay((d, i) => d.depth * 200 + i * 50)
     .duration(600)
     .ease(d3.easeBackOut)
-    .style("opacity", 1);
+    .style("opacity", d => d.data.attributes?.isHidden ? 0 : 1); // العقد المخفية تبقى شفافة
 
   // إضافة محتوى العقد - نفس التصميم الأصلي تماماً
   nodes.each(function(d) {
   const nodeGroup = d3.select(this);
   const nodeData = d.data.attributes || d.data;
+  
+  // تخطي رسم محتوى العقد المخفية
+  if (nodeData.isHidden) {
+    return;
+  }
   
   const uniqueId = nodeData.id || nodeData.globalId || Math.random().toString(36).substring(7);
   const name = nodeData.name || `${nodeData.firstName || ''} ${nodeData.fatherName || ''}`.trim() || '';
