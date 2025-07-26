@@ -262,8 +262,16 @@ export default function FamilyTreeAdvanced() {
           m.globalId !== father.globalId
         );
 
+        // تتبع الأطفال المُضافين لتجنب التكرار
+        const addedChildrenIds = new Set();
+        
+        // أولاً أضف أطفال رب العائلة للمجموعة
+        grandChildren.forEach(child => {
+          addedChildrenIds.add(child.globalId);
+        });
+
         siblings.forEach(sibling => {
-          rootNode.children.push({
+          const siblingNode = {
             name: buildFullName(sibling),
             id: sibling.globalId,
             avatar: sibling.avatar || null,
@@ -272,7 +280,69 @@ export default function FamilyTreeAdvanced() {
               treeType: 'hierarchical'
             },
             children: []
+          };
+
+          // إضافة أطفال الأخ/الأخت كأحفاد للوالد - منطق محدد ودقيق
+          const siblingChildren = familyMembers.filter(m => {
+            // تجنب إضافة نفس الطفل مرتين (تم إضافته مع رب العائلة مسبقاً)
+            if (addedChildrenIds.has(m.globalId)) {
+              return false;
+            }
+            
+            // ✅ التحقق الدقيق من أن هذا الطفل ينتمي لهذا الأخ/الأخت فقط
+            
+            // الطريقة الأولى: التحقق من اسم الوالد في بيانات الطفل
+            const isChildByFatherName = (
+              (m.relation === 'ابن أخ' || m.relation === 'بنت أخ' || 
+               m.relation === 'ابن أخت' || m.relation === 'بنت أخت' ||
+               m.relation === 'ابن' || m.relation === 'بنت') &&
+              m.fatherName === sibling.firstName &&
+              // تأكد أن اسم الوالد ليس نفس اسم رب العائلة لتجنب التضارب
+              m.fatherName !== accountOwner.firstName &&
+              m.globalId !== sibling.globalId && 
+              m.globalId !== accountOwner.globalId && 
+              m.globalId !== father.globalId
+            );
+            
+            // الطريقة الثانية: التحقق من معرف الوالد إذا كان موجوداً
+            const isChildByParentId = (
+              m.parentId === sibling.globalId ||
+              m.fatherId === sibling.globalId
+            );
+            
+            // الطريقة الثالثة: التحقق من النسب الكامل (الاسم والعائلة)
+            const isChildByFullLineage = (
+              (m.relation === 'ابن أخ' || m.relation === 'بنت أخ' || 
+               m.relation === 'ابن أخت' || m.relation === 'بنت أخت') &&
+              m.fatherName === sibling.firstName &&
+              m.grandfatherName === sibling.fatherName &&
+              m.surname === sibling.surname &&
+              m.globalId !== sibling.globalId && 
+              m.globalId !== accountOwner.globalId && 
+              m.globalId !== father.globalId
+            );
+
+            return isChildByFatherName || isChildByParentId || isChildByFullLineage;
           });
+
+          siblingChildren.forEach(child => {
+            // تسجيل الطفل كمُضاف لتجنب التكرار
+            addedChildrenIds.add(child.globalId);
+            
+            siblingNode.children.push({
+              name: buildFullName(child),
+              id: child.globalId,
+              avatar: child.avatar || null,
+              attributes: {
+                ...child,
+                treeType: 'hierarchical',
+                isNephewNiece: true // علامة لتمييز أبناء الإخوة
+              },
+              children: []
+            });
+          });
+
+          rootNode.children.push(siblingNode);
         });
 
         // إضافة زوجات رب العائلة كأطفال للوالد أيضاً (في نفس مستوى رب العائلة والإخوة)
@@ -303,8 +373,8 @@ export default function FamilyTreeAdvanced() {
           const bAttrs = b.attributes;
           
           // رب العائلة في المنتصف
-          if (aAttrs.relation === 'رب العائلة') return 0;
-          if (bAttrs.relation === 'رب العائلة') return 0;
+          if (aAttrs.relation === 'رب العائلة') return -1;
+          if (bAttrs.relation === 'رب العائلة') return 1;
           
           // الإخوة والأخوات قبل الزوجات
           const aIsSibling = ['أخ', 'أخت', 'أخ غير شقيق', 'أخت غير شقيقة'].includes(aAttrs.relation);
@@ -312,6 +382,13 @@ export default function FamilyTreeAdvanced() {
           
           if (aIsSibling && !bIsSibling) return -1;
           if (!aIsSibling && bIsSibling) return 1;
+          
+          // الزوجات في النهاية
+          const aIsWife = ['زوجة', 'زوجة ثانية', 'زوجة ثالثة', 'زوجة رابعة'].includes(aAttrs.relation);
+          const bIsWife = ['زوجة', 'زوجة ثانية', 'زوجة ثالثة', 'زوجة رابعة'].includes(bAttrs.relation);
+          
+          if (aIsWife && !bIsWife) return 1;
+          if (!aIsWife && bIsWife) return -1;
           
           // ترتيب أبجدي داخل نفس الفئة
           return (aAttrs.firstName || '').localeCompare(bAttrs.firstName || '', 'ar');
@@ -387,8 +464,16 @@ export default function FamilyTreeAdvanced() {
           m.globalId !== head.globalId
         );
 
+        // تتبع الأطفال المُضافين لتجنب التكرار
+        const addedChildrenIds = new Set();
+        
+        // أولاً أضف أطفال رب العائلة للمجموعة
+        children.forEach(child => {
+          addedChildrenIds.add(child.globalId);
+        });
+
         siblings.forEach(sibling => {
-          familyRoot.children.push({
+          const siblingNode = {
             name: buildFullName(sibling),
             id: sibling.globalId,
             avatar: sibling.avatar || null,
@@ -397,7 +482,67 @@ export default function FamilyTreeAdvanced() {
               treeType: 'simple_with_siblings'
             },
             children: []
+          };
+
+          // إضافة أطفال الأخ/الأخت - منطق محدد ودقيق
+          const siblingChildren = familyMembers.filter(m => {
+            // تجنب إضافة نفس الطفل مرتين (تم إضافته مع رب العائلة مسبقاً)
+            if (addedChildrenIds.has(m.globalId)) {
+              return false;
+            }
+            
+            // ✅ التحقق الدقيق من أن هذا الطفل ينتمي لهذا الأخ/الأخت فقط
+            
+            // الطريقة الأولى: التحقق من اسم الوالد في بيانات الطفل
+            const isChildByFatherName = (
+              (m.relation === 'ابن أخ' || m.relation === 'بنت أخ' || 
+               m.relation === 'ابن أخت' || m.relation === 'بنت أخت' ||
+               m.relation === 'ابن' || m.relation === 'بنت') &&
+              m.fatherName === sibling.firstName &&
+              // تأكد أن اسم الوالد ليس نفس اسم رب العائلة لتجنب التضارب
+              m.fatherName !== head.firstName &&
+              m.globalId !== sibling.globalId && 
+              m.globalId !== head.globalId
+            );
+            
+            // الطريقة الثانية: التحقق من معرف الوالد إذا كان موجوداً
+            const isChildByParentId = (
+              m.parentId === sibling.globalId ||
+              m.fatherId === sibling.globalId
+            );
+            
+            // الطريقة الثالثة: التحقق من النسب الكامل
+            const isChildByFullLineage = (
+              (m.relation === 'ابن أخ' || m.relation === 'بنت أخ' || 
+               m.relation === 'ابن أخت' || m.relation === 'بنت أخت') &&
+              m.fatherName === sibling.firstName &&
+              m.grandfatherName === sibling.fatherName &&
+              m.surname === sibling.surname &&
+              m.globalId !== sibling.globalId && 
+              m.globalId !== head.globalId
+            );
+
+            return isChildByFatherName || isChildByParentId || isChildByFullLineage;
           });
+
+          siblingChildren.forEach(child => {
+            // تسجيل الطفل كمُضاف لتجنب التكرار
+            addedChildrenIds.add(child.globalId);
+            
+            siblingNode.children.push({
+              name: buildFullName(child),
+              id: child.globalId,
+              avatar: child.avatar || null,
+              attributes: {
+                ...child,
+                treeType: 'simple_with_siblings',
+                isNephewNiece: true
+              },
+              children: []
+            });
+          });
+
+          familyRoot.children.push(siblingNode);
         });
 
         return familyRoot;
@@ -695,6 +840,18 @@ const drawTreeWithD3 = useCallback((data) => {
     cardStroke = "#e2e8f0";
     cardWidth = cardWidth * 0.8; // حجم أصغر
     cardHeight = cardHeight * 0.7;
+  } else if (nodeData.isNephewNiece) {
+    // تمييز أبناء الإخوة والأخوات بلون مختلف
+    if (nodeData.gender === "male" || MALE_RELATIONS.includes(relation)) {
+      cardFill = "#e8f4fd"; // أزرق فاتح أكثر
+      cardStroke = "#42a5f5"; // أزرق متوسط
+    } else if (nodeData.gender === "female" || FEMALE_RELATIONS.includes(relation)) {
+      cardFill = "#fde8f0"; // وردي فاتح أكثر  
+      cardStroke = "#ec407a"; // وردي متوسط
+    } else {
+      cardFill = "#f0f9ff"; // لون محايد فاتح
+      cardStroke = "#0ea5e9"; // أزرق فاتح
+    }
   } else {
     // العلاقات الذكورية
     const maleRelations = MALE_RELATIONS;
@@ -777,13 +934,15 @@ const drawTreeWithD3 = useCallback((data) => {
       .attr("font-weight", "bold")
       .attr("fill", "#111");
 
-    // العلاقة
+    // العلاقة مع رمز مميز لأبناء الإخوة والأخوات
+    const displayRelation = nodeData.isNephewNiece ? `👶 ${relation}` : relation;
+    
     nodeGroup.append("text")
-      .text(relation)
+      .text(displayRelation)
       .attr("x", textStartX)
       .attr("y", relationY)
       .attr("font-size", 11)
-      .attr("fill", "#666");
+      .attr("fill", nodeData.isNephewNiece ? "#f59e0b" : "#666");
   }
 
   // العمر (تخطي للعقدة الوهمية)
@@ -1236,7 +1395,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
               display: 'block'
             }}
           >
-            👨‍👩‍👧‍👦 عرض هرمي: الوالد → رب العائلة → الأطفال، أو عرض بسيط لرب العائلة وأولاده
+            👨‍👩‍👧‍👦 هيكل كامل: الوالد → رب العائلة والإخوة والزوجات → الأطفال وأبناء الإخوة
           </Typography>
         </Box>
 
@@ -1474,6 +1633,9 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
               </Typography>
               <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 <Chip label={selectedNode.relation || ''} color="primary" variant="outlined" />
+                {selectedNode.isNephewNiece && (
+                  <Chip label="👶 ابن/بنت الأخ/الأخت" color="warning" variant="outlined" />
+                )}
                 {selectedNode.isExtended && (
                   <Chip label="عائلة مرتبطة" color="secondary" variant="outlined" />
                 )}
