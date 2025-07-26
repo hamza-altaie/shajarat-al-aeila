@@ -27,6 +27,21 @@ import { collection, getDocs } from 'firebase/firestore';
 import './FamilyTreeAdvanced.css';
 import BarChartIcon from '@mui/icons-material/BarChart';
 
+// تعريف العلاقات حسب الجنس
+const MALE_RELATIONS = [
+  "ابن", "والد", "جد", "جد الجد", "أخ", "أخ غير شقيق", "عم", "ابن عم", 
+  "خال", "ابن خال", "ابن أخ", "ابن أخت", "حفيد", "حفيد الحفيد", 
+  "زوج الابنة", "صهر", "حمو", "أخو الزوج", "ابن عم الوالد", "قريب", 
+  "متبنى", "ربيب", "رب العائلة"
+];
+
+const FEMALE_RELATIONS = [
+  "بنت", "زوجة", "والدة", "جدة", "جدة الجد", "أخت", "أخت غير شقيقة", 
+  "عمة", "بنت عم", "خالة", "بنت خال", "بنت أخ", "بنت أخت", "حفيدة", 
+  "حفيدة الحفيد", "زوجة الابن", "كنة", "حماة", "أخت الزوج", "زوجة ثانية", 
+  "زوجة ثالثة", "زوجة رابعة", "بنت عم الوالد", "قريبة", "متبناة", "ربيبة"
+];
+
 export default function FamilyTreeAdvanced() {
   // ===========================================================================
   // الحالات الأساسية
@@ -480,10 +495,16 @@ const drawTreeWithD3 = useCallback((data) => {
   let cardFill = "#f3f4f6";
   let cardStroke = "#cbd5e1";
 
-  if (nodeData.gender === "male" || relation.includes("ابن")) {
+  // العلاقات الذكورية
+  const maleRelations = MALE_RELATIONS;
+  
+  // العلاقات النسائية
+  const femaleRelations = FEMALE_RELATIONS;
+
+  if (nodeData.gender === "male" || maleRelations.includes(relation)) {
     cardFill = "#e3f2fd";
     cardStroke = "#2196f3";
-  } else if (nodeData.gender === "female" || relation.includes("بنت")) {
+  } else if (nodeData.gender === "female" || femaleRelations.includes(relation)) {
     cardFill = "#fce4ec";
     cardStroke = "#e91e63";
   }
@@ -521,7 +542,7 @@ nodeGroup.append("clipPath")
 nodeGroup.append("image")
   .attr("href",
     nodeData.avatar ||
-    (nodeData.gender === "female" || relation.includes("بنت")
+    (nodeData.gender === "female" || FEMALE_RELATIONS.includes(relation)
       ? "/icons/girl.png"
       : "/icons/boy.png")
   )
@@ -1191,7 +1212,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
       {/* الحوارات */}
       <Dialog open={!!selectedNode} onClose={() => setSelectedNode(null)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ color: '#1976d2', fontWeight: 'bold', fontFamily: 'Cairo, sans-serif' }}>
-          {(selectedNode?.gender === 'female' || selectedNode?.relation === 'بنت') ? '♀️' : '♂️'} {selectedNode?.name || 'تفاصيل الشخص'}
+          {(selectedNode?.gender === 'female' || (selectedNode?.relation && FEMALE_RELATIONS.includes(selectedNode?.relation))) ? '♀️' : '♂️'} {selectedNode?.name || 'تفاصيل الشخص'}
         </DialogTitle>
         <DialogContent>
           {selectedNode && (
