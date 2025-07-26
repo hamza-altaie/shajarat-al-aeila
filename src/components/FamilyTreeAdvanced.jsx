@@ -251,30 +251,10 @@ export default function FamilyTreeAdvanced() {
           });
         });
 
-        // إضافة زوجات رب العائلة كإخوة له
-        const spouses = familyMembers.filter(m => 
-          (m.relation === 'زوجة' || m.relation === 'زوجة ثانية' || 
-           m.relation === 'زوجة ثالثة' || m.relation === 'زوجة رابعة') && 
-          m.globalId !== father.globalId
-        );
-
-        spouses.forEach(spouse => {
-          rootNode.children.push({
-            name: buildFullName(spouse),
-            id: spouse.globalId,
-            avatar: spouse.avatar || null,
-            attributes: {
-              ...spouse,
-              treeType: 'hierarchical'
-            },
-            children: []
-          });
-        });
-
         // إضافة رب العائلة كابن للوالد
         rootNode.children.push(ownerNode);
 
-        // إضافة إخوة رب العائلة
+        // إضافة إخوة رب العائلة كأطفال للوالد (في نفس مستوى رب العائلة)
         const siblings = familyMembers.filter(m => 
           (m.relation === 'أخ' || m.relation === 'أخت' || 
            m.relation === 'أخ غير شقيق' || m.relation === 'أخت غير شقيقة') && 
@@ -293,6 +273,48 @@ export default function FamilyTreeAdvanced() {
             },
             children: []
           });
+        });
+
+        // إضافة زوجات رب العائلة كأطفال للوالد أيضاً (في نفس مستوى رب العائلة والإخوة)
+        const spouses = familyMembers.filter(m => 
+          (m.relation === 'زوجة' || m.relation === 'زوجة ثانية' || 
+           m.relation === 'زوجة ثالثة' || m.relation === 'زوجة رابعة') && 
+          m.globalId !== father.globalId
+        );
+
+        spouses.forEach(spouse => {
+          rootNode.children.push({
+            name: buildFullName(spouse),
+            id: spouse.globalId,
+            avatar: spouse.avatar || null,
+            attributes: {
+              ...spouse,
+              treeType: 'hierarchical'
+            },
+            children: []
+          });
+        });
+      }
+
+      // ترتيب ذكي للعناصر في نفس المستوى: الإخوة الأكبر، رب العائلة، الإخوة الأصغر، الزوجات
+      if (rootNode.children.length > 1) {
+        rootNode.children.sort((a, b) => {
+          const aAttrs = a.attributes;
+          const bAttrs = b.attributes;
+          
+          // رب العائلة في المنتصف
+          if (aAttrs.relation === 'رب العائلة') return 0;
+          if (bAttrs.relation === 'رب العائلة') return 0;
+          
+          // الإخوة والأخوات قبل الزوجات
+          const aIsSibling = ['أخ', 'أخت', 'أخ غير شقيق', 'أخت غير شقيقة'].includes(aAttrs.relation);
+          const bIsSibling = ['أخ', 'أخت', 'أخ غير شقيق', 'أخت غير شقيقة'].includes(bAttrs.relation);
+          
+          if (aIsSibling && !bIsSibling) return -1;
+          if (!aIsSibling && bIsSibling) return 1;
+          
+          // ترتيب أبجدي داخل نفس الفئة
+          return (aAttrs.firstName || '').localeCompare(bAttrs.firstName || '', 'ar');
         });
       }
 
@@ -316,11 +338,13 @@ export default function FamilyTreeAdvanced() {
         children: []
       };
 
+      // في الحالة البسيطة، يمكن إضافة الأطفال والإخوة في مستويات مختلفة
       const children = familyMembers.filter(m => 
         (m.relation === 'ابن' || m.relation === 'بنت') && 
         m.globalId !== head.globalId
       );
 
+      // إضافة الأطفال كمستوى ثاني
       children.forEach(child => {
         rootNode.children.push({
           name: buildFullName(child),
@@ -333,6 +357,51 @@ export default function FamilyTreeAdvanced() {
           children: []
         });
       });
+
+      // في الحالة البسيطة، يمكن أيضاً إضافة الإخوة كعقد منفصلة في نفس المستوى
+      // هذا اختياري - يمكن تفعيله إذا أراد المستخدم عرض الإخوة حتى بدون والد
+      const hasSiblings = familyMembers.some(m => 
+        ['أخ', 'أخت', 'أخ غير شقيق', 'أخت غير شقيقة'].includes(m.relation)
+      );
+
+      if (hasSiblings) {
+        // إنشاء عقدة جذر وهمية لتحتوي رب العائلة والإخوة
+        const familyRoot = {
+          name: 'العائلة',
+          id: 'family_root',
+          avatar: null,
+          attributes: {
+            relation: 'عائلة',
+            isVirtualRoot: true,
+            treeType: 'simple_with_siblings'
+          },
+          children: []
+        };
+
+        // إضافة رب العائلة مع أطفاله
+        familyRoot.children.push(rootNode);
+
+        // إضافة الإخوة والأخوات
+        const siblings = familyMembers.filter(m => 
+          ['أخ', 'أخت', 'أخ غير شقيق', 'أخت غير شقيقة'].includes(m.relation) && 
+          m.globalId !== head.globalId
+        );
+
+        siblings.forEach(sibling => {
+          familyRoot.children.push({
+            name: buildFullName(sibling),
+            id: sibling.globalId,
+            avatar: sibling.avatar || null,
+            attributes: {
+              ...sibling,
+              treeType: 'simple_with_siblings'
+            },
+            children: []
+          });
+        });
+
+        return familyRoot;
+      }
 
       return rootNode;
     }
@@ -616,22 +685,30 @@ const drawTreeWithD3 = useCallback((data) => {
   const age = calculateAge(nodeData.birthdate || nodeData.birthDate);
 
   // الكارت
-  // 🟦 تحديد الألوان حسب الجنس
+  // 🟦 تحديد الألوان حسب الجنس أو النوع
   let cardFill = "#f3f4f6";
   let cardStroke = "#cbd5e1";
 
-  // العلاقات الذكورية
-  const maleRelations = MALE_RELATIONS;
-  
-  // العلاقات النسائية
-  const femaleRelations = FEMALE_RELATIONS;
+  // العقدة الوهمية (الجذر الافتراضي) تصميم خاص
+  if (nodeData.isVirtualRoot) {
+    cardFill = "#f8fafc";
+    cardStroke = "#e2e8f0";
+    cardWidth = cardWidth * 0.8; // حجم أصغر
+    cardHeight = cardHeight * 0.7;
+  } else {
+    // العلاقات الذكورية
+    const maleRelations = MALE_RELATIONS;
+    
+    // العلاقات النسائية
+    const femaleRelations = FEMALE_RELATIONS;
 
-  if (nodeData.gender === "male" || maleRelations.includes(relation)) {
-    cardFill = "#e3f2fd";
-    cardStroke = "#2196f3";
-  } else if (nodeData.gender === "female" || femaleRelations.includes(relation)) {
-    cardFill = "#fce4ec";
-    cardStroke = "#e91e63";
+    if (nodeData.gender === "male" || maleRelations.includes(relation)) {
+      cardFill = "#e3f2fd";
+      cardStroke = "#2196f3";
+    } else if (nodeData.gender === "female" || femaleRelations.includes(relation)) {
+      cardFill = "#fce4ec";
+      cardStroke = "#e91e63";
+    }
   }
 
   nodeGroup.append("rect")
@@ -646,82 +723,96 @@ const drawTreeWithD3 = useCallback((data) => {
     .attr("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.1))")  // ظل للكروت
     .attr("class", "family-node-card");
 
-  // صورة أو أفاتار
-  // ⭕️ دائرة خلفية الصورة
-nodeGroup.append("circle")
-  .attr("cx", -cardWidth / 2 + padding + avatarSize / 2)
-  .attr("cy", -cardHeight / 2 + padding + avatarSize / 2)
-  .attr("r", avatarSize / 2)
-  .attr("fill", "#fff")
-  .attr("stroke", "#ddd")
-  .attr("stroke-width", 1.5);
+  // صورة أو أفاتار (تخطي للعقدة الوهمية)
+  if (!nodeData.isVirtualRoot) {
+    // ⭕️ دائرة خلفية الصورة
+    nodeGroup.append("circle")
+      .attr("cx", -cardWidth / 2 + padding + avatarSize / 2)
+      .attr("cy", -cardHeight / 2 + padding + avatarSize / 2)
+      .attr("r", avatarSize / 2)
+      .attr("fill", "#fff")
+      .attr("stroke", "#ddd")
+      .attr("stroke-width", 1.5);
 
-// 🟢 ClipPath دائري للصورة
-nodeGroup.append("clipPath")
-  .attr("id", `avatar-circle-${uniqueId}`)
-  .append("circle")
-  .attr("cx", -cardWidth / 2 + padding + avatarSize / 2)
-  .attr("cy", -cardHeight / 2 + padding + avatarSize / 2)
-  .attr("r", avatarSize / 2);
+    // 🟢 ClipPath دائري للصورة
+    nodeGroup.append("clipPath")
+      .attr("id", `avatar-circle-${uniqueId}`)
+      .append("circle")
+      .attr("cx", -cardWidth / 2 + padding + avatarSize / 2)
+      .attr("cy", -cardHeight / 2 + padding + avatarSize / 2)
+      .attr("r", avatarSize / 2);
 
-// 🖼️ صورة داخل الدائرة مع تقطيع وتوسيط
-nodeGroup.append("image")
-  .attr("href",
-    nodeData.avatar ||
-    (nodeData.gender === "female" || FEMALE_RELATIONS.includes(relation)
-      ? "/icons/girl.png"
-      : "/icons/boy.png")
-  )
-  .attr("x", -cardWidth / 2 + padding)
-  .attr("y", -cardHeight / 2 + padding)
-  .attr("width", avatarSize)
-  .attr("height", avatarSize)
-  .attr("clip-path", `url(#avatar-circle-${uniqueId})`)
-  .attr("preserveAspectRatio", "xMidYMid slice");
+    // 🖼️ صورة داخل الدائرة مع تقطيع وتوسيط
+    nodeGroup.append("image")
+      .attr("href",
+        nodeData.avatar ||
+        (nodeData.gender === "female" || FEMALE_RELATIONS.includes(relation)
+          ? "/icons/girl.png"
+          : "/icons/boy.png")
+      )
+      .attr("x", -cardWidth / 2 + padding)
+      .attr("y", -cardHeight / 2 + padding)
+      .attr("width", avatarSize)
+      .attr("height", avatarSize)
+      .attr("clip-path", `url(#avatar-circle-${uniqueId})`)
+      .attr("preserveAspectRatio", "xMidYMid slice");
+  }
 
-  // الاسم
-  nodeGroup.append("text")
-    .text(name.length > 22 ? name.slice(0, 20) + '…' : name)
-    .attr("x", textStartX)
-    .attr("y", nameY)
-    .attr("font-size", 13)
-    .attr("font-weight", "bold")
-    .attr("fill", "#111");
+  // الاسم (مع منطق خاص للعقدة الوهمية)
+  if (nodeData.isVirtualRoot) {
+    // العقدة الوهمية تظهر بشكل مبسط أو مخفي
+    nodeGroup.append("text")
+      .text("🏠") // أيقونة بيت بدلاً من النص
+      .attr("x", 0)
+      .attr("y", 5)
+      .attr("font-size", 20)
+      .attr("text-anchor", "middle")
+      .attr("fill", "#94a3b8");
+  } else {
+    nodeGroup.append("text")
+      .text(name.length > 22 ? name.slice(0, 20) + '…' : name)
+      .attr("x", textStartX)
+      .attr("y", nameY)
+      .attr("font-size", 13)
+      .attr("font-weight", "bold")
+      .attr("fill", "#111");
 
-  // العلاقة
-  nodeGroup.append("text")
-    .text(relation)
-    .attr("x", textStartX)
-    .attr("y", relationY)
-    .attr("font-size", 11)
-    .attr("fill", "#666");
+    // العلاقة
+    nodeGroup.append("text")
+      .text(relation)
+      .attr("x", textStartX)
+      .attr("y", relationY)
+      .attr("font-size", 11)
+      .attr("fill", "#666");
+  }
 
-  if (age) {
-  // الخلفية
-  nodeGroup.append("rect")
-    .attr("x", ageBoxX)
-    .attr("y", ageBoxY)
-    .attr("width", ageBoxWidth)
-    .attr("height", ageBoxHeight)
-    .attr("rx", 8)
-    .attr("fill", "rgba(25, 118, 210, 0.08)")
-    .attr("stroke", "#1976d2")
-    .attr("stroke-width", 0.8);
+  // العمر (تخطي للعقدة الوهمية)
+  if (age && !nodeData.isVirtualRoot) {
+    // الخلفية
+    nodeGroup.append("rect")
+      .attr("x", ageBoxX)
+      .attr("y", ageBoxY)
+      .attr("width", ageBoxWidth)
+      .attr("height", ageBoxHeight)
+      .attr("rx", 8)
+      .attr("fill", "rgba(25, 118, 210, 0.08)")
+      .attr("stroke", "#1976d2")
+      .attr("stroke-width", 0.8);
 
-  // النص في المنتصف تمامًا
-  nodeGroup.append("text")
-  .text(age + " سنة") // إضافة كلمة سنة بجانب العمر
-  .attr("x", ageTextX)
-  .attr("y", ageTextY)
-  .attr("font-size", 10)
-  .attr("fill", "#1976d2")
-  .attr("font-weight", "600")
-  .attr("text-anchor", "middle")
-  .attr("dominant-baseline", "middle");
-}
+    // النص في المنتصف تمامًا
+    nodeGroup.append("text")
+      .text(age + " سنة") // إضافة كلمة سنة بجانب العمر
+      .attr("x", ageTextX)
+      .attr("y", ageTextY)
+      .attr("font-size", 10)
+      .attr("fill", "#1976d2")
+      .attr("font-weight", "600")
+      .attr("text-anchor", "middle")
+      .attr("dominant-baseline", "middle");
+  }
 
-  // ✅ الخلفية خلف عدد الأطفال
-  if (d.children && d.children.length > 0) {
+  // ✅ الخلفية خلف عدد الأطفال (تخطي للعقدة الوهمية)
+  if (d.children && d.children.length > 0 && !nodeData.isVirtualRoot) {
     const childText = ` ${d.children.length}`;
   nodeGroup.append("rect")
     .attr("x", childBoxX)
@@ -792,7 +883,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
         children: d.children || []
       });
     });
-});
+  });
 
   // معالجة تداخل العقد المحسنة للهيكل الهرمي
   const nodesByDepth = {};
