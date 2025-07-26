@@ -89,8 +89,9 @@ export const RelationUtils = {
     if (RelationUtils.isUncleAunt(relation)) return 3; // الأعمام والعمات بعد الإخوة
     if (RelationUtils.isAdditionalWife(relation) || relation === 'زوجة') return 4;
     if (RelationUtils.isImmediateFamily(relation)) return 5;
-    if (RelationUtils.isParentOrGrandparent(relation)) return 6;
-    return 7;
+    if (RelationUtils.isGrandchild(relation)) return 6; // الأحفاد
+    if (RelationUtils.isParentOrGrandparent(relation)) return 7;
+    return 8;
   },
   
   // الحصول على الأيقونة المناسبة للعلاقة
@@ -101,6 +102,8 @@ export const RelationUtils = {
     if (relation === 'والدة') return '👩';
     if (relation === 'جد') return '👴';
     if (relation === 'جدة') return '👵';
+    if (relation === 'حفيد') return '👦';
+    if (relation === 'حفيدة') return '👧';
     if (RelationUtils.isSibling(relation)) return RelationUtils.isMaleRelation(relation) ? '👨‍🦰' : '👩‍🦰';
     if (relation === 'زوجة' || RelationUtils.isAdditionalWife(relation)) return '👰';
     if (relation === 'عم') return '👨‍🦳';
@@ -153,6 +156,14 @@ export const RELATION_COLORS = {
   COUSIN_FEMALE: {
     fill: "#f1f8e9",
     stroke: "#8bc34a"
+  },
+  GRANDCHILD_MALE: {
+    fill: "#e1f5fe",
+    stroke: "#0288d1"
+  },
+  GRANDCHILD_FEMALE: {
+    fill: "#fce4ec",
+    stroke: "#ad1457"
   },
   VIRTUAL_ROOT: {
     fill: "#f8fafc",

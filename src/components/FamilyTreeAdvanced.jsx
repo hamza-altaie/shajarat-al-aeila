@@ -168,6 +168,8 @@ export default function FamilyTreeAdvanced() {
       showSnackbar(`🌳 شجرة عميقة ممتازة: ${actualDepth} جيل`, 'success');
     } else if (actualDepth >= 5) {
       showSnackbar(`🌿 عمق جيد: ${actualDepth} أجيال`, 'info');
+    } else if (actualDepth >= 4) {
+      showSnackbar(`👨‍👩‍👧‍👦 شجرة متعددة الأجيال: ${actualDepth} أجيال (تشمل الأحفاد)`, 'info');
     } else if (actualDepth >= 2) {
       showSnackbar(`👨‍👩‍👧‍👦 شجرة عائلية: ${actualDepth} أجيال`, 'info');
     }
@@ -231,6 +233,8 @@ export default function FamilyTreeAdvanced() {
       // تسجيل مقاييس الأداء
       const treeDepth = builtTreeData ? calculateTreeDepth(builtTreeData) + 1 : 1;
       const hasFather = familyMembers.some(m => m.relation === 'والد');
+      const hasGrandchildren = familyMembers.some(m => m.relation === 'حفيد' || m.relation === 'حفيدة');
+      const grandchildrenCount = familyMembers.filter(m => m.relation === 'حفيد' || m.relation === 'حفيدة').length;
       
       monitorPerformance({
         personCount: familyMembers.length,
@@ -240,9 +244,17 @@ export default function FamilyTreeAdvanced() {
       });
       
       if (hasFather) {
-        showSnackbar(`✅ تم تحميل الشجرة الهرمية: ${familyMembers.length} أفراد (${treeDepth} أجيال)`, 'success');
+        if (hasGrandchildren) {
+          showSnackbar(`✅ تم تحميل الشجرة الهرمية: ${familyMembers.length} أفراد (${treeDepth} أجيال - تشمل ${grandchildrenCount} حفيد/حفيدة)`, 'success');
+        } else {
+          showSnackbar(`✅ تم تحميل الشجرة الهرمية: ${familyMembers.length} أفراد (${treeDepth} أجيال)`, 'success');
+        }
       } else {
-        showSnackbar(`✅ تم تحميل عائلتك: ${familyMembers.length} أفراد (رب العائلة وأولاده)`, 'success');
+        if (hasGrandchildren) {
+          showSnackbar(`✅ تم تحميل عائلتك: ${familyMembers.length} أفراد (تشمل ${grandchildrenCount} حفيد/حفيدة)`, 'success');
+        } else {
+          showSnackbar(`✅ تم تحميل عائلتك: ${familyMembers.length} أفراد (رب العائلة وأولاده)`, 'success');
+        }
       }
 
     } catch {
@@ -482,6 +494,12 @@ const drawTreeWithD3 = useCallback((data) => {
   } else if (relation === 'جدة') {
     // الجدة
     colors = RELATION_COLORS.GRANDMOTHER;
+  } else if (nodeData.isGrandchild || relation === 'حفيد') {
+    // الحفيد
+    colors = RELATION_COLORS.GRANDCHILD_MALE;
+  } else if (relation === 'حفيدة') {
+    // الحفيدة
+    colors = RELATION_COLORS.GRANDCHILD_FEMALE;
   } else if (nodeData.isNephewNiece) {
     // تمييز أبناء الإخوة والأخوات بلون مختلف
     if (RelationUtils.isMaleRelation(relation) || nodeData.gender === "male") {
@@ -627,29 +645,66 @@ const drawTreeWithD3 = useCallback((data) => {
       .attr("dominant-baseline", "middle");
   }
 
-  // ✅ الخلفية خلف عدد الأطفال (تخطي للعقدة الوهمية)
-  if (d.children && d.children.length > 0 && !nodeData.isVirtualRoot) {
-    const childText = ` ${d.children.length}`;
-  nodeGroup.append("rect")
-    .attr("x", childBoxX)
-    .attr("y", childBoxY)
-    .attr("width", childBoxWidth)
-    .attr("height", childBoxHeight)
-    .attr("rx", 8)
-    .attr("fill", "rgba(76, 175, 80, 0.08)")
-    .attr("stroke", "#4caf50")
-    .attr("stroke-width", 0.8);
+  // ✅ الخلفية خلف عدد الأطفال (تخطي للعقدة الوهمية والجد الافتراضي)
+  if (d.children && d.children.length > 0 && !nodeData.isVirtualRoot && !nodeData.isVirtualGrandfather) {
+    let childText = ` ${d.children.length}`;
+    let hasGrandchildren = false;
+    let grandchildrenCount = 0;
+    
+    // حساب عدد الأحفاد
+    d.children.forEach(child => {
+      if (child.children && child.children.length > 0) {
+        hasGrandchildren = true;
+        grandchildrenCount += child.children.length;
+      }
+    });
 
-  nodeGroup.append("text")
-    .text(childText)
-    .attr("x", childTextX)
-    .attr("y", childTextY)
-    .attr("font-size", 10)
-    .attr("fill", "#4caf50")
-    .attr("font-weight", "600")
-    .attr("text-anchor", "middle")
-    .attr("dominant-baseline", "middle");
-}
+    // إذا كان هناك أحفاد، اعرض الرقمين مع لون مميز
+    if (hasGrandchildren) {
+      childText = ` ${d.children.length}/${grandchildrenCount}`;
+      
+      nodeGroup.append("rect")
+        .attr("x", childBoxX)
+        .attr("y", childBoxY)
+        .attr("width", childBoxWidth)
+        .attr("height", childBoxHeight)
+        .attr("rx", 8)
+        .attr("fill", "rgba(33, 150, 243, 0.08)") // لون أزرق للإشارة للأحفاد
+        .attr("stroke", "#2196f3")
+        .attr("stroke-width", 0.8);
+
+      nodeGroup.append("text")
+        .text(childText)
+        .attr("x", childTextX)
+        .attr("y", childTextY)
+        .attr("font-size", 10)
+        .attr("fill", "#2196f3")
+        .attr("font-weight", "600")
+        .attr("text-anchor", "middle")
+        .attr("dominant-baseline", "middle");
+    } else {
+      // عرض عادي للأطفال فقط
+      nodeGroup.append("rect")
+        .attr("x", childBoxX)
+        .attr("y", childBoxY)
+        .attr("width", childBoxWidth)
+        .attr("height", childBoxHeight)
+        .attr("rx", 8)
+        .attr("fill", "rgba(76, 175, 80, 0.08)")
+        .attr("stroke", "#4caf50")
+        .attr("stroke-width", 0.8);
+
+      nodeGroup.append("text")
+        .text(childText)
+        .attr("x", childTextX)
+        .attr("y", childTextY)
+        .attr("font-size", 10)
+        .attr("fill", "#4caf50")
+        .attr("font-weight", "600")
+        .attr("text-anchor", "middle")
+        .attr("dominant-baseline", "middle");
+    }
+  }
 
 if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCase())) {
   nodeGroup.select("rect.family-node-card")
@@ -1306,12 +1361,30 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
                 )}
               </Box>
               {selectedNode.age && <Typography variant="body2" sx={{ mb: 1 }}>العمر: {selectedNode.age} سنة</Typography>}
-              {/* أضف هذا الجزء هنا - عدد الأطفال */}
-                    {(selectedNode.relation === 'رب العائلة' && selectedNode.children && selectedNode.children.length > 0) && (
-                      <Typography variant="body2" sx={{ mb: 1, color: '#4caf50', fontWeight: 'bold' }}>
-                         عدد الأطفال: {selectedNode.children.length}
-                      </Typography>
-                    )}
+              {/* عدد الأطفال والأحفاد */}
+              {(selectedNode.children && selectedNode.children.length > 0) && (
+                <Box>
+                  <Typography variant="body2" sx={{ mb: 1, color: '#4caf50', fontWeight: 'bold' }}>
+                    عدد الأطفال: {selectedNode.children.length}
+                  </Typography>
+                  {(() => {
+                    let grandchildrenCount = 0;
+                    selectedNode.children.forEach(child => {
+                      if (child.children && child.children.length > 0) {
+                        grandchildrenCount += child.children.length;
+                      }
+                    });
+                    if (grandchildrenCount > 0) {
+                      return (
+                        <Typography variant="body2" sx={{ mb: 1, color: '#2196f3', fontWeight: 'bold' }}>
+                          عدد الأحفاد: {grandchildrenCount}
+                        </Typography>
+                      );
+                    }
+                    return null;
+                  })()}
+                </Box>
+              )}
 
               {selectedNode.phone && <Typography variant="body2" sx={{ mb: 1 }}>الهاتف: {selectedNode.phone}</Typography>}
               {selectedNode.location && (
