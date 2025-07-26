@@ -436,6 +436,15 @@ const drawTreeWithD3 = useCallback((data) => {
     colors = RELATION_COLORS.VIRTUAL_ROOT;
     cardWidth = cardWidth * 0.8; // حجم أصغر
     cardHeight = cardHeight * 0.7;
+  } else if (nodeData.isVirtualGrandfather) {
+    // الجد الافتراضي
+    colors = RELATION_COLORS.VIRTUAL_GRANDFATHER;
+  } else if (nodeData.isGrandfather || relation === 'جد') {
+    // الجد الحقيقي
+    colors = RELATION_COLORS.GRANDFATHER;
+  } else if (relation === 'جدة') {
+    // الجدة
+    colors = RELATION_COLORS.GRANDMOTHER;
   } else if (nodeData.isNephewNiece) {
     // تمييز أبناء الإخوة والأخوات بلون مختلف
     if (RelationUtils.isMaleRelation(relation) || nodeData.gender === "male") {
@@ -466,8 +475,8 @@ const drawTreeWithD3 = useCallback((data) => {
     .attr("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.1))")  // ظل للكروت
     .attr("class", "family-node-card");
 
-  // صورة أو أفاتار (تخطي للعقدة الوهمية)
-  if (!nodeData.isVirtualRoot) {
+  // صورة أو أفاتار (تخطي للعقدة الوهمية والجد الافتراضي)
+  if (!nodeData.isVirtualRoot && !nodeData.isVirtualGrandfather) {
     // ⭕️ دائرة خلفية الصورة
     nodeGroup.append("circle")
       .attr("cx", -cardWidth / 2 + padding + avatarSize / 2)
@@ -511,6 +520,30 @@ const drawTreeWithD3 = useCallback((data) => {
       .attr("font-size", 20)
       .attr("text-anchor", "middle")
       .attr("fill", "#94a3b8");
+  } else if (nodeData.isVirtualGrandfather) {
+    // الجد الافتراضي
+    nodeGroup.append("text")
+      .text("👴") // أيقونة جد
+      .attr("x", -cardWidth / 2 + padding + avatarSize / 2)
+      .attr("y", -cardHeight / 2 + padding + avatarSize / 2 + 8)
+      .attr("font-size", 24)
+      .attr("text-anchor", "middle")
+      .attr("fill", "#d97706");
+    
+    nodeGroup.append("text")
+      .text(name.length > 18 ? name.slice(0, 16) + '…' : name)
+      .attr("x", textStartX)
+      .attr("y", nameY)
+      .attr("font-size", 13)
+      .attr("font-weight", "bold")
+      .attr("fill", "#92400e");
+
+    nodeGroup.append("text")
+      .text("👑 " + relation)
+      .attr("x", textStartX)
+      .attr("y", relationY)
+      .attr("font-size", 11)
+      .attr("fill", "#d97706");
   } else {
     nodeGroup.append("text")
       .text(name.length > 22 ? name.slice(0, 20) + '…' : name)
@@ -532,8 +565,8 @@ const drawTreeWithD3 = useCallback((data) => {
       .attr("fill", nodeData.isNephewNiece ? "#f59e0b" : "#666");
   }
 
-  // العمر (تخطي للعقدة الوهمية)
-  if (age && !nodeData.isVirtualRoot) {
+  // العمر (تخطي للعقدة الوهمية والجد الافتراضي)
+  if (age && !nodeData.isVirtualRoot && !nodeData.isVirtualGrandfather) {
     // الخلفية
     nodeGroup.append("rect")
       .attr("x", ageBoxX)

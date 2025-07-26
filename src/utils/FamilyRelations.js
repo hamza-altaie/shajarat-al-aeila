@@ -71,16 +71,20 @@ export const RelationUtils = {
     if (!familyMembers || familyMembers.length === 0) return 'empty';
     
     const hasFather = familyMembers.some(m => m.relation === 'والد');
+    const hasGrandfather = familyMembers.some(m => m.relation === 'جد');
     const hasSiblings = familyMembers.some(m => RelationUtils.isSibling(m.relation));
+    const hasUnclesAunts = familyMembers.some(m => RelationUtils.isUncleAunt(m.relation));
     
-    if (hasFather) return 'hierarchical';
+    if (hasFather || hasGrandfather || hasUnclesAunts) return 'hierarchical';
     if (hasSiblings) return 'simple_with_siblings';
     return 'simple';
   },
   
   // حساب الأولوية في الترتيب
   getRelationPriority: (relation) => {
+    if (relation === 'جد' || relation === 'جدة') return 0; // الجد له أعلى أولوية
     if (relation === 'رب العائلة') return 1;
+    if (relation === 'والد' || relation === 'والدة') return 1.5;
     if (RelationUtils.isSibling(relation)) return 2;
     if (RelationUtils.isUncleAunt(relation)) return 3; // الأعمام والعمات بعد الإخوة
     if (RelationUtils.isAdditionalWife(relation) || relation === 'زوجة') return 4;
@@ -118,6 +122,14 @@ export const RELATION_COLORS = {
     fill: "#fce4ec", 
     stroke: "#e91e63"
   },
+  GRANDFATHER: {
+    fill: "#fff3e0",
+    stroke: "#ff9800"
+  },
+  GRANDMOTHER: {
+    fill: "#fdf2f8",
+    stroke: "#ec4899"
+  },
   NEPHEW_NIECE_MALE: {
     fill: "#e8f4fd",
     stroke: "#42a5f5"
@@ -145,6 +157,10 @@ export const RELATION_COLORS = {
   VIRTUAL_ROOT: {
     fill: "#f8fafc",
     stroke: "#e2e8f0"
+  },
+  VIRTUAL_GRANDFATHER: {
+    fill: "#fef3c7",
+    stroke: "#d97706"
   },
   DEFAULT: {
     fill: "#f3f4f6",

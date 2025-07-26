@@ -56,7 +56,8 @@ export class FamilyTreeBuilder {
     // الطريقة الأولى: التحقق من اسم الوالد
     const isChildByFatherName = (
       (RelationUtils.isSiblingChild(child.relation) || 
-       child.relation === 'ابن' || child.relation === 'بنت') &&
+       child.relation === 'ابن' || child.relation === 'بنت' ||
+       child.relation === 'والد' || child.relation === 'والدة') &&
       child.fatherName === parent.firstName &&
       child.globalId !== parent.globalId
     );
@@ -76,7 +77,14 @@ export class FamilyTreeBuilder {
       child.globalId !== parent.globalId
     );
 
-    return isChildByFatherName || isChildByParentId || isChildByFullLineage;
+    // الطريقة الرابعة: علاقة الوالد بالجد
+    const isFatherOfGrandfather = (
+      child.relation === 'والد' &&
+      parent.relation === 'جد' &&
+      child.fatherName === parent.firstName
+    );
+
+    return isChildByFatherName || isChildByParentId || isChildByFullLineage || isFatherOfGrandfather;
   };
 
   // التحقق من انتماء أبناء العم للعم
@@ -210,6 +218,9 @@ export class FamilyTreeBuilder {
     
     if (!father || !accountOwner) return null;
 
+    // البحث عن الجد الحقيقي في البيانات
+    const grandfather = familyMembers.find(m => m.relation === 'جد');
+    
     // البحث عن الأعمام
     const unclesAunts = familyMembers.filter(m => 
       RelationUtils.isUncleAunt(m.relation) && 
@@ -219,17 +230,16 @@ export class FamilyTreeBuilder {
 
     let rootNode;
 
-    if (unclesAunts.length > 0) {
-      // إنشاء عقدة جد افتراضية مخفية كجذر عندما يوجد أعمام
+    if (grandfather) {
+      // استخدام بيانات الجد الحقيقي كجذر
       rootNode = {
-        name: father.fatherName || "الجد",
-        id: "generation-root",
-        avatar: null,
+        name: this.buildFullName(grandfather),
+        id: grandfather.globalId,
+        avatar: grandfather.avatar || null,
         attributes: {
-          relation: "جد",
-          isVirtualRoot: true,
-          isGenerationRoot: true,
-          isHidden: true, // إخفاء هذه العقدة من العرض
+          ...grandfather,
+          isGrandfather: true,
+          isRoot: true,
           treeType: 'hierarchical'
         },
         children: []
@@ -242,7 +252,7 @@ export class FamilyTreeBuilder {
         avatar: father.avatar || null,
         attributes: {
           ...father,
-          isMainFather: true, // تمييز الوالد الرئيسي
+          isMainFather: true,
           treeType: 'hierarchical'
         },
         children: []
@@ -270,11 +280,65 @@ export class FamilyTreeBuilder {
         rootNode.children.push(uncleAuntNode);
       });
 
-      // الآن نضيف الأطفال للوالد
+      // إضافة الأطفال للوالد
+      this.addChildrenToFather(fatherNode, familyMembers, father, accountOwner);
+
+    } else if (unclesAunts.length > 0) {
+      // إنشاء عقدة جد افتراضية ظاهرة عندما يوجد أعمام فقط
+      rootNode = {
+        name: father.fatherName || "الجد",
+        id: "grandfather-root",
+        avatar: null,
+        attributes: {
+          relation: "جد",
+          firstName: father.fatherName || "الجد",
+          isVirtualGrandfather: true,
+          isGenerationRoot: true,
+          treeType: 'hierarchical'
+        },
+        children: []
+      };
+
+      // إضافة الوالد كطفل للجد
+      const fatherNode = {
+        name: this.buildFullName(father),
+        id: father.globalId,
+        avatar: father.avatar || null,
+        attributes: {
+          ...father,
+          isMainFather: true,
+          treeType: 'hierarchical'
+        },
+        children: []
+      };
+
+      rootNode.children.push(fatherNode);
+
+      // إضافة الأعمام كإخوة للوالد (أطفال الجد)
+      unclesAunts.forEach(uncleAunt => {
+        const uncleAuntNode = {
+          name: this.buildFullName(uncleAunt),
+          id: uncleAunt.globalId,
+          avatar: uncleAunt.avatar || null,
+          attributes: {
+            ...uncleAunt,
+            treeType: 'hierarchical'
+          },
+          children: []
+        };
+
+        // إضافة أبناء العم/العمة
+        const cousins = familyMembers.filter(m => this.isCousinOfUncle(m, uncleAunt));
+        this.addChildrenToNode(uncleAuntNode, cousins, 'hierarchical');
+
+        rootNode.children.push(uncleAuntNode);
+      });
+
+      // إضافة الأطفال للوالد
       this.addChildrenToFather(fatherNode, familyMembers, father, accountOwner);
 
     } else {
-      // إذا لم يكن هناك أعمام، الوالد هو الجذر
+      // إذا لم يكن هناك جد أو أعمام، الوالد هو الجذر
       rootNode = {
         name: this.buildFullName(father),
         id: father.globalId,
