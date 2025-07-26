@@ -199,42 +199,143 @@ export default function FamilyTreeAdvanced() {
       return null;
     }
 
-    const head = findFamilyHead(familyMembers);
-    if (!head) {
-      return null;
-    }
-
-    const rootNode = {
-      name: buildFullName(head),
-      id: head.globalId,
-      avatar: head.avatar || null,
-      attributes: {
-        ...head,
-        isCurrentUser: true,
-        treeType: 'simple'
-      },
-      children: []
-    };
-
-    const children = familyMembers.filter(m => 
-      (m.relation === 'ابن' || m.relation === 'بنت' || m.relation === 'child') && 
-      m.globalId !== head.globalId
-    );
-
-    children.forEach(child => {
-      rootNode.children.push({
-        name: buildFullName(child),
-        id: child.globalId,
-        avatar: child.avatar || null,
+    // البحث عن الوالد (الأب) أولاً
+    const father = familyMembers.find(m => m.relation === 'والد');
+    
+    if (father) {
+      // إذا وُجد الوالد، اجعله الجذر
+      const rootNode = {
+        name: buildFullName(father),
+        id: father.globalId,
+        avatar: father.avatar || null,
         attributes: {
-          ...child,
+          ...father,
+          isRoot: true,
+          treeType: 'hierarchical'
+        },
+        children: []
+      };
+
+      // البحث عن رب العائلة (صاحب الحساب) كابن للوالد
+      const accountOwner = familyMembers.find(m => m.relation === 'رب العائلة');
+      if (accountOwner) {
+        const ownerNode = {
+          name: buildFullName(accountOwner),
+          id: accountOwner.globalId,
+          avatar: accountOwner.avatar || null,
+          attributes: {
+            ...accountOwner,
+            isCurrentUser: true,
+            treeType: 'hierarchical'
+          },
+          children: []
+        };
+
+        // إضافة أطفال رب العائلة
+        const grandChildren = familyMembers.filter(m => 
+          (m.relation === 'ابن' || m.relation === 'بنت') && 
+          m.globalId !== accountOwner.globalId && 
+          m.globalId !== father.globalId
+        );
+
+        grandChildren.forEach(child => {
+          ownerNode.children.push({
+            name: buildFullName(child),
+            id: child.globalId,
+            avatar: child.avatar || null,
+            attributes: {
+              ...child,
+              treeType: 'hierarchical'
+            },
+            children: []
+          });
+        });
+
+        // إضافة زوجات رب العائلة كإخوة له
+        const spouses = familyMembers.filter(m => 
+          (m.relation === 'زوجة' || m.relation === 'زوجة ثانية' || 
+           m.relation === 'زوجة ثالثة' || m.relation === 'زوجة رابعة') && 
+          m.globalId !== father.globalId
+        );
+
+        spouses.forEach(spouse => {
+          rootNode.children.push({
+            name: buildFullName(spouse),
+            id: spouse.globalId,
+            avatar: spouse.avatar || null,
+            attributes: {
+              ...spouse,
+              treeType: 'hierarchical'
+            },
+            children: []
+          });
+        });
+
+        // إضافة رب العائلة كابن للوالد
+        rootNode.children.push(ownerNode);
+
+        // إضافة إخوة رب العائلة
+        const siblings = familyMembers.filter(m => 
+          (m.relation === 'أخ' || m.relation === 'أخت' || 
+           m.relation === 'أخ غير شقيق' || m.relation === 'أخت غير شقيقة') && 
+          m.globalId !== accountOwner.globalId && 
+          m.globalId !== father.globalId
+        );
+
+        siblings.forEach(sibling => {
+          rootNode.children.push({
+            name: buildFullName(sibling),
+            id: sibling.globalId,
+            avatar: sibling.avatar || null,
+            attributes: {
+              ...sibling,
+              treeType: 'hierarchical'
+            },
+            children: []
+          });
+        });
+      }
+
+      return rootNode;
+    } else {
+      // إذا لم يوجد والد، استخدم المنطق الأصلي (رب العائلة كجذر)
+      const head = findFamilyHead(familyMembers);
+      if (!head) {
+        return null;
+      }
+
+      const rootNode = {
+        name: buildFullName(head),
+        id: head.globalId,
+        avatar: head.avatar || null,
+        attributes: {
+          ...head,
+          isCurrentUser: true,
           treeType: 'simple'
         },
         children: []
-      });
-    });
+      };
 
-    return rootNode;
+      const children = familyMembers.filter(m => 
+        (m.relation === 'ابن' || m.relation === 'بنت') && 
+        m.globalId !== head.globalId
+      );
+
+      children.forEach(child => {
+        rootNode.children.push({
+          name: buildFullName(child),
+          id: child.globalId,
+          avatar: child.avatar || null,
+          attributes: {
+            ...child,
+            treeType: 'simple'
+          },
+          children: []
+        });
+      });
+
+      return rootNode;
+    }
   }, [buildFullName]);
 
   const calculateTreeDepth = useCallback((node, currentDepth = 0) => {
@@ -294,14 +395,21 @@ export default function FamilyTreeAdvanced() {
       setTreeData(builtTreeData);
       
       // تسجيل مقاييس الأداء
+      const treeDepth = builtTreeData ? calculateTreeDepth(builtTreeData) + 1 : 1;
+      const hasFather = familyMembers.some(m => m.relation === 'والد');
+      
       monitorPerformance({
         personCount: familyMembers.length,
-        maxDepthReached: 2,
+        maxDepthReached: treeDepth,
         familyCount: 1,
         loadTime: 1000
       });
       
-      showSnackbar(`✅ تم تحميل عائلتك: ${familyMembers.length} أفراد (رب العائلة وأولاده)`, 'success');
+      if (hasFather) {
+        showSnackbar(`✅ تم تحميل الشجرة الهرمية: ${familyMembers.length} أفراد (${treeDepth} أجيال)`, 'success');
+      } else {
+        showSnackbar(`✅ تم تحميل عائلتك: ${familyMembers.length} أفراد (رب العائلة وأولاده)`, 'success');
+      }
 
     } catch {
       setError('فشل في تحميل الشجرة');
@@ -309,7 +417,7 @@ export default function FamilyTreeAdvanced() {
     } finally {
       setLoading(false);
     }
-  }, [uid, showSnackbar, monitorPerformance, buildTreeStructure]);
+  }, [uid, showSnackbar, monitorPerformance, buildTreeStructure, calculateTreeDepth]);
 
   // ===========================================================================
   // دوال التحكم
@@ -332,14 +440,15 @@ const drawTreeWithD3 = useCallback((data) => {
 
   const screenWidth = window.innerWidth;
 
-  let cardWidth = 220;
-  let cardHeight = 110;
+  let cardWidth = 200;  // عرض أقل قليلاً لمزيد من المساحة
+  let cardHeight = 100;
 
   if (screenWidth < 480) {
-    cardWidth = 160;
-    cardHeight = 90;
+    cardWidth = 150;    // تقليل للشاشات الصغيرة
+    cardHeight = 85;
   } else if (screenWidth < 768) {
-    cardWidth = 190;
+    cardWidth = 175;
+    cardHeight = 92;
     cardHeight = 100;
   }
 
@@ -391,17 +500,18 @@ const drawTreeWithD3 = useCallback((data) => {
     if (generationCounts[d.depth] > maxBreadth) maxBreadth = generationCounts[d.depth];
   });
 
-  // إعدادات الشجرة العادية
-  const verticalGap = 55;
-  const dynamicHeight = Math.max(verticalGap * maxDepth, 180);
-  const dynamicWidth = width - 100;
+  // إعدادات الشجرة المحسنة للهيكل الهرمي
+  const treeType = data.attributes?.treeType || 'simple';
+  const verticalGap = treeType === 'hierarchical' ? 140 : 120; // زيادة المسافة العمودية
+  const dynamicHeight = Math.max(verticalGap * maxDepth, 250);
+  const dynamicWidth = width - 80; // تقليل الهوامش لمزيد من المساحة
 
-  // إعداد تخطيط الشجرة مع توزيع أفقي متساوٍ تماماً (بدون أي تراكب)
+  // إعداد تخطيط الشجرة مع توزيع أفقي أوسع
   const treeLayout = d3.tree()
     .size([dynamicWidth, dynamicHeight])
-    .separation(() => {
-      // توزيع أفقي متساوٍ تماماً بين جميع العقد في نفس الجيل (1)
-      return 1;
+    .separation((a, b) => {
+      // مسافة أكبر بين العقد لإظهار الخطوط بوضوح
+      return a.parent === b.parent ? 2.5 : 3;
     }); 
 
   treeLayout(root);
@@ -424,12 +534,12 @@ const drawTreeWithD3 = useCallback((data) => {
                 Q${target.x},${midY} ${target.x},${midY + radius}
                 L${target.x},${target.y}`;
       })
-    .style("stroke", "#cbd5e1")
-    .style("stroke-width", 2)
+    .style("stroke", "#2196f3")  // لون أزرق أكثر وضوحاً
+    .style("stroke-width", 3)        // خط أسمك للوضوح
     .style("stroke-linecap", "round")
     .style("stroke-linejoin", "round")
     .style("opacity", 0) // بدء مخفي للأنيميشن
-    .style("filter", "none")
+    .style("filter", "drop-shadow(0 2px 4px rgba(33, 150, 243, 0.3))")  // ظل للخطوط
     .style("stroke-dasharray", "none");
 
   // أنيميشن بسيط للروابط
@@ -437,7 +547,22 @@ const drawTreeWithD3 = useCallback((data) => {
     .delay(500)
     .duration(800)
     .ease(d3.easeQuadOut)
-    .style("opacity", 0.85);
+    .style("opacity", 0.9);  // شفافية أقل للوضوح
+
+  // إضافة تأثيرات تفاعلية للروابط
+  links
+    .on("mouseenter", function() {
+      d3.select(this)
+        .style("stroke-width", 4)
+        .style("opacity", 1)
+        .style("stroke", "#1976d2");
+    })
+    .on("mouseleave", function() {
+      d3.select(this)
+        .style("stroke-width", 3)
+        .style("opacity", 0.9)
+        .style("stroke", "#2196f3");
+    });
 
   // رسم العقد مع أنيميشن بسيط
   const nodes = g.selectAll(".node")
@@ -517,7 +642,8 @@ const drawTreeWithD3 = useCallback((data) => {
     .attr("rx", 14)
     .attr("fill", cardFill)
     .attr("stroke", cardStroke)
-    .attr("stroke-width", 2)
+    .attr("stroke-width", 2.5)  // إطار أسمك للوضوح
+    .attr("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.1))")  // ظل للكروت
     .attr("class", "family-node-card");
 
   // صورة أو أفاتار
@@ -626,18 +752,49 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
     .attr("stroke-width", 3);
 }
 
-  // عند الضغط
-  nodeGroup.on("click", () => {
-    handleNodeClick?.({
-      ...nodeData,
-      name,
-      age,
-      children: d.children || []
+  // إضافة تأثيرات تفاعلية للعقد
+  nodeGroup
+    .on("mouseenter", function() {
+      d3.select(this).select("rect.family-node-card")
+        .style("transform", "scale(1.05)")
+        .style("filter", "drop-shadow(0 6px 12px rgba(0,0,0,0.2))")
+        .transition()
+        .duration(200);
+      
+      // تمييز الروابط المتصلة
+      d3.selectAll(".link")
+        .filter(linkData => 
+          linkData.source.data.id === d.data.id || 
+          linkData.target.data.id === d.data.id
+        )
+        .style("stroke", "#1976d2")
+        .style("stroke-width", 4)
+        .style("opacity", 1);
+    })
+    .on("mouseleave", function() {
+      d3.select(this).select("rect.family-node-card")
+        .style("transform", "scale(1)")
+        .style("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.1))")
+        .transition()
+        .duration(200);
+      
+      // إعادة الروابط لحالتها الطبيعية
+      d3.selectAll(".link")
+        .style("stroke", "#2196f3")
+        .style("stroke-width", 3)
+        .style("opacity", 0.9);
+    })
+    .on("click", () => {
+      handleNodeClick?.({
+        ...nodeData,
+        name,
+        age,
+        children: d.children || []
+      });
     });
-  });
 });
 
-  // معالجة تداخل العقد - نفس الطريقة الأصلية
+  // معالجة تداخل العقد المحسنة للهيكل الهرمي
   const nodesByDepth = {};
   root.each(d => {
     if (!nodesByDepth[d.depth]) nodesByDepth[d.depth] = [];
@@ -649,8 +806,8 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
     for (let i = 1; i < nodes.length; i++) {
       const prev = nodes[i - 1];
       const curr = nodes[i];
-      // إذا كان هناك تداخل أو تقاطع بين الكروت، نحرك العقدة الحالية يميناً
-      const minDistance = 340; 
+      // مسافة أكبر بكثير لإظهار الخطوط والعلاقات بوضوح
+      const minDistance = treeType === 'hierarchical' ? 280 : 260; 
       if (curr.x - prev.x < minDistance) {
         const shift = minDistance - (curr.x - prev.x);
         curr.x += shift;
@@ -681,9 +838,9 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
         
         if (fullWidth > 0 && fullHeight > 0) {
           const scale = Math.min(
-            (width * 0.9) / fullWidth,
-            (height * 0.9) / fullHeight,
-            1.2
+            (width * 0.8) / fullWidth,   // مساحة أقل للتمركز لإظهار المسافات
+            (height * 0.8) / fullHeight,
+            1.0   // حد أقصى أصغر للحفاظ على الوضوح
           );
           
           const centerX = bounds.x + fullWidth / 2;
@@ -897,7 +1054,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
                   🌳 ابنِ شجرة عائلتك
                 </Typography>
                 <Typography variant="body1" sx={{ color: 'text.secondary', mb: 3, maxWidth: 500, fontFamily: 'Cairo, sans-serif' }}>
-                  ‍👩‍👧‍👦 أضف أفراد عائلتك المباشرين: رب العائلة وأولاده وبناته
+                  👨‍👩‍👧‍👦 أضف أفراد عائلتك: الوالد، رب العائلة، الأطفال، الإخوة، والأقارب
                 </Typography>
                 <Box display="flex" gap={2} justifyContent="center">
                   <Button
@@ -988,7 +1145,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
               display: 'block'
             }}
           >
-            ‍👩‍👧‍👦 عرض بسيط لرب العائلة وأولاده المباشرين
+            👨‍👩‍👧‍👦 عرض هرمي: الوالد → رب العائلة → الأطفال، أو عرض بسيط لرب العائلة وأولاده
           </Typography>
         </Box>
 
@@ -1188,9 +1345,13 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
             
             <Chip 
               size="small" 
-              label="🌳 شجرة بسيطة (جيلان)" 
+              label={
+                treeData?.attributes?.treeType === 'hierarchical' 
+                  ? `🏛️ شجرة هرمية (${performanceMetrics.maxDepthReached} أجيال)` 
+                  : `🌳 شجرة بسيطة (${performanceMetrics.maxDepthReached} أجيال)`
+              }
               variant="outlined" 
-              color="success"
+              color={treeData?.attributes?.treeType === 'hierarchical' ? 'primary' : 'success'}
               sx={{
                 fontSize: { xs: '0.6rem', sm: '0.7rem' },
                 height: { xs: 20, sm: 24 }
