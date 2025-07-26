@@ -84,6 +84,33 @@ export default function FamilyTreeAdvanced() {
     }
   }, []);
 
+  // تنظيف الموارد عند إلغاء تحميل المكون
+  useEffect(() => {
+    const currentReactRoots = reactRootsRef.current;
+    const currentSvg = svgRef.current;
+    
+    return () => {
+      // تنظيف ReactDOM roots
+      if (currentReactRoots) {
+        currentReactRoots.forEach((root) => {
+          try {
+            if (root && root.unmount) {
+              root.unmount();
+            }
+          } catch (error) {
+            console.warn('تحذير في تنظيف ReactDOM root:', error);
+          }
+        });
+        currentReactRoots.clear();
+      }
+      
+      // تنظيف SVG
+      if (currentSvg) {
+        d3.select(currentSvg).selectAll('*').remove();
+      }
+    };
+  }, []);
+
   const sanitizeMemberData = familyTreeBuilder.sanitizeMemberData;
 
   // const findFamilyHead = familyTreeBuilder.findFamilyHead; // غير مستخدم حالياً
@@ -245,6 +272,21 @@ export default function FamilyTreeAdvanced() {
 const drawTreeWithD3 = useCallback((data) => {
   if (!data || !svgRef.current || !containerRef.current) return;
 
+  // تنظيف أفضل للموارد السابقة
+  // تنظيف ReactDOM roots السابقة
+  if (reactRootsRef.current) {
+    reactRootsRef.current.forEach((root) => {
+      try {
+        if (root && root.unmount) {
+          root.unmount();
+        }
+      } catch (error) {
+        console.warn('تحذير في تنظيف ReactDOM root السابق:', error);
+      }
+    });
+    reactRootsRef.current.clear();
+  }
+
   const screenWidth = window.innerWidth;
 
   let cardWidth = 200;  // عرض أقل قليلاً لمزيد من المساحة
@@ -378,24 +420,19 @@ const drawTreeWithD3 = useCallback((data) => {
     .attr("class", "node")
     .attr("data-depth", d => d.depth) // للأنيميشن CSS
     .attr("transform", d => `translate(${d.x},${d.y})`)
-    .style("opacity", d => d.data.attributes?.isHidden ? 0 : 0); // بدء مخفي للأنيميشن، العقد المخفية تبقى شفافة
+    .style("opacity", 0); // بدء مخفي للأنيميشن
 
   // أنيميشن بسيط للعقد
   nodes.transition()
     .delay((d, i) => d.depth * 200 + i * 50)
     .duration(600)
     .ease(d3.easeBackOut)
-    .style("opacity", d => d.data.attributes?.isHidden ? 0 : 1); // العقد المخفية تبقى شفافة
+    .style("opacity", 1); // إظهار جميع العقد
 
   // إضافة محتوى العقد - نفس التصميم الأصلي تماماً
   nodes.each(function(d) {
   const nodeGroup = d3.select(this);
   const nodeData = d.data.attributes || d.data;
-  
-  // تخطي رسم محتوى العقد المخفية
-  if (nodeData.isHidden) {
-    return;
-  }
   
   const uniqueId = nodeData.id || nodeData.globalId || Math.random().toString(36).substring(7);
   const name = nodeData.name || `${nodeData.firstName || ''} ${nodeData.fatherName || ''}`.trim() || '';
@@ -655,6 +692,11 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
         .style("opacity", 0.9);
     })
     .on("click", () => {
+      // تجنب عرض تفاصيل الجد الافتراضي إذا لم يكن له معلومات كافية
+      if (nodeData.isVirtualGrandfather && !nodeData.avatar && !nodeData.phone) {
+        return; // لا تفعل شيئاً للجد الافتراضي
+      }
+      
       handleNodeClick?.({
         ...nodeData,
         name,
