@@ -6,12 +6,25 @@ import { supabase } from './config.js'
 // ===========================================================================
 
 /**
+ * تعيين معرف المستخدم الحالي في Supabase لـ RLS
+ * @param {string} uid - معرف المستخدم
+ */
+const setCurrentUser = async (uid) => {
+  if (uid) {
+    await supabase.rpc('set_current_user_uid', { user_uid: uid });
+  }
+}
+
+/**
  * جلب بيانات المستخدم من Supabase
  * @param {string} uid - معرف المستخدم
  * @returns {Object|null} بيانات المستخدم أو null
  */
 export const fetchUserData = async (uid) => {
   try {
+    // تعيين المستخدم الحالي أولاً
+    await setCurrentUser(uid);
+    
     const { data, error } = await supabase
       .from('users')
       .select('*')
@@ -56,6 +69,9 @@ export const fetchUserData = async (uid) => {
  */
 export const createOrUpdateUser = async (uid, userData) => {
   try {
+    // تعيين المستخدم الحالي أولاً
+    await setCurrentUser(uid);
+    
     // التحقق من وجود المستخدم
     const { data: existingUser } = await supabase
       .from('users')
@@ -114,6 +130,9 @@ export const createOrUpdateUser = async (uid, userData) => {
  */
 export const updateUser = async (uid, updates) => {
   try {
+    // تعيين المستخدم الحالي أولاً
+    await setCurrentUser(uid);
+    
     const dataToUpdate = {
       ...updates,
       updated_at: new Date().toISOString()
@@ -141,6 +160,9 @@ export const updateUser = async (uid, updates) => {
  */
 export const deleteUser = async (uid) => {
   try {
+    // تعيين المستخدم الحالي أولاً
+    await setCurrentUser(uid);
+    
     const { error } = await supabase
       .from('users')
       .delete()
@@ -189,6 +211,9 @@ export const findUserByPhone = async (phoneNumber) => {
  */
 export const fetchFamilyMembers = async (uid) => {
   try {
+    // تعيين المستخدم الحالي أولاً
+    await setCurrentUser(uid);
+    
     const { data, error } = await supabase
       .from('family_members')
       .select('*')
@@ -213,6 +238,9 @@ export const fetchFamilyMembers = async (uid) => {
  */
 export const saveFamilyMember = async (uid, memberData) => {
   try {
+    // تعيين المستخدم الحالي أولاً
+    await setCurrentUser(uid);
+    
     let result
     if (memberData.id) {
       // تحديث عضو موجود
@@ -270,6 +298,9 @@ export const saveFamilyMember = async (uid, memberData) => {
  */
 export const deleteFamilyMember = async (uid, memberId) => {
   try {
+    // تعيين المستخدم الحالي أولاً
+    await setCurrentUser(uid);
+    
     const { error } = await supabase
       .from('family_members')
       .delete()
