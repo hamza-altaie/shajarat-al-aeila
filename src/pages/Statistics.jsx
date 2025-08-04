@@ -20,8 +20,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import HomeIcon from '@mui/icons-material/Home';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 
-import { db } from '../firebase/config';
-import { collection, getDocs } from 'firebase/firestore';
+import { loadFamily } from '../services/familyService.js';
 import { familyAnalytics } from '../utils/FamilyAnalytics';
 
 const Statistics = () => {
@@ -105,25 +104,24 @@ const Statistics = () => {
   // تحميل بيانات الشجرة العادية
   const loadSimpleTreeData = useCallback(async (uid) => {
     
-    const familySnapshot = await getDocs(collection(db, 'users', uid, 'family'));
-    const familyMembers = [];
+    const familyMembers = await loadFamily(uid);
+    const processedMembers = [];
     
-    familySnapshot.forEach(doc => {
-      const memberData = { 
-        ...doc.data(), 
-        id: doc.id,
-        globalId: `${uid}_${doc.id}`,
+    familyMembers.forEach(memberData => {
+      const cleanMemberData = {
+        ...memberData,
+        globalId: `${uid}_${memberData.id}`,
         familyUid: uid
       };
       
       if (memberData.firstName && memberData.firstName.trim() !== '') {
-        const cleanMember = buildCleanMember(memberData);
-        familyMembers.push(cleanMember);
+        const cleanMember = buildCleanMember(cleanMemberData);
+        processedMembers.push(cleanMember);
       }
     });
 
-    setFamilyMembers(familyMembers);
-    const treeData = buildTreeData(familyMembers);
+    setFamilyMembers(processedMembers);
+    const treeData = buildTreeData(processedMembers);
     setTreeData(treeData);
   }, [buildTreeData, buildCleanMember]);
 

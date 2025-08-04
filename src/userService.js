@@ -1,50 +1,24 @@
 // src/userService.js - خدمات إدارة المستخدمين
+// تم تحديث الخدمة لاستخدام Supabase بدلاً من Firestore
 import { 
-  doc, 
-  getDoc, 
-  setDoc, 
-  updateDoc, 
-  deleteDoc, 
-  collection, 
-  query, 
-  where, 
-  getDocs,
-  serverTimestamp 
-} from 'firebase/firestore';
-import { db } from './firebase/config';
+  fetchUserData as supabaseFetchUserData,
+  createOrUpdateUser as supabaseCreateOrUpdateUser,
+  updateUser as supabaseUpdateUser,
+  deleteUser as supabaseDeleteUser,
+  findUserByPhone as supabaseFindUserByPhone
+} from './supabase/database.js';
 
 // ===========================================================================
 // خدمات المستخدم الأساسية
 // ===========================================================================
 
 /**
- * جلب بيانات المستخدم من Firestore
+ * جلب بيانات المستخدم من Supabase
  * @param {string} uid - معرف المستخدم
  * @returns {Object|null} بيانات المستخدم أو null
  */
 export const fetchUserData = async (uid) => {
-  try {
-    const userRef = doc(db, 'users', uid);
-    const userSnap = await getDoc(userRef);
-
-    if (userSnap.exists()) {
-      return {
-        uid,
-        ...userSnap.data()
-      };
-    } else {
-      // إذا لم توجد بيانات، أنشئ مستند جديد للمستخدم ببيانات أساسية
-      const newUserData = {
-        uid,
-        createdAt: serverTimestamp(),
-      };
-      await setDoc(userRef, newUserData);
-      return { uid, ...newUserData };
-    }
-  } catch (err) {
-    console.error('خطأ في جلب بيانات المستخدم:', err);
-    throw new Error('فشل في جلب بيانات المستخدم');
-  }
+  return await supabaseFetchUserData(uid);
 };
 
 /**
@@ -54,31 +28,7 @@ export const fetchUserData = async (uid) => {
  * @returns {Object} نتيجة العملية
  */
 export const createOrUpdateUser = async (uid, userData) => {
-  try {
-    const userRef = doc(db, 'users', uid);
-    
-    // التحقق من وجود المستخدم
-    const existingUser = await getDoc(userRef);
-    
-    const dataToSave = {
-      ...userData,
-      uid,
-      updatedAt: serverTimestamp(),
-      ...(existingUser.exists() ? {} : { createdAt: serverTimestamp() })
-    };
-
-    await setDoc(userRef, dataToSave, { merge: true });
-    
-    return {
-      success: true,
-      data: dataToSave,
-      isNewUser: !existingUser.exists()
-    };
-    
-  } catch (error) {
-    console.error('❌ خطأ في حفظ بيانات المستخدم:', error);
-    throw new Error(`فشل في حفظ بيانات المستخدم: ${error.message}`);
-  }
+  return await supabaseCreateOrUpdateUser(uid, userData);
 };
 
 /**
@@ -88,22 +38,7 @@ export const createOrUpdateUser = async (uid, userData) => {
  * @returns {boolean} نجح التحديث أم لا
  */
 export const updateUser = async (uid, updates) => {
-  try {
-    const userRef = doc(db, 'users', uid);
-    
-    const dataToUpdate = {
-      ...updates,
-      updatedAt: serverTimestamp()
-    };
-
-    await updateDoc(userRef, dataToUpdate);
-    
-    return true;
-    
-  } catch (error) {
-    console.error('❌ خطأ في تحديث بيانات المستخدم:', error);
-    throw new Error(`فشل في تحديث بيانات المستخدم: ${error.message}`);
-  }
+  return await supabaseUpdateUser(uid, updates);
 };
 
 /**
@@ -112,16 +47,7 @@ export const updateUser = async (uid, updates) => {
  * @returns {boolean} نجح الحذف أم لا
  */
 export const deleteUser = async (uid) => {
-  try {
-    const userRef = doc(db, 'users', uid);
-    await deleteDoc(userRef);
-    
-    return true;
-    
-  } catch (error) {
-    console.error('❌ خطأ في حذف بيانات المستخدم:', error);
-    throw new Error(`فشل في حذف بيانات المستخدم: ${error.message}`);
-  }
+  return await supabaseDeleteUser(uid);
 };
 
 /**
@@ -130,25 +56,7 @@ export const deleteUser = async (uid) => {
  * @returns {Array} قائمة المستخدمين
  */
 export const findUserByPhone = async (phoneNumber) => {
-  try {
-    const usersRef = collection(db, 'users');
-    const q = query(usersRef, where('phoneNumber', '==', phoneNumber));
-    const querySnapshot = await getDocs(q);
-    
-    const users = [];
-    querySnapshot.forEach((doc) => {
-      users.push({
-        uid: doc.id,
-        ...doc.data()
-      });
-    });
-    
-    return users;
-    
-  } catch (error) {
-    console.error('❌ خطأ في البحث عن المستخدم:', error);
-    throw new Error(`فشل في البحث عن المستخدم: ${error.message}`);
-  }
+  return await supabaseFindUserByPhone(phoneNumber);
 };
 
 /**
@@ -158,10 +66,9 @@ export const findUserByPhone = async (phoneNumber) => {
  */
 export const updateLastLogin = async (uid) => {
   try {
-    const userRef = doc(db, 'users', uid);
-    await updateDoc(userRef, {
-      lastLogin: serverTimestamp(),
-      lastActive: serverTimestamp()
+    await updateUser(uid, {
+      last_login: new Date().toISOString(),
+      last_active: new Date().toISOString()
     });
     
     return true;
@@ -181,15 +88,15 @@ export const updateLastLogin = async (uid) => {
 export const validateUserData = (userData) => {
   const errors = [];
   
-  if (!userData.phoneNumber) {
+  if (!userData.phone_number) {
     errors.push('رقم الهاتف مطلوب');
   }
   
-  if (userData.phoneNumber && !/^\+9647\d{8}$/.test(userData.phoneNumber)) {
+  if (userData.phone_number && !/^\+9647\d{8}$/.test(userData.phone_number)) {
     errors.push('رقم الهاتف غير صحيح');
   }
   
-  if (userData.displayName && userData.displayName.length < 2) {
+  if (userData.display_name && userData.display_name.length < 2) {
     errors.push('الاسم يجب أن يكون أكثر من حرفين');
   }
   
@@ -214,9 +121,9 @@ export const getUserStats = async (uid) => {
     
     // حساب الإحصائيات الأساسية
     const stats = {
-      joinDate: userData.createdAt,
-      lastLogin: userData.lastLogin,
-      familyRole: userData.isFamilyRoot ? 'رب العائلة' : 'عضو',
+      joinDate: userData.created_at,
+      lastLogin: userData.last_login,
+      familyRole: userData.is_family_root ? 'رب العائلة' : 'عضو',
       profileCompletion: calculateProfileCompletion(userData)
     };
     
@@ -236,12 +143,12 @@ export const getUserStats = async (uid) => {
 const calculateProfileCompletion = (userData) => {
   let completion = 0;
   const fields = [
-    'phoneNumber',
-    'displayName',
-    'firstName',
-    'lastName',
-    'birthDate',
-    'profilePicture'
+    'phone_number',
+    'display_name',
+    'first_name',
+    'last_name',
+    'birth_date',
+    'profile_picture'
   ];
   
   fields.forEach(field => {

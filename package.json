@@ -12,7 +12,8 @@
     "deploy": "firebase deploy --only hosting",
     "clean": "rimraf node_modules package-lock.json dist .vite",
     "fresh-install": "npm run clean && npm install",
-    "audit-fix": "npm audit fix --force"
+    "audit-fix": "npm audit fix --force",
+    "test:supabase": "node -e \"import('./src/supabase/test-connection.js').then(m => m.runFullSupabaseTest())\""
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -20,6 +21,7 @@
     "@mui/icons-material": "^7.1.1",
     "@mui/material": "^7.1.1",
     "@popperjs/core": "^2.11.8",
+    "@supabase/supabase-js": "^2.53.0",
     "d3": "^7.9.0",
     "firebase": "^11.10.0",
     "firebase-functions": "^6.3.2",

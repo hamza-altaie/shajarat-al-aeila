@@ -20,9 +20,8 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import SearchIcon from '@mui/icons-material/Search';
 import BarChartIcon from '@mui/icons-material/BarChart';
 
-// استيرادات Firebase
-import { db } from '../firebase/config';
-import { collection, getDocs } from 'firebase/firestore';
+// استيراد خدمات Supabase
+import { loadFamily } from '../services/familyService.js';
 
 // استيراد المكونات والأدوات المنفصلة
 import './FamilyTreeAdvanced.css';
@@ -202,28 +201,27 @@ export default function FamilyTreeAdvanced() {
     setLoadingProgress(0);
 
     try {
-      const familySnapshot = await getDocs(collection(db, 'users', uid, 'family'));
-      const familyMembers = [];
+      const familyMembers = await loadFamily(uid);
+      const processedMembers = [];
       
       setLoadingProgress(30);
       
-      familySnapshot.forEach(doc => {
-        const memberData = sanitizeMemberData({ 
-          ...doc.data(), 
-          id: doc.id,
-          globalId: `${uid}_${doc.id}`,
+      familyMembers.forEach(memberData => {
+        const cleanMemberData = sanitizeMemberData({ 
+          ...memberData,
+          globalId: `${uid}_${memberData.id}`,
           familyUid: uid
         });
         
         if (memberData.firstName && memberData.firstName.trim() !== '') {
-          familyMembers.push(memberData);
+          processedMembers.push(cleanMemberData);
         }
       });
 
       setLoadingProgress(60);
       setLoadingStage('بناء الشجرة...');
 
-      const builtTreeData = buildTreeStructure(familyMembers);
+      const builtTreeData = buildTreeStructure(processedMembers);
       
       setLoadingProgress(100);
       setLoadingStage('اكتمل التحميل');
@@ -232,12 +230,12 @@ export default function FamilyTreeAdvanced() {
       
       // تسجيل مقاييس الأداء
       const treeDepth = builtTreeData ? calculateTreeDepth(builtTreeData) + 1 : 1;
-      const hasFather = familyMembers.some(m => m.relation === 'والد');
-      const hasGrandchildren = familyMembers.some(m => m.relation === 'حفيد' || m.relation === 'حفيدة');
-      const grandchildrenCount = familyMembers.filter(m => m.relation === 'حفيد' || m.relation === 'حفيدة').length;
+      const hasFather = processedMembers.some(m => m.relation === 'والد');
+      const hasGrandchildren = processedMembers.some(m => m.relation === 'حفيد' || m.relation === 'حفيدة');
+      const grandchildrenCount = processedMembers.filter(m => m.relation === 'حفيد' || m.relation === 'حفيدة').length;
       
       monitorPerformance({
-        personCount: familyMembers.length,
+        personCount: processedMembers.length,
         maxDepthReached: treeDepth,
         familyCount: 1,
         loadTime: 1000

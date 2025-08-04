@@ -16,12 +16,11 @@ import {
   People as FamilyIcon
 } from '@mui/icons-material';
 
-import { doc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { db, storage } from '../firebase/config';
+import { storage } from '../firebase/config';
+import { loadFamily, saveFamilyMemberData, deleteFamilyMemberData, validateMemberData, calculateAge } from '../services/familyService.js';
 
 import { useNavigate } from 'react-router-dom';
-import { validateName, validateBirthdate } from '../hooks/usePhoneAuth';
 
 // نموذج البيانات الافتراضي
 const DEFAULT_FORM = {
@@ -160,41 +159,6 @@ export default function Family() {
     }
   };
 
-  // دالة حساب العمر
-  const calculateAge = (birthdate) => {
-    if (!birthdate) return '';
-    
-    try {
-      const birth = new Date(birthdate);
-      const today = new Date();
-      
-      if (isNaN(birth.getTime())) return '';
-      
-      let age = today.getFullYear() - birth.getFullYear();
-      const monthDiff = today.getMonth() - birth.getMonth();
-      
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-        age--;
-      }
-      
-      if (age === 0) {
-        const monthsDiff = today.getMonth() - birth.getMonth() + 
-                         (12 * (today.getFullYear() - birth.getFullYear()));
-        
-        if (monthsDiff < 1) {
-          const daysDiff = Math.floor((today - birth) / (1000 * 60 * 60 * 24));
-          return `${daysDiff} يوم`;
-        } else {
-          return `${monthsDiff} شهر`;
-        }
-      }
-      
-      return `${age} سنة`;
-    } catch {
-      return '';
-    }
-  };
-
   // دالة تنسيق التاريخ الميلادي
   const formatGregorianDate = (birthdate) => {
     if (!birthdate) return '';
@@ -214,7 +178,7 @@ export default function Family() {
   };
 
   // تحميل بيانات العائلة
-  const loadFamily = useCallback(async () => {
+  const loadFamilyData = useCallback(async () => {
     if (!uid) {
       navigate('/login');
       return;
@@ -222,38 +186,12 @@ export default function Family() {
 
     setLoading(true);
     try {
-      const familyCollection = collection(db, 'users', uid, 'family');
-      const snapshot = await getDocs(familyCollection);
-      
-      const familyData = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id || data.id,
-          firstName: data.firstName || '',
-          fatherName: data.fatherName || '',
-          grandfatherName: data.grandfatherName || '',
-          surname: data.surname || '',
-          relation: data.relation || '',
-          birthdate: data.birthdate || '',
-          avatar: data.avatar || '',
-          parentId: data.parentId || '',
-          manualParentName: data.manualParentName || '',
-          createdAt: data.createdAt || '',
-          updatedAt: data.updatedAt || ''
-        };
-      }).filter(member => member.id && member.firstName);
-
+      const familyData = await loadFamily(uid);
       setMembers(familyData);
       
     } catch (error) {
       console.error('خطأ في تحميل بيانات العائلة:', error);
-      
-      if (error.code === 'permission-denied') {
-        showSnackbar('ليس لديك صلاحية للوصول إلى هذه البيانات', 'error');
-        navigate('/login');
-      } else {
-        showSnackbar('حدث خطأ أثناء تحميل بيانات العائلة', 'error');
-      }
+      showSnackbar('حدث خطأ أثناء تحميل بيانات العائلة', 'error');
     } finally {
       setLoading(false);
     }
@@ -261,37 +199,8 @@ export default function Family() {
 
   // التحقق من صحة البيانات
   const validateForm = () => {
-    const errors = {};
-    
-    if (!validateName(form.firstName)) {
-      errors.firstName = 'أدخل الاسم الأول (2-40 حرف، عربي أو إنجليزي)';
-    }
-    
-    if (!validateName(form.fatherName)) {
-      errors.fatherName = 'أدخل اسم الأب (2-40 حرف، عربي أو إنجليزي)';
-    }
-    
-    if (!validateName(form.grandfatherName)) {
-      errors.grandfatherName = 'أدخل اسم الجد (2-40 حرف، عربي أو إنجليزي)';
-    }
-    
-    if (!validateName(form.surname)) {
-      errors.surname = 'أدخل اللقب (2-40 حرف، عربي أو إنجليزي)';
-    }
-    
-    if (!validateBirthdate(form.birthdate)) {
-      errors.birthdate = 'أدخل تاريخ ميلاد صحيح وليس في المستقبل';
-    }
-    
-    if (!form.relation) {
-      errors.relation = 'اختر القرابة';
-    }
-    
-    if (form.id && form.parentId === form.id) {
-      errors.parentId = 'لا يمكن للفرد أن يكون أبًا لنفسه';
-    }
-    
-    return errors;
+    const validationResult = validateMemberData(form);
+    return validationResult.errors;
   };
 
   // معالجة تغيير قيم النموذج
@@ -342,12 +251,14 @@ export default function Family() {
       setAvatarUploadSuccess(true); // ✅ تعيين حالة النجاح
       
       if (form.id) {
-        await setDoc(doc(db, 'users', uid, 'family', form.id), {
-          avatar: downloadURL,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
+        // تحديث الصورة فقط للعضو الموجود
+        await saveFamilyMemberData(uid, {
+          id: form.id,
+          ...form,
+          avatar: downloadURL
+        });
         
-        await loadFamily();
+        await loadFamilyData();
       }
       
       showSnackbar('تم رفع الصورة بنجاح', 'success');
@@ -384,6 +295,7 @@ export default function Family() {
       }
 
       const memberData = {
+        id: form.id || undefined,
         firstName: form.firstName || '',
         fatherName: form.fatherName || '',
         grandfatherName: form.grandfatherName || '',
@@ -393,25 +305,18 @@ export default function Family() {
         parentId: form.parentId || '',
         avatar: form.avatar || '',
         manualParentName: form.manualParentName || '',
-        linkedParentUid,
-        updatedAt: new Date().toISOString(),
+        linkedParentUid
       };
 
+      await saveFamilyMemberData(uid, memberData);
+      
       if (form.id) {
-        await setDoc(doc(db, 'users', uid, 'family', form.id), memberData, { merge: true });
         showSnackbar('تم تحديث بيانات العضو بنجاح');
       } else {
-        const newDocRef = doc(collection(db, 'users', uid, 'family'));
-        const newMemberData = { 
-          ...memberData, 
-          id: newDocRef.id,
-          createdAt: new Date().toISOString()
-        };
-        await setDoc(newDocRef, newMemberData);
         showSnackbar('تم إضافة العضو بنجاح');
       }
 
-      await loadFamily();
+      await loadFamilyData();
       setForm(DEFAULT_FORM);
       setAvatarUploadSuccess(false); // ✅ إعادة تعيين حالة رفع الصورة
       setShowAddForm(false); // ✅ إخفاء النموذج بعد الإضافة
@@ -459,8 +364,8 @@ export default function Family() {
         await deleteOldAvatar(memberToDelete.avatar);
       }
       
-      await deleteDoc(doc(db, 'users', uid, 'family', deleteMemberId));
-      await loadFamily();
+      await deleteFamilyMemberData(uid, deleteMemberId);
+      await loadFamilyData();
       showSnackbar('تم حذف العضو بنجاح');
     } catch (error) {
       console.error('خطأ في الحذف:', error);
@@ -567,11 +472,11 @@ export default function Family() {
   // تحميل البيانات عند بداية المكون
   useEffect(() => {
     if (uid) {
-      loadFamily();
+      loadFamilyData();
     } else {
       navigate('/login');
     }
-  }, [uid, loadFamily, navigate]);
+  }, [uid, loadFamilyData, navigate]);
 
   // عرض النموذج
   const renderForm = () => (
