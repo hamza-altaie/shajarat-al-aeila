@@ -84,7 +84,8 @@
 ## التقنيات المستخدمة
 
 - React.js
-- Firebase (Authentication + Firestore)
+- Firebase (Authentication + Storage)
+- Supabase (Database)
 - Material-UI
 - D3.js لعرض الشجرة
 - Vite للبناء

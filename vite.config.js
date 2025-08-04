@@ -89,7 +89,6 @@ export default defineConfig({
           'firebase-vendor': [
             'firebase/app', 
             'firebase/auth', 
-            'firebase/firestore', 
             'firebase/storage'
           ],
           // مكتبات ثقيلة منفصلة
