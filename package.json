@@ -12,8 +12,7 @@
     "deploy": "firebase deploy --only hosting",
     "clean": "rimraf node_modules package-lock.json dist .vite",
     "fresh-install": "npm run clean && npm install",
-    "audit-fix": "npm audit fix --force",
-    "test:supabase": "node -e \"import('./src/supabase/test-connection.js').then(m => m.runFullSupabaseTest())\""
+    "audit-fix": "npm audit fix --force"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
