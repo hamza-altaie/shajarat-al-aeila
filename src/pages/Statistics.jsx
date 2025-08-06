@@ -97,10 +97,6 @@ const Statistics = () => {
     };
   }, []);
 
-  // تم حذف دالة بناء الشجرة الموسعة
-
-  // تم حذف دالة البحث عن العائلات المرتبطة
-
   // تحميل بيانات الشجرة العادية
   const loadSimpleTreeData = useCallback(async (uid) => {
     
@@ -124,8 +120,6 @@ const Statistics = () => {
     const treeData = buildTreeData(processedMembers);
     setTreeData(treeData);
   }, [buildTreeData, buildCleanMember]);
-
-  // تم حذف دالة تحميل الشجرة الموسعة
 
   // تحميل بيانات العائلة مباشرة من Firebase
   useEffect(() => {
@@ -184,9 +178,7 @@ const Statistics = () => {
 
     updateTreeData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // تم حذف تغيير نوع الشجرة
-
-  // تم حذف دالة التبديل بين أنواع الشجرة
+  }, []);
 
   // تحليل البيانات
   const analyzeData = useMemo(() => {
