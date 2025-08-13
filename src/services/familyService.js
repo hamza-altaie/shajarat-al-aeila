@@ -7,8 +7,7 @@ import {
   updateDoc, 
   deleteDoc, 
   query, 
-  where, 
-  orderBy,
+  where,
   getDoc
 } from 'firebase/firestore';
 import { db } from '../firebase/config.js';
@@ -24,11 +23,14 @@ import { db } from '../firebase/config.js';
  */
 export const loadFamily = async (uid) => {
   try {
+    // بدء تحميل بيانات العائلة للمستخدم
+    
     const familyCollection = collection(db, 'families');
+    
+    // استعلام بسيط بدون ترتيب في البداية
     const q = query(
       familyCollection, 
-      where('userId', '==', uid),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', uid)
     );
     
     const querySnapshot = await getDocs(q);
@@ -41,10 +43,29 @@ export const loadFamily = async (uid) => {
       });
     });
     
+    // ترتيب البيانات محلياً
+    familyData.sort((a, b) => {
+      const dateA = a.createdAt?.toDate?.() || new Date(0);
+      const dateB = b.createdAt?.toDate?.() || new Date(0);
+      return dateB - dateA;
+    });
+    
+    // تم تحميل البيانات بنجاح
     return familyData;
     
   } catch (error) {
     console.error('❌ خطأ في تحميل بيانات العائلة:', error);
+    
+    // معالجة خاصة لأخطاء الصلاحيات
+    if (error.code === 'permission-denied') {
+      throw new Error('ليس لديك صلاحية للوصول لهذه البيانات. يرجى التأكد من تسجيل الدخول وإعداد قواعد Firestore بشكل صحيح.');
+    }
+    
+    // معالجة خاصة لأخطاء الفهارس
+    if (error.code === 'failed-precondition' || error.message.includes('index')) {
+      throw new Error('يتطلب هذا الاستعلام إنشاء فهرس في Firebase Console. يرجى إنشاء الفهرس المطلوب.');
+    }
+    
     throw new Error(`فشل في تحميل بيانات العائلة: ${error.message}`);
   }
 };

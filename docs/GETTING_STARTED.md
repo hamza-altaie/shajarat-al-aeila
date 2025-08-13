@@ -1,4 +1,4 @@
-# دليل التشغيل - شجرة العائلة مع Firebase
+# دليل التشغيل - شجرة العائلة مع Firebase Firestore
 
 ## 🚀 خطوات التشغيل السريع
 
@@ -17,7 +17,7 @@ cp .env.example .env
 املأ القيم في ملف `.env`:
 
 ```env
-# Firebase (للمصادقة والتخزين)
+# Firebase (للمصادقة وقاعدة البيانات والتخزين)
 REACT_APP_FIREBASE_API_KEY=your_firebase_api_key
 REACT_APP_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
 REACT_APP_FIREBASE_PROJECT_ID=your_firebase_project_id
@@ -26,7 +26,31 @@ REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your_firebase_messaging_sender_id
 REACT_APP_FIREBASE_APP_ID=your_firebase_app_id
 ```
 
-### 3. إعداد Firebase
+### 3. إعداد Firebase Firestore
+
+1. اذهب إلى [Firebase Console](https://console.firebase.google.com)
+2. أنشئ مشروع جديد أو استخدم موجود
+3. فعّل **Firestore Database**
+4. فعّل **Authentication** واختر **Phone Authentication**
+5. انسخ محتوى ملف `firestore.rules` إلى Firebase Console > Firestore > Rules
+
+### 4. التشغيل
+```bash
+# للتطوير
+npm run dev
+
+# للبناء
+npm run build
+
+# للمعاينة بعد البناء
+npm run preview
+```
+
+### 5. اختبار الاتصال
+يمكنك اختبار الاتصال مع Firestore عبر الرابط:
+```
+http://localhost:5175/firestore-test
+```
 
 1. اذهب إلى [Firebase Console](https://console.firebase.google.com/)
 2. أنشئ مشروع جديد أو استخدم مشروع موجود

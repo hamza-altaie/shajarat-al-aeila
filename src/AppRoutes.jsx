@@ -9,6 +9,10 @@ import FamilyTree from './pages/FamilyTree.jsx';
 import PrivacyPolicy from './pages/PrivacyPolicy.jsx';
 import Statistics from './pages/Statistics.jsx';
 
+// استيراد مكون اختبار Firestore
+import FirestoreTest from './components/FirestoreTest.jsx';
+import QuickFirestoreTest from './components/QuickFirestoreTest.jsx';
+
 export default function AppRoutes() {
   return (
     <Routes>
@@ -51,6 +55,26 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <Statistics />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* صفحة اختبار Firestore */}
+      <Route 
+        path="/firestore-test" 
+        element={
+          <ProtectedRoute>
+            <FirestoreTest />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* صفحة اختبار Firestore السريع */}
+      <Route 
+        path="/quick-test" 
+        element={
+          <ProtectedRoute>
+            <QuickFirestoreTest />
           </ProtectedRoute>
         } 
       />
