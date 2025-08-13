@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { auth } from './firebase/config';
+import { auth, db } from './firebase/config';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { fetchUserData, updateUser, createOrUpdateUser } from './userService';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { fetchUserData } from './userService';
 import { AuthContext } from './contexts/AuthContext';
 
 export const AuthProvider = ({ children }) => {
@@ -22,9 +23,10 @@ export const AuthProvider = ({ children }) => {
 
   const updateLastLogin = useCallback(async (uid) => {
     try {
-      await updateUser(uid, {
-        last_login: new Date().toISOString(),
-      });
+      const userRef = doc(db, 'users', uid);
+      await setDoc(userRef, {
+        lastLogin: new Date().toISOString(),
+      }, { merge: true });
     } catch (err) {
       console.error('خطأ في تحديث آخر تسجيل دخول:', err);
     }
@@ -75,14 +77,14 @@ export const AuthProvider = ({ children }) => {
             } else {
               const newUserData = {
                 uid: currentUser.uid,
-                phone_number: currentUser.phoneNumber,
-                created_at: new Date().toISOString(),
-                last_login: new Date().toISOString(),
-                is_family_root: true,
-                linked_parent_uid: '',
+                phone: currentUser.phoneNumber,
+                createdAt: new Date().toISOString(),
+                lastLogin: new Date().toISOString(),
+                isFamilyRoot: true,
+                linkedParentUid: '',
               };
               
-              await createOrUpdateUser(currentUser.uid, newUserData);
+              await setDoc(doc(db, 'users', currentUser.uid), newUserData);
               setUserData(newUserData);
               setIsAuthenticated(true);
             }
@@ -125,27 +127,29 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('verifiedUid', user.uid);
       localStorage.setItem('verifiedPhone', user.phoneNumber);
 
-      let userData = await fetchUserData(user.uid);
-      
-      if (userData) {
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+
+      let userData;
+      if (userSnap.exists()) {
         userData = {
-          ...userData,
-          last_login: new Date().toISOString(),
+          ...userSnap.data(),
+          lastLogin: new Date().toISOString(),
           ...additionalData
         };
       } else {
         userData = {
           uid: user.uid,
           phone: user.phoneNumber,
-          created_at: new Date().toISOString(),
-          last_login: new Date().toISOString(),
-          is_family_root: true,
-          linked_parent_uid: '',
+          createdAt: new Date().toISOString(),
+          lastLogin: new Date().toISOString(),
+          isFamilyRoot: true,
+          linkedParentUid: '',
           ...additionalData
         };
       }
 
-      await createOrUpdateUser(user.uid, userData);
+      await setDoc(userRef, userData, { merge: true });
       
       setUser(user);
       setUserData(userData);
@@ -189,13 +193,14 @@ export const AuthProvider = ({ children }) => {
     if (!user?.uid) return false;
 
     try {
+      const userRef = doc(db, 'users', user.uid);
       const updatedData = {
         ...userData,
         ...newData,
-        updated_at: new Date().toISOString()
+        updatedAt: new Date().toISOString()
       };
 
-      await updateUser(user.uid, updatedData);
+      await setDoc(userRef, updatedData, { merge: true });
       setUserData(updatedData);
       
       return true;

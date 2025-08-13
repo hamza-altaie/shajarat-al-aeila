@@ -27,37 +27,33 @@ export class FamilyTreeBuilder {
       (m.relation === 'ابن' || m.relation === 'بنت')
     );
 
-    console.warn(`👶 جميع الأطفال في العائلة:`, ownerChildren.map(c => `"${c.firstName || c.name}" (والده: "${c.fatherName}")`));
-
-    // الحصول على اسم رب العائلة
-    const ownerName = accountOwner?.firstName || accountOwner?.name || 'غير محدد';
+    console.warn(`👶 جميع الأطفال في العائلة:`, ownerChildren.map(c => `"${c.firstName}" (والده: "${c.fatherName}")`));
 
     // البحث عن الأطفال المباشرين لرب العائلة
     const directChildren = ownerChildren.filter(child => 
-      child.fatherName === ownerName
+      child.fatherName === accountOwner?.firstName
     );
 
     if (grandchildren.length === 0) return;
 
     console.warn(`🔍 تم العثور على ${grandchildren.length} حفيد/حفيدة - التحقق من الربط:`);
-    console.warn(`👨‍👦‍👦 رب العائلة: "${ownerName}"`);
-    console.warn(`👶 الأطفال المباشرين:`, directChildren.map(c => `"${c.firstName || c.name}"`));
+    console.warn(`👨‍👦‍👦 رب العائلة: "${accountOwner?.firstName}"`);
+    console.warn(`👶 الأطفال المباشرين:`, directChildren.map(c => `"${c.firstName}"`));
     
     grandchildren.forEach(grandchild => {
-      const grandchildName = grandchild.firstName || grandchild.name;
       const possibleParent = directChildren.find(child => 
-        child.firstName === grandchild.fatherName || child.name === grandchild.fatherName
+        child.firstName === grandchild.fatherName
       );
       
-      console.warn(`🔸 الحفيد: "${grandchildName}" - والده: "${grandchild.fatherName}" - جده: "${grandchild.grandfatherName}"`);
+      console.warn(`🔸 الحفيد: "${grandchild.firstName}" - والده: "${grandchild.fatherName}" - جده: "${grandchild.grandfatherName}"`);
       
       if (!possibleParent) {
-        console.warn(`❌ الحفيد "${grandchildName}" - لم يتم العثور على والد بالاسم "${grandchild.fatherName}"`);
+        console.warn(`❌ الحفيد "${grandchild.firstName}" - لم يتم العثور على والد بالاسم "${grandchild.fatherName}"`);
         console.warn(`💡 تأكد من وجود ابن/بنت باسم "${grandchild.fatherName}" في العائلة`);
-      } else if (grandchild.grandfatherName !== ownerName) {
-        console.warn(`⚠️ الحفيد "${grandchildName}" - اسم الجد "${grandchild.grandfatherName}" لا يطابق رب العائلة "${ownerName}"`);
+      } else if (grandchild.grandfatherName !== accountOwner?.firstName) {
+        console.warn(`⚠️ الحفيد "${grandchild.firstName}" - اسم الجد "${grandchild.grandfatherName}" لا يطابق رب العائلة "${accountOwner?.firstName}"`);
       } else {
-        console.warn(`✅ الحفيد "${grandchildName}" - الربط صحيح`);
+        console.warn(`✅ الحفيد "${grandchild.firstName}" - الربط صحيح`);
       }
     });
   };
@@ -181,10 +177,9 @@ export class FamilyTreeBuilder {
       this.isChildOfParent(m, accountOwner)
     );
 
-    const ownerName = accountOwner?.firstName || accountOwner?.name || 'غير محدد';
     const isGrandchildByLineage = ownerChildren.some(child => 
-      grandchild.fatherName === (child.firstName || child.name) &&
-      grandchild.grandfatherName === ownerName &&
+      grandchild.fatherName === child.firstName &&
+      grandchild.grandfatherName === accountOwner.firstName &&
       grandchild.globalId !== child.globalId
     );
 
@@ -239,11 +234,11 @@ export class FamilyTreeBuilder {
             (m.fatherName === child.firstName || m.parentId === child.globalId)
           );
           
-          // الطريقة الثانية: النسب - الحفيد ابن هذا الطفل
-          const ownerName = accountOwner?.firstName || accountOwner?.name || 'غير محدد';
+          // الطريقة الثانية: النسب - الحفيد ابن هذا الطفل  
           const isChildByLineage = (
-            m.fatherName === (child.firstName || child.name) &&
-            (m.grandfatherName === ownerName ||
+            m.fatherName === child.firstName &&
+            (m.grandfatherName === accountOwner.firstName ||
+             m.grandfatherName === accountOwner.name ||
              m.grandfatherName === this.buildFullName(accountOwner).split(' ')[0])
           );
           
@@ -263,12 +258,11 @@ export class FamilyTreeBuilder {
           
           // تسجيل للتشخيص
           if ((m.relation === 'حفيد' || m.relation === 'حفيدة') && !isGrandchild) {
-            const ownerName = accountOwner?.firstName || accountOwner?.name || 'غير محدد';
-            console.warn(`🔍 حفيد لم يتم ربطه: ${m.firstName || m.name}`, {
+            console.warn(`🔍 حفيد لم يتم ربطه: ${m.firstName}`, {
               'اسم والد الحفيد': m.fatherName,
-              'اسم الطفل': child.firstName || child.name,
+              'اسم الطفل': child.firstName,
               'اسم جد الحفيد': m.grandfatherName,  
-              'اسم رب العائلة': ownerName,
+              'اسم رب العائلة': accountOwner.firstName,
               'معرف والد الحفيد': m.parentId,
               'معرف الطفل': child.globalId
             });

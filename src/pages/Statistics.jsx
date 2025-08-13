@@ -1,13 +1,13 @@
 // src/pages/Statistics.jsx
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
-  Box, Typography, Paper, Chip, Divider,
+  Box, Typography, Grid, Paper, Chip, Divider,
   Tabs, Tab, Card, CardContent, LinearProgress,
   Accordion, AccordionSummary, AccordionDetails,
   List, ListItem, ListItemText, ListItemIcon,
   IconButton, Tooltip, Alert, CircularProgress,
   AppBar, Toolbar, Container, Button, Breadcrumbs,
-  Link, Fab, Grid
+  Link, Fab
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 
@@ -20,7 +20,8 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import HomeIcon from '@mui/icons-material/Home';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 
-import { loadFamily } from '../services/familyService.js';
+import { db } from '../firebase/config';
+import { collection, getDocs } from 'firebase/firestore';
 import { familyAnalytics } from '../utils/FamilyAnalytics';
 
 const Statistics = () => {
@@ -97,29 +98,36 @@ const Statistics = () => {
     };
   }, []);
 
+  // تم حذف دالة بناء الشجرة الموسعة
+
+  // تم حذف دالة البحث عن العائلات المرتبطة
+
   // تحميل بيانات الشجرة العادية
   const loadSimpleTreeData = useCallback(async (uid) => {
     
-    const familyMembers = await loadFamily(uid);
-    const processedMembers = [];
+    const familySnapshot = await getDocs(collection(db, 'users', uid, 'family'));
+    const familyMembers = [];
     
-    familyMembers.forEach(memberData => {
-      const cleanMemberData = {
-        ...memberData,
-        globalId: `${uid}_${memberData.id}`,
+    familySnapshot.forEach(doc => {
+      const memberData = { 
+        ...doc.data(), 
+        id: doc.id,
+        globalId: `${uid}_${doc.id}`,
         familyUid: uid
       };
       
       if (memberData.firstName && memberData.firstName.trim() !== '') {
-        const cleanMember = buildCleanMember(cleanMemberData);
-        processedMembers.push(cleanMember);
+        const cleanMember = buildCleanMember(memberData);
+        familyMembers.push(cleanMember);
       }
     });
 
-    setFamilyMembers(processedMembers);
-    const treeData = buildTreeData(processedMembers);
+    setFamilyMembers(familyMembers);
+    const treeData = buildTreeData(familyMembers);
     setTreeData(treeData);
   }, [buildTreeData, buildCleanMember]);
+
+  // تم حذف دالة تحميل الشجرة الموسعة
 
   // تحميل بيانات العائلة مباشرة من Firebase
   useEffect(() => {
@@ -178,7 +186,9 @@ const Statistics = () => {
 
     updateTreeData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // تم حذف تغيير نوع الشجرة
+
+  // تم حذف دالة التبديل بين أنواع الشجرة
 
   // تحليل البيانات
   const analyzeData = useMemo(() => {
