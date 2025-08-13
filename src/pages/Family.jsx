@@ -1,5 +1,5 @@
 // src/pages/Family.jsx - إصلاح Grid للإصدار الحالي
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import {
   Container, TextField, Button, Typography, Paper, Box, IconButton, 
   Card, CardContent, CardActions, Snackbar, Alert, CircularProgress, 
@@ -16,12 +16,13 @@ import {
   People as FamilyIcon
 } from '@mui/icons-material';
 
-import { doc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, collection, getDocs, deleteDoc, query, where, addDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../firebase/config';
 
 import { useNavigate } from 'react-router-dom';
 import { validateName, validateBirthdate } from '../hooks/usePhoneAuth';
+import { AuthContext } from '../contexts/AuthContext';
 
 // نموذج البيانات الافتراضي
 const DEFAULT_FORM = {
@@ -131,8 +132,11 @@ export default function Family() {
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
 
   const navigate = useNavigate();
-  const uid = localStorage.getItem('verifiedUid');
-  const phone = localStorage.getItem('verifiedPhone');
+  
+  // استخدام AuthContext للحصول على بيانات المصادقة
+  const { user, isAuthenticated } = useContext(AuthContext);
+  const uid = user?.uid;
+  const phone = user?.phoneNumber;
 
   // دالة عرض الإشعارات
   const showSnackbar = useCallback((message, severity = 'success') => {
@@ -215,15 +219,16 @@ export default function Family() {
 
   // تحميل بيانات العائلة
   const loadFamily = useCallback(async () => {
-    if (!uid) {
+    if (!uid || !isAuthenticated) {
       navigate('/login');
       return;
     }
 
     setLoading(true);
     try {
-      const familyCollection = collection(db, 'users', uid, 'family');
-      const snapshot = await getDocs(familyCollection);
+      const familyCollection = collection(db, 'families');
+      const q = query(familyCollection, where('userId', '==', uid));
+      const snapshot = await getDocs(q);
       
       const familyData = snapshot.docs.map(doc => {
         const data = doc.data();
@@ -257,7 +262,7 @@ export default function Family() {
     } finally {
       setLoading(false);
     }
-  }, [uid, navigate, showSnackbar]);
+  }, [uid, isAuthenticated, navigate, showSnackbar]);
 
   // التحقق من صحة البيانات
   const validateForm = () => {
@@ -342,10 +347,10 @@ export default function Family() {
       setAvatarUploadSuccess(true); // ✅ تعيين حالة النجاح
       
       if (form.id) {
-        await setDoc(doc(db, 'users', uid, 'family', form.id), {
+        await updateDoc(doc(db, 'families', form.id), {
           avatar: downloadURL,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
+          updatedAt: new Date()
+        });
         
         await loadFamily();
       }
@@ -394,20 +399,19 @@ export default function Family() {
         avatar: form.avatar || '',
         manualParentName: form.manualParentName || '',
         linkedParentUid,
-        updatedAt: new Date().toISOString(),
+        userId: uid,
+        updatedAt: new Date(),
       };
 
       if (form.id) {
-        await setDoc(doc(db, 'users', uid, 'family', form.id), memberData, { merge: true });
+        await updateDoc(doc(db, 'families', form.id), memberData);
         showSnackbar('تم تحديث بيانات العضو بنجاح');
       } else {
-        const newDocRef = doc(collection(db, 'users', uid, 'family'));
         const newMemberData = { 
           ...memberData, 
-          id: newDocRef.id,
-          createdAt: new Date().toISOString()
+          createdAt: new Date()
         };
-        await setDoc(newDocRef, newMemberData);
+        await addDoc(collection(db, 'families'), newMemberData);
         showSnackbar('تم إضافة العضو بنجاح');
       }
 
@@ -459,7 +463,7 @@ export default function Family() {
         await deleteOldAvatar(memberToDelete.avatar);
       }
       
-      await deleteDoc(doc(db, 'users', uid, 'family', deleteMemberId));
+      await deleteDoc(doc(db, 'families', deleteMemberId));
       await loadFamily();
       showSnackbar('تم حذف العضو بنجاح');
     } catch (error) {
@@ -566,12 +570,12 @@ export default function Family() {
 
   // تحميل البيانات عند بداية المكون
   useEffect(() => {
-    if (uid) {
+    if (uid && isAuthenticated) {
       loadFamily();
     } else {
       navigate('/login');
     }
-  }, [uid, loadFamily, navigate]);
+  }, [uid, isAuthenticated, loadFamily, navigate]);
 
   // عرض النموذج
   const renderForm = () => (

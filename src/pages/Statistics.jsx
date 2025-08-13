@@ -1,5 +1,5 @@
 // src/pages/Statistics.jsx
-import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef, useContext } from 'react';
 import {
   Box, Typography, Grid, Paper, Chip, Divider,
   Tabs, Tab, Card, CardContent, LinearProgress,
@@ -21,11 +21,15 @@ import HomeIcon from '@mui/icons-material/Home';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 
 import { db } from '../firebase/config';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { familyAnalytics } from '../utils/FamilyAnalytics';
+import { AuthContext } from '../contexts/AuthContext';
 
 const Statistics = () => {
   const navigate = useNavigate();
+  
+  // استخدام AuthContext للحصول على بيانات المصادقة
+  const { user, isAuthenticated } = useContext(AuthContext);
   
   // مرجع لتتبع التحميل الأولي
   const initialLoadRef = useRef(true);
@@ -105,7 +109,9 @@ const Statistics = () => {
   // تحميل بيانات الشجرة العادية
   const loadSimpleTreeData = useCallback(async (uid) => {
     
-    const familySnapshot = await getDocs(collection(db, 'users', uid, 'family'));
+    const familyCollection = collection(db, 'families');
+    const q = query(familyCollection, where('userId', '==', uid));
+    const familySnapshot = await getDocs(q);
     const familyMembers = [];
     
     familySnapshot.forEach(doc => {
@@ -134,10 +140,11 @@ const Statistics = () => {
     const loadFamilyData = async () => {
       try {
         setLoading(true);
-        const uid = localStorage.getItem('verifiedUid');
+        const uid = user?.uid;
         
-        if (!uid) {
-          setError('لم يتم العثور على معرف المستخدم');
+        if (!uid || !isAuthenticated) {
+          setError('لم يتم العثور على معرف المستخدم أو المستخدم غير مصادق');
+          navigate('/login');
           return;
         }
 
@@ -161,7 +168,7 @@ const Statistics = () => {
     };
 
     loadFamilyData();
-  }, [loadSimpleTreeData]);
+  }, [loadSimpleTreeData, user?.uid, isAuthenticated, navigate]);
 
   // تحديث البيانات عند تغيير نوع الشجرة فقط
   useEffect(() => {
@@ -169,8 +176,8 @@ const Statistics = () => {
     if (initialLoadRef.current || familyMembers.length === 0) return;
 
     const updateTreeData = async () => {
-      const uid = localStorage.getItem('verifiedUid');
-      if (!uid) return;
+      const uid = user?.uid;
+      if (!uid || !isAuthenticated) return;
       
       try {
         setLoading(true);

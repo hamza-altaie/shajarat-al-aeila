@@ -15,7 +15,33 @@ service cloud.firestore {
       // السماح مؤقتًا بإنشاء أي بيانات مستخدم (للاختبار)
       return true;
     }
+
+    // ===========================================================
+    // 🧪 قواعد اختبار مؤقتة - السماح بالقراءة للجميع
+    // ===========================================================
     
+    match /test_connection/{testId} {
+      // السماح للجميع بالاختبار مؤقتاً
+      allow read, write: if true;
+    }
+    
+    match /families/{familyId} {
+      // السماح بالقراءة للجميع مؤقتاً للاختبار
+      allow read: if true;
+      
+      // إنشاء: المستخدمين المصادق عليهم فقط
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      // تحديث: صاحب البيانات فقط
+      allow update: if isAuthenticated() && 
+                       (resource == null || resource.data.userId == request.auth.uid);
+      
+      // حذف: صاحب البيانات فقط
+      allow delete: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid;
+    }
+
     // ===========================================================
     // 📱 قواعد المستخدمين - مع السماح بقراءة محدودة للآخرين
     // ===========================================================
@@ -39,155 +65,8 @@ service cloud.firestore {
       // حذف: المستخدم نفسه فقط
       allow delete: if isAuthenticated() && isOwner(userId);
     }
-    
-    // ===========================================================
-    // 👨‍👩‍👧‍👦 قواعد أعضاء العائلة - مع السماح بقراءة للمستخدمين المصادق عليهم
-    // ===========================================================
-    
-    match /users/{userId}/family/{memberId} {
-      // قراءة: صاحب العائلة + المستخدمين المصادق عليهم (للبحث عن العائلات)
-      allow read: if isAuthenticated() && (
-        isOwner(userId) ||
-        // السماح للمستخدمين المصادق عليهم بقراءة أعضاء العائلات للربط
-        isAuthenticated()
-      );
-      
-      // إنشاء/تحديث/حذف: صاحب العائلة فقط
-      allow create, update, delete: if isAuthenticated() && 
-                                       isOwner(userId);
-    }
-    
-    // ===========================================================
-    // 🏠 قواعد مجموعة العائلات المسطحة (للتطبيق الحالي)
-    // ===========================================================
-    
-    match /families/{familyId} {
-      // قراءة: جميع المستخدمين المصادق عليهم (للبحث والشجرة الموحدة)
-      allow read: if isAuthenticated();
-      
-      // إنشاء: المستخدمين المصادق عليهم فقط
-      allow create: if isAuthenticated() && 
-                       request.resource.data.userId == request.auth.uid;
-      
-      // تحديث: صاحب البيانات فقط
-      allow update: if isAuthenticated() && 
-                       (resource == null || resource.data.userId == request.auth.uid);
-      
-      // حذف: صاحب البيانات فقط
-      allow delete: if isAuthenticated() && 
-                       resource.data.userId == request.auth.uid;
-    }
-    
-    // ===========================================================
-    // 🧪 مجموعة اختبار الاتصال
-    // ===========================================================
-    
-    match /test_connection/{testId} {
-      // السماح للمستخدمين المصادق عليهم بالاختبار
-      allow read, write: if isAuthenticated();
-    }
-    
-    // ===========================================================
-    // 🏛️ قواعد القبائل - الشجرة الموحدة
-    // ===========================================================
-    
-    // قراءة قائمة القبائل العامة
-    match /tribes/{tribeId} {
-      // قراءة: جميع المستخدمين المصادق عليهم يمكنهم قراءة القبائل
-      allow read: if isAuthenticated();
-      
-      // إنشاء: المستخدمين المصادق عليهم فقط
-      allow create: if isAuthenticated() && 
-                       request.resource.data.createdBy == request.auth.uid;
-      
-      // تحديث: منشئ القبيلة أو المشرفين فقط
-      allow update: if isAuthenticated() && (
-        resource.data.createdBy == request.auth.uid ||
-        isTribeModerator(tribeId)
-      );
-      
-      // حذف: منشئ القبيلة فقط
-      allow delete: if isAuthenticated() && 
-                       resource.data.createdBy == request.auth.uid;
-    }
-    
-    // عضوية القبائل
-    match /tribeMemberships/{membershipId} {
-      // قراءة: جميع المستخدمين المصادق عليهم
-      allow read: if isAuthenticated();
-      
-      // إنشاء: المستخدمين المصادق عليهم فقط
-      allow create: if isAuthenticated();
-      
-      // تحديث: المستخدمين المصادق عليهم فقط
-      allow update: if isAuthenticated();
-      
-      // حذف: المستخدمين المصادق عليهم فقط
-      allow delete: if isAuthenticated();
-    }
-    
-    // أعضاء القبيلة
-    match /tribes/{tribeId}/members/{memberId} {
-      // قراءة: جميع المستخدمين المصادق عليهم
-      allow read: if isAuthenticated();
-      
-      // إنشاء/تحديث: المستخدمين المصادق عليهم فقط
-      allow create, update: if isAuthenticated();
-      
-      // حذف: المستخدمين المصادق عليهم فقط
-      allow delete: if isAuthenticated();
-    }
-    
-    // طلبات الانضمام للقبيلة
-    match /tribeJoinRequests/{requestId} {
-      // قراءة: جميع المستخدمين المصادق عليهم
-      allow read: if isAuthenticated();
-      
-      // إنشاء: المستخدمين المصادق عليهم فقط
-      allow create: if isAuthenticated();
-      
-      // تحديث: المستخدمين المصادق عليهم فقط
-      allow update: if isAuthenticated();
-      
-      // حذف: المستخدمين المصادق عليهم فقط
-      allow delete: if isAuthenticated();
-    }
-    
-    // روابط العائلات في القبيلة
-    match /tribes/{tribeId}/connections/{connectionId} {
-      // قراءة: جميع المستخدمين المصادق عليهم
-      allow read: if isAuthenticated();
-      
-      // إنشاء/تحديث: المستخدمين المصادق عليهم فقط
-      allow create, update: if isAuthenticated();
-      
-      // حذف: المستخدمين المصادق عليهم فقط
-      allow delete: if isAuthenticated();
-    }
-    
-    // ===========================================================
-    // 🔧 دوال مساعدة للقبائل
-    // ===========================================================
-    
-    function isTribeMember(tribeId) {
-      return exists(/databases/$(database)/documents/tribeMemberships/$(request.auth.uid + '_' + tribeId)) &&
-             get(/databases/$(database)/documents/tribeMemberships/$(request.auth.uid + '_' + tribeId)).data.status == 'active';
-    }
-    
-    function isTribeModerator(tribeId) {
-      return exists(/databases/$(database)/documents/tribeMemberships/$(request.auth.uid + '_' + tribeId)) &&
-             get(/databases/$(database)/documents/tribeMemberships/$(request.auth.uid + '_' + tribeId)).data.status == 'active' &&
-             get(/databases/$(database)/documents/tribeMemberships/$(request.auth.uid + '_' + tribeId)).data.role in ['admin', 'moderator'];
-    }
-    
-    function canEditTribeMembers(tribeId) {
-      return exists(/databases/$(database)/documents/tribeMemberships/$(request.auth.uid + '_' + tribeId)) &&
-             get(/databases/$(database)/documents/tribeMemberships/$(request.auth.uid + '_' + tribeId)).data.status == 'active' &&
-             get(/databases/$(database)/documents/tribeMemberships/$(request.auth.uid + '_' + tribeId)).data.permissions.canEditMembers == true;
-    }
-    
-    // باقي القواعد تبقى كما هي...
-    
+
+    // باقي القواعد الافتراضية
     match /{document=**} {
       allow read, write: if false;
     }

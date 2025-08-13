@@ -1,5 +1,5 @@
 // src/components/FamilyTreeAdvanced.jsx - شجرة العائلة البسيطة
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useContext } from 'react';
 import * as d3 from 'd3';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
@@ -22,6 +22,7 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 
 // استيراد خدمات العائلة
 import { loadFamily } from '../services/familyService.js';
+import { AuthContext } from '../contexts/AuthContext';
 
 // استيراد المكونات والأدوات المنفصلة
 import './FamilyTreeAdvanced.css';
@@ -50,7 +51,9 @@ export default function FamilyTreeAdvanced() {
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState(null);
   
-  const uid = localStorage.getItem('verifiedUid');
+  // استخدام AuthContext للحصول على بيانات المصادقة
+  const { user, isAuthenticated } = useContext(AuthContext);
+  const uid = user?.uid;
   const navigate = useNavigate();
   
   // المراجع للـ D3
@@ -192,7 +195,8 @@ export default function FamilyTreeAdvanced() {
   // ===========================================================================
 
   const loadTree = useCallback(async () => {
-    if (!uid) {
+    if (!uid || !isAuthenticated) {
+      navigate('/login');
       return;
     }
     
@@ -261,7 +265,7 @@ export default function FamilyTreeAdvanced() {
     } finally {
       setLoading(false);
     }
-  }, [uid, showSnackbar, monitorPerformance, buildTreeStructure, calculateTreeDepth, sanitizeMemberData]);
+  }, [uid, isAuthenticated, navigate, showSnackbar, monitorPerformance, buildTreeStructure, calculateTreeDepth, sanitizeMemberData]);
 
   // ===========================================================================
   // دوال التحكم
