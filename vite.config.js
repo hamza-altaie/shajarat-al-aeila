@@ -93,8 +93,7 @@ export default defineConfig({
             'firebase/storage'
           ],
           // مكتبات ثقيلة منفصلة
-          'visualization': ['d3'],
-          'heavy-components': ['html2canvas']
+          'visualization': ['d3']
         },
         // تحسين حجم الـ chunks
         chunkFileNames: (chunkInfo) => {
