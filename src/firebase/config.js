@@ -2,7 +2,8 @@
 
 import { initializeApp } from "firebase/app";
 import { getAuth, RecaptchaVerifier } from "firebase/auth";
-import { getStorage } from "firebase/storage"; // ✅ إضافة التخزين
+import { getStorage } from "firebase/storage";
+import { getFirestore } from "firebase/firestore";
 
 // ✅ إعداد Firebase Config للإنتاج
 const firebaseConfig = {
@@ -20,7 +21,8 @@ const app = initializeApp(firebaseConfig);
 
 // ✅ تهيئة الخدمات المطلوبة
 const auth = getAuth(app);
-const storage = getStorage(app); // ✅ تهيئة التخزين
+const storage = getStorage(app);
+const db = getFirestore(app);
 
 // 🔍 دالة لفحص حالة Firebase
 const getFirebaseStatus = () => {
@@ -28,7 +30,8 @@ const getFirebaseStatus = () => {
     isInitialized: !!auth,
     services: {
       auth: !!auth,
-      storage: !!storage
+      storage: !!storage,
+      db: !!db
     },
     config: firebaseConfig
   };
@@ -44,6 +47,7 @@ export {
   app,
   auth,
   storage,
+  db,
   RecaptchaVerifier,
   getFirebaseStatus,
   testFirebaseConnection
