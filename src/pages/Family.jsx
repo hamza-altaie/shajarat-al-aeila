@@ -1,5 +1,5 @@
 // src/pages/Family.jsx - إصلاح Grid للإصدار الحالي
-import React, { useState, useEffect, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container, TextField, Button, Typography, Paper, Box, IconButton, 
   Card, CardContent, CardActions, Snackbar, Alert, CircularProgress, 
@@ -16,13 +16,12 @@ import {
   People as FamilyIcon
 } from '@mui/icons-material';
 
-import { doc, collection, getDocs, deleteDoc, query, where, addDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../firebase/config';
 
 import { useNavigate } from 'react-router-dom';
 import { validateName, validateBirthdate } from '../hooks/usePhoneAuth';
-import { AuthContext } from '../contexts/AuthContext';
 
 // نموذج البيانات الافتراضي
 const DEFAULT_FORM = {
@@ -40,70 +39,9 @@ const DEFAULT_FORM = {
 
 // علاقات العائلة المتاحة
 const FAMILY_RELATIONS = [
-  // العائلة المباشرة
   { value: 'رب العائلة', label: '👨‍👩‍👧‍👦 رب العائلة' },
-  { value: 'زوجة', label: '👩 زوجة' },
   { value: 'ابن', label: '👦 ابن' },
-  { value: 'بنت', label: '👧 بنت' },
-  
-  // الوالدين والأجداد
-  { value: 'والد', label: '👨‍🦳 والد' },
-  { value: 'والدة', label: '👵 والدة' },
-  { value: 'جد', label: '👴 جد' },
-  { value: 'جدة', label: '👵 جدة' },
-  { value: 'جد الجد', label: '👴 جد الجد' },
-  { value: 'جدة الجد', label: '👵 جدة الجد' },
-  
-  // الإخوة والأخوات
-  { value: 'أخ', label: '👨 أخ' },
-  { value: 'أخت', label: '👩 أخت' },
-  { value: 'أخ غير شقيق', label: '👨 أخ غير شقيق' },
-  { value: 'أخت غير شقيقة', label: '👩 أخت غير شقيقة' },
-  
-  // الأعمام والعمات
-  { value: 'عم', label: '👨‍🦰 عم' },
-  { value: 'عمة', label: '👩‍🦰 عمة' },
-  { value: 'ابن عم', label: '👨 ابن عم' },
-  { value: 'بنت عم', label: '👩 بنت عم' },
-  
-  // الأخوال والخالات
-  { value: 'خال', label: '👨‍🦲 خال' },
-  { value: 'خالة', label: '👩‍🦲 خالة' },
-  { value: 'ابن خال', label: '👨 ابن خال' },
-  { value: 'بنت خال', label: '👩 بنت خال' },
-  
-  // أطفال الإخوة والأخوات
-  { value: 'ابن أخ', label: '👦 ابن أخ' },
-  { value: 'بنت أخ', label: '👧 بنت أخ' },
-  { value: 'ابن أخت', label: '👦 ابن أخت' },
-  { value: 'بنت أخت', label: '👧 بنت أخت' },
-  
-  // الأحفاد
-  { value: 'حفيد', label: '👦 حفيد' },
-  { value: 'حفيدة', label: '👧 حفيدة' },
-  { value: 'حفيد الحفيد', label: '👶 حفيد الحفيد' },
-  { value: 'حفيدة الحفيد', label: '👶 حفيدة الحفيد' },
-  
-  // علاقات الزواج
-  { value: 'زوج الابنة', label: '👨 زوج الابنة' },
-  { value: 'زوجة الابن', label: '👩 زوجة الابن' },
-  { value: 'صهر', label: '👨 صهر' },
-  { value: 'كنة', label: '👩 كنة' },
-  
-  // أهل الزوجة/الزوج
-  { value: 'حمو', label: '👨‍🦳 حمو (والد الزوج)' },
-  { value: 'حماة', label: '👵 حماة (والدة الزوج)' },
-  { value: 'أخو الزوج', label: '👨 أخو الزوج' },
-  { value: 'أخت الزوج', label: '👩 أخت الزوج' },
-  
-  // علاقات أخرى
-  { value: 'زوجة ثانية', label: '👩 زوجة ثانية' },
-  { value: 'زوجة ثالثة', label: '👩 زوجة ثالثة' },
-  { value: 'زوجة رابعة', label: '👩 زوجة رابعة' },
-  
-  // قرابة بعيدة
-  { value: 'ابن عم الوالد', label: '👨 ابن عم الوالد' },
-  { value: 'بنت عم الوالد', label: '👩 بنت عم الوالد' }
+  { value: 'بنت', label: '👧 بنت' }
 ];
 
 export default function Family() {
@@ -132,11 +70,8 @@ export default function Family() {
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
 
   const navigate = useNavigate();
-  
-  // استخدام AuthContext للحصول على بيانات المصادقة
-  const { user, isAuthenticated } = useContext(AuthContext);
-  const uid = user?.uid;
-  const phone = user?.phoneNumber;
+  const uid = localStorage.getItem('verifiedUid');
+  const phone = localStorage.getItem('verifiedPhone');
 
   // دالة عرض الإشعارات
   const showSnackbar = useCallback((message, severity = 'success') => {
@@ -219,16 +154,15 @@ export default function Family() {
 
   // تحميل بيانات العائلة
   const loadFamily = useCallback(async () => {
-    if (!uid || !isAuthenticated) {
+    if (!uid) {
       navigate('/login');
       return;
     }
 
     setLoading(true);
     try {
-      const familyCollection = collection(db, 'families');
-      const q = query(familyCollection, where('userId', '==', uid));
-      const snapshot = await getDocs(q);
+      const familyCollection = collection(db, 'users', uid, 'family');
+      const snapshot = await getDocs(familyCollection);
       
       const familyData = snapshot.docs.map(doc => {
         const data = doc.data();
@@ -262,7 +196,7 @@ export default function Family() {
     } finally {
       setLoading(false);
     }
-  }, [uid, isAuthenticated, navigate, showSnackbar]);
+  }, [uid, navigate, showSnackbar]);
 
   // التحقق من صحة البيانات
   const validateForm = () => {
@@ -347,10 +281,10 @@ export default function Family() {
       setAvatarUploadSuccess(true); // ✅ تعيين حالة النجاح
       
       if (form.id) {
-        await updateDoc(doc(db, 'families', form.id), {
+        await setDoc(doc(db, 'users', uid, 'family', form.id), {
           avatar: downloadURL,
-          updatedAt: new Date()
-        });
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
         
         await loadFamily();
       }
@@ -399,19 +333,20 @@ export default function Family() {
         avatar: form.avatar || '',
         manualParentName: form.manualParentName || '',
         linkedParentUid,
-        userId: uid,
-        updatedAt: new Date(),
+        updatedAt: new Date().toISOString(),
       };
 
       if (form.id) {
-        await updateDoc(doc(db, 'families', form.id), memberData);
+        await setDoc(doc(db, 'users', uid, 'family', form.id), memberData, { merge: true });
         showSnackbar('تم تحديث بيانات العضو بنجاح');
       } else {
+        const newDocRef = doc(collection(db, 'users', uid, 'family'));
         const newMemberData = { 
           ...memberData, 
-          createdAt: new Date()
+          id: newDocRef.id,
+          createdAt: new Date().toISOString()
         };
-        await addDoc(collection(db, 'families'), newMemberData);
+        await setDoc(newDocRef, newMemberData);
         showSnackbar('تم إضافة العضو بنجاح');
       }
 
@@ -463,7 +398,7 @@ export default function Family() {
         await deleteOldAvatar(memberToDelete.avatar);
       }
       
-      await deleteDoc(doc(db, 'families', deleteMemberId));
+      await deleteDoc(doc(db, 'users', uid, 'family', deleteMemberId));
       await loadFamily();
       showSnackbar('تم حذف العضو بنجاح');
     } catch (error) {
@@ -528,38 +463,24 @@ export default function Family() {
       });
     }
 
-    // ✅ ترتيب الأعضاء حسب الأهمية والعلاقة
-    const relationPriority = {
-      'رب العائلة': 1,
-      'زوجة': 2, 'زوجة ثانية': 2, 'زوجة ثالثة': 2, 'زوجة رابعة': 2,
-      'والد': 3, 'والدة': 3,
-      'جد': 4, 'جدة': 4, 'جد الجد': 4, 'جدة الجد': 4,
-      'ابن': 5, 'بنت': 5,
-      'أخ': 6, 'أخت': 6, 'أخ غير شقيق': 6, 'أخت غير شقيقة': 6,
-      'عم': 7, 'عمة': 7, 'ابن عم': 7, 'بنت عم': 7,
-      'خال': 8, 'خالة': 8, 'ابن خال': 8, 'بنت خال': 8,
-      'حفيد': 9, 'حفيدة': 9, 'حفيد الحفيد': 9, 'حفيدة الحفيد': 9,
-      'ابن أخ': 10, 'بنت أخ': 10, 'ابن أخت': 10, 'بنت أخت': 10,
-      'زوج الابنة': 11, 'زوجة الابن': 11, 'صهر': 11, 'كنة': 11,
-      'حمو': 12, 'حماة': 12, 'أخو الزوج': 12, 'أخت الزوج': 12,
-      'ابن عم الوالد': 13, 'بنت عم الوالد': 13
-    };
-    
+    // ✅ ترتيب الأعضاء: الأب أولاً ثم الأبناء حسب العمر
     const sortedMembers = filtered.sort((a, b) => {
-      // 1. ترتيب حسب أولوية العلاقة
-      const priorityA = relationPriority[a.relation] || 99;
-      const priorityB = relationPriority[b.relation] || 99;
-      
-      if (priorityA !== priorityB) {
-        return priorityA - priorityB;
+      // 1. رب العائلة أولاً
+      if (a.relation === 'رب العائلة' && b.relation !== 'رب العائلة') return -1;
+      if (b.relation === 'رب العائلة' && a.relation !== 'رب العائلة') return 1;
+
+      // 2. إذا كان كلاهما رب عائلة، ترتيب حسب تاريخ الإنشاء
+      if (a.relation === 'رب العائلة' && b.relation === 'رب العائلة') {
+        return new Date(a.createdAt) - new Date(b.createdAt);
       }
 
-      // 2. إذا كانت نفس العلاقة، ترتيب حسب العمر (الأكبر أولاً)
-      if (a.relation === b.relation && (a.relation === 'ابن' || a.relation === 'بنت')) {
+      // 3. إذا كان كلاهما ابن/بنت، ترتيب حسب العمر (الأكبر أولاً)
+      if ((a.relation === 'ابن' || a.relation === 'بنت') && 
+          (b.relation === 'ابن' || b.relation === 'بنت')) {
         return b.age - a.age;
       }
 
-      // 3. إذا كان نفس النوع من العلاقة ولها نفس الأولوية، ترتيب أبجدي
+      // 4. ترتيب باقي العلاقات حسب الاسم
       const nameA = `${a.firstName} ${a.fatherName}`.toLowerCase();
       const nameB = `${b.firstName} ${b.fatherName}`.toLowerCase();
       return nameA.localeCompare(nameB, 'ar');
@@ -570,12 +491,12 @@ export default function Family() {
 
   // تحميل البيانات عند بداية المكون
   useEffect(() => {
-    if (uid && isAuthenticated) {
+    if (uid) {
       loadFamily();
     } else {
       navigate('/login');
     }
-  }, [uid, isAuthenticated, loadFamily, navigate]);
+  }, [uid, loadFamily, navigate]);
 
   // عرض النموذج
   const renderForm = () => (

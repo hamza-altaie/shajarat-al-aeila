@@ -2,8 +2,8 @@
 
 import { initializeApp } from "firebase/app";
 import { getAuth, RecaptchaVerifier } from "firebase/auth";
-import { getStorage } from "firebase/storage";
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage"; // ✅ إضافة التخزين
 
 // ✅ إعداد Firebase Config للإنتاج
 const firebaseConfig = {
@@ -21,8 +21,8 @@ const app = initializeApp(firebaseConfig);
 
 // ✅ تهيئة الخدمات المطلوبة
 const auth = getAuth(app);
-const storage = getStorage(app);
 const db = getFirestore(app);
+const storage = getStorage(app); // ✅ تهيئة التخزين
 
 // 🔍 دالة لفحص حالة Firebase
 const getFirebaseStatus = () => {
@@ -30,14 +30,16 @@ const getFirebaseStatus = () => {
     isInitialized: !!auth,
     services: {
       auth: !!auth,
-      storage: !!storage,
-      db: !!db
+      db: !!db,
+      storage: !!storage
     },
     config: firebaseConfig
   };
 };
 
-// 🔌 دالة لاختبار الاتصال
+// 🔌 دالة لاختبار الاتصال بقاعدة البيانات
+// ملاحظة: لا يوجد collection('test') بشكل مباشر في Firestore v9+
+// ممكن نستخدم الطريقة الجديدة لاحقاً
 const testFirebaseConnection = async () => {
   return { success: true };
 };
@@ -46,8 +48,8 @@ const testFirebaseConnection = async () => {
 export {
   app,
   auth,
-  storage,
   db,
+  storage,
   RecaptchaVerifier,
   getFirebaseStatus,
   testFirebaseConnection
