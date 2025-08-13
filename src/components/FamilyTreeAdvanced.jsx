@@ -837,62 +837,136 @@ const drawTreeWithD3 = useCallback((data) => {
     }
   }
 
-  if (isExtended && data.unclesAunts) {
-    // رسم خطوط للأعمام والعمات بنفس النمط
-    data.unclesAunts.forEach((uncleAunt, index) => {
-      const uncleAuntX = root.x + (index % 2 === 0 ? -200 : 200);
-      const uncleAuntY = root.y - 200;
+  if (isExtended && data.unclesAunts && data.parents && data.parents.length > 0) {
+    // رسم خطوط للأعمام والعمات - كأشقاء للوالد
+    const parentY = root.y - 200;
+    const parentX = root.x;
+    
+    // تحديد مواقع الأعمام
+    const unclePositions = data.unclesAunts.map((uncle, index) => {
+      return root.x + (index % 2 === 0 ? -200 : 200);
+    });
+    
+    // جميع المواقع (الأعمام + الوالد) في نفس المستوى
+    const allParentLevelPositions = [...unclePositions, parentX].sort((a, b) => a - b);
+    const leftmost = allParentLevelPositions[0];
+    const rightmost = allParentLevelPositions[allParentLevelPositions.length - 1];
+    const horizontalLineY = parentY - 50; // خط أفقي أعلى مستوى الوالد والأعمام
+    
+    // 1. خط أفقي يربط الوالد مع الأعمام (كأشقاء)
+    g.append("path")
+      .attr("class", "parent-uncles-horizontal-line")
+      .attr("d", `M${leftmost},${horizontalLineY} L${rightmost},${horizontalLineY}`)
+      .style("fill", "none")
+      .style("stroke", "#cbd5e1")
+      .style("stroke-width", 2)
+      .style("stroke-linecap", "round")
+      .style("opacity", 0)
+      .transition()
+      .delay(900)
+      .duration(600)
+      .ease(d3.easeQuadOut)
+      .style("opacity", 0.85);
+    
+    // 2. خط عمودي من الخط الأفقي إلى الوالد
+    g.append("path")
+      .attr("class", "horizontal-to-parent")
+      .attr("d", `M${parentX},${horizontalLineY} L${parentX},${parentY}`)
+      .style("fill", "none")
+      .style("stroke", "#cbd5e1")
+      .style("stroke-width", 2)
+      .style("stroke-linecap", "round")
+      .style("opacity", 0)
+      .transition()
+      .delay(950)
+      .duration(400)
+      .ease(d3.easeQuadOut)
+      .style("opacity", 0.85);
+    
+    // 3. خطوط عمودية من الخط الأفقي إلى كل عم
+    data.unclesAunts.forEach((uncle, index) => {
+      const uncleX = root.x + (index % 2 === 0 ? -200 : 200);
       
       g.append("path")
-        .attr("class", "uncle-aunt-link")
-        .attr("d", () => {
-          const midY = root.y + (uncleAuntY - root.y) / 2;
-          const radius = 18;
-          return `M${root.x},${root.y - cardHeight/2}
-                  L${root.x},${midY - radius}
-                  Q${root.x},${midY} ${root.x + (uncleAuntX > root.x ? radius : -radius)},${midY}
-                  L${uncleAuntX - (uncleAuntX > root.x ? radius : -radius)},${midY}
-                  Q${uncleAuntX},${midY} ${uncleAuntX},${midY + radius}
-                  L${uncleAuntX},${uncleAuntY + cardHeight/2}`;
-        })
+        .attr("class", `horizontal-to-uncle-${index}`)
+        .attr("d", `M${uncleX},${horizontalLineY} L${uncleX},${parentY}`)
         .style("fill", "none")
         .style("stroke", "#cbd5e1")
         .style("stroke-width", 2)
         .style("stroke-linecap", "round")
-        .style("stroke-linejoin", "round")
         .style("opacity", 0)
         .transition()
-        .delay(1000)
-        .duration(800)
+        .delay(950 + index * 100)
+        .duration(400)
         .ease(d3.easeQuadOut)
         .style("opacity", 0.85);
     });
   }
 
-  if (isExtended && data.motherSide) {
-    // رسم خطوط للأخوال والخالات بنفس النمط
-    data.motherSide.forEach((motherSide, index) => {
-      const motherSideX = root.x + (index % 2 === 0 ? -500 : 500);
+  if (isExtended && data.motherSide && data.parents && data.parents.length > 0) {
+    // رسم خطوط للأخوال والخالات - كأشقاء للأم
+    const parentY = root.y - 200;
+    
+    // إذا كان هناك أم، فالأخوال يرتبطون بها كأشقاء
+    // نفترض أن الأم في موقع مختلف قليلاً عن الأب للتمييز
+    const motherX = root.x + 100; // الأم بجانب الأب
+    
+    // تحديد مواقع الأخوال
+    const maternalUnclePositions = data.motherSide.map((uncle, index) => {
+      return root.x + (index % 2 === 0 ? -500 : 500);
+    });
+    
+    // خط أفقي منفصل للأخوال والأم
+    const allMaternalPositions = [...maternalUnclePositions, motherX].sort((a, b) => a - b);
+    const leftmostMaternal = allMaternalPositions[0];
+    const rightmostMaternal = allMaternalPositions[allMaternalPositions.length - 1];
+    const maternalHorizontalLineY = parentY - 80; // مستوى منفصل للجانب الأمومي
+    
+    // 1. خط أفقي يربط الأم مع الأخوال (كأشقاء)
+    g.append("path")
+      .attr("class", "maternal-horizontal-line")
+      .attr("d", `M${leftmostMaternal},${maternalHorizontalLineY} L${rightmostMaternal},${maternalHorizontalLineY}`)
+      .style("fill", "none")
+      .style("stroke", "#22c55e") // لون مختلف للجانب الأمومي
+      .style("stroke-width", 2)
+      .style("stroke-linecap", "round")
+      .style("opacity", 0)
+      .transition()
+      .delay(1100)
+      .duration(600)
+      .ease(d3.easeQuadOut)
+      .style("opacity", 0.85);
+    
+    // 2. خط عمودي من الخط الأفقي إلى الأم
+    g.append("path")
+      .attr("class", "horizontal-to-mother")
+      .attr("d", `M${motherX},${maternalHorizontalLineY} L${motherX},${parentY}`)
+      .style("fill", "none")
+      .style("stroke", "#22c55e")
+      .style("stroke-width", 2)
+      .style("stroke-linecap", "round")
+      .style("opacity", 0)
+      .transition()
+      .delay(1150)
+      .duration(400)
+      .ease(d3.easeQuadOut)
+      .style("opacity", 0.85);
+    
+    // 3. خطوط عمودية من الخط الأفقي إلى كل خال
+    data.motherSide.forEach((uncle, index) => {
+      const uncleX = root.x + (index % 2 === 0 ? -500 : 500);
       
       g.append("path")
-        .attr("class", "mother-side-link")
-        .attr("d", () => {
-          const midY = root.y - 25;
-          return `M${root.x + (motherSideX > root.x ? cardWidth/2 : -cardWidth/2)},${root.y}
-                  L${root.x + (motherSideX > root.x ? 120 : -120)},${root.y}
-                  Q${root.x + (motherSideX > root.x ? 140 : -140)},${root.y} ${root.x + (motherSideX > root.x ? 140 : -140)},${midY}
-                  L${motherSideX + (motherSideX > root.x ? -140 : 140)},${midY}
-                  Q${motherSideX + (motherSideX > root.x ? -120 : 120)},${midY} ${motherSideX + (motherSideX > root.x ? -cardWidth/2 : cardWidth/2)},${root.y - 50}`;
-        })
+        .attr("class", `horizontal-to-maternal-uncle-${index}`)
+        .attr("d", `M${uncleX},${maternalHorizontalLineY} L${uncleX},${parentY}`)
         .style("fill", "none")
-        .style("stroke", "#cbd5e1")
+        .style("stroke", "#22c55e")
         .style("stroke-width", 2)
         .style("stroke-linecap", "round")
-        .style("stroke-linejoin", "round")
         .style("opacity", 0)
         .transition()
-        .delay(1200)
-        .duration(800)
+        .delay(1150 + index * 100)
+        .duration(400)
         .ease(d3.easeQuadOut)
         .style("opacity", 0.85);
     });
