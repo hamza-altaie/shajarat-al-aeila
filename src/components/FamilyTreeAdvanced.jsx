@@ -22,10 +22,9 @@ import SearchIcon from '@mui/icons-material/Search';
 
 // استيرادات Firebase
 import { db } from '../firebase/config';
-import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 
 // استيراد المكونات
-import ExtendedFamilyLinking from './ExtendedFamilyLinking';
 import './FamilyTreeAdvanced.css';
 import BarChartIcon from '@mui/icons-material/BarChart';
 
@@ -34,10 +33,7 @@ export default function FamilyTreeAdvanced() {
   // الحالات الأساسية
   // ===========================================================================
   
-  const [showExtendedTree, setShowExtendedTree] = useState(false);
   const [selectedNode, setSelectedNode] = useState(null);
-  const [linkedFamilies, setLinkedFamilies] = useState([]);
-  const [showLinkingPanel, setShowLinkingPanel] = useState(false);
   const [performanceMetrics, setPerformanceMetrics] = useState({
     loadTime: 0,
     personCount: 0,
@@ -48,7 +44,6 @@ export default function FamilyTreeAdvanced() {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('info');
   const [simpleTreeData, setSimpleTreeData] = useState(null);
-  const [extendedTreeData, setExtendedTreeData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState('');
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -244,1294 +239,6 @@ export default function FamilyTreeAdvanced() {
     return maxDepth;
   }, []);
 
-  const loadFamilyData = useCallback(async (familyUid) => {
-  try {
-    // إضافة تحميل بيانات المستخدم
-    const userDoc = await getDoc(doc(db, 'users', familyUid));
-    const userData = userDoc.exists() ? userDoc.data() : null;
-    
-    const familySnapshot = await getDocs(collection(db, 'users', familyUid, 'family'));
-    const members = [];
-      
-      familySnapshot.forEach(doc => {
-        const memberData = sanitizeMemberData({ 
-          ...doc.data(), 
-          id: doc.id,
-          globalId: `${familyUid}_${doc.id}`,
-          familyUid: familyUid,
-          isExtended: familyUid !== uid
-        });
-        
-        if (memberData.firstName && memberData.firstName.trim() !== '') {
-          members.push(memberData);
-        }
-      });
-
-      if (members.length > 0) {
-        const head = findFamilyHead(members);
-        
-        return {
-          uid: familyUid,
-          members,
-          head,
-          userData, // إضافة هذا السطر
-          isExtended: familyUid !== uid
-        };
-      }
-      
-      return null;
-    } catch {
-      return null;
-    }
-  }, [uid]);
-
-  const findAllLinkedFamilies = useCallback(async (startUid) => {
-    try {
-      const linkedFamilyUids = new Set([startUid]);
-      
-      // البحث في بيانات المستخدم الحالي
-      const userDoc = await getDoc(doc(db, 'users', startUid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        
-        // إضافة العائلات من linkedFamilies
-        if (userData.linkedFamilies && Array.isArray(userData.linkedFamilies)) {
-          userData.linkedFamilies.forEach(link => {
-            if (link.targetFamilyUid) {
-              linkedFamilyUids.add(link.targetFamilyUid);
-            }
-          });
-        }
-        
-        // إضافة العائلة الرئيسية إن وجدت
-        if (userData.linkedToFamilyHead) {
-          linkedFamilyUids.add(userData.linkedToFamilyHead);
-        }
-      }
-      
-      // البحث في جميع المستخدمين عن روابط معكوسة
-      const allUsersSnapshot = await getDocs(collection(db, 'users'));
-      allUsersSnapshot.forEach(userDoc => {
-        const userData = userDoc.data();
-        const userId = userDoc.id;
-        
-        // إذا كان مرتبط بعائلتك
-        if (userData.linkedToFamilyHead === startUid) {
-          linkedFamilyUids.add(userId);
-        }
-        
-        // إذا كان لديه روابط معك
-        if (userData.linkedFamilies && Array.isArray(userData.linkedFamilies)) {
-          userData.linkedFamilies.forEach(link => {
-            if (link.targetFamilyUid === startUid) {
-              linkedFamilyUids.add(userId);
-            }
-          });
-        }
-      });
-      
-      const result = Array.from(linkedFamilyUids);
-      return result;
-      
-    } catch {
-      return [startUid]; // إرجاع العائلة الحالية فقط في حالة الخطأ
-    }
-  }, []);
-
-  // دالة دمج الهويات المتعددة لنفس الشخص
-  const mergePersonIdentities = useCallback((allFamiliesData) => {
-    const personMap = new Map(); // خريطة الأشخاص بالاسم الكامل
-    const mergedFamilies = [];
-
-    allFamiliesData.forEach(familyData => {
-      familyData.members.forEach(member => {
-        const fullName = `${member.firstName?.trim() || ''}_${member.fatherName?.trim() || ''}`.toLowerCase();
-        
-        if (personMap.has(fullName)) {
-          // هذا الشخص موجود بالفعل - دمج البيانات
-          const existingPerson = personMap.get(fullName);
-          
-          // دمج الأدوار والمعلومات
-          const mergedPerson = {
-            ...existingPerson,
-            // إبقاء أحدث المعلومات أو الأكثر تفصيلاً
-            avatar: member.avatar || existingPerson.avatar,
-            birthdate: member.birthdate || existingPerson.birthdate,
-            phone: member.phone || existingPerson.phone,
-            
-            // دمج الأدوار من كلا الحسابين
-            multipleRoles: [
-              ...(existingPerson.multipleRoles || [{ 
-                familyUid: existingPerson.familyUid, 
-                relation: existingPerson.relation,
-                isPrimary: true 
-              }]),
-              { 
-                familyUid: familyData.uid, 
-                relation: member.relation,
-                isPrimary: false 
-              }
-            ],
-            
-            // تحديد الهوية الأساسية (عادة رب العائلة له الأولوية)
-            primaryRole: member.relation === 'رب العائلة' ? {
-              familyUid: familyData.uid,
-              relation: member.relation
-            } : existingPerson.primaryRole
-          };
-          
-          personMap.set(fullName, mergedPerson);
-
-        } else {
-          // شخص جديد - إضافته للخريطة
-          const newPerson = {
-            ...member,
-            primaryRole: {
-              familyUid: familyData.uid,
-              relation: member.relation
-            }
-          };
-          
-          personMap.set(fullName, newPerson);
-        }
-      });
-
-      // معالجة العائلة مع الأعضاء المدموجين - الحفاظ على العلاقة الأصلية لكل عائلة
-      const updatedMembers = familyData.members.map(member => {
-        const fullName = `${member.firstName?.trim() || ''}_${member.fatherName?.trim() || ''}`.toLowerCase();
-        const mergedPerson = personMap.get(fullName);
-        
-        // إرجاع نسخة من الشخص المدموج مع الحفاظ على العلاقة الأصلية في هذه العائلة
-        return {
-          ...mergedPerson,
-          relation: member.relation, // الحفاظ على العلاقة الأصلية في هذه العائلة
-          familyUid: familyData.uid // الحفاظ على معرف العائلة الحالي
-        };
-      });
-
-      mergedFamilies.push({
-        ...familyData,
-        members: updatedMembers
-      });
-    });
-
-    return mergedFamilies;
-  }, []);
-
-  // إصلاح دالة buildExtendedTreeStructure في FamilyTreeAdvanced.jsx
-
-  const buildExtendedTreeStructure = useCallback((allFamiliesData, rootFamilyUid) => {
-    if (!allFamiliesData || allFamiliesData.length === 0) {
-      return null;
-    }
-
-    // خطوة 1: دمج الهويات المتعددة لنفس الأشخاص
-    const mergedFamiliesData = mergePersonIdentities(allFamiliesData);
-
-    mergedFamiliesData.forEach((family) => {
-      const mergedPersons = family.members.filter(m => m.multipleRoles);
-      if (mergedPersons.length > 0) {
-        // معالجة الأشخاص المدموجين
-      }
-    });
-
-    // **خطوة جديدة: البحث المتقدم عن جميع الأجيال**
-    
-    // دالة للبحث عن جميع الأجداد (تصاعدي) - محسنة للأعماق الكبيرة
-    function findAllAncestors(startFamily, maxDepth = 15) {
-
-      const ancestors = [];
-      const visitedFamilies = new Set(); // تجنب الدورات اللانهائية
-      let currentFamily = startFamily;
-      let depth = 0;
-      
-      while (currentFamily && depth < maxDepth) {
-        // تجنب الدورات اللانهائية
-        if (visitedFamilies.has(currentFamily.uid)) {
-
-          break;
-        }
-        visitedFamilies.add(currentFamily.uid);
-        
-        // البحث عن أب هذه العائلة
-        const parentFamily = mergedFamiliesData.find(family => {
-          return family.members.some(member => 
-            member.multipleRoles && 
-            member.multipleRoles.some(role => 
-              role.familyUid === currentFamily.uid && 
-              (isFamilyHeadRelation(role.relation) || role.relation === 'child')
-            ) &&
-            member.multipleRoles.some(role => 
-              role.familyUid === family.uid && 
-              isChildRelation(role.relation)
-            )
-          );
-        });
-        
-        if (parentFamily && parentFamily.uid !== currentFamily.uid && !visitedFamilies.has(parentFamily.uid)) {
-          // استخدام الدالة المشتركة لتسمية الأجداد
-          const relationName = getGenerationName(depth, 'ancestor');
-          
-          ancestors.push({
-            family: parentFamily,
-            depth: depth + 1,
-            relation: relationName
-          });
-
-          currentFamily = parentFamily;
-          depth++;
-        } else {
-          if (parentFamily && visitedFamilies.has(parentFamily.uid)) {
-            // تجنب الدورة اللانهائية
-          }
-          break;
-        }
-      }
-      
-      if (depth >= maxDepth) {
-        // تم الوصول للحد الأقصى من العمق
-      }
-
-      return ancestors;
-    }
-    
-    // دالة للبحث عن جميع الأحفاد (تنازلي) - محسنة للأعماق الكبيرة
-    function findAllDescendants(personFamily, maxDepth = 15) {
-
-      const descendants = [];
-      const visitedFamilies = new Set(); // تجنب الدورات اللانهائية
-      
-      function searchDeeper(currentFamily, currentDepth) {
-        if (currentDepth >= maxDepth) {
-
-          return;
-        }
-        
-        // تجنب الدورات اللانهائية
-        if (visitedFamilies.has(currentFamily.uid)) {
-
-          return;
-        }
-        visitedFamilies.add(currentFamily.uid);
-        
-        // البحث عن عائلات الأطفال
-        const childrenFamilies = mergedFamiliesData.filter(family => {
-          return family.members.some(member => 
-            member.multipleRoles && 
-            member.multipleRoles.some(role => 
-              role.familyUid === currentFamily.uid && 
-              isChildRelation(role.relation)
-            ) &&
-            member.multipleRoles.some(role => 
-              role.familyUid === family.uid && 
-              isFamilyHeadRelation(role.relation)
-            )
-          ) && !visitedFamilies.has(family.uid);
-        });
-        
-        childrenFamilies.forEach(childFamily => {
-          if (childFamily.uid !== currentFamily.uid) {
-            // استخدام الدالة المشتركة لتسمية الأحفاد
-            const relationName = getGenerationName(currentDepth, 'descendant');
-            
-            descendants.push({
-              family: childFamily,
-              depth: currentDepth + 1,
-              relation: relationName
-            });
-
-            // البحث التكراري للمستوى التالي
-            searchDeeper(childFamily, currentDepth + 1);
-          }
-        });
-      }
-      
-      searchDeeper(personFamily, 0);
-
-      return descendants;
-    }
-    
-    // دالة للبحث عن جميع الأقارب الجانبيين
-    function findAllCousinsAndRelatives(ancestors) {
-
-      const relatives = [];
-      
-      ancestors.forEach(ancestor => {
-        // البحث عن إخوة هذا الجد
-        const uncles = mergedFamiliesData.filter(family => {
-          return family.members.some(member => 
-            member.multipleRoles && 
-            member.multipleRoles.some(role => 
-              role.familyUid === ancestor.family.uid && 
-              isChildRelation(role.relation)
-            ) &&
-            member.multipleRoles.some(role => 
-              role.familyUid === family.uid && 
-              isFamilyHeadRelation(role.relation)
-            )
-          ) && family.uid !== ancestor.family.uid;
-        });
-        
-        uncles.forEach(uncle => {
-          const relationName = ancestor.depth === 1 ? 'عم' : 
-                             ancestor.depth === 2 ? 'عم الأب' : 
-                             `عم الجد ${ancestor.depth - 1}`;
-          
-          relatives.push({
-            family: uncle,
-            depth: ancestor.depth,
-            relation: relationName,
-            ancestorDepth: ancestor.depth
-          });
-
-          // البحث عن أطفال العم (أبناء العم)
-          const cousinDescendants = findAllDescendants(uncle, 5);
-          cousinDescendants.forEach(cousin => {
-            const cousinRelation = ancestor.depth === 1 ? 
-              (cousin.depth === 1 ? 'ابن عم' : `حفيد العم ${cousin.depth - 1}`) :
-              `ابن عم الجد ${ancestor.depth - 1}`;
-              
-            relatives.push({
-              family: cousin.family,
-              depth: ancestor.depth + cousin.depth,
-              relation: cousinRelation,
-              ancestorDepth: ancestor.depth
-            });
-          });
-        });
-      });
-
-      return relatives;
-    }
-
-    const currentUserFamily = mergedFamiliesData.find(f => f.uid === rootFamilyUid);
-    
-    // **البحث الشامل عن جميع الأجيال والأقارب**
-
-    // العثور على جميع الأجداد
-    const allAncestors = findAllAncestors(currentUserFamily, 10);
-    
-    // العثور على جميع الأقارب الجانبيين
-    const allRelatives = findAllCousinsAndRelatives(allAncestors);
-    
-    // تحديد الجذر الأقدم (أعلى جد في السلسلة)
-    const oldestAncestor = allAncestors.length > 0 ? 
-      allAncestors[allAncestors.length - 1] : 
-      { family: currentUserFamily, depth: 0, relation: 'أنت' };
-
-    // تحليل الروابط وتصنيفها - إصلاح محسن
-    let relationships = {
-      oldestRoot: oldestAncestor.family,        // الجذر الأقدم
-      ancestors: allAncestors,                  // جميع الأجداد
-      directParent: null,                       // الأب المباشر  
-      siblings: [],                             // الإخوة
-      uncles: [],                               // الأعمام
-      cousins: [],                              // أبناء العم
-      descendants: [],                          // الأحفاد
-      relatives: allRelatives,                  // جميع الأقارب الجانبيين
-      others: []                                // باقي الأقارب
-    };
-
-    // **خطوة 1: البحث عن الأب المباشر والإخوة من خلال الهويات المدموجة**
-
-    // البحث عن الأب المباشر (الجيل السابق مباشرة)
-    const directParent = allAncestors.length > 0 ? allAncestors[0] : null;
-    if (directParent) {
-      relationships.directParent = directParent.family;
-
-    }
-    
-    // البحث عن الإخوة في عائلة الأب المباشرة
-    if (relationships.directParent) {
-      // البحث عن الإخوة في عائلة الأب المباشرة
-      const siblingsInParentFamily = relationships.directParent.members.filter(member => 
-        isChildRelation(member.relation) &&
-        member.globalId !== currentUserFamily.head.globalId && // ليس المستخدم الحالي
-        member.id !== currentUserFamily.head.id
-      );
-
-      // إضافة كل أخ كعائلة منفصلة للشجرة
-      siblingsInParentFamily.forEach(sibling => {
-
-        // البحث عن عائلة هذا الأخ (إذا كان له عائلة منفصلة)
-        const siblingFamily = mergedFamiliesData.find(family => 
-          family.head.globalId === sibling.globalId || 
-          family.head.id === sibling.id
-        );
-        
-        if (siblingFamily && siblingFamily.uid !== rootFamilyUid) {
-
-          relationships.siblings.push(siblingFamily);
-        }
-      });
-    }
-    
-    // **خطوة 2: تصنيف الأقارب الجانبيين**
-
-    // تصنيف الأعمام وأبناء العم
-    allRelatives.forEach(relative => {
-      if (relative.relation.includes('عم') && !relative.relation.includes('ابن')) {
-        relationships.uncles.push(relative.family);
-
-      } else if (relative.relation.includes('ابن عم') || relative.relation.includes('حفيد العم')) {
-        relationships.cousins.push(relative.family);
-
-      } else {
-        relationships.others.push({family: relative.family, type: relative.relation});
-
-      }
-    });
-    
-    // **خطوة 3: البحث عن جميع الأحفاد**
-
-    relationships.descendants = findAllDescendants(currentUserFamily, 10);
-
-    // **خطوة 4: معالجة الروابط التقليدية إذا لم نجد ما يكفي من الهويات المدموجة**
-    if ((!relationships.directParent || relationships.siblings.length === 0) && currentUserFamily?.userData?.linkedFamilies) {
-
-      currentUserFamily.userData.linkedFamilies.forEach(link => {
-        const linkedFamily = mergedFamiliesData.find(f => f.uid === link.targetFamilyUid);
-        
-        if (linkedFamily?.head) {
-
-          switch (link.linkType) {
-            case 'father':
-              if (!relationships.directParent) {
-                relationships.directParent = linkedFamily;
-              }
-              break;
-              
-            case 'brother':
-              if (!relationships.siblings.some(s => s.uid === linkedFamily.uid)) {
-                relationships.siblings.push(linkedFamily);
-              }
-              break;
-              
-            case 'uncle':
-            case 'nephew':
-              if (!relationships.uncles.some(u => u.uid === linkedFamily.uid)) {
-                relationships.uncles.push(linkedFamily);
-              }
-              break;
-              
-            case 'grandfather':
-            case 'grandson':
-              if (!relationships.others.some(o => o.family.uid === linkedFamily.uid)) {
-                relationships.others.push({family: linkedFamily, type: 'grandparent'});
-              }
-              break;
-              
-            default:
-              relationships.others.push({family: linkedFamily, type: link.linkType});
-          }
-        }
-      });
-    }
-
-    // **خطوة إضافية: الاكتشاف التلقائي للأعمام**
-    // المنطق: "إذا كان لأبي أخ → يظهر كعم تلقائياً"
-    console.warn('🔍 البحث التلقائي عن الأعمام...', {
-      hasDirectParent: !!relationships.directParent,
-      currentUnclesCount: relationships.uncles.length,
-      allFamiliesCount: mergedFamiliesData.length
-    });
-    
-    if (relationships.directParent) {
-      const parentName = relationships.directParent.head.firstName;
-      const parentGlobalId = relationships.directParent.head.globalId;
-      
-      console.warn('👨 البحث عن إخوة الأب:', parentName);
-      
-      // البحث التلقائي عن إخوة الأب في جميع العائلات
-      mergedFamiliesData.forEach(family => {
-        if (family.uid !== currentUserFamily.uid && family.uid !== relationships.directParent.uid) {
-          const familyHead = family.head;
-          
-          // التحقق من الروابط المدموجة أولاً
-          if (familyHead.multipleRoles) {
-            const hasBrotherRelationWithParent = familyHead.multipleRoles.some(role => 
-              role.relation === 'أخ' && role.parentName === parentName
-            );
-            
-            if (hasBrotherRelationWithParent) {
-              console.warn('✅ وجدت عم تلقائياً عبر الهويات المدموجة:', familyHead.firstName, 'أخ لـ', parentName);
-              if (!relationships.uncles.some(u => u.uid === family.uid)) {
-                relationships.uncles.push(family);
-              }
-            }
-          }
-          
-          // البحث في الروابط اليدوية لهذه العائلة
-          if (family.userData?.linkedFamilies) {
-            const hasBrotherLinkWithParent = family.userData.linkedFamilies.some(link => 
-              link.targetFamilyUid === relationships.directParent.uid && link.linkType === 'brother'
-            );
-            
-            if (hasBrotherLinkWithParent) {
-              console.warn('✅ وجدت عم تلقائياً عبر الروابط اليدوية:', familyHead.firstName, 'مرتبط كأخ مع', parentName);
-              if (!relationships.uncles.some(u => u.uid === family.uid)) {
-                relationships.uncles.push(family);
-              }
-            }
-          }
-          
-          // البحث في أفراد العائلة عن من يطابق الأب كأخ
-          const foundBrotherOfParent = family.members.find(member => 
-            member.relation === 'أخ' && 
-            (member.linkedWith === parentGlobalId || 
-             member.linkedWith === parentName ||
-             member.fatherName === relationships.directParent.head.fatherName)
-          );
-          
-          if (foundBrotherOfParent) {
-            console.warn('✅ وجدت عم تلقائياً عبر أفراد العائلة:', familyHead.firstName, 'أخ لـ', parentName);
-            if (!relationships.uncles.some(u => u.uid === family.uid)) {
-              relationships.uncles.push(family);
-            }
-          }
-          
-          // البحث بناء على اسم الأب المشترك (نفس الجد)
-          if (relationships.directParent.head.fatherName && familyHead.fatherName) {
-            if (relationships.directParent.head.fatherName === familyHead.fatherName && 
-                familyHead.firstName !== relationships.directParent.head.firstName) {
-              console.warn('✅ وجدت عم تلقائياً عبر اسم الأب المشترك:', familyHead.firstName, 'و', parentName, 'لهما نفس الأب:', familyHead.fatherName);
-              if (!relationships.uncles.some(u => u.uid === family.uid)) {
-                relationships.uncles.push(family);
-              }
-            }
-          }
-        }
-      });
-      
-      // البحث العكسي: البحث في روابط الأب عن من هو مرتبط معه كأخ
-      if (relationships.directParent.userData?.linkedFamilies) {
-        relationships.directParent.userData.linkedFamilies.forEach(link => {
-          if (link.linkType === 'brother') {
-            const uncleFamily = mergedFamiliesData.find(f => f.uid === link.targetFamilyUid);
-            if (uncleFamily && uncleFamily.uid !== currentUserFamily.uid) {
-              console.warn('✅ وجدت عم تلقائياً عبر روابط الأب:', uncleFamily.head.firstName, 'مرتبط كأخ مع', parentName);
-              if (!relationships.uncles.some(u => u.uid === uncleFamily.uid)) {
-                relationships.uncles.push(uncleFamily);
-              }
-            }
-          }
-        });
-      }
-    }
-    
-    // **البحث عن الروابط اليدوية المتبقية (للتوافق مع النظام القديم)**
-    if (relationships.directParent) {
-      mergedFamiliesData.forEach(family => {
-        if (family.userData?.linkedFamilies && family.uid !== currentUserFamily.uid) {
-          family.userData.linkedFamilies.forEach(link => {
-            // إذا كانت هذه العائلة مرتبطة مع أبي كأخ، إذن هي عمي
-            if (link.targetFamilyUid === relationships.directParent.uid && link.linkType === 'brother') {
-              console.warn('✅ وجدت عم عبر رابط أخ مع الأب:', family.head.firstName);
-              if (!relationships.uncles.some(u => u.uid === family.uid)) {
-                relationships.uncles.push(family);
-              }
-            }
-            // أو إذا كانت مرتبطة معي كعم
-            else if (link.targetFamilyUid === currentUserFamily.uid && link.linkType === 'nephew') {
-              console.warn('✅ وجدت عم عبر رابط ابن أخ معي:', family.head.firstName);
-              if (!relationships.uncles.some(u => u.uid === family.uid)) {
-                relationships.uncles.push(family);
-              }
-            }
-          });
-        }
-      });
-    }
-
-    // **البحث عن من هو مرتبط معي كعم مباشرة (للتوافق مع النظام القديم)**
-    mergedFamiliesData.forEach(family => {
-      if (family.userData?.linkedFamilies && family.uid !== currentUserFamily.uid) {
-        family.userData.linkedFamilies.forEach(link => {
-          if (link.targetFamilyUid === currentUserFamily.uid && link.linkType === 'nephew') {
-            console.warn('✅ وجدت عم مرتبط معي مباشرة:', family.head.firstName);
-            if (!relationships.uncles.some(u => u.uid === family.uid)) {
-              relationships.uncles.push(family);
-            }
-          }
-        });
-      }
-    });
-    
-    console.warn('📊 نتائج الاكتشاف التلقائي للأعمام:', {
-      unclesFound: relationships.uncles.length,
-      uncleNames: relationships.uncles.map(u => u.head.firstName),
-      detectionMethod: 'تلقائي + روابط يدوية'
-    });
-
-    console.warn('🏗️ حالة العلاقات قبل بناء الشجرة:', {
-      hasDirectParent: !!relationships.directParent,
-      parentName: relationships.directParent?.head?.firstName,
-      unclesCount: relationships.uncles.length,
-      siblingsCount: relationships.siblings.length,
-      scenarioWillUse: relationships.directParent ? 'أب فقط' : 
-                      relationships.uncles.length > 0 ? 'عم فقط' : 'شجرة بسيطة'
-    });
-
-    // خريطة للعقد المنشأة لتجنب التكرار
-    const createdNodes = new Map();
-    
-    // دالة مساعدة لتحديد اسم الجيل/العلاقة بناءً على العمق والنوع
-    function getGenerationName(depth, type = 'descendant') {
-      if (type === 'ancestor') {
-        // تسمية الأجداد
-        switch(depth) {
-          case 1:
-            return 'أب';
-          case 2:
-            return 'جد';
-          case 3:
-            return 'جد الجد';
-          case 4:
-            return 'جد الجيل الرابع';
-          case 5:
-            return 'جد الجيل الخامس';
-          case 6:
-            return 'جد الجيل السادس';
-          case 7:
-            return 'جد الجيل السابع';
-          case 8:
-            return 'جد الجيل الثامن';
-          case 9:
-            return 'جد الجيل التاسع';
-          case 10:
-            return 'جد الجيل العاشر';
-          case 11:
-            return 'جد الجيل الحادي عشر';
-          case 12:
-            return 'جد الجيل الثاني عشر';
-          case 13:
-            return 'جد الجيل الثالث عشر';
-          case 14:
-            return 'جد الجيل الرابع عشر';
-          case 15:
-            return 'جد الجيل الخامس عشر';
-          default:
-            if (depth < 20) {
-              return `جد الجيل ${depth}`;
-            } else {
-              return `من أجداد الجيل ${depth}`;
-            }
-        }
-      } else {
-        // تسمية الأحفاد/الأبناء
-        switch(depth) {
-          case 0:
-            return 'ابن';
-          case 1:
-            return 'حفيد';
-          case 2:
-            return 'حفيد الحفيد';
-          case 3:
-            return 'ابن الجيل الرابع';
-          case 4:
-            return 'ابن الجيل الخامس';
-          case 5:
-            return 'ابن الجيل السادس';
-          case 6:
-            return 'ابن الجيل السابع';
-          case 7:
-            return 'ابن الجيل الثامن';
-          case 8:
-            return 'ابن الجيل التاسع';
-          case 9:
-            return 'ابن الجيل العاشر';
-          case 10:
-            return 'ابن الجيل الحادي عشر';
-          case 11:
-            return 'ابن الجيل الثاني عشر';
-          case 12:
-            return 'ابن الجيل الثالث عشر';
-          case 13:
-            return 'ابن الجيل الرابع عشر';
-          case 14:
-            return 'ابن الجيل الخامس عشر';
-          default:
-            if (depth < 20) {
-              return `ابن الجيل ${depth + 1}`;
-            } else {
-              return `من ذرية الجيل ${depth + 1}`;
-            }
-        }
-      }
-    }
-
-    // دالة مساعدة للتحقق من العلاقات الشائعة
-    function isChildRelation(relation) {
-      return relation === 'ابن' || relation === 'بنت';
-    }
-
-    function isFamilyHeadRelation(relation) {
-      return relation === 'رب العائلة';
-    }
-    
-    // دالة مساعدة لإنشاء عقدة شخص بدون إضافة الأطفال تلقائياً
-    function createPersonNodeWithoutChildren(familyData, familyLabel, relationLabel, isCurrentUser = false) {
-      const person = familyData.head;
-      // إنشاء معرف فريد يعتمد على الشخص والدور لتجنب تضارب الهويات المدموجة
-      const personKey = `${person.globalId || person.id}_${relationLabel}_${familyData.uid}`;
-      
-      // التحقق من وجود العقدة مسبقاً لتجنب التكرار
-      if (createdNodes.has(personKey)) {
-        const existingNode = createdNodes.get(personKey);
-        
-        // تحديث العلاقة إذا كانت أكثر أهمية
-        const currentRelationPriority = getRelationPriority(relationLabel);
-        const existingRelationPriority = getRelationPriority(existingNode.attributes.actualRelation);
-        
-        if (currentRelationPriority > existingRelationPriority) {
-          existingNode.attributes.actualRelation = relationLabel;
-          existingNode.attributes.familyName = familyLabel;
-          
-          // تحديث حالة المستخدم الحالي إذا لزم الأمر
-          if (isCurrentUser) {
-            existingNode.attributes.isCurrentUser = true;
-          }
-        }
-        
-        // إضافة الدور الجديد إلى القائمة (تجنب التكرار)
-        if (person.multipleRoles) {
-          const existingRoleIds = new Set(existingNode.attributes.allRoles.map(r => `${r.familyUid}_${r.relation}`));
-          const newRoles = person.multipleRoles.filter(role => 
-            !existingRoleIds.has(`${role.familyUid}_${role.relation}`)
-          );
-          
-          existingNode.attributes.allRoles = [
-            ...existingNode.attributes.allRoles,
-            ...newRoles
-          ];
-          existingNode.attributes.hasMultipleRoles = existingNode.attributes.allRoles.length > 1;
-        }
-
-        return existingNode;
-      }
-      
-      // تحديد الاسم والدور المناسب
-      const displayName = buildFullName(person);
-      
-      // تحديد العلاقة الأساسية (أولوية للأب > رب العائلة > ابن)
-      let primaryRelation = relationLabel;
-      if (person.multipleRoles) {
-        const relationPriorities = person.multipleRoles.map(r => ({
-          relation: r.relation,
-          priority: getRelationPriority(r.relation)
-        }));
-        
-        const highestPriorityRole = relationPriorities.reduce((prev, current) => 
-          current.priority > prev.priority ? current : prev
-        );
-        
-        primaryRelation = highestPriorityRole.relation;
-      }
-      
-      const node = {
-        name: displayName,
-        id: personKey,
-        avatar: person.avatar || null,
-        attributes: {
-          ...person,
-          isCurrentUser,
-          treeType: 'extended',
-          isExtended: !isCurrentUser,
-          familyName: familyLabel,
-          actualRelation: primaryRelation,
-          // إضافة معلومات الأدوار المتعددة
-          hasMultipleRoles: !!person.multipleRoles,
-          allRoles: person.multipleRoles || [{ familyUid: familyData.uid, relation: relationLabel }]
-        },
-        children: []
-      };
-
-      // حفظ العقدة في الخريطة
-      createdNodes.set(personKey, node);
-
-      return node;
-    }
-    
-    // دالة لإضافة الأطفال فقط من عائلة الشخص نفسه
-    function addChildrenToNode(node, familyData) {
-      const person = familyData.head;
-      const children = familyData.members.filter(m => 
-        (m.relation === 'ابن' || m.relation === 'بنت') && 
-        (m.globalId !== person.globalId && m.id !== person.id)
-      );
-
-      children.forEach(child => {
-        const childKey = child.globalId || child.id;
-        
-        // تجنب إضافة الطفل إذا كان موجود بالفعل في أي مكان من الشجرة
-        if (!createdNodes.has(childKey)) {
-          // تحقق إذا كان هذا الطفل له عائلة منفصلة (وبالتالي سيظهر في مستوى منفصل)
-          const hasOwnFamily = mergedFamiliesData.some(family => 
-            (family.head.globalId === child.globalId || family.head.id === child.id) &&
-            family.uid !== familyData.uid
-          );
-          
-          if (!hasOwnFamily) {
-            // فقط إضافة الأطفال الذين ليس لهم عائلات منفصلة
-            const childDisplayRelation = child.multipleRoles 
-              ? getHighestPriorityRelation(child.multipleRoles)
-              : child.relation;
-              
-            const childNode = {
-              name: buildFullName(child),
-              id: childKey,
-              avatar: child.avatar || null,
-              attributes: {
-                ...child,
-                isCurrentUser: false,
-                treeType: 'extended',
-                isExtended: true,
-                familyName: `أطفال ${node.attributes.familyName}`,
-                actualRelation: childDisplayRelation,
-                hasMultipleRoles: !!child.multipleRoles,
-                allRoles: child.multipleRoles || [{ familyUid: familyData.uid, relation: child.relation }]
-              },
-              children: []
-            };
-            
-            createdNodes.set(childKey, childNode);
-            node.children.push(childNode);
-          }
-        }
-      });
-    }
-
-    // دالة لتحديد أولوية العلاقات
-    function getRelationPriority(relation) {
-      const priorities = {
-        'جد': 100,
-        'أب': 90,
-        'عم': 80,
-        'رب العائلة': 70,
-        'ابن': 60,
-        'بنت': 60,
-        'أخ': 50,
-        'أخت': 50,
-        'ابن عم': 40,
-        'قريب': 30
-      };
-      return priorities[relation] || 20;
-    }
-    
-    // دالة للحصول على العلاقة ذات الأولوية الأعلى
-    function getHighestPriorityRelation(roles) {
-      return roles.reduce((prev, current) => 
-        getRelationPriority(current.relation) > getRelationPriority(prev.relation) ? current : prev
-      ).relation;
-    }
-
-    // دالة للبحث عن المستخدم في الشجرة
-    function findUserNode(node) {
-      if (node.attributes?.isCurrentUser) {
-        return node;
-      }
-      for (let child of node.children) {
-        const found = findUserNode(child);
-        if (found) return found;
-      }
-      return null;
-    }
-    
-    // دالة للبحث عن والد عقدة معينة
-    function findParentOfNode(rootNode, targetNode) {
-      for (let child of rootNode.children) {
-        if (child.id === targetNode.id) {
-          return rootNode;
-        }
-        const found = findParentOfNode(child, targetNode);
-        if (found) return found;
-      }
-      return null;
-    }
-
-    // **اختيار السيناريو المناسب بالأولوية الصحيحة**
-    
-    // **السيناريو الشامل: إذا وُجد جذر أقدم، ابنِ الشجرة من الأعلى**
-    if (relationships.ancestors.length > 0) {
-      console.warn('🌟 دخول السيناريو الشامل:', {
-        ancestorsCount: relationships.ancestors.length,
-        hasDirectParent: !!relationships.directParent,
-        unclesCount: relationships.uncles.length,
-        willUseFallback: 'نعم - السيناريو الشامل'
-      });
-
-      // بناء الشجرة من الجذر الأقدم للأسفل
-      function buildComprehensiveTree() {
-        const rootNode = createPersonNodeWithoutChildren(
-          relationships.oldestRoot, 
-          buildFullName(relationships.oldestRoot.head), 
-          relationships.oldestRoot.head.relation || 'رب العائلة'
-        );
-        
-        // بناء الشجرة بشكل تدريجي من الأعلى للأسفل - محسن للأجيال العميقة
-        function buildGenerationLevel(parentNode, parentFamily, currentDepth, maxDepth = 15) {
-          if (currentDepth >= maxDepth) {
-
-            return;
-          }
-
-          // البحث عن أطفال هذا المستوى (الذين لهم عائلات منفصلة)
-
-          // إعادة تصميم منطق البحث - البحث مباشرة عن العائلات التي يكون فيها شخص رب عائلة وابن الوالد
-          const childrenAtThisLevel = [];
-
-          // البحث في عائلة الوالد عن الأطفال الذين لهم عائلات منفصلة
-          parentFamily.members.forEach(member => {
-
-            if (member.multipleRoles && isChildRelation(member.relation)) {
-
-              // البحث عن العائلة التي يكون فيها رب عائلة
-              const separateFamily = mergedFamiliesData.find(family => {
-                return member.multipleRoles.some(role => 
-                  role.familyUid === family.uid && isFamilyHeadRelation(role.relation)
-                );
-              });
-              
-              if (separateFamily && separateFamily.uid !== parentFamily.uid) {
-
-                // التأكد من عدم الإضافة المكررة
-                if (!childrenAtThisLevel.some(child => child.uid === separateFamily.uid)) {
-                  childrenAtThisLevel.push(separateFamily);
-                }
-              }
-            }
-          });
-
-          childrenAtThisLevel.forEach((childFamily) => {
-
-            if (childFamily.uid !== parentFamily.uid) {
-
-              // استخدام الدالة المشتركة لتسمية الأجيال
-              const relationName = getGenerationName(currentDepth, 'descendant');
-              
-              // تحديد التسمية المعروضة
-              let displayLabel;
-              if (currentDepth <= 2) {
-                displayLabel = relationName;
-              } else if (currentDepth < 20) {
-                displayLabel = `الجيل ${currentDepth + 1}`;
-              } else {
-                displayLabel = `نسل الجيل ${currentDepth + 1}`;
-              }
-              
-              const isCurrentUser = childFamily.uid === rootFamilyUid;
-              if (isCurrentUser) {
-                displayLabel = 'أنت';
-              }
-
-              const childNode = createPersonNodeWithoutChildren(
-                childFamily,
-                displayLabel,
-                relationName,
-                isCurrentUser
-              );
-              
-              // إضافة معلومات العمق للعقدة
-              childNode.attributes.generationDepth = currentDepth + 1;
-              childNode.attributes.generationLevel = `الجيل ${currentDepth + 1}`;
-
-              parentNode.children.push(childNode);
-
-              // إضافة الأطفال الفعليين من عائلة هذا الشخص
-              addChildrenToNode(childNode, childFamily);
-              
-              // تتبع العمق الحقيقي للشجرة
-              const currentActualDepth = currentDepth + 1;
-              if (currentActualDepth > (window.familyTreeMetrics?.maxDepthReached || 0)) {
-                window.familyTreeMetrics = window.familyTreeMetrics || {};
-                window.familyTreeMetrics.maxDepthReached = currentActualDepth;
-              }
-              
-              // الاستمرار في البناء للمستوى التالي مع حماية من التكرار اللانهائي
-              buildGenerationLevel(childNode, childFamily, currentDepth + 1, maxDepth);
-            }
-          });
-        }
-
-        // إضافة أطفال الجذر الفعليين أولاً (الذين ليس لهم عائلات منفصلة)
-        addChildrenToNode(rootNode, relationships.oldestRoot);
-        
-        // ثم بناء المستوى الأول (الأطفال بعائلات منفصلة)
-        buildGenerationLevel(rootNode, relationships.oldestRoot, 0);
-
-        // **إضافة خاصة: دمج الأعمام المُضافين عبر الروابط التقليدية**
-        if (relationships.uncles.length > 0) {
-          console.warn('🔧 إضافة الأعمام للسيناريو الشامل:', {
-            unclesCount: relationships.uncles.length,
-            uncleNames: relationships.uncles.map(u => u.head.firstName)
-          });
-
-          // البحث عن المستوى المناسب لإضافة الأعمام (نفس مستوى الأب)
-          let grandparentLevel = null;
-          let parentNode = null;
-          
-          const userNode = findUserNode(rootNode);
-          if (userNode) {
-            // البحث عن والد المستخدم (الأب)
-            const userParent = findParentOfNode(rootNode, userNode);
-            if (userParent) {
-              parentNode = userParent;
-              console.warn('🔍 تم العثور على الأب:', {
-                parentName: userParent.name,
-                parentId: userParent.id
-              });
-              
-              // البحث عن والد الأب (الجد) - هنا سنضع الأعمام
-              const grandparent = findParentOfNode(rootNode, userParent);
-              if (grandparent) {
-                grandparentLevel = grandparent;
-                console.warn('✅ تم العثور على مستوى الجد لإضافة الأعمام:', {
-                  grandparentName: grandparent.name,
-                  currentChildrenCount: grandparent.children.length
-                });
-              } else {
-                console.warn('⚠️ لم يتم العثور على الجد، سيتم إضافة الأعمام كإخوة للأب في نفس مستوى الأب');
-                // البحث عن المستوى الذي يحتوي على الأب
-                grandparentLevel = findParentOfNode(rootNode, userParent);
-                if (!grandparentLevel) {
-                  // إذا كان الأب في المستوى الأعلى، استخدم الجذر
-                  grandparentLevel = rootNode;
-                  console.warn('🔧 سيتم إضافة الأعمام في المستوى الجذر');
-                }
-              }
-            }
-          }
-          
-          // إضافة الأعمام كإخوة للأب في نفس المستوى
-          if (grandparentLevel && parentNode) {
-            relationships.uncles.forEach((uncle, index) => {
-              const uncleKey = `${uncle.head.globalId || uncle.head.id}_عم_${uncle.uid}`;
-              
-              // تأكد من عدم وجود العم مسبقاً
-              if (!createdNodes.has(uncleKey)) {
-                const uncleNode = createPersonNodeWithoutChildren(uncle, `العم ${index + 1}`, 'عم');
-                
-                // إضافة العم في نفس المستوى مع الأب
-                grandparentLevel.children.push(uncleNode);
-                addChildrenToNode(uncleNode, uncle);
-                
-                console.warn(`✅ تمت إضافة العم للشجرة الشاملة:`, {
-                  uncleName: uncle.head.firstName,
-                  uncleId: uncleNode.id,
-                  addedToLevel: grandparentLevel.name,
-                  nowSiblingToParent: parentNode.name,
-                  parentLevel: grandparentLevel.children.length
-                });
-              }
-            });
-          } else {
-            console.warn('⚠️ لم يتم العثور على مستوى مناسب لإضافة الأعمام:', {
-              hasGrandparentLevel: !!grandparentLevel,
-              hasParentNode: !!parentNode,
-              hasUserNode: !!userNode
-            });
-          }
-        }
-
-        // إحصائيات شاملة للشجرة المبنية
-        const treeStats = {
-          totalNodes: createdNodes.size,
-          maxDepthReached: window.familyTreeMetrics?.maxDepthReached || 0,
-          generationsCovered: relationships.ancestors.length + relationships.descendants.length + 1,
-          ancestorGenerations: relationships.ancestors.length,
-          descendantGenerations: relationships.descendants.length,
-          lateralRelatives: relationships.siblings.length + relationships.uncles.length + relationships.cousins.length
-        };
-        
-        // تحديث المتغيرات العامة للتتبع
-        window.familyTreeMetrics = window.familyTreeMetrics || {};
-        window.familyTreeMetrics.totalNodes = treeStats.totalNodes;
-        window.familyTreeMetrics.actualMembersCount = treeStats.totalNodes; // العدد الفعلي للعقد
-
-        // طباعة معلومات التحديث العام
-
-        // تقييم كفاءة النظام
-        // تم إزالة if فارغة else if (treeStats.maxDepthReached >= 5) {
-
-        // تم إزالة else فارغة
-        
-        // عرض تنبيه للمستخدم حول حالة الشجرة
-        // تم إزالة if فارغة else if (treeStats.totalNodes >= 20) {
-
-        // تم إزالة else فارغة
-        
-        // طباعة تفاصيل الأطفال
-        rootNode.children.forEach((child) => {
-          child.children.forEach(() => { /* معالجة العناصر */ });
-        });
-        
-        return rootNode;
-      }
-      
-      return buildComprehensiveTree();
-    }
-
-    // **سيناريو: يوجد أب فقط - الأب هو الجذر**
-    else if (relationships.directParent) {
-      
-      const parentNode = createPersonNodeWithoutChildren(relationships.directParent, 'الأب', 'أب');
-      
-      // إضافة المستخدم الحالي والإخوة تحت الأب
-      const userNode = createPersonNodeWithoutChildren(currentUserFamily, 'أنت', 'ابن', true);
-      
-      // التحقق من أن المستخدم ليس هو نفسه الأب
-      if (userNode.id !== parentNode.id) {
-        parentNode.children.push(userNode);
-      }
-      
-      relationships.siblings.forEach(sibling => {
-        const siblingNode = createPersonNodeWithoutChildren(sibling, 'أخ', 'ابن');
-        
-        // تجنب إضافة الأخ إذا كان هو نفسه الأب أو المستخدم
-        if (siblingNode.id !== parentNode.id && siblingNode.id !== userNode.id) {
-          parentNode.children.push(siblingNode);
-        }
-      });
-
-      // إضافة الأعمام كإخوة للأب في نفس المستوى
-      relationships.uncles.forEach((uncle, index) => {
-        const uncleNode = createPersonNodeWithoutChildren(uncle, `العم ${index + 1}`, 'عم');
-        
-        // تجنب إضافة العم إذا كان هو نفسه الأب
-        if (uncleNode.id !== parentNode.id) {
-          // سنضع الأعمام بجانب الأب بدلاً من تحته
-          // لكن هذا يتطلب إنشاء مستوى أعلى، لذا سنتجاهل الأعمام في هذا السيناريو
-          addChildrenToNode(uncleNode, uncle);
-        }
-      });
-      
-      // إضافة أطفال كل عقدة من عائلتها المنفصلة
-      addChildrenToNode(parentNode, relationships.directParent);
-      
-      if (userNode.id !== parentNode.id) {
-        addChildrenToNode(userNode, currentUserFamily);
-      }
-      
-      relationships.siblings.forEach((sibling) => {
-        const siblingNode = parentNode.children.find(child => 
-          child.id.includes(sibling.head.globalId || sibling.head.id)
-        );
-        if (siblingNode) {
-          addChildrenToNode(siblingNode, sibling);
-        }
-      });
-
-      return parentNode;
-    }
-
-    // **السيناريو الشامل: فقط إذا لم يكن هناك أب وعم**
-    // إذا وُجد جذر أقدم، ابنِ الشجرة من الأعلى
-    // (تمت إزالة الفرع المكرر للعلاقة ancestors.length > 0 لأنه مغطى بالفعل أعلاه)
-
-    // **سيناريو: يوجد عم فقط - العم هو الجذر**
-    else if (relationships.uncles.length > 0) {
-      
-      // استخدام العم الأول كجذر
-      const uncleNode = createPersonNodeWithoutChildren(relationships.uncles[0], 'العم', 'عم');
-      
-      // إضافة المستخدم الحالي والإخوة كأبناء أخ
-      const userNode = createPersonNodeWithoutChildren(currentUserFamily, 'أنت', 'ابن أخ', true);
-      
-      // التحقق من أن المستخدم ليس هو نفسه العم
-      if (userNode.id !== uncleNode.id) {
-        uncleNode.children.push(userNode);
-      }
-      
-      relationships.siblings.forEach(sibling => {
-        const siblingNode = createPersonNodeWithoutChildren(sibling, 'أخ', 'ابن أخ');
-        
-        // تجنب إضافة الأخ إذا كان هو نفسه العم أو المستخدم
-        if (siblingNode.id !== uncleNode.id && siblingNode.id !== userNode.id) {
-          uncleNode.children.push(siblingNode);
-        }
-      });
-
-      // إضافة الأعمام الإضافيين كإخوة للعم الأول
-      relationships.uncles.slice(1).forEach((uncle, index) => {
-        const additionalUncleNode = createPersonNodeWithoutChildren(uncle, `العم ${index + 2}`, 'عم');
-        // يمكن إضافتهم كأطفال للعم الأول أو تجاهلهم
-        addChildrenToNode(additionalUncleNode, uncle);
-      });
-
-      // إضافة أطفال كل عقدة من عائلتها المنفصلة
-      addChildrenToNode(uncleNode, relationships.uncles[0]);
-      
-      if (userNode.id !== uncleNode.id) {
-        addChildrenToNode(userNode, currentUserFamily);
-      }
-      
-      relationships.siblings.forEach((sibling) => {
-        const siblingNode = uncleNode.children.find(child => 
-          child.id.includes(sibling.head.globalId || sibling.head.id)
-        );
-        if (siblingNode) {
-          addChildrenToNode(siblingNode, sibling);
-        }
-      });
-
-      return uncleNode;
-    }
-
-    // **سيناريو: لا يوجد أب أو عم - المستخدم هو الجذر**
-    else {
-      // إذا كان لديك إخوة أو أقارب آخرين، ضعهم كإخوة في نفس المستوى
-      if (relationships.siblings.length > 0 || relationships.cousins.length > 0 || relationships.others.length > 0) {
-
-        // إنشاء عقدة المستخدم الحالي كجذر
-        const userNode = createPersonNodeWithoutChildren(currentUserFamily, 'أنت', 'رب عائلة', true);
-
-        // إضافة الإخوة كأطفال للمستخدم (أو يمكن تعديل هذا ليكونوا في نفس المستوى)
-        relationships.siblings.forEach(sibling => {
-          const siblingNode = createPersonNodeWithoutChildren(sibling, 'أخ', 'أخ');
-          
-          // تجنب إضافة الأخ إذا كان هو نفسه المستخدم
-          if (siblingNode.id !== userNode.id) {
-            userNode.children.push(siblingNode);
-            addChildrenToNode(siblingNode, sibling);
-          }
-        });
-
-        // إضافة أبناء العم كأطفال أيضاً
-        relationships.cousins.forEach(cousin => {
-          const cousinNode = createPersonNodeWithoutChildren(cousin, 'ابن عم', 'ابن عم');
-          
-          // تجنب التكرار
-          if (!userNode.children.some(child => child.id === cousinNode.id)) {
-            userNode.children.push(cousinNode);
-            addChildrenToNode(cousinNode, cousin);
-          }
-        });
-
-        // إضافة الأقارب الآخرين
-        relationships.others.forEach(otherRel => {
-          const otherNode = createPersonNodeWithoutChildren(otherRel.family, 'قريب', 'قريب');
-          
-          // تجنب التكرار
-          if (!userNode.children.some(child => child.id === otherNode.id)) {
-            userNode.children.push(otherNode);
-            addChildrenToNode(otherNode, otherRel.family);
-          }
-        });
-
-        // إضافة أطفال المستخدم من عائلته
-        addChildrenToNode(userNode, currentUserFamily);
-
-        return userNode;
-      } else {
-        // لا توجد أقارب آخرين - أرجع المستخدم الحالي كجذر مباشر
-        const userNode = createPersonNodeWithoutChildren(currentUserFamily, 'أنت', 'رب العائلة', true);
-        addChildrenToNode(userNode, currentUserFamily);
-        return userNode;
-      }
-    }
-
-  }, [buildFullName, mergePersonIdentities]);
-
   // ===========================================================================
   // دوال التحميل الرئيسية
   // ===========================================================================
@@ -1592,115 +299,14 @@ export default function FamilyTreeAdvanced() {
     }
   }, [uid, showSnackbar, monitorPerformance, buildSimpleTreeStructure]);
 
-  const loadExtendedTree = useCallback(async () => {
-  if (!uid) return;
-
-  const startTime = Date.now();
-  setLoading(true);
-  
-  // 🔵 يمكنك تغيير هذه النصوص ولونها
-  setLoadingStage('🔍 البحث عن العائلات المرتبطة...');
-  setLoadingProgress(0);
-
-  try {
-    // الخطوة 1: تحميل عائلتك
-    setLoadingProgress(10);
-    setLoadingStage('📋 تحميل بيانات عائلتك...');
-    const myFamilyData = await loadFamilyData(uid);
-    
-    // الخطوة 2: البحث عن العائلات المرتبطة
-    setLoadingProgress(30);
-    setLoadingStage('🔗 البحث عن الروابط...');
-    const allLinkedFamilies = await findAllLinkedFamilies(uid);
-    
-    // الخطوة 3: تحميل بيانات جميع العائلات
-    setLoadingProgress(50);
-    setLoadingStage('🏠 تحميل بيانات العائلات...');
-    const allFamiliesData = [];
-    
-    // إضافة عائلتك
-    if (myFamilyData && myFamilyData.members.length > 0) {
-      allFamiliesData.push(myFamilyData);
-    }
-    
-    // إضافة العائلات المرتبطة
-    for (const familyUid of allLinkedFamilies) {
-      if (familyUid !== uid) {
-        try {
-          const familyData = await loadFamilyData(familyUid);
-          if (familyData && familyData.members.length > 0) {
-            allFamiliesData.push(familyData);
-          }
-        } catch {
-          // تعذر تحميل العائلة - متابعة صامتة
-        }
-      }
-    }
-    
-    setLoadingProgress(70);
-    setLoadingStage('🌳 بناء الشجرة الموسعة...');
-    
-    // الخطوة 4: بناء الشجرة الموسعة
-    const extendedTree = buildExtendedTreeStructure(allFamiliesData, uid);
-    
-    setLoadingProgress(90);
-    setLoadingStage('⚡ تحسين وتنسيق الشجرة...');
-    
-    // الخطوة 5: حساب المقاييس
-    const totalPersons = allFamiliesData.reduce((sum, family) => sum + family.members.length, 0);
-    const endTime = Date.now();
-    
-    monitorPerformance({
-      personCount: totalPersons,
-      familyCount: allFamiliesData.length,
-      maxDepthReached: calculateTreeDepth(extendedTree),
-      loadTime: endTime - startTime
-    });
-    
-    setLoadingProgress(100);
-    setLoadingStage('✅ اكتمل التحميل بنجاح!');
-    
-    setExtendedTreeData(extendedTree);
-    
-    showSnackbar(`🏛️ تم تحميل ${allFamiliesData.length} عائلة بـ ${totalPersons} شخص في الشجرة الموسعة`, 'success');
-
-  } catch {
-    setError('فشل في تحميل الشجرة الموسعة');
-    showSnackbar('❌ فشل في تحميل الشجرة الموسعة', 'error');
-  } finally {
-    setLoading(false);
-  }
-  }, [uid, showSnackbar, monitorPerformance, buildExtendedTreeStructure, calculateTreeDepth, loadFamilyData, findAllLinkedFamilies]);
-
-  const loadLinkedFamilies = useCallback(async () => {
-    if (!uid) return;
-    
-    try {
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const linked = userData.linkedFamilies || [];
-        setLinkedFamilies(linked);
-      }
-    } catch {
-      // خطأ صامت في تحميل العائلات المرتبطة
-    }
-  }, [uid]);
-
   // ===========================================================================
   // دوال التحكم
   // ===========================================================================
 
   const handleRefresh = useCallback(() => {
-    // تنظيف البيانات السابقة
-    if (showExtendedTree) {
-      setExtendedTreeData(null);
-      loadExtendedTree();
-    } else {
-      setSimpleTreeData(null);
-      loadSimpleTree();
-    }
-  }, [showExtendedTree, loadExtendedTree, loadSimpleTree]);
+    setSimpleTreeData(null);
+    loadSimpleTree();
+  }, [loadSimpleTree]);
 
   // ===========================================================================
   // دالة رسم الشجرة
@@ -1772,20 +378,10 @@ const drawTreeWithD3 = useCallback((data) => {
     if (generationCounts[d.depth] > maxBreadth) maxBreadth = generationCounts[d.depth];
   });
 
-  // تمييز بين الشجرة العادية والموسعة
-  let verticalGap, dynamicHeight, horizontalGap, dynamicWidth;
-  if (showExtendedTree) {
-    // الشجرة الموسعة: مساحة رأسية أكبر لكن ليست مبالغ فيها، ومسافة أفقية أكبر
-    verticalGap = 80; 
-    horizontalGap = 220; 
-    dynamicHeight = Math.max(verticalGap * maxDepth, 350);
-    dynamicWidth = Math.max(horizontalGap * maxBreadth, width - 100);
-  } else {
-    verticalGap = 55;
-    horizontalGap = 180;
-    dynamicHeight = Math.max(verticalGap * maxDepth, 180);
-    dynamicWidth = width - 100;
-  }
+  // إعداد المسافات للشجرة العادية
+  const verticalGap = 55;
+  const dynamicHeight = Math.max(verticalGap * maxDepth, 180);
+  const dynamicWidth = width - 100;
 
   // إعداد تخطيط الشجرة مع توزيع أفقي متساوٍ تماماً (بدون أي تراكب)
   const treeLayout = d3.tree()
@@ -2092,7 +688,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
     }
   }, 1200);
 
-}, [showExtendedTree, handleNodeClick, searchQuery]);
+}, [handleNodeClick, searchQuery]);
 
   // دالة البحث المحلية - مبسطة
   const performSearch = useCallback((query) => {
@@ -2147,20 +743,11 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
     }
 
     loadSimpleTree();
-    loadLinkedFamilies();
-  }, [uid, navigate, loadSimpleTree, loadLinkedFamilies]);
-
-  useEffect(() => {
-    if (!uid) return;
-    
-    if (showExtendedTree && !extendedTreeData) {
-      loadExtendedTree();
-    }
-  }, [showExtendedTree, uid, extendedTreeData, loadExtendedTree]);
+  }, [uid, navigate, loadSimpleTree]);
 
   // تأثير رسم الشجرة
   useEffect(() => {
-    const currentTreeData = showExtendedTree ? extendedTreeData : simpleTreeData;
+    const currentTreeData = simpleTreeData;
     if (currentTreeData && svgRef.current && containerRef.current) {
       const timer = setTimeout(() => {
         drawTreeWithD3(currentTreeData);
@@ -2168,7 +755,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
       
       return () => clearTimeout(timer);
     }
-  }, [drawTreeWithD3, showExtendedTree, simpleTreeData, extendedTreeData]);
+  }, [drawTreeWithD3, simpleTreeData]);
 
   // تأثير البحث
   useEffect(() => {
@@ -2197,8 +784,8 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
   // ===========================================================================
 
   const renderTreeView = () => {
-    const currentTreeData = showExtendedTree ? extendedTreeData : simpleTreeData;
-    const treeTitle = showExtendedTree ? 'الشجرة الموسعة للقبيلة' : 'شجرة عائلتك';
+    const currentTreeData = simpleTreeData;
+    const treeTitle = 'شجرة عائلتك';
     
     return (
       <Box
@@ -2264,7 +851,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
           >
             {loading ? (
               <Box textAlign="center" maxWidth={600}>
-                <CircularProgress size={80} sx={{ color: showExtendedTree ? '#8b5cf6' : '#10b981', mb: 3 }} />
+                <CircularProgress size={80} sx={{ color: '#10b981', mb: 3 }} />
                 <Typography variant="h5" sx={{ mb: 2, fontFamily: 'Cairo, sans-serif' }}>
                   {loadingStage || `جاري تحميل ${treeTitle}...`}
                 </Typography>
@@ -2278,25 +865,22 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
                     mb: 2,
                     backgroundColor: 'rgba(255,255,255,0.1)',
                     '& .MuiLinearProgress-bar': {
-                      backgroundColor: showExtendedTree ? '#8b5cf6' : '#10b981'
+                      backgroundColor: '#10b981'
                     }
                   }}
                 />
-                <Typography variant="body2" sx={{ color: showExtendedTree ? '#8b5cf6' : '#10b981', fontFamily: 'Cairo, sans-serif' }}>
+                <Typography variant="body2" sx={{ color: '#10b981', fontFamily: 'Cairo, sans-serif' }}>
                   {Math.round(loadingProgress)}% مكتمل
                 </Typography>
               </Box>
             ) : (
               <Box textAlign="center">
-                <AccountTreeIcon sx={{ fontSize: 120, color: showExtendedTree ? '#8b5cf6' : '#10b981', mb: 2 }} />
-                <Typography variant="h4" sx={{ mb: 1, fontFamily: 'Cairo, sans-serif', color: showExtendedTree ? '#8b5cf6' : '#10b981' }}>
-                  {showExtendedTree ? '🏛️ ابنِ شجرة قبيلتك الموسعة' : '🌳 ابنِ شجرة عائلتك'}
+                <AccountTreeIcon sx={{ fontSize: 120, color: '#10b981', mb: 2 }} />
+                <Typography variant="h4" sx={{ mb: 1, fontFamily: 'Cairo, sans-serif', color: '#10b981' }}>
+                   ابنِ شجرة عائلتك
                 </Typography>
                 <Typography variant="body1" sx={{ color: 'text.secondary', mb: 3, maxWidth: 500, fontFamily: 'Cairo, sans-serif' }}>
-                  {showExtendedTree 
-                    ? '🔗 اربط عائلتك مع العائلات الأخرى لبناء شجرة قبيلة شاملة تضم جميع الأقارب والفروع'
-                    : '👨‍👩‍👧‍👦 أضف أفراد عائلتك المباشرين: رب العائلة وأولاده وبناته'
-                  }
+                  ‍👩‍👧‍👦 أضف أفراد عائلتك المباشرين: رب العائلة وأولاده وبناته
                 </Typography>
                 <Box display="flex" gap={2} justifyContent="center">
                   <Button
@@ -2311,23 +895,6 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
                     startIcon={<PersonIcon />}
                   >
                     إضافة أفراد العائلة
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    sx={{ 
-                      borderColor: showExtendedTree ? '#8b5cf6' : '#10b981',
-                      color: showExtendedTree ? '#8b5cf6' : '#10b981',
-                      '&:hover': { 
-                        borderColor: showExtendedTree ? '#7c3aed' : '#059669',
-                        backgroundColor: showExtendedTree ? 'rgba(139, 92, 246, 0.1)' : 'rgba(16, 185, 129, 0.1)'
-                      },
-                      fontFamily: 'Cairo, sans-serif'
-                    }}
-                    size="large"
-                    onClick={() => setShowLinkingPanel(true)}
-                    startIcon={<LinkIcon />}
-                  >
-                    ربط عائلات
                   </Button>
                 </Box>
               </Box>
@@ -2358,9 +925,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
           left: 0,
           right: 0,
           height: '2px',
-          background: showExtendedTree 
-            ? 'linear-gradient(90deg, #8b5cf6 0%, #d946ef 100%)' 
-            : 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
+          background: 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
           transition: 'all 0.3s ease'
         }
       }}
@@ -2380,20 +945,18 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
             sx={{ 
               mb: 0,
               fontSize: { xs: '1.25rem', sm: '1.5rem', md: '1.75rem' },
-              color: showExtendedTree ? '#8b5cf6' : '#10b981',
+              color: '#10b981',
               fontWeight: 700,
               fontFamily: 'Cairo, sans-serif',
               transition: 'all 0.3s ease',
               textShadow: '0 1px 2px rgba(0,0,0,0.1)',
-              background: showExtendedTree 
-                ? 'linear-gradient(45deg, #8b5cf6 0%, #d946ef 100%)' 
-                : 'linear-gradient(45deg, #10b981 0%, #059669 100%)',
+              background: 'linear-gradient(45deg, #10b981 0%, #059669 100%)',
               backgroundClip: 'text',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent'
             }}
           >
-            {showExtendedTree ? '🏛️ الشجرة الموسعة للقبيلة' : '🌳 شجرة عائلتك'}
+            🌳 شجرة عائلتك
           </Typography>
           
           <Typography 
@@ -2408,10 +971,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
               display: 'block'
             }}
           >
-            {showExtendedTree 
-              ? '📊 استكشف جميع العائلات المرتبطة في شجرة موحدة وشاملة' 
-              : '👨‍👩‍👧‍👦 عرض بسيط لرب العائلة وأولاده المباشرين'
-            }
+            👨‍👩‍👧‍👦 عرض بسيط لرب العائلة وأولاده المباشرين
           </Typography>
         </Box>
 
@@ -2426,9 +986,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
               borderRadius: 3,
               backgroundColor: 'rgba(0,0,0,0.06)',
               '& .MuiLinearProgress-bar': {
-                background: showExtendedTree 
-                  ? 'linear-gradient(90deg, #8b5cf6 0%, #d946ef 100%)' 
-                  : 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
+                background: 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
                 borderRadius: 3,
                 boxShadow: '0 1px 4px rgba(0,0,0,0.2)'
               }
@@ -2468,31 +1026,6 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
             }}
           >
             إدارة العائلة
-          </Button>
-
-          <Button 
-            variant="outlined" 
-            size={window.innerWidth < 600 ? "small" : "medium"}
-            onClick={() => setShowLinkingPanel(true)} 
-            disabled={loading} 
-            startIcon={<LinkIcon />} 
-            sx={{ 
-              px: { xs: 1, sm: 1.5 },
-              py: { xs: 0.25, sm: 0.5 },
-              fontSize: { xs: '0.7rem', sm: '0.8rem' },
-              borderRadius: 2,
-              borderColor: '#8b5cf6',
-              color: '#8b5cf6',
-              '&:hover': {
-                borderColor: '#7c3aed',
-                backgroundColor: 'rgba(139,92,246,0.05)',
-                transform: 'translateY(-1px)',
-                boxShadow: '0 2px 8px rgba(139,92,246,0.15)'
-              },
-              transition: 'all 0.2s ease'
-            }}
-          >
-            ربط العائلات
           </Button>
 
           <Button 
@@ -2572,8 +1105,8 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
                 },
                 '&.Mui-focused': {
                   backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                  boxShadow: `0 0 0 2px ${showExtendedTree ? 'rgba(139,92,246,0.2)' : 'rgba(16,185,129,0.2)'}`,
-                  borderColor: showExtendedTree ? '#8b5cf6' : '#10b981'
+                  boxShadow: '0 0 0 2px rgba(16,185,129,0.2)',
+                  borderColor: '#10b981'
                 },
                 transition: 'all 0.2s ease'
               }
@@ -2617,64 +1150,6 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
           />
         </Box>
 
-        {/* مفتاح تبديل نوع الشجرة محسن - ارتفاع مقلل */}
-        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={showExtendedTree}
-                onChange={(e) => setShowExtendedTree(e.target.checked)}
-                disabled={loading}
-                size="small"
-                sx={{
-                  '& .MuiSwitch-switchBase.Mui-checked': {
-                    color: '#8b5cf6',
-                  },
-                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                    backgroundColor: '#8b5cf6',
-                  },
-                  '& .MuiSwitch-switchBase': {
-                    color: '#10b981',
-                  },
-                  '& .MuiSwitch-track': {
-                    backgroundColor: '#10b981',
-                  },
-                }}
-              />
-            }
-            label={
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    fontFamily: 'Cairo, sans-serif', 
-                    fontWeight: 'bold',
-                    fontSize: { xs: '0.75rem', sm: '0.85rem' }
-                  }}
-                >
-                  {showExtendedTree ? '🏛️ الشجرة الموسعة (القبيلة)' : '🌳 الشجرة العادية (العائلة)'}
-                </Typography>
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
-                    fontFamily: 'Cairo, sans-serif', 
-                    color: 'text.secondary',
-                    display: 'block',
-                    fontSize: { xs: '0.65rem', sm: '0.7rem' }
-                  }}
-                >
-                  {showExtendedTree ? 'جميع العائلات المرتبطة' : 'رب العائلة وأولاده فقط'}
-                </Typography>
-              </Box>
-            }
-            sx={{
-              '& .MuiFormControlLabel-label': {
-                px: 0.5
-              }
-            }}
-          />
-        </Box>
-
         {/* إحصائيات الأداء - أحجام مقللة */}
         {performanceMetrics.personCount > 0 && (
           <Box sx={{ 
@@ -2694,61 +1169,29 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
               }}
             />
             
-            {showExtendedTree && (
-              <>
-                {performanceMetrics.familyCount > 1 && (
-                  <Chip 
-                    size="small" 
-                    label={`🏛️ ${performanceMetrics.familyCount} عائلة`} 
-                    variant="outlined" 
-                    color="secondary"
-                    sx={{
-                      fontSize: { xs: '0.6rem', sm: '0.7rem' },
-                      height: { xs: 20, sm: 24 }
-                    }}
-                  />
-                )}
-                
-                {linkedFamilies.length > 0 && (
-                  <Chip 
-                    size="small" 
-                    label={`🔗 ${linkedFamilies.length} رابط`} 
-                    variant="outlined" 
-                    color="primary"
-                    sx={{
-                      fontSize: { xs: '0.6rem', sm: '0.7rem' },
-                      height: { xs: 20, sm: 24 }
-                    }}
-                  />
-                )}
-                
-                {performanceMetrics.maxDepthReached > 0 && (
-                  <Chip 
-                    size="small" 
-                    label={`📊 ${performanceMetrics.maxDepthReached + 1} جيل`} 
-                    variant="outlined" 
-                    color="info"
-                    sx={{
-                      fontSize: { xs: '0.6rem', sm: '0.7rem' },
-                      height: { xs: 20, sm: 24 }
-                    }}
-                  />
-                )}
-              </>
-            )}
-            
-            {!showExtendedTree && (
+            {performanceMetrics.maxDepthReached > 0 && (
               <Chip 
                 size="small" 
-                label="🌳 شجرة بسيطة (جيلان)" 
+                label={`📊 ${performanceMetrics.maxDepthReached + 1} جيل`} 
                 variant="outlined" 
-                color="success"
+                color="info"
                 sx={{
                   fontSize: { xs: '0.6rem', sm: '0.7rem' },
                   height: { xs: 20, sm: 24 }
                 }}
               />
             )}
+            
+            <Chip 
+              size="small" 
+              label="🌳 شجرة بسيطة" 
+              variant="outlined" 
+              color="success"
+              sx={{
+                fontSize: { xs: '0.6rem', sm: '0.7rem' },
+                height: { xs: 20, sm: 24 }
+              }}
+            />
           </Box>
         )}
       </Box>
@@ -2762,26 +1205,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
         {renderTreeView()}
       </Box>
 
-      {/* الحوارات */}
-      <Dialog open={showLinkingPanel} onClose={() => setShowLinkingPanel(false)} maxWidth="lg" fullWidth>
-        <DialogTitle>🔗 ربط العائلات للشجرة الموسعة</DialogTitle>
-        <DialogContent>
-          <ExtendedFamilyLinking
-            currentUserUid={uid}
-            onLinkingComplete={() => {
-              setShowLinkingPanel(false);
-              setExtendedTreeData(null);
-              // تحديث قائمة العائلات المرتبطة
-              loadLinkedFamilies();
-              if (showExtendedTree) {
-                loadExtendedTree();
-              }
-            }}
-            existingLinks={linkedFamilies.map(link => link.targetFamilyUid)}
-          />
-        </DialogContent>
-      </Dialog>
-
+      {/* حوار تفاصيل الشخص */}
       <Dialog open={!!selectedNode} onClose={() => setSelectedNode(null)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ color: '#1976d2', fontWeight: 'bold', fontFamily: 'Cairo, sans-serif' }}>
           {(selectedNode?.gender === 'female' || selectedNode?.relation === 'بنت') ? '♀️' : '♂️'} {selectedNode?.name || 'تفاصيل الشخص'}
