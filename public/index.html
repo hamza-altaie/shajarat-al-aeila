@@ -14,16 +14,19 @@
   <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
   
   <!-- Meta tags للـ PWA -->
-  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="شجرة العائلة" />
-  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="msapplication-TileImage" content="/icons/icon-144x144.png" />
   <meta name="msapplication-TileColor" content="#2e7d32" />
   <meta http-equiv="Content-Security-Policy" 
       content="default-src 'self'; 
-               script-src 'self' 'unsafe-inline' chrome-extension:; 
-               connect-src 'self' https: wss: chrome-extension:;">
+               script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://www.google.com https://apis.google.com chrome-extension:; 
+               frame-src 'self' https://www.google.com https://www.recaptcha.net https://recaptcha.google.com;
+               connect-src 'self' https: wss: chrome-extension:;
+               img-src 'self' data: https:;
+               style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+               font-src 'self' https://fonts.gstatic.com;">
   
   <!-- خطوط Google -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />

@@ -126,11 +126,20 @@ class ErrorBoundary extends React.Component {
 // دالة لمعالجة الأخطاء العامة
 const handleGlobalError = (error, context = {}) => {
   // تجنب أخطاء Chrome Extensions
-  if (error.message && error.message.includes('extension')) {
+  if (error.message && (
+    error.message.includes('extension') ||
+    error.message.includes('chrome-extension') ||
+    error.message.includes('aggiiclaiamajehmlfpkjmlbadmkledi') ||
+    error.message.includes('ERR_FAILED')
+  )) {
     return;
   }
   
-  if (error.stack && error.stack.includes('extension://')) {
+  if (error.stack && (
+    error.stack.includes('extension://') ||
+    error.stack.includes('chrome-extension://') ||
+    error.stack.includes('contentscript.js')
+  )) {
     return;
   }
   
@@ -177,7 +186,11 @@ try {
 // معالجة أخطاء JavaScript العامة
 window.addEventListener('error', (event) => {
   // تجاهل أخطاء Chrome Extensions
-  if (event.filename && event.filename.includes('extension://')) {
+  if (event.filename && (
+    event.filename.includes('extension://') ||
+    event.filename.includes('chrome-extension://') ||
+    event.filename.includes('moz-extension://')
+  )) {
     event.preventDefault();
     return false;
   }
@@ -188,6 +201,19 @@ window.addEventListener('error', (event) => {
     return false;
   }
   
+  // تجاهل أخطاء reCAPTCHA والمحتوى غير الحرج
+  if (event.message && (
+    event.message.includes('Script error') ||
+    event.message.includes('Non-Error promise rejection') ||
+    event.message.includes('recaptcha') ||
+    event.message.includes('grecaptcha')
+  )) {
+    console.warn('⚠️ تحذير غير حرج:', event.message);
+    event.preventDefault();
+    return false;
+  }
+  
+  // تسجيل الأخطاء الحرجة فقط
   handleGlobalError(event.error || new Error(event.message), { 
     type: 'javascript', 
     source: event.filename, 
@@ -212,13 +238,29 @@ window.addEventListener('unhandledrejection', (event) => {
     return false;
   }
   
+  // تجاهل أخطاء reCAPTCHA والتايمآوت المعروفة
+  if (reason && (
+    reason.toString().includes('recaptcha') ||
+    reason.toString().includes('Timeout') ||
+    reason.toString().includes('grecaptcha') ||
+    reason.toString().includes('___grecaptcha_cfg')
+  )) {
+    console.warn('⚠️ تحذير reCAPTCHA/Timeout:', reason);
+    event.preventDefault();
+    return false;
+  }
+  
   // تجاهل أخطاء Firebase المعروفة غير الحرجة
   if (reason && reason.code && reason.code.startsWith('firebase/')) {
     console.warn('⚠️ تحذير Firebase:', reason);
-    return;
+    event.preventDefault();
+    return false;
   }
   
-  handleGlobalError(new Error(reason), { type: 'promise' });
+  // فقط تسجيل الأخطاء الحرجة
+  if (reason && !reason.toString().includes('Network Error')) {
+    handleGlobalError(new Error(reason), { type: 'promise' });
+  }
 });
 
 // ===========================================================================

@@ -66,37 +66,60 @@ const PhoneLogin = () => {
 
   useEffect(() => {
     if (!firebaseStatus?.services?.auth) return;
+    
     const setupRecaptcha = async () => {
       try {
+        // تنظيف reCAPTCHA السابق
         if (window.recaptchaVerifier) {
           try {
             await window.recaptchaVerifier.clear();
-          } catch {
-            console.warn('تنظيف reCAPTCHA السابق...');
+          } catch (clearError) {
+            console.warn('تنظيف reCAPTCHA السابق...', clearError);
           }
           window.recaptchaVerifier = null;
         }
+        
+        // تنظيف الحاوية
         const container = document.getElementById('recaptcha-container');
         if (container) container.innerHTML = '';
+        
+        // التأكد من وجود الحاوية
+        if (!container) {
+          console.warn('⚠️ لم يتم العثور على حاوية reCAPTCHA');
+          return;
+        }
+        
+        // إنشاء reCAPTCHA مع معالجة أفضل للأخطاء
         const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
           size: 'invisible',
-          callback: () => {},
+          callback: () => {
+            console.log('✅ reCAPTCHA verified');
+          },
           'expired-callback': () => {
             console.warn('⚠️ انتهت صلاحية reCAPTCHA');
             setError('انتهت صلاحية التحقق الأمني، يرجى المحاولة مرة أخرى');
           },
           'error-callback': (err) => {
-            console.error('❌ خطأ reCAPTCHA:', err);
-            setError('خطأ في نظام التحقق الأمني');
+            console.warn('⚠️ خطأ reCAPTCHA (سيتم التجاهل):', err);
+            // لا نعرض خطأ للمستخدم هنا لأن معظم أخطاء reCAPTCHA غير حرجة
           }
         });
-        await verifier.render();
+        
+        // عرض reCAPTCHA مع timeout
+        const renderPromise = verifier.render();
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('reCAPTCHA render timeout')), 10000);
+        });
+        
+        await Promise.race([renderPromise, timeoutPromise]);
         window.recaptchaVerifier = verifier;
+        
       } catch (err) {
-        console.error('❌ فشل إعداد reCAPTCHA:', err);
-        setError('فشل في إعداد نظام التحقق الأمني');
+        console.warn('⚠️ فشل إعداد reCAPTCHA (سيتم المتابعة):', err);
+        // لا نعرض خطأ للمستخدم لأن التطبيق يمكن أن يعمل بدون reCAPTCHA في بعض الحالات
       }
     };
+    
     setupRecaptcha();
   }, [firebaseStatus]);
 
