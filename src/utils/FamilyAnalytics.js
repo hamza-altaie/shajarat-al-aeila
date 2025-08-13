@@ -323,8 +323,7 @@ export class FamilyAnalytics {
     const total = members.length;
     const males = members.filter(m => m.gender === 'ذكر').length;
     const females = members.filter(m => m.gender === 'أنثى').length;
-    // حذف حساب المتزوجين ومعدل الزواج
-    // const married = members.filter(m => m.isMarried).length;
+    
     // حساب الأعمار
     const ages = members.map(m => m.age).filter(age => age !== null);
     const ageStats = ages.length > 0 ? {
