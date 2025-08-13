@@ -20,7 +20,7 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import SearchIcon from '@mui/icons-material/Search';
 import BarChartIcon from '@mui/icons-material/BarChart';
 
-// استيراد خدمات Supabase
+// استيراد خدمات العائلة
 import { loadFamily } from '../services/familyService.js';
 
 // استيراد المكونات والأدوات المنفصلة

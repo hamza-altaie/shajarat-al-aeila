@@ -1,11 +1,17 @@
-// src/services/familyService.js - خدمات إدارة العائلة باستخدام Supabase
+// src/services/familyService.js - خدمات إدارة العائلة باستخدام Firebase Firestore
 import { 
-  fetchFamilyMembers,
-  saveFamilyMember,
-  deleteFamilyMember,
-  fetchUnifiedFamilyTree,
-  searchUnifiedFamilyTree
-} from '../supabase/database.js';
+  doc, 
+  collection, 
+  getDocs, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  query, 
+  where, 
+  orderBy,
+  getDoc
+} from 'firebase/firestore';
+import { db } from '../firebase/config.js';
 
 // ===========================================================================
 // خدمات العائلة الأساسية
@@ -18,24 +24,24 @@ import {
  */
 export const loadFamily = async (uid) => {
   try {
-    const familyData = await fetchFamilyMembers(uid);
+    const familyCollection = collection(db, 'families');
+    const q = query(
+      familyCollection, 
+      where('userId', '==', uid),
+      orderBy('createdAt', 'desc')
+    );
     
-    // تحويل أسماء الحقول من snake_case إلى camelCase للتوافق مع الواجهة الأمامية
-    return familyData.map(member => ({
-      id: member.id,
-      firstName: member.first_name || '',
-      fatherName: member.father_name || '',
-      grandfatherName: member.grandfather_name || '',
-      surname: member.surname || '',
-      relation: member.relation || '',
-      birthdate: member.birthdate || '',
-      avatar: member.avatar || '',
-      parentId: member.parent_id || '',
-      manualParentName: member.manual_parent_name || '',
-      linkedParentUid: member.linked_parent_uid || '',
-      createdAt: member.created_at || '',
-      updatedAt: member.updated_at || ''
-    }));
+    const querySnapshot = await getDocs(q);
+    const familyData = [];
+    
+    querySnapshot.forEach((doc) => {
+      familyData.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    return familyData;
     
   } catch (error) {
     console.error('❌ خطأ في تحميل بيانات العائلة:', error);
@@ -51,39 +57,28 @@ export const loadFamily = async (uid) => {
  */
 export const saveFamilyMemberData = async (uid, memberData) => {
   try {
-    // تحويل أسماء الحقول من camelCase إلى snake_case لقاعدة البيانات
     const dataToSave = {
-      id: memberData.id || undefined,
-      first_name: memberData.firstName || '',
-      father_name: memberData.fatherName || '',
-      grandfather_name: memberData.grandfatherName || '',
-      surname: memberData.surname || '',
-      birthdate: memberData.birthdate || null,
-      relation: memberData.relation || '',
-      parent_id: memberData.parentId || null,
-      avatar: memberData.avatar || '',
-      manual_parent_name: memberData.manualParentName || '',
-      linked_parent_uid: memberData.linkedParentUid || null
+      ...memberData,
+      userId: uid,
+      updatedAt: new Date(),
+      ...(memberData.id ? {} : { createdAt: new Date() })
     };
 
-    const savedMember = await saveFamilyMember(uid, dataToSave);
+    let savedMember;
     
-    // تحويل البيانات المرجعة إلى camelCase
-    return {
-      id: savedMember.id,
-      firstName: savedMember.first_name || '',
-      fatherName: savedMember.father_name || '',
-      grandfatherName: savedMember.grandfather_name || '',
-      surname: savedMember.surname || '',
-      relation: savedMember.relation || '',
-      birthdate: savedMember.birthdate || '',
-      avatar: savedMember.avatar || '',
-      parentId: savedMember.parent_id || '',
-      manualParentName: savedMember.manual_parent_name || '',
-      linkedParentUid: savedMember.linked_parent_uid || '',
-      createdAt: savedMember.created_at || '',
-      updatedAt: savedMember.updated_at || ''
-    };
+    if (memberData.id) {
+      // تحديث عضو موجود
+      const memberRef = doc(db, 'families', memberData.id);
+      await updateDoc(memberRef, dataToSave);
+      savedMember = { id: memberData.id, ...dataToSave };
+    } else {
+      // إضافة عضو جديد
+      const familyCollection = collection(db, 'families');
+      const docRef = await addDoc(familyCollection, dataToSave);
+      savedMember = { id: docRef.id, ...dataToSave };
+    }
+    
+    return savedMember;
     
   } catch (error) {
     console.error('❌ خطأ في حفظ بيانات العضو:', error);
@@ -99,7 +94,21 @@ export const saveFamilyMemberData = async (uid, memberData) => {
  */
 export const deleteFamilyMemberData = async (uid, memberId) => {
   try {
-    return await deleteFamilyMember(uid, memberId);
+    const memberRef = doc(db, 'families', memberId);
+    
+    // التأكد من أن العضو ينتمي للمستخدم قبل الحذف
+    const memberDoc = await getDoc(memberRef);
+    if (!memberDoc.exists()) {
+      throw new Error('العضو غير موجود');
+    }
+    
+    const memberData = memberDoc.data();
+    if (memberData.userId !== uid) {
+      throw new Error('غير مصرح لك بحذف هذا العضو');
+    }
+    
+    await deleteDoc(memberRef);
+    return true;
   } catch (error) {
     console.error('❌ خطأ في حذف العضو:', error);
     throw new Error(`فشل في حذف العضو: ${error.message}`);
@@ -116,26 +125,18 @@ export const deleteFamilyMemberData = async (uid, memberId) => {
  */
 export const loadUnifiedFamilyTree = async () => {
   try {
-    const unifiedData = await fetchUnifiedFamilyTree();
+    const familyCollection = collection(db, 'families');
+    const querySnapshot = await getDocs(familyCollection);
     
-    // تحويل البيانات للتوافق مع الواجهة الأمامية
-    return unifiedData.map(member => ({
-      id: member.id,
-      firstName: member.first_name || '',
-      fatherName: member.father_name || '',
-      grandfatherName: member.grandfather_name || '',
-      surname: member.surname || '',
-      relation: member.relation || '',
-      birthdate: member.birthdate || '',
-      avatar: member.avatar || '',
-      parentId: member.parent_id || '',
-      manualParentName: member.manual_parent_name || '',
-      linkedParentUid: member.linked_parent_uid || '',
-      userUid: member.user_uid || '',
-      userPhone: member.user?.phone_number || '',
-      createdAt: member.created_at || '',
-      updatedAt: member.updated_at || ''
-    }));
+    const unifiedData = [];
+    querySnapshot.forEach((doc) => {
+      unifiedData.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    return unifiedData;
     
   } catch (error) {
     console.error('❌ خطأ في تحميل الشجرة الموحدة:', error);
@@ -150,26 +151,16 @@ export const loadUnifiedFamilyTree = async () => {
  */
 export const searchInUnifiedFamilyTree = async (searchTerm) => {
   try {
-    const searchResults = await searchUnifiedFamilyTree(searchTerm);
+    const familyData = await loadUnifiedFamilyTree();
     
-    // تحويل البيانات للتوافق مع الواجهة الأمامية
-    return searchResults.map(member => ({
-      id: member.id,
-      firstName: member.first_name || '',
-      fatherName: member.father_name || '',
-      grandfatherName: member.grandfather_name || '',
-      surname: member.surname || '',
-      relation: member.relation || '',
-      birthdate: member.birthdate || '',
-      avatar: member.avatar || '',
-      parentId: member.parent_id || '',
-      manualParentName: member.manual_parent_name || '',
-      linkedParentUid: member.linked_parent_uid || '',
-      userUid: member.user_uid || '',
-      userPhone: member.user?.phone_number || '',
-      createdAt: member.created_at || '',
-      updatedAt: member.updated_at || ''
-    }));
+    // البحث في البيانات محلياً
+    const searchResults = familyData.filter(member => {
+      const fullName = `${member.firstName} ${member.fatherName} ${member.grandfatherName} ${member.surname}`.toLowerCase();
+      return fullName.includes(searchTerm.toLowerCase()) ||
+             (member.relation && member.relation.toLowerCase().includes(searchTerm.toLowerCase()));
+    });
+    
+    return searchResults;
     
   } catch (error) {
     console.error('❌ خطأ في البحث في الشجرة:', error);

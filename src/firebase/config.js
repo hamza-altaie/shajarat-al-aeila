@@ -35,7 +35,6 @@ const getFirebaseStatus = () => {
 };
 
 // 🔌 دالة لاختبار الاتصال
-// ملاحظة: نستخدم Supabase للبيانات الآن
 const testFirebaseConnection = async () => {
   return { success: true };
 };

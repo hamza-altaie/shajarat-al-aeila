@@ -1,4 +1,4 @@
-# دليل التشغيل - شجرة العائلة مع Supabase
+# دليل التشغيل - شجرة العائلة مع Firebase
 
 ## 🚀 خطوات التشغيل السريع
 
@@ -17,25 +17,21 @@ cp .env.example .env
 املأ القيم في ملف `.env`:
 
 ```env
-# Firebase (للمصادقة والتخزين - بدون تغيير)
+# Firebase (للمصادقة والتخزين)
 REACT_APP_FIREBASE_API_KEY=your_firebase_api_key
 REACT_APP_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
 REACT_APP_FIREBASE_PROJECT_ID=your_firebase_project_id
 REACT_APP_FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
 REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your_firebase_messaging_sender_id
 REACT_APP_FIREBASE_APP_ID=your_firebase_app_id
-
-# Supabase (للبيانات - جديد)
-REACT_APP_SUPABASE_URL=https://your-project-id.supabase.co
-REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-### 3. إعداد قاعدة البيانات في Supabase
+### 3. إعداد Firebase
 
-1. اذهب إلى [Supabase Dashboard](https://supabase.com/dashboard)
-2. أنشئ مشروع جديد
-3. اذهب إلى **SQL Editor**
-4. نفذ الكود الموجود في `database-setup/supabase-schema.sql`
+1. اذهب إلى [Firebase Console](https://console.firebase.google.com/)
+2. أنشئ مشروع جديد أو استخدم مشروع موجود
+3. فعّل **Authentication** و **Firestore Database**
+4. انسخ بيانات التكوين إلى ملف `.env`
 
 ### 4. التشغيل
 ```bash
@@ -61,19 +57,19 @@ Error: Invalid API key or URL
 
 ### خطأ قاعدة البيانات
 ```
-Error: relation "users" does not exist
+Error: Firebase configuration is missing
 ```
 **الحل:**
-1. تأكد من تنفيذ `supabase-schema.sql` في Supabase
-2. تحقق من أن الجداول تم إنشاؤها بنجاح
+1. تأكد من صحة بيانات Firebase في `.env`
+2. تحقق من تفعيل Firestore في مشروع Firebase
 
 ### خطأ الصلاحيات
 ```
-Error: Row Level Security policy violation
+Error: Missing or insufficient permissions
 ```
 **الحل:**
-1. تأكد من تفعيل RLS في Supabase
-2. تحقق من أن المستخدم مسجل دخول عبر Firebase
+1. تأكد من إعداد قواعد الأمان في Firestore
+2. تحقق من أن المستخدم مسجل دخول
 
 ### لا تظهر البيانات
 **الحل:**
@@ -85,71 +81,34 @@ Error: Row Level Security policy violation
 
 ```
 src/
-├── supabase/                 # خدمات Supabase (جديد)
-│   ├── config.js            # إعداد Supabase
-│   ├── database.js          # عمليات قاعدة البيانات
-│   └── test-connection.js   # اختبار الاتصال
-├── services/                # خدمات التطبيق (محدث)
-│   └── familyService.js     # خدمات العائلة مع Supabase
-├── firebase/                # Firebase (بدون تغيير)
+├── services/                # خدمات التطبيق
+│   ├── familyService.js     # خدمات العائلة مع Firebase
+│   └── userService.js       # خدمات المستخدمين
+├── firebase/                # Firebase
 │   ├── config.js            # إعداد Firebase
 │   └── auth.js              # خدمات المصادقة
+├── components/              # مكونات الواجهة
+├── pages/                   # صفحات التطبيق
 └── ...                      # باقي الملفات
 ```
 
-## 🔄 الهجرة من Firestore
+## 🎯 الميزات المتاحة
 
-إذا كان لديك بيانات في Firestore وتريد نقلها:
-
-### 1. تصدير البيانات من Firestore
+### إدارة العائلة
 ```javascript
-// هذا الكود للمطورين فقط
-import { collection, getDocs } from 'firebase/firestore';
+import { loadFamily, saveFamilyMemberData } from '../services/familyService.js';
 
-const exportFirestoreData = async () => {
-  // استخراج المستخدمين
-  const usersSnap = await getDocs(collection(db, 'users'));
-  const users = usersSnap.docs.map(doc => ({id: doc.id, ...doc.data()}));
-  
-  // استخراج أفراد العائلة
-  const familyData = [];
-  for (const user of users) {
-    const familySnap = await getDocs(collection(db, 'users', user.id, 'family'));
-    familySnap.docs.forEach(doc => {
-      familyData.push({
-        user_uid: user.id,
-        ...doc.data()
-      });
-    });
-  }
-  
-  console.log('Users:', users);
-  console.log('Family Members:', familyData);
-};
+// جلب أفراد العائلة
+const familyMembers = await loadFamily(userUid);
+
+// حفظ عضو جديد
+const savedMember = await saveFamilyMemberData(userUid, memberData);
 ```
 
-### 2. استيراد البيانات إلى Supabase
-```javascript
-// نفذ هذا في Supabase SQL Editor بعد تعديل البيانات
-INSERT INTO users (uid, phone_number, created_at)
-VALUES ('firebase_uid', '+9647xxxxxxxx', NOW());
-
-INSERT INTO family_members (user_uid, first_name, father_name, ...)
-VALUES ('firebase_uid', 'الاسم', 'اسم الأب', ...);
-```
-
-## 🎯 الميزات الجديدة
-
-### البحث المتقدم
+### البحث في البيانات
 ```javascript
 import { searchInUnifiedFamilyTree } from '../services/familyService.js';
 const results = await searchInUnifiedFamilyTree('أحمد');
-```
-
-### الشجرة الموحدة
-```javascript
-import { loadUnifiedFamilyTree } from '../services/familyService.js';
-const unifiedTree = await loadUnifiedFamilyTree();
 ```
 
 ### التحقق من البيانات
@@ -161,10 +120,17 @@ if (!validation.isValid) {
 }
 ```
 
+### حساب الأعمار
+```javascript
+import { calculateAge } from '../services/familyService.js';
+const age = calculateAge('1990-01-01');
+console.log(age); // "34 سنة"
+```
+
 ## 📞 الدعم
 
 للحصول على المساعدة:
 1. راجع الأخطاء في Developer Console
-2. تحقق من ملف `docs/SUPABASE_SETUP.md`
-3. راجع [وثائق Supabase](https://supabase.com/docs)
-4. راجع [وثائق Firebase](https://firebase.google.com/docs)
+2. تحقق من إعدادات Firebase
+3. راجع [وثائق Firebase](https://firebase.google.com/docs)
+4. راجع [وثائق React](https://react.dev/)

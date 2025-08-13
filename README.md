@@ -4,30 +4,16 @@
 
 ## آخر التحديثات
 
-### تحديث قاعدة البيانات إلى Supabase (أغسطس 2025)
+### تنظيف المشروع من Supabase (أغسطس 2025)
 
-تم تحديث المشروع لاستخدام **Supabase** كقاعدة بيانات رئيسية مع الاحتفاظ بـ Firebase للمصادقة والتخزين.
-
-#### المزايا الجديدة:
-- **قاعدة بيانات SQL متقدمة** مع إمكانيات بحث محسنة
-- **الشجرة الموحدة**: بناء شجرة عائلة موحدة من عدة مستخدمين
-- **البحث المتقدم**: بحث سريع عبر جميع أفراد العائلة
-- **أمان محسن**: Row Level Security (RLS) لحماية البيانات
-- **أداء أفضل**: استعلامات SQL محسنة ومفهرسة
+تم إزالة جميع مكونات Supabase من المشروع والعودة إلى استخدام Firebase بالكامل.
 
 #### التغييرات التقنية:
-- إضافة مكتبة `@supabase/supabase-js`
-- إنشاء خدمات جديدة في `src/supabase/`
-- تحديث `userService.js` و `familyService.js`
-- إعداد جداول SQL جديدة مع RLS
-- الحفاظ على Firebase للمصادقة ورفع الصور
-
-#### للمطورين:
-راجع `docs/SUPABASE_SETUP.md` للتعليمات التفصيلية حول:
-- إنشاء مشروع Supabase
-- إعداد قاعدة البيانات
-- تكوين متغيرات البيئة
-- ربط Firebase Auth مع Supabase
+- إزالة مكتبة `@supabase/supabase-js`
+- حذف مجلد `src/supabase/`
+- تحديث `userService.js` و `familyService.js` لاستخدام Firebase Firestore
+- حذف ملفات قاعدة البيانات `database-setup/`
+- تنظيف متغيرات البيئة من مراجع Supabase
 
 ### تنظيف الكود غير المستخدم (ديسمبر 2024)
 
@@ -84,8 +70,7 @@
 ## التقنيات المستخدمة
 
 - React.js
-- Firebase (Authentication + Storage)
-- Supabase (Database)
+- Firebase (Authentication + Firestore + Storage)
 - Material-UI
 - D3.js لعرض الشجرة
 - Vite للبناء
