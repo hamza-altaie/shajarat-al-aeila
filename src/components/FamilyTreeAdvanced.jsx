@@ -710,96 +710,191 @@ const drawTreeWithD3 = useCallback((data) => {
 
   treeLayout(root);
 
-  // رسم الروابط الإضافية للشجرة الموسعة
-  if (isExtended && data.parents) {
-    // رسم خطوط للوالدين
-    data.parents.forEach((parent, index) => {
-      const parentX = root.x + (index === 0 ? -300 : 300);
-      const parentY = root.y - 120;
+  // رسم الروابط الإضافية للشجرة الموسعة بنفس نمط الشجرة الأصلية
+  if (isExtended && data.parents && data.parents.length > 0) {
+    const parentX = root.x; // الوالد في نفس المحور الأفقي لصاحب الحساب
+    const parentY = root.y - 200; // الوالد أعلى من صاحب الحساب
+    
+    // إذا كان هناك أشقاء، ارسم نظام خطوط كامل
+    if (data.siblings && data.siblings.length > 0) {
+      // تحديد مواقع الأشقاء
+      const siblingPositions = data.siblings.map((sibling, index) => {
+        if (data.siblings.length === 1) {
+          return root.x + (index === 0 ? -350 : 350);
+        } else if (data.siblings.length === 2) {
+          return root.x + (index === 0 ? -350 : 350);
+        } else {
+          const spacing = 300;
+          const totalWidth = (data.siblings.length - 1) * spacing;
+          const startX = root.x - totalWidth / 2;
+          return startX + (index * spacing);
+        }
+      });
       
+      // جميع المواقع (الأشقاء + صاحب الحساب)
+      const allPositions = [...siblingPositions, root.x].sort((a, b) => a - b);
+      const leftmost = allPositions[0];
+      const rightmost = allPositions[allPositions.length - 1];
+      const horizontalLineY = root.y - 50; // مستوى الخط الأفقي
+      
+      // 1. خط عمودي من الوالد إلى الخط الأفقي
       g.append("path")
-        .attr("class", "parent-link")
-        .attr("d", `M${root.x},${root.y - cardHeight/2} 
-                   L${root.x},${root.y - 60}
-                   L${parentX},${root.y - 60}
-                   L${parentX},${parentY + cardHeight/2}`)
+        .attr("class", "parent-to-horizontal-line")
+        .attr("d", `M${parentX},${parentY + cardHeight/2} L${parentX},${horizontalLineY}`)
         .style("fill", "none")
-        .style("stroke", "#888")
+        .style("stroke", "#cbd5e1")
         .style("stroke-width", 2)
-        .style("stroke-dasharray", "5,5")
+        .style("stroke-linecap", "round")
+        .style("opacity", 0)
+        .transition()
+        .delay(600)
+        .duration(600)
+        .ease(d3.easeQuadOut)
+        .style("opacity", 0.85);
+      
+      // 2. خط أفقي يربط جميع الأشقاء مع صاحب الحساب
+      g.append("path")
+        .attr("class", "horizontal-siblings-line")
+        .attr("d", `M${leftmost},${horizontalLineY} L${rightmost},${horizontalLineY}`)
+        .style("fill", "none")
+        .style("stroke", "#cbd5e1")
+        .style("stroke-width", 2)
+        .style("stroke-linecap", "round")
+        .style("opacity", 0)
+        .transition()
+        .delay(700)
+        .duration(600)
+        .ease(d3.easeQuadOut)
+        .style("opacity", 0.85);
+      
+      // 3. خط عمودي من الخط الأفقي إلى صاحب الحساب
+      g.append("path")
+        .attr("class", "horizontal-to-owner")
+        .attr("d", `M${root.x},${horizontalLineY} L${root.x},${root.y - cardHeight/2}`)
+        .style("fill", "none")
+        .style("stroke", "#cbd5e1")
+        .style("stroke-width", 2)
+        .style("stroke-linecap", "round")
+        .style("opacity", 0)
+        .transition()
+        .delay(800)
+        .duration(400)
+        .ease(d3.easeQuadOut)
+        .style("opacity", 0.85);
+      
+      // 4. خطوط عمودية من الخط الأفقي إلى كل شقيق
+      data.siblings.forEach((sibling, index) => {
+        let siblingX;
+        if (data.siblings.length === 1) {
+          siblingX = root.x + (index === 0 ? -350 : 350);
+        } else if (data.siblings.length === 2) {
+          siblingX = root.x + (index === 0 ? -350 : 350);
+        } else {
+          const spacing = 300;
+          const totalWidth = (data.siblings.length - 1) * spacing;
+          const startX = root.x - totalWidth / 2;
+          siblingX = startX + (index * spacing);
+        }
+        
+        g.append("path")
+          .attr("class", `horizontal-to-sibling-${index}`)
+          .attr("d", `M${siblingX},${horizontalLineY} L${siblingX},${root.y - cardHeight/2}`)
+          .style("fill", "none")
+          .style("stroke", "#cbd5e1")
+          .style("stroke-width", 2)
+          .style("stroke-linecap", "round")
+          .style("opacity", 0)
+          .transition()
+          .delay(800 + index * 100)
+          .duration(400)
+          .ease(d3.easeQuadOut)
+          .style("opacity", 0.85);
+      });
+    } else {
+      // إذا لم يكن هناك أشقاء، ارسم خط مباشر من الوالد إلى صاحب الحساب
+      g.append("path")
+        .attr("class", "parent-to-owner-direct")
+        .attr("d", () => {
+          const midY = root.y + (parentY - root.y) / 2;
+          const radius = 18;
+          return `M${root.x},${root.y - cardHeight/2}
+                  L${root.x},${midY - radius}
+                  Q${root.x},${midY} ${root.x},${midY}
+                  L${root.x},${midY + radius}
+                  L${root.x},${parentY + cardHeight/2}`;
+        })
+        .style("fill", "none")
+        .style("stroke", "#cbd5e1")
+        .style("stroke-width", 2)
+        .style("stroke-linecap", "round")
+        .style("stroke-linejoin", "round")
         .style("opacity", 0)
         .transition()
         .delay(600)
         .duration(800)
-        .style("opacity", 0.7);
-    });
-  }
-
-  if (isExtended && data.siblings) {
-    // رسم خطوط للإخوة والأخوات  
-    data.siblings.forEach((sibling, index) => {
-      const siblingX = root.x + (index % 2 === 0 ? -350 : 350);
-      
-      g.append("path")
-        .attr("class", "sibling-link")
-        .attr("d", `M${root.x - cardWidth/2},${root.y}
-                   L${root.x - 100},${root.y}
-                   L${siblingX + (index % 2 === 0 ? cardWidth/2 : -cardWidth/2)},${root.y}`)
-        .style("fill", "none")
-        .style("stroke", "#4caf50")
-        .style("stroke-width", 2)
-        .style("stroke-dasharray", "3,3")
-        .style("opacity", 0)
-        .transition()
-        .delay(800)
-        .duration(800)
-        .style("opacity", 0.7);
-    });
+        .ease(d3.easeQuadOut)
+        .style("opacity", 0.85);
+    }
   }
 
   if (isExtended && data.unclesAunts) {
-    // رسم خطوط للأعمام والعمات
+    // رسم خطوط للأعمام والعمات بنفس النمط
     data.unclesAunts.forEach((uncleAunt, index) => {
       const uncleAuntX = root.x + (index % 2 === 0 ? -200 : 200);
       const uncleAuntY = root.y - 200;
       
       g.append("path")
         .attr("class", "uncle-aunt-link")
-        .attr("d", `M${root.x},${root.y - cardHeight/2}
-                   L${root.x},${root.y - 80}
-                   L${uncleAuntX},${root.y - 80}
-                   L${uncleAuntX},${uncleAuntY + cardHeight/2}`)
+        .attr("d", () => {
+          const midY = root.y + (uncleAuntY - root.y) / 2;
+          const radius = 18;
+          return `M${root.x},${root.y - cardHeight/2}
+                  L${root.x},${midY - radius}
+                  Q${root.x},${midY} ${root.x + (uncleAuntX > root.x ? radius : -radius)},${midY}
+                  L${uncleAuntX - (uncleAuntX > root.x ? radius : -radius)},${midY}
+                  Q${uncleAuntX},${midY} ${uncleAuntX},${midY + radius}
+                  L${uncleAuntX},${uncleAuntY + cardHeight/2}`;
+        })
         .style("fill", "none")
-        .style("stroke", "#ff9800")
+        .style("stroke", "#cbd5e1")
         .style("stroke-width", 2)
-        .style("stroke-dasharray", "4,4")
+        .style("stroke-linecap", "round")
+        .style("stroke-linejoin", "round")
         .style("opacity", 0)
         .transition()
         .delay(1000)
         .duration(800)
-        .style("opacity", 0.6);
+        .ease(d3.easeQuadOut)
+        .style("opacity", 0.85);
     });
   }
 
   if (isExtended && data.motherSide) {
-    // رسم خطوط للأخوال والخالات
+    // رسم خطوط للأخوال والخالات بنفس النمط
     data.motherSide.forEach((motherSide, index) => {
       const motherSideX = root.x + (index % 2 === 0 ? -500 : 500);
       
       g.append("path")
         .attr("class", "mother-side-link")
-        .attr("d", `M${root.x - cardWidth/2},${root.y}
-                   L${root.x - 200},${root.y}
-                   L${motherSideX + (index % 2 === 0 ? cardWidth/2 : -cardWidth/2)},${root.y - 50}`)
+        .attr("d", () => {
+          const midY = root.y - 25;
+          return `M${root.x + (motherSideX > root.x ? cardWidth/2 : -cardWidth/2)},${root.y}
+                  L${root.x + (motherSideX > root.x ? 120 : -120)},${root.y}
+                  Q${root.x + (motherSideX > root.x ? 140 : -140)},${root.y} ${root.x + (motherSideX > root.x ? 140 : -140)},${midY}
+                  L${motherSideX + (motherSideX > root.x ? -140 : 140)},${midY}
+                  Q${motherSideX + (motherSideX > root.x ? -120 : 120)},${midY} ${motherSideX + (motherSideX > root.x ? -cardWidth/2 : cardWidth/2)},${root.y - 50}`;
+        })
         .style("fill", "none")
-        .style("stroke", "#9c27b0")
+        .style("stroke", "#cbd5e1")
         .style("stroke-width", 2)
-        .style("stroke-dasharray", "6,2")
+        .style("stroke-linecap", "round")
+        .style("stroke-linejoin", "round")
         .style("opacity", 0)
         .transition()
         .delay(1200)
         .duration(800)
-        .style("opacity", 0.6);
+        .ease(d3.easeQuadOut)
+        .style("opacity", 0.85);
     });
   }
 
@@ -1104,7 +1199,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
         data.parents.forEach((parent, index) => {
           const parentNode = g.append("g")
             .attr("class", "node extended-node parent-node")
-            .attr("transform", `translate(${root.x + (index === 0 ? -300 : 300)}, ${root.y - 120})`)
+            .attr("transform", `translate(${root.x}, ${root.y - 200})`)
             .style("cursor", "pointer")
             .style("opacity", 0);
             
@@ -1128,9 +1223,23 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
       // رسم عُقد الإخوة والأخوات
       if (data.siblings) {
         data.siblings.forEach((sibling, index) => {
+          // توزيع أفضل للأشقاء - تجنب التداخل
+          let siblingX;
+          if (data.siblings.length === 1) {
+            siblingX = root.x + (index === 0 ? -350 : 350);
+          } else if (data.siblings.length === 2) {
+            siblingX = root.x + (index === 0 ? -350 : 350);
+          } else {
+            // للأشقاء الأكثر من 2 - توزيع متوازن
+            const spacing = 300;
+            const totalWidth = (data.siblings.length - 1) * spacing;
+            const startX = root.x - totalWidth / 2;
+            siblingX = startX + (index * spacing);
+          }
+          
           const siblingNode = g.append("g")
             .attr("class", "node extended-node sibling-node")
-            .attr("transform", `translate(${root.x + (index % 2 === 0 ? -350 : 350)}, ${root.y})`)
+            .attr("transform", `translate(${siblingX}, ${root.y})`)
             .style("cursor", "pointer")
             .style("opacity", 0);
             
@@ -1234,21 +1343,30 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
           .ease(d3.easeBackOut)
           .style("opacity", 1);
           
-        // خط الربط للزوجة
+        // خط الربط للزوجة بنفس النمط
         g.append("path")
           .attr("class", "spouse-link")
-          .attr("d", `M${root.x + cardWidth/2},${root.y}
-                     L${root.x + 125},${root.y}
-                     L${root.x + 125},${root.y}
-                     L${root.x + 250 - cardWidth/2},${root.y}`)
+          .attr("d", () => {
+            const midX = root.x + 125;
+            const radius = 18;
+            return `M${root.x + cardWidth/2},${root.y}
+                    L${midX - radius},${root.y}
+                    Q${midX},${root.y} ${midX},${root.y}
+                    L${midX},${root.y}
+                    Q${midX},${root.y} ${midX + radius},${root.y}
+                    L${root.x + 250 - cardWidth/2},${root.y}`;
+          })
           .style("fill", "none")
-          .style("stroke", "#ec4899")
-          .style("stroke-width", 3)
+          .style("stroke", "#cbd5e1")
+          .style("stroke-width", 2)
+          .style("stroke-linecap", "round")
+          .style("stroke-linejoin", "round")
           .style("opacity", 0)
           .transition()
           .delay(400)
           .duration(800)
-          .style("opacity", 0.8);
+          .ease(d3.easeQuadOut)
+          .style("opacity", 0.85);
       }
     }
   }, 1200);
