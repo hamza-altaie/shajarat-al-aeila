@@ -728,6 +728,45 @@ const drawTreeWithD3 = useCallback((data) => {
 
   treeLayout(root);
 
+  // دالة موحدة لرسم خط منحني
+  const drawCurvedLine = (g, startX, startY, endX, endY, className, strokeColor = "#cbd5e1", strokeWidth = 2, delay = 0, duration = 400, opacity = 0.85, isDashed = false) => {
+    const midY = startY + (endY - startY) / 2;
+    const radius = 18;
+    
+    let pathData;
+    if (startX === endX) {
+      // خط عمودي منحني
+      pathData = `M${startX},${startY}
+                  L${startX},${midY - radius}
+                  Q${startX},${midY} ${startX},${midY + radius}
+                  L${startX},${endY}`;
+    } else {
+      // خط أفقي مستقيم
+      pathData = `M${startX},${startY} L${endX},${endY}`;
+    }
+    
+    const line = g.append("path")
+      .attr("class", className)
+      .attr("d", pathData)
+      .style("fill", "none")
+      .style("stroke", strokeColor)
+      .style("stroke-width", strokeWidth)
+      .style("stroke-linecap", "round")
+      .style("opacity", 0);
+    
+    if (isDashed) {
+      line.style("stroke-dasharray", "4,4");
+    }
+    
+    line.transition()
+      .delay(delay)
+      .duration(duration)
+      .ease(d3.easeQuadOut)
+      .style("opacity", opacity);
+    
+    return line;
+  };
+
   // رسم الروابط الإضافية للشجرة الموسعة بنفس نمط الشجرة الأصلية
   if (isExtended && data.parents && data.parents.length > 0) {
     const parentX = root.x; // الوالد في نفس المحور الأفقي لصاحب الحساب
@@ -755,10 +794,15 @@ const drawTreeWithD3 = useCallback((data) => {
       const rightmost = allPositions[allPositions.length - 1];
       const horizontalLineY = root.y - (verticalGap * 0.7); // مستوى الخط الأفقي متجاوب
       
-      // 1. خط عمودي من الوالد إلى الخط الأفقي
+      // 1. خط عمودي من الوالد إلى الخط الأفقي - منحني
+      const parentToHorizontalMidY = parentY + cardHeight/2 + (horizontalLineY - parentY - cardHeight/2) / 2;
+      const radius = 18;
       g.append("path")
         .attr("class", "parent-to-horizontal-line")
-        .attr("d", `M${parentX},${parentY + cardHeight/2} L${parentX},${horizontalLineY}`)
+        .attr("d", `M${parentX},${parentY + cardHeight/2}
+                   L${parentX},${parentToHorizontalMidY - radius}
+                   Q${parentX},${parentToHorizontalMidY} ${parentX},${parentToHorizontalMidY + radius}
+                   L${parentX},${horizontalLineY}`)
         .style("fill", "none")
         .style("stroke", "#cbd5e1")
         .style("stroke-width", 2)
@@ -770,7 +814,7 @@ const drawTreeWithD3 = useCallback((data) => {
         .ease(d3.easeQuadOut)
         .style("opacity", 0.85);
       
-      // 2. خط أفقي يربط جميع الأشقاء مع صاحب الحساب
+      // 2. خط أفقي يربط جميع الأشقاء مع صاحب الحساب - منحني
       g.append("path")
         .attr("class", "horizontal-siblings-line")
         .attr("d", `M${leftmost},${horizontalLineY} L${rightmost},${horizontalLineY}`)
@@ -785,22 +829,10 @@ const drawTreeWithD3 = useCallback((data) => {
         .ease(d3.easeQuadOut)
         .style("opacity", 0.85);
       
-      // 3. خط عمودي من الخط الأفقي إلى صاحب الحساب
-      g.append("path")
-        .attr("class", "horizontal-to-owner")
-        .attr("d", `M${root.x},${horizontalLineY} L${root.x},${root.y - cardHeight/2}`)
-        .style("fill", "none")
-        .style("stroke", "#cbd5e1")
-        .style("stroke-width", 2)
-        .style("stroke-linecap", "round")
-        .style("opacity", 0)
-        .transition()
-        .delay(800)
-        .duration(400)
-        .ease(d3.easeQuadOut)
-        .style("opacity", 0.85);
+      // 3. خط عمودي من الخط الأفقي إلى صاحب الحساب - منحني  
+      drawCurvedLine(g, root.x, horizontalLineY, root.x, root.y - cardHeight/2, "horizontal-to-owner", "#cbd5e1", 2, 800, 400, 0.85);
       
-      // 4. خطوط عمودية من الخط الأفقي إلى كل شقيق
+      // 4. خطوط عمودية من الخط الأفقي إلى كل شقيق - منحنية
       data.siblings.forEach((sibling, index) => {
         let siblingX;
         if (data.siblings.length === 1) {
@@ -814,49 +846,16 @@ const drawTreeWithD3 = useCallback((data) => {
           siblingX = startX + (index * spacing);
         }
         
-        g.append("path")
-          .attr("class", `horizontal-to-sibling-${index}`)
-          .attr("d", `M${siblingX},${horizontalLineY} L${siblingX},${root.y - cardHeight/2}`)
-          .style("fill", "none")
-          .style("stroke", "#cbd5e1")
-          .style("stroke-width", 2)
-          .style("stroke-linecap", "round")
-          .style("opacity", 0)
-          .transition()
-          .delay(800 + index * 100)
-          .duration(400)
-          .ease(d3.easeQuadOut)
-          .style("opacity", 0.85);
+        drawCurvedLine(g, siblingX, horizontalLineY, siblingX, root.y - cardHeight/2, `horizontal-to-sibling-${index}`, "#cbd5e1", 2, 800 + index * 100, 400, 0.85);
       });
     } else {
       // إذا لم يكن هناك أشقاء، ارسم خط مباشر من الوالد إلى صاحب الحساب
-      g.append("path")
-        .attr("class", "parent-to-owner-direct")
-        .attr("d", () => {
-          const midY = root.y + (parentY - root.y) / 2;
-          const radius = 18;
-          return `M${root.x},${root.y - cardHeight/2}
-                  L${root.x},${midY - radius}
-                  Q${root.x},${midY} ${root.x},${midY}
-                  L${root.x},${midY + radius}
-                  L${root.x},${parentY + cardHeight/2}`;
-        })
-        .style("fill", "none")
-        .style("stroke", "#cbd5e1")
-        .style("stroke-width", 2)
-        .style("stroke-linecap", "round")
-        .style("stroke-linejoin", "round")
-        .style("opacity", 0)
-        .transition()
-        .delay(600)
-        .duration(800)
-        .ease(d3.easeQuadOut)
-        .style("opacity", 0.85);
+      drawCurvedLine(g, root.x, root.y - cardHeight/2, root.x, parentY + cardHeight/2, "parent-to-owner-direct", "#cbd5e1", 2, 600, 800, 0.85);
     }
   }
 
-  // رسم خطوط ربط لأولاد الإخوة والأخوات
-  if (isExtended && data.nephewsNieces && data.nephewsNieces.length > 0) {
+  // رسم خطوط ربط لأولاد الإخوة والأخوات - منحنية
+  if (isExtended && data.nephewsNieces && data.nephewsNieces.length > 0 && data.siblings && data.siblings.length > 0) {
     data.nephewsNieces.forEach((nephewNiece, index) => {
       let nephewX;
       const nephewSpacing = cardWidth + horizontalGap;
@@ -872,21 +871,8 @@ const drawTreeWithD3 = useCallback((data) => {
         nephewX = startX + (index * nephewSpacing);
       }
       
-      // خط ربط من مستوى الأشقاء إلى أولادهم
-      g.append("path")
-        .attr("class", `nephew-niece-link-${index}`)
-        .attr("d", `M${nephewX},${root.y + 10} L${nephewX},${nephewY - cardHeight/2}`)
-        .style("fill", "none")
-        .style("stroke", "#9ca3af")
-        .style("stroke-width", 1.5)
-        .style("stroke-linecap", "round")
-        .style("stroke-dasharray", "4,4")
-        .style("opacity", 0)
-        .transition()
-        .delay(1200 + index * 150)
-        .duration(400)
-        .ease(d3.easeQuadOut)
-        .style("opacity", 0.7);
+      // خط ربط منحني من مستوى الأشقاء إلى أولادهم
+      drawCurvedLine(g, nephewX, root.y + 10, nephewX, nephewY - cardHeight/2, `nephew-niece-link-${index}`, "#9ca3af", 1.5, 1200 + index * 150, 400, 0.7, true);
     });
   }
 
@@ -922,39 +908,15 @@ const drawTreeWithD3 = useCallback((data) => {
       .ease(d3.easeQuadOut)
       .style("opacity", 0.85);
     
-    // 2. خط عمودي من الخط الأفقي إلى الوالد
-    g.append("path")
-      .attr("class", "horizontal-to-parent")
-      .attr("d", `M${parentX},${horizontalLineY} L${parentX},${parentY}`)
-      .style("fill", "none")
-      .style("stroke", "#cbd5e1")
-      .style("stroke-width", 2)
-      .style("stroke-linecap", "round")
-      .style("opacity", 0)
-      .transition()
-      .delay(950)
-      .duration(400)
-      .ease(d3.easeQuadOut)
-      .style("opacity", 0.85);
+    // 2. خط عمودي من الخط الأفقي إلى الوالد - منحني
+    drawCurvedLine(g, parentX, horizontalLineY, parentX, parentY, "horizontal-to-parent", "#cbd5e1", 2, 950, 400, 0.85);
     
-    // 3. خطوط عمودية من الخط الأفقي إلى كل عم
+    // 3. خطوط عمودية من الخط الأفقي إلى كل عم - منحنية
     data.unclesAunts.forEach((uncle, index) => {
       const uncleSpacing = (cardWidth + horizontalGap) * 1.5;
       const uncleX = root.x + (index % 2 === 0 ? -uncleSpacing : uncleSpacing);
       
-      g.append("path")
-        .attr("class", `horizontal-to-uncle-${index}`)
-        .attr("d", `M${uncleX},${horizontalLineY} L${uncleX},${parentY}`)
-        .style("fill", "none")
-        .style("stroke", "#cbd5e1")
-        .style("stroke-width", 2)
-        .style("stroke-linecap", "round")
-        .style("opacity", 0)
-        .transition()
-        .delay(950 + index * 100)
-        .duration(400)
-        .ease(d3.easeQuadOut)
-        .style("opacity", 0.85);
+      drawCurvedLine(g, uncleX, horizontalLineY, uncleX, parentY, `horizontal-to-uncle-${index}`, "#cbd5e1", 2, 950 + index * 100, 400, 0.85);
     });
   }
 
@@ -993,39 +955,15 @@ const drawTreeWithD3 = useCallback((data) => {
       .ease(d3.easeQuadOut)
       .style("opacity", 0.85);
     
-    // 2. خط عمودي من الخط الأفقي إلى الأم
-    g.append("path")
-      .attr("class", "horizontal-to-mother")
-      .attr("d", `M${motherX},${maternalHorizontalLineY} L${motherX},${parentY}`)
-      .style("fill", "none")
-      .style("stroke", "#22c55e")
-      .style("stroke-width", 2)
-      .style("stroke-linecap", "round")
-      .style("opacity", 0)
-      .transition()
-      .delay(1150)
-      .duration(400)
-      .ease(d3.easeQuadOut)
-      .style("opacity", 0.85);
+    // 2. خط عمودي من الخط الأفقي إلى الأم - منحني
+    drawCurvedLine(g, motherX, maternalHorizontalLineY, motherX, parentY, "horizontal-to-mother", "#22c55e", 2, 1150, 400, 0.85);
     
-    // 3. خطوط عمودية من الخط الأفقي إلى كل خال
+    // 3. خطوط عمودية من الخط الأفقي إلى كل خال - منحنية
     data.motherSide.forEach((uncle, index) => {
       const uncleSpacing = (cardWidth + horizontalGap) * 2.5;
       const uncleX = root.x + (index % 2 === 0 ? -uncleSpacing : uncleSpacing);
       
-      g.append("path")
-        .attr("class", `horizontal-to-maternal-uncle-${index}`)
-        .attr("d", `M${uncleX},${maternalHorizontalLineY} L${uncleX},${parentY}`)
-        .style("fill", "none")
-        .style("stroke", "#22c55e")
-        .style("stroke-width", 2)
-        .style("stroke-linecap", "round")
-        .style("opacity", 0)
-        .transition()
-        .delay(1150 + index * 100)
-        .duration(400)
-        .ease(d3.easeQuadOut)
-        .style("opacity", 0.85);
+      drawCurvedLine(g, uncleX, maternalHorizontalLineY, uncleX, parentY, `horizontal-to-maternal-uncle-${index}`, "#22c55e", 2, 1150 + index * 100, 400, 0.85);
     });
   }
 
@@ -1078,180 +1016,35 @@ const drawTreeWithD3 = useCallback((data) => {
     .ease(d3.easeBackOut)
     .style("opacity", 1);
 
-  // إضافة محتوى العقد - نفس التصميم الأصلي تماماً
+  // إضافة محتوى العقد - استخدام الدالة الموحدة لضمان التوافق
   nodes.each(function(d) {
-  const nodeGroup = d3.select(this);
-  const nodeData = d.data.attributes || d.data;
-  
-  const uniqueId = nodeData.id || nodeData.globalId || Math.random().toString(36).substring(7);
-  const name = nodeData.name || `${nodeData.firstName || ''} ${nodeData.fatherName || ''}`.trim() || '';
-  const relation = nodeData.relation || 'عضو';
-  const nameY = -cardHeight / 2 + padding + 14;
-  const relationY = nameY + 18;
-  const childBoxWidth = 40;
-  const childBoxHeight = 16;
-  const childBoxX = -cardWidth / 2 + padding;
-  const childBoxY = cardHeight / 2 - childBoxHeight - 4;
-  const childTextX = childBoxX + childBoxWidth / 2;
-  const childTextY = childBoxY + childBoxHeight / 2 + 1.5;
-  const ageBoxWidth = 40;
-  const ageBoxHeight = 16;
-  const ageBoxX = cardWidth / 2 - padding - ageBoxWidth;
-  const ageBoxY = cardHeight / 2 - ageBoxHeight - 4;
-  const ageTextX = ageBoxX + ageBoxWidth / 2;
-  const ageTextY = ageBoxY + ageBoxHeight / 2 + 1.5;
-  // عمر محسوب
-  const calculateAge = (birthdate) => {
-    if (!birthdate) return '';
-    const birth = new Date(birthdate);
-    const today = new Date();
-    if (isNaN(birth.getTime())) return '';
-    let age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-    return age > 0 ? age : '';
-  };
-  const age = calculateAge(nodeData.birthdate || nodeData.birthDate);
+    const nodeGroup = d3.select(this);
+    const nodeData = d.data.attributes || d.data;
+    
+    const uniqueId = nodeData.id || nodeData.globalId || Math.random().toString(36).substring(7);
+    const name = nodeData.name || `${nodeData.firstName || ''} ${nodeData.fatherName || ''}`.trim() || '';
+    const relation = nodeData.relation || 'عضو';
+    
+    // استخدام الدالة الموحدة لرسم الكارت
+    drawNodeCard(nodeGroup, nodeData, name, relation, uniqueId, cardWidth, cardHeight, padding, avatarSize, textStartX);
 
-  // الكارت
-  // 🟦 تحديد الألوان حسب الجنس
-  let cardFill = "#f3f4f6";
-  let cardStroke = "#cbd5e1";
+    // إضافة تأثير البحث إذا وجد
+    if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCase())) {
+      nodeGroup.select("rect.family-node-card")
+        .transition()
+        .duration(600)
+        .attr("stroke", "#f59e0b")
+        .attr("stroke-width", 3);
+    }
 
-  if (nodeData.gender === "male" || relation.includes("ابن")) {
-    cardFill = "#e3f2fd";
-    cardStroke = "#2196f3";
-  } else if (nodeData.gender === "female" || relation.includes("بنت")) {
-    cardFill = "#fce4ec";
-    cardStroke = "#e91e63";
-  }
-
-  nodeGroup.append("rect")
-    .attr("width", cardWidth)
-    .attr("height", cardHeight)
-    .attr("x", -cardWidth / 2)
-    .attr("y", -cardHeight / 2)
-    .attr("rx", 14)
-    .attr("fill", cardFill)
-    .attr("stroke", cardStroke)
-    .attr("stroke-width", 2)
-    .attr("class", "family-node-card");
-
-  // صورة أو أفاتار
-  // ⭕️ دائرة خلفية الصورة
-nodeGroup.append("circle")
-  .attr("cx", -cardWidth / 2 + padding + avatarSize / 2)
-  .attr("cy", -cardHeight / 2 + padding + avatarSize / 2)
-  .attr("r", avatarSize / 2)
-  .attr("fill", "#fff")
-  .attr("stroke", "#ddd")
-  .attr("stroke-width", 1.5);
-
-// 🟢 ClipPath دائري للصورة
-nodeGroup.append("clipPath")
-  .attr("id", `avatar-circle-${uniqueId}`)
-  .append("circle")
-  .attr("cx", -cardWidth / 2 + padding + avatarSize / 2)
-  .attr("cy", -cardHeight / 2 + padding + avatarSize / 2)
-  .attr("r", avatarSize / 2);
-
-// 🖼️ صورة داخل الدائرة مع تقطيع وتوسيط
-nodeGroup.append("image")
-  .attr("href",
-    nodeData.avatar ||
-    (nodeData.gender === "female" || relation.includes("بنت")
-      ? "/icons/girl.png"
-      : "/icons/boy.png")
-  )
-  .attr("x", -cardWidth / 2 + padding)
-  .attr("y", -cardHeight / 2 + padding)
-  .attr("width", avatarSize)
-  .attr("height", avatarSize)
-  .attr("clip-path", `url(#avatar-circle-${uniqueId})`)
-  .attr("preserveAspectRatio", "xMidYMid slice");
-
-  // الاسم
-  nodeGroup.append("text")
-    .text(name.length > 22 ? name.slice(0, 20) + '…' : name)
-    .attr("x", textStartX)
-    .attr("y", nameY)
-    .attr("font-size", 13)
-    .attr("font-weight", "bold")
-    .attr("fill", "#111");
-
-  // العلاقة
-  nodeGroup.append("text")
-    .text(relation)
-    .attr("x", textStartX)
-    .attr("y", relationY)
-    .attr("font-size", 11)
-    .attr("fill", "#666");
-
-  if (age) {
-  // الخلفية
-  nodeGroup.append("rect")
-    .attr("x", ageBoxX)
-    .attr("y", ageBoxY)
-    .attr("width", ageBoxWidth)
-    .attr("height", ageBoxHeight)
-    .attr("rx", 8)
-    .attr("fill", "rgba(25, 118, 210, 0.08)")
-    .attr("stroke", "#1976d2")
-    .attr("stroke-width", 0.8);
-
-  // النص في المنتصف تمامًا
-  nodeGroup.append("text")
-  .text(age + " سنة") // إضافة كلمة سنة بجانب العمر
-  .attr("x", ageTextX)
-  .attr("y", ageTextY)
-  .attr("font-size", 10)
-  .attr("fill", "#1976d2")
-  .attr("font-weight", "600")
-  .attr("text-anchor", "middle")
-  .attr("dominant-baseline", "middle");
-}
-
-  // ✅ الخلفية خلف عدد الأطفال
-  if (d.children && d.children.length > 0) {
-    const childText = ` ${d.children.length}`;
-  nodeGroup.append("rect")
-    .attr("x", childBoxX)
-    .attr("y", childBoxY)
-    .attr("width", childBoxWidth)
-    .attr("height", childBoxHeight)
-    .attr("rx", 8)
-    .attr("fill", "rgba(76, 175, 80, 0.08)")
-    .attr("stroke", "#4caf50")
-    .attr("stroke-width", 0.8);
-
-  nodeGroup.append("text")
-    .text(childText)
-    .attr("x", childTextX)
-    .attr("y", childTextY)
-    .attr("font-size", 10)
-    .attr("fill", "#4caf50")
-    .attr("font-weight", "600")
-    .attr("text-anchor", "middle")
-    .attr("dominant-baseline", "middle");
-}
-
-if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCase())) {
-  nodeGroup.select("rect.family-node-card")
-    .transition()
-    .duration(600)
-    .attr("stroke", "#f59e0b")
-    .attr("stroke-width", 3);
-}
-
-  // عند الضغط
-  nodeGroup.on("click", () => {
-    handleNodeClick?.({
-      ...nodeData,
-      name,
-      age,
-      children: d.children || []
+    // عند الضغط
+    nodeGroup.on("click", () => {
+      handleNodeClick?.({
+        ...nodeData,
+        name,
+        children: d.children || []
+      });
     });
-  });
 });
 
   // معالجة تداخل العقد - نفس الطريقة الأصلية
