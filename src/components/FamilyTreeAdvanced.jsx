@@ -363,9 +363,6 @@ export default function FamilyTreeAdvanced() {
         
         if (matchingSibling) {
           nephewToSiblingMap.set(nephewNiece.id, matchingSibling.id);
-          console.log(`🔗 ربط ${nephewNiece.name} بـ ${matchingSibling.name}`);
-        } else {
-          console.warn(`⚠️ لم يتم العثور على أخ مطابق لـ ${nephewNiece.name} (أب: ${nephewNiece.parentName})`);
         }
       });
       
@@ -883,7 +880,6 @@ const drawTreeWithD3 = useCallback((data) => {
     
     // التحقق من صحة البيانات
     if (!style || !g) {
-      console.warn('DrawUnifiedLine: Missing required parameters', { style, g, styleType });
       return null;
     }
     
@@ -967,25 +963,6 @@ const drawTreeWithD3 = useCallback((data) => {
     
     return line;
   };
-
-  // دالة مساعدة للحصول على نوع العلاقة المناسب (مستقبلية)
-  // const getRelationshipType = (relationshipContext) => {
-  //   switch (relationshipContext) {
-  //     case 'parent-child':
-  //       return 'primary';
-  //     case 'sibling':
-  //       return 'sibling';
-  //     case 'uncle-aunt':
-  //     case 'nephew-niece':
-  //       return 'relative';
-  //     case 'spouse':
-  //       return 'spouse';
-  //     case 'horizontal-connector':
-  //       return 'secondary';
-  //     default:
-  //       return 'primary';
-  //   }
-  // };
 
   // رسم الروابط الإضافية للشجرة الموسعة بنفس نمط الشجرة الأصلية
   if (isExtended && data.parents && data.parents.length > 0) {
