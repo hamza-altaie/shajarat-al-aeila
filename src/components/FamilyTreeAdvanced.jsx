@@ -1700,21 +1700,6 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
           >
             🌳 شجرة عائلتك
           </Typography>
-          
-          <Typography 
-            variant="caption" 
-            sx={{ 
-              color: 'text.secondary',
-              fontFamily: 'Cairo, sans-serif',
-              fontSize: { xs: '0.7rem', sm: '0.75rem' },
-              opacity: 0.8,
-              maxWidth: '600px',
-              margin: '0 auto',
-              display: 'block'
-            }}
-          >
-            👨‍👩‍👧‍👦 عرض بسيط لرب العائلة وأولاده المباشرين
-          </Typography>
         </Box>
 
         {/* شريط التحميل - ارتفاع مقلل */}
