@@ -49,8 +49,6 @@ exports.onFamilyMemberAdded = onDocumentCreated(
     if (!memberData) return;
 
     try {
-      console.log(`✅ إضافة عضو جديد: ${memberData.firstName} في عائلة ${userId}`);
-
       // تحديث إحصائيات العائلة
       await updateFamilyStatistics(userId);
 
@@ -66,8 +64,6 @@ exports.onFamilyMemberAdded = onDocumentCreated(
         memberName: memberData.firstName,
         relation: memberData.relation
       });
-
-      console.log(`🎉 تمت معالجة إضافة العضو بنجاح`);
 
     } catch (error) {
       console.error("❌ خطأ في معالجة إضافة العضو:", error);
@@ -131,7 +127,6 @@ async function updateFamilyStatistics(userId) {
       lastCalculated: FieldValue.serverTimestamp()
     }, { merge: true });
 
-    console.log(`📊 تم تحديث إحصائيات العائلة ${userId}`);
 
   } catch (error) {
     console.error('❌ خطأ في تحديث الإحصائيات:', error);
@@ -182,7 +177,6 @@ async function createSearchIndex(userId, memberId, memberData) {
     // حفظ فهرس البحث
     await db.doc(`search_index/${userId}_${memberId}`).set(searchIndexData);
 
-    console.log(`🔍 تم إنشاء فهرس البحث للعضو ${memberData.firstName}`);
 
   } catch (error) {
     console.error('❌ خطأ في إنشاء فهرس البحث:', error);
@@ -251,13 +245,11 @@ exports.advancedSearch = onCall(
 
     try {
       const { query, filters = {}, limit = 20 } = data;
-      const userId = auth.uid;
 
       if (!query || query.trim().length < 2) {
         throw new Error("نص البحث قصير جداً");
       }
 
-      console.log(`🔍 بحث متقدم من ${userId}: "${query}"`);
 
       // بناء استعلام البحث
       let searchQuery = db.collection("search_index")
@@ -406,7 +398,6 @@ exports.cleanupExpiredData = onSchedule(
   },
   async () => {
     try {
-      console.log('🧹 بدء تنظيف البيانات المنتهية الصلاحية');
 
       const now = FieldValue.serverTimestamp();
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -430,7 +421,6 @@ exports.cleanupExpiredData = onSchedule(
       const deleteSessionPromises = oldSessions.docs.map(doc => doc.ref.delete());
       await Promise.all(deleteSessionPromises);
 
-      console.log(`✅ تم تنظيف ${expiredCache.size} ملف مؤقت، ${oldSessions.size} جلسة`);
 
     } catch (error) {
       console.error('❌ خطأ في التنظيف:', error);
@@ -534,7 +524,6 @@ async function createConnectionSuggestion(family1Id, family2Id, connectionData) 
       reviewed: false
     });
 
-    console.log(`🔗 تم إنشاء اقتراح رابط بين ${family1Id} و ${family2Id}`);
 
   } catch (error) {
     console.error('❌ خطأ في إنشاء اقتراح الرابط:', error);
@@ -602,4 +591,3 @@ async function logError(userId, errorType, error) {
   }
 }
 
-console.log('🚀 Cloud Functions لشجرة العائلة جاهزة!');

@@ -217,7 +217,6 @@ export const getUserStats = async (uid) => {
       joinDate: userData.createdAt,
       lastLogin: userData.lastLogin,
       familyRole: userData.isFamilyRoot ? 'رب العائلة' : 'عضو',
-      linkedFamilies: userData.linkedParentUid ? 1 : 0,
       profileCompletion: calculateProfileCompletion(userData)
     };
     

@@ -50,73 +50,6 @@
   overflow: hidden;
 }
 
-/* تحسينات للكارتات */
-.family-node-card {
-  transition: var(--family-transition-normal) !important;
-  cursor: pointer !important;
-}
-
-.family-node-card:hover {
-  transform: scale(1.05) !important;
-  filter: drop-shadow(0 8px 25px rgba(0,0,0,0.2)) !important;
-}
-
-/* تحسينات نقاط الربط */
-.connection-point {
-  transition: var(--family-transition-fast) !important;
-  cursor: pointer !important;
-}
-
-.connection-point:hover {
-  transform: scale(1.3) !important;
-  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3)) !important;
-}
-
-/* تحسينات خطوط الربط */
-.unified-connection-line {
-  transition: var(--family-transition-fast) !important;
-  cursor: pointer !important;
-}
-
-.unified-connection-line:hover {
-  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3)) !important;
-}
-
-/* أنيميشن خاص للكارتات الجديدة */
-@keyframes cardAppear {
-  0% {
-    opacity: 0;
-    transform: translateY(-20px) scale(0.8);
-  }
-  50% {
-    transform: translateY(-5px) scale(1.1);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.node {
-  animation: cardAppear 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-}
-
-/* تأثير نبضة لنقاط الربط */
-@keyframes pointPulse {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.7;
-  }
-  50% {
-    transform: scale(1.2);
-    opacity: 1;
-  }
-}
-
-.connection-point.active {
-  animation: pointPulse 1.5s infinite;
-}
-
 .family-tree-advanced-root.extended {
   background: #fff !important;
 }
@@ -416,47 +349,7 @@
   opacity: 0.8;
 }
 
-/* خطوط الاتصال الموحدة */
-.unified-connection-line {
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: all 0.3s cubic-bezier(0.23, 1, 0.320, 1);
-  cursor: pointer;
-}
-
-/* تحسينات خاصة لكل نوع خط */
-.unified-connection-line.parent-to-horizontal-line,
-.unified-connection-line.horizontal-to-owner,
-.unified-connection-line.parent-to-owner-direct {
-  filter: drop-shadow(0 3px 6px rgba(99, 102, 241, 0.2));
-}
-
-.unified-connection-line.horizontal-siblings-line,
-.unified-connection-line.parent-uncles-horizontal-line,
-.unified-connection-line.maternal-horizontal-line {
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
-}
-
-.unified-connection-line.nephew-niece-link,
-.unified-connection-line.horizontal-to-uncle,
-.unified-connection-line.horizontal-to-maternal-uncle {
-  stroke-dasharray: 6,4;
-  animation: dash 20s linear infinite;
-}
-
-.unified-connection-line.spouse-link {
-  filter: drop-shadow(0 2px 6px rgba(16, 185, 129, 0.3));
-}
-
-/* أنيميشن خط متقطع للأقارب */
-@keyframes dash {
-  to {
-    stroke-dashoffset: -100;
-  }
-}
-
-/* خطوط الاتصال التقليدية - للتوافق مع الشجرة القديمة */
+/* خطوط الاتصال */
 .family-tree-chart-container .link {
   fill: none;
   stroke: var(--family-primary);

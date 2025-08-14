@@ -10,6 +10,7 @@
   <meta name="theme-color" content="#2e7d32" />
   <meta name="description" content="تطبيق شجرة العائلة - أنشئ وأدر شجرة عائلتك بسهولة وأمان" />
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
   <!-- ✅ سكربت منع الزووم بالإصبع على iPhone -->
@@ -27,20 +28,14 @@
   
   <title>شجرة العائلة</title>
   
-  <!-- إضافة سكريبت debugging -->
+  <!-- منع أخطاء Chrome Extensions -->
   <script>
-    // منع أخطاء Chrome Extensions
     window.addEventListener('error', function(e) {
       if (e.filename && e.filename.includes('extension://')) {
         e.preventDefault();
         return false;
       }
     });
-    
-    // تسجيل معلومات التحميل
-    console.log('🌳 شجرة العائلة - بدء التحميل');
-    console.log('📅 التاريخ:', new Date().toLocaleString('ar'));
-    console.log('🌐 المتصفح:', navigator.userAgent);
   </script>
 </head>
 <body>

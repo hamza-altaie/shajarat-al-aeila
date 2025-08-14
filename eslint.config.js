@@ -31,6 +31,7 @@ export default [
       'react-refresh/only-export-components': 'warn',
       'no-useless-escape': 'error',
       'no-case-declarations': 'error',
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
     },
   },
 ]

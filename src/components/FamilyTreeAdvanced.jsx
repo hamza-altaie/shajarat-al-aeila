@@ -1,13 +1,13 @@
-// src/components/FamilyTreeAdvanced.jsx - النسخة المصححة مع الشجرة الموسعة الحقيقية
+// src/components/FamilyTreeAdvanced.jsx - شجرة العائلة البسيطة
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as d3 from 'd3';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Button, Typography, Alert, Snackbar, CircularProgress, 
-  Chip, IconButton, Tooltip, Paper, LinearProgress, 
-  Dialog, DialogTitle, DialogContent, DialogActions, Divider, 
-  FormControlLabel, Switch, TextField, InputAdornment
+  Chip, IconButton, Paper, LinearProgress, 
+  Dialog, DialogTitle, DialogContent, DialogActions, 
+  TextField, InputAdornment
 } from '@mui/material';
 
 // استيراد الأيقونات بشكل منفصل لتحسين الأداء
@@ -16,17 +16,18 @@ import PersonIcon from '@mui/icons-material/Person';
 import CloseIcon from '@mui/icons-material/Close';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import WarningIcon from '@mui/icons-material/Warning';
-import LinkIcon from '@mui/icons-material/Link';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import SearchIcon from '@mui/icons-material/Search';
+import BarChartIcon from '@mui/icons-material/BarChart';
 
 // استيرادات Firebase
 import { db } from '../firebase/config';
 import { collection, getDocs } from 'firebase/firestore';
 
-// استيراد المكونات
+// استيراد المكونات والأدوات المنفصلة
 import './FamilyTreeAdvanced.css';
-import BarChartIcon from '@mui/icons-material/BarChart';
+import { MALE_RELATIONS, FEMALE_RELATIONS, RelationUtils, RELATION_COLORS } from '../utils/FamilyRelations.js';
+import familyTreeBuilder from '../utils/FamilyTreeBuilder.js';
 
 export default function FamilyTreeAdvanced() {
   // ===========================================================================
@@ -34,12 +35,16 @@ export default function FamilyTreeAdvanced() {
   // ===========================================================================
   
   const [selectedNode, setSelectedNode] = useState(null);
+  const [performanceMetrics, setPerformanceMetrics] = useState({
+    loadTime: 0,
+    personCount: 0,
+    maxDepthReached: 0,
+    memoryUsage: 0
+  });
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('info');
-  const [simpleTreeData, setSimpleTreeData] = useState(null);
-  const [extendedTreeData, setExtendedTreeData] = useState(null);
-  const [isExtendedView, setIsExtendedView] = useState(false);
+  const [treeData, setTreeData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState('');
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -47,12 +52,25 @@ export default function FamilyTreeAdvanced() {
   const [error, setError] = useState(null);
   
   const uid = localStorage.getItem('verifiedUid');
+  console.warn('🆔 معرف المستخدم (UID):', uid);
+  
   const navigate = useNavigate();
   
   // المراجع للـ D3
   const svgRef = useRef(null);
   const containerRef = useRef(null);
   const reactRootsRef = useRef(new Map());
+  
+  // مراجع لحل مشكلة الحلقة اللانهائية
+  const handleNodeClickRef = useRef(null);
+  const searchQueryRef = useRef('');
+  const drawTreeRef = useRef(null);
+  const loadTreeRef = useRef(null);
+
+  // تحديث المراجع عند تغيير القيم
+  useEffect(() => {
+    searchQueryRef.current = searchQuery;
+  }, [searchQuery]);
 
   // ===========================================================================
   // دوال مساعدة ثابتة
@@ -79,77 +97,42 @@ export default function FamilyTreeAdvanced() {
     }
   }, []);
 
-  // دالة مساعدة لمطابقة أسماء الأشقاء مع أبنائهم
-  const findMatchingSibling = useCallback((nephewNiece, siblings, rootAttributes) => {
-    if (!siblings || !nephewNiece.parentName) return null;
+  // تنظيف الموارد عند إلغاء تحميل المكون
+  useEffect(() => {
+    const currentReactRoots = reactRootsRef.current;
+    const currentSvg = svgRef.current;
     
-    const parentName = nephewNiece.parentName.trim();
-    const fatherName = rootAttributes.fatherName || '';
-    const grandfatherName = rootAttributes.grandfatherName || '';
-    
-    // البحث المتقدم عن الأخ المطابق
-    return siblings.find(sibling => {
-      const siblingName = sibling.name || '';
-      const siblingFullName = siblingName.trim();
+    return () => {
+      // تنظيف ReactDOM roots
+      if (currentReactRoots) {
+        currentReactRoots.forEach((root) => {
+          try {
+            if (root && root.unmount) {
+              root.unmount();
+            }
+          } catch (error) {
+            console.warn('تحذير في تنظيف ReactDOM root:', error);
+          }
+        });
+        currentReactRoots.clear();
+      }
       
-      // مطابقة مباشرة للاسم الأول
-      if (siblingFullName.includes(parentName)) return true;
-      
-      // مطابقة الاسم الكامل
-      const expectedFullName = `${parentName} ${fatherName}`.trim();
-      if (siblingFullName === expectedFullName) return true;
-      
-      // مطابقة بالاسم الثلاثي
-      const expectedTripleName = `${parentName} ${fatherName} ${grandfatherName}`.trim();
-      if (siblingFullName === expectedTripleName) return true;
-      
-      // مطابقة عكسية - إذا كان اسم الأخ يحتوي على اسم الأب
-      const siblingFirstName = siblingFullName.split(' ')[0];
-      if (siblingFirstName === parentName) return true;
-      
-      return false;
-    });
-  }, []);
-
-  const sanitizeMemberData = (memberData) => {
-    return {
-      ...memberData,
-      firstName: memberData.firstName?.trim() || '',
-      fatherName: memberData.fatherName?.trim() || '',
-      grandfatherName: memberData.grandfatherName?.trim() || '',
-      surname: memberData.surname?.trim() || '',
-      relation: memberData.relation?.trim() || 'عضو'
+      // تنظيف SVG
+      if (currentSvg) {
+        d3.select(currentSvg).selectAll('*').remove();
+      }
     };
-  };
-
-  const findFamilyHead = useCallback((members) => {
-    const head = members.find(m => m.relation === 'رب العائلة');
-    if (head) return head;
-    
-    const sorted = [...members].sort((a, b) => {
-      const dateA = new Date(a.createdAt || 0);
-      const dateB = new Date(b.createdAt || 0);
-      return dateA - dateB;
-    });
-    
-    return sorted[0] || members[0];
   }, []);
+
+  const sanitizeMemberData = familyTreeBuilder.sanitizeMemberData;
+
+  // const findFamilyHead = familyTreeBuilder.findFamilyHead; // غير مستخدم حالياً
 
   // ===========================================================================
   // دوال أساسية useCallback
   // ===========================================================================
 
-  const buildFullName = useCallback((person) => {
-    if (!person) return '';
-
-    const parts = [
-        person.firstName,
-        person.fatherName,
-        person.surname
-    ].filter(part => part && part.trim() !== '');
-
-    return parts.length > 0 ? parts.join(' ').trim() : '';
-  }, []);
+  const buildFullName = familyTreeBuilder.buildFullName;
 
   const showSnackbar = useCallback((message, severity = 'info') => {
     setSnackbarMessage(message);
@@ -167,494 +150,70 @@ export default function FamilyTreeAdvanced() {
     setSelectedNode(nodeData);
   }, []);
 
+  // تحديث مرجع handleNodeClick
+  useEffect(() => {
+    handleNodeClickRef.current = handleNodeClick;
+  }, [handleNodeClick]);
+
+  const monitorPerformance = useCallback((metrics) => {
+    // دمج الإحصائيات من النافذة العامة إن وجدت
+    const globalMetrics = window.familyTreeMetrics || {};
+    
+    setPerformanceMetrics(prev => ({
+      ...prev,
+      ...metrics,
+      maxDepthReached: Math.max(prev.maxDepthReached || 0, globalMetrics.maxDepthReached || 0, metrics.maxDepthReached || 0)
+    }));
+    
+    // رسائل تحسينية بناءً على الأداء
+    if (metrics.personCount > 100) {
+      showSnackbar(`🚀 أداء استثنائي! تم تحميل ${metrics.personCount} شخص بنجاح`, 'success');
+    } else if (metrics.personCount > 50) {
+      showSnackbar(`✅ تم تحميل ${metrics.personCount} شخص بنجاح`, 'success');
+    }
+    
+    if (metrics.familyCount > 5) {
+      showSnackbar(`🏛️ شجرة كبيرة: تم ربط ${metrics.familyCount} عائلة`, 'info');
+    } else if (metrics.familyCount > 1) {
+      showSnackbar(`🏛️ تم ربط ${metrics.familyCount} عائلة`, 'info');
+    }
+    
+    // تتبع العمق المحقق مع تقييم متقدم للأجيال
+    const actualDepth = globalMetrics.maxDepthReached || metrics.maxDepthReached;
+    if (actualDepth >= 15) {
+      showSnackbar(`🏛️ شجرة قبيلة عظيمة! ${actualDepth} جيل - نظام متقدم جداً`, 'success');
+    } else if (actualDepth >= 10) {
+      showSnackbar(`🌳 شجرة عميقة ممتازة: ${actualDepth} جيل`, 'success');
+    } else if (actualDepth >= 5) {
+      showSnackbar(`🌿 عمق جيد: ${actualDepth} أجيال`, 'info');
+    } else if (actualDepth >= 4) {
+      showSnackbar(`👨‍👩‍👧‍👦 شجرة متعددة الأجيال: ${actualDepth} أجيال (تشمل الأحفاد)`, 'info');
+    } else if (actualDepth >= 2) {
+      showSnackbar(`👨‍👩‍👧‍👦 شجرة عائلية: ${actualDepth} أجيال`, 'info');
+    }
+    
+  }, [showSnackbar]);
+
   // ===========================================================================
-  // دوال البناء
+  // دوال البناء من الملفات المنفصلة
   // ===========================================================================
 
-  const buildSimpleTreeStructure = useCallback((familyMembers) => {
-    if (!familyMembers || familyMembers.length === 0) {
-      return null;
-    }
-
-    const head = findFamilyHead(familyMembers);
-    if (!head) {
-      return null;
-    }
-
-    const rootNode = {
-      name: buildFullName(head),
-      id: head.globalId,
-      avatar: head.avatar || null,
-      attributes: {
-        ...head,
-        isCurrentUser: true,
-        treeType: 'simple',
-        isExtended: false
-      },
-      children: []
-    };
-
-    const children = familyMembers.filter(m => 
-      (m.relation === 'ابن' || m.relation === 'بنت' || m.relation === 'child') && 
-      m.globalId !== head.globalId
-    );
-
-    children.forEach(child => {
-      rootNode.children.push({
-        name: buildFullName(child),
-        id: child.globalId,
-        avatar: child.avatar || null,
-        attributes: {
-          ...child,
-          treeType: 'simple',
-          isExtended: false
-        },
-        children: []
-      });
-    });
-
-    return rootNode;
-  }, [buildFullName, findFamilyHead]);
-
-  // دالة جديدة لبناء الشجرة الموسعة مع جميع العلاقات
-  const buildExtendedTreeStructure = useCallback((familyMembers) => {
-    if (!familyMembers || familyMembers.length === 0) {
-      return null;
-    }
-
-    const head = findFamilyHead(familyMembers);
-    if (!head) {
-      return null;
-    }
-
-    // تصنيف الأعضاء حسب العلاقة والجيل
-    const membersByRelation = {};
-    familyMembers.forEach(member => {
-      const relation = member.relation || 'غير محدد';
-      if (!membersByRelation[relation]) {
-        membersByRelation[relation] = [];
-      }
-      membersByRelation[relation].push(member);
-    });
-
-    // بناء الجذر (رب العائلة)
-    const rootNode = {
-      name: buildFullName(head),
-      id: head.globalId,
-      avatar: head.avatar || null,
-      attributes: {
-        ...head,
-        isCurrentUser: true,
-        treeType: 'extended',
-        isExtended: true,
-        generation: 0
-      },
-      children: [],
-      parents: [],
-      siblings: [],
-      spouse: null
-    };
-
-    // إضافة الوالدين (الأب والأم)
-    const parents = membersByRelation['الأب'] || [];
-    const mothers = membersByRelation['الأم'] || [];
-    
-    rootNode.parents = [
-      ...parents.map(p => ({
-        name: buildFullName(p),
-        id: p.globalId,
-        avatar: p.avatar,
-        attributes: { ...p, treeType: 'extended', generation: -1 },
-        children: []
-      })),
-      ...mothers.map(m => ({
-        name: buildFullName(m),
-        id: m.globalId,
-        avatar: m.avatar,
-        attributes: { ...m, treeType: 'extended', generation: -1 },
-        children: []
-      }))
-    ];
-
-    // إضافة الزوجة
-    const spouses = membersByRelation['زوجة رب العائلة'] || [];
-    if (spouses.length > 0) {
-      rootNode.spouse = {
-        name: buildFullName(spouses[0]),
-        id: spouses[0].globalId,
-        avatar: spouses[0].avatar,
-        attributes: { ...spouses[0], treeType: 'extended', generation: 0 }
-      };
-    }
-
-    // إضافة الإخوة والأخوات
-    const brothers = membersByRelation['أخ'] || [];
-    const sisters = membersByRelation['أخت'] || [];
-    
-    rootNode.siblings = [
-      ...brothers.map(b => ({
-        name: buildFullName(b),
-        id: b.globalId,
-        avatar: b.avatar,
-        attributes: { ...b, treeType: 'extended', generation: 0 },
-        children: []
-      })),
-      ...sisters.map(s => ({
-        name: buildFullName(s),
-        id: s.globalId,
-        avatar: s.avatar,
-        attributes: { ...s, treeType: 'extended', generation: 0 },
-        children: []
-      }))
-    ];
-
-    // إضافة أولاد الإخوة والأخوات (أبناء الأشقاء) مع ربطهم بآبائهم الصحيحين
-    const nephews = membersByRelation['ابن الأخ'] || [];
-    const nieces = membersByRelation['بنت الأخ'] || [];
-    const sisterSons = membersByRelation['ابن الأخت'] || [];
-    const sisterDaughters = membersByRelation['بنت الأخت'] || [];
-    
-    // إنشاء خريطة لربط كل ابن أخ بأخيه الصحيح
-    const nephewToSiblingMap = new Map();
-    
-    if (nephews.length > 0 || nieces.length > 0 || sisterSons.length > 0 || sisterDaughters.length > 0) {
-      const allNephewsNieces = [
-        ...nephews.map(nephew => ({
-          name: buildFullName(nephew),
-          id: nephew.globalId,
-          avatar: nephew.avatar,
-          attributes: { ...nephew, treeType: 'extended', generation: 1 },
-          children: [],
-          parentName: nephew.fatherName, // اسم الأب (الأخ)
-          parentRelation: 'أخ'
-        })),
-        ...nieces.map(niece => ({
-          name: buildFullName(niece),
-          id: niece.globalId,
-          avatar: niece.avatar,
-          attributes: { ...niece, treeType: 'extended', generation: 1 },
-          children: [],
-          parentName: niece.fatherName, // اسم الأب (الأخ)
-          parentRelation: 'أخ'
-        })),
-        ...sisterSons.map(son => ({
-          name: buildFullName(son),
-          id: son.globalId,
-          avatar: son.avatar,
-          attributes: { ...son, treeType: 'extended', generation: 1 },
-          children: [],
-          parentName: son.fatherName, // اسم الأب
-          parentRelation: 'أخت'
-        })),
-        ...sisterDaughters.map(daughter => ({
-          name: buildFullName(daughter),
-          id: daughter.globalId,
-          avatar: daughter.avatar,
-          attributes: { ...daughter, treeType: 'extended', generation: 1 },
-          children: [],
-          parentName: daughter.fatherName, // اسم الأب
-          parentRelation: 'أخت'
-        }))
-      ];
-      
-      // ربط كل ابن أخ بأخيه الصحيح باستخدام الدالة المحسنة
-      allNephewsNieces.forEach(nephewNiece => {
-        const matchingSibling = findMatchingSibling(nephewNiece, rootNode.siblings, rootNode.attributes);
-        
-        if (matchingSibling) {
-          nephewToSiblingMap.set(nephewNiece.id, matchingSibling.id);
-        }
-      });
-      
-      rootNode.nephewsNieces = allNephewsNieces;
-      rootNode.nephewToSiblingMap = nephewToSiblingMap;
-    }
-
-    // إضافة الأولاد
-    const sons = membersByRelation['ابن'] || [];
-    const daughters = membersByRelation['بنت'] || [];
-    
-    rootNode.children = [
-      ...sons.map(son => ({
-        name: buildFullName(son),
-        id: son.globalId,
-        avatar: son.avatar,
-        attributes: { ...son, treeType: 'extended', generation: 1 },
-        children: [],
-        spouse: null
-      })),
-      ...daughters.map(daughter => ({
-        name: buildFullName(daughter),
-        id: daughter.globalId,
-        avatar: daughter.avatar,
-        attributes: { ...daughter, treeType: 'extended', generation: 1 },
-        children: [],
-        spouse: null
-      }))
-    ];
-
-    // إضافة الأحفاد
-    const grandsons = membersByRelation['حفيد'] || [];
-    const granddaughters = membersByRelation['حفيدة'] || [];
-    
-    [...grandsons, ...granddaughters].forEach(grandchild => {
-      // محاولة ربط الحفيد بوالده المناسب
-      const parentId = grandchild.parentId;
-      const parent = rootNode.children.find(child => child.id === parentId);
-      
-      if (parent) {
-        parent.children.push({
-          name: buildFullName(grandchild),
-          id: grandchild.globalId,
-          avatar: grandchild.avatar,
-          attributes: { ...grandchild, treeType: 'extended', generation: 2 },
-          children: []
-        });
-      }
-    });
-
-    // إضافة الأعمام والعمات كفرع منفصل
-    const uncles = membersByRelation['عم'] || [];
-    const aunts = membersByRelation['عمة'] || [];
-    
-    if (uncles.length > 0 || aunts.length > 0) {
-      rootNode.unclesAunts = [
-        ...uncles.map(uncle => ({
-          name: buildFullName(uncle),
-          id: uncle.globalId,
-          avatar: uncle.avatar,
-          attributes: { ...uncle, treeType: 'extended', generation: 0 },
-          children: []
-        })),
-        ...aunts.map(aunt => ({
-          name: buildFullName(aunt),
-          id: aunt.globalId,
-          avatar: aunt.avatar,
-          attributes: { ...aunt, treeType: 'extended', generation: 0 },
-          children: []
-        }))
-      ];
-    }
-
-    // إضافة الأخوال والخالات كفرع منفصل
-    const motherUncles = membersByRelation['خال'] || [];
-    const motherAunts = membersByRelation['خالة'] || [];
-    
-    if (motherUncles.length > 0 || motherAunts.length > 0) {
-      rootNode.motherSide = [
-        ...motherUncles.map(uncle => ({
-          name: buildFullName(uncle),
-          id: uncle.globalId,
-          avatar: uncle.avatar,
-          attributes: { ...uncle, treeType: 'extended', generation: 0 },
-          children: []
-        })),
-        ...motherAunts.map(aunt => ({
-          name: buildFullName(aunt),
-          id: aunt.globalId,
-          avatar: aunt.avatar,
-          attributes: { ...aunt, treeType: 'extended', generation: 0 },
-          children: []
-        }))
-      ];
-    }
-
-    return rootNode;
-  }, [buildFullName, findFamilyHead, findMatchingSibling]);
-
-  // دالة مشتركة لرسم الكارت بنفس التصميم الأصلي
-  const drawNodeCard = useCallback((nodeGroup, nodeData, name, relation, uniqueId, cardWidth, cardHeight, padding, avatarSize, textStartX) => {
-    const nameY = -cardHeight / 2 + padding + 14;
-    const relationY = nameY + 18;
-    const ageBoxWidth = 40;
-    const ageBoxHeight = 16;
-    const ageBoxX = cardWidth / 2 - padding - ageBoxWidth;
-    const ageBoxY = cardHeight / 2 - ageBoxHeight - 4;
-    const ageTextX = ageBoxX + ageBoxWidth / 2;
-    const ageTextY = ageBoxY + ageBoxHeight / 2 + 1.5;
-    
-    // عمر محسوب
-    const calculateAge = (birthdate) => {
-      if (!birthdate) return '';
-      const birth = new Date(birthdate);
-      const today = new Date();
-      if (isNaN(birth.getTime())) return '';
-      let age = today.getFullYear() - birth.getFullYear();
-      const m = today.getMonth() - birth.getMonth();
-      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-      return age > 0 ? age : '';
-    };
-    const age = calculateAge(nodeData.birthdate || nodeData.birthDate);
-
-    // تحديد الألوان حسب الجنس
-    let cardFill = "#f3f4f6";
-    let cardStroke = "#cbd5e1";
-
-    if (nodeData.gender === "male" || relation.includes("ابن") || relation.includes("أب") || relation.includes("جد") || relation.includes("عم") || relation.includes("خال")) {
-      cardFill = "#e3f2fd";
-      cardStroke = "#2196f3";
-    } else if (nodeData.gender === "female" || relation.includes("بنت") || relation.includes("أم") || relation.includes("جدة") || relation.includes("عمة") || relation.includes("خالة") || relation.includes("زوجة")) {
-      cardFill = "#fce4ec";
-      cardStroke = "#e91e63";
-    }
-
-    // الكارت الرئيسي مع تحسينات التنسيق
-    nodeGroup.append("rect")
-      .attr("width", cardWidth)
-      .attr("height", cardHeight)
-      .attr("x", -cardWidth / 2)
-      .attr("y", -cardHeight / 2)
-      .attr("rx", 16)
-      .attr("fill", cardFill)
-      .attr("stroke", cardStroke)
-      .attr("stroke-width", 3)
-      .attr("class", "family-node-card")
-      .style("filter", "drop-shadow(0 4px 12px rgba(0,0,0,0.15))")
-      .style("cursor", "pointer");
-
-    // إضافة نقاط الربط المرئية مع تأثيرات
-    // نقطة الربط العلوية
-    const topPoint = nodeGroup.append("circle")
-      .attr("cx", 0)
-      .attr("cy", -cardHeight / 2)
-      .attr("r", 4)
-      .attr("fill", cardStroke)
-      .attr("stroke", "#fff")
-      .attr("stroke-width", 2)
-      .attr("class", "connection-point top-point")
-      .style("opacity", 0.7)
-      .style("cursor", "pointer");
-
-    // نقطة الربط السفلية
-    const bottomPoint = nodeGroup.append("circle")
-      .attr("cx", 0)
-      .attr("cy", cardHeight / 2)
-      .attr("r", 4)
-      .attr("fill", cardStroke)
-      .attr("stroke", "#fff")
-      .attr("stroke-width", 2)
-      .attr("class", "connection-point bottom-point")
-      .style("opacity", 0.7)
-      .style("cursor", "pointer");
-
-    // تأثيرات التفاعل لنقاط الربط
-    [topPoint, bottomPoint].forEach(point => {
-      point.on("mouseenter", function() {
-        d3.select(this)
-          .transition()
-          .duration(200)
-          .attr("r", 6)
-          .style("opacity", 1)
-          .attr("stroke-width", 3);
-      })
-      .on("mouseleave", function() {
-        d3.select(this)
-          .transition()
-          .duration(200)
-          .attr("r", 4)
-          .style("opacity", 0.7)
-          .attr("stroke-width", 2);
-      });
-    });
-
-    // دائرة خلفية الصورة مع تحسينات
-    nodeGroup.append("circle")
-      .attr("cx", -cardWidth / 2 + padding + avatarSize / 2)
-      .attr("cy", -cardHeight / 2 + padding + avatarSize / 2)
-      .attr("r", avatarSize / 2 + 2)
-      .attr("fill", "#fff")
-      .attr("stroke", cardStroke)
-      .attr("stroke-width", 2)
-      .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.1))");
-
-    // ClipPath دائري للصورة
-    nodeGroup.append("clipPath")
-      .attr("id", `avatar-circle-${uniqueId}`)
-      .append("circle")
-      .attr("cx", -cardWidth / 2 + padding + avatarSize / 2)
-      .attr("cy", -cardHeight / 2 + padding + avatarSize / 2)
-      .attr("r", avatarSize / 2);
-
-    // صورة داخل الدائرة
-    nodeGroup.append("image")
-      .attr("href",
-        nodeData.avatar ||
-        (nodeData.gender === "female" || relation.includes("بنت") || relation.includes("أم") || relation.includes("جدة") || relation.includes("عمة") || relation.includes("خالة") || relation.includes("زوجة")
-          ? "/icons/girl.png"
-          : "/icons/boy.png")
-      )
-      .attr("x", -cardWidth / 2 + padding)
-      .attr("y", -cardHeight / 2 + padding)
-      .attr("width", avatarSize)
-      .attr("height", avatarSize)
-      .attr("clip-path", `url(#avatar-circle-${uniqueId})`)
-      .attr("preserveAspectRatio", "xMidYMid slice");
-
-    // الاسم مع تحسين التنسيق
-    nodeGroup.append("text")
-      .text(name.length > 20 ? name.slice(0, 18) + '…' : name)
-      .attr("x", textStartX)
-      .attr("y", nameY)
-      .attr("font-size", 14)
-      .attr("font-weight", "bold")
-      .attr("fill", "#1a1a1a")
-      .style("text-shadow", "0 1px 2px rgba(0,0,0,0.1)");
-
-    // العلاقة مع تحسين التنسيق
-    nodeGroup.append("text")
-      .text(relation)
-      .attr("x", textStartX)
-      .attr("y", relationY)
-      .attr("font-size", 12)
-      .attr("font-weight", "500")
-      .attr("fill", "#4a4a4a");
-
-    if (age) {
-      // خلفية العمر مع تحسينات
-      nodeGroup.append("rect")
-        .attr("x", ageBoxX)
-        .attr("y", ageBoxY)
-        .attr("width", ageBoxWidth)
-        .attr("height", ageBoxHeight)
-        .attr("rx", 10)
-        .attr("fill", "rgba(25, 118, 210, 0.1)")
-        .attr("stroke", "rgba(25, 118, 210, 0.3)")
-        .attr("stroke-width", 1.5)
-        .style("filter", "drop-shadow(0 1px 3px rgba(0,0,0,0.1))");
-
-      // نص العمر مع تحسينات
-      nodeGroup.append("text")
-        .text(`${age} سنة`)
-        .attr("x", ageTextX)
-        .attr("y", ageTextY)
-        .attr("text-anchor", "middle")
-        .attr("dominant-baseline", "middle")
-        .attr("font-size", 10)
-        .attr("font-weight", "600")
-        .attr("fill", "#1976d2");
-    }
+  const buildTreeStructure = useCallback((familyMembers) => {
+    return familyTreeBuilder.buildTreeStructure(familyMembers);
   }, []);
 
   const calculateTreeDepth = useCallback((node, currentDepth = 0) => {
-    if (!node || !node.children || node.children.length === 0) {
-      return currentDepth;
-    }
-    
-    let maxDepth = currentDepth;
-    node.children.forEach(child => {
-      const childDepth = calculateTreeDepth(child, currentDepth + 1);
-      maxDepth = Math.max(maxDepth, childDepth);
-    });
-    
-    return maxDepth;
+    return familyTreeBuilder.calculateTreeDepth(node, currentDepth);
   }, []);
 
   // ===========================================================================
   // دوال التحميل الرئيسية
   // ===========================================================================
 
-  const loadSimpleTree = useCallback(async () => {
+  const loadTree = useCallback(async () => {
     if (!uid) {
+      console.warn('⚠️ لا يوجد معرف مستخدم (uid)');
+      setError('لم يتم العثور على معرف المستخدم');
       return;
     }
     
@@ -663,10 +222,13 @@ export default function FamilyTreeAdvanced() {
     setLoadingProgress(0);
 
     try {
+      console.warn('🔍 محاولة تحميل البيانات للمستخدم:', uid);
       const familySnapshot = await getDocs(collection(db, 'users', uid, 'family'));
       const familyMembers = [];
       
       setLoadingProgress(30);
+      
+      console.warn('📊 عدد المستندات المسترجعة:', familySnapshot.size);
       
       familySnapshot.forEach(doc => {
         const memberData = sanitizeMemberData({ 
@@ -676,24 +238,54 @@ export default function FamilyTreeAdvanced() {
           familyUid: uid
         });
         
+        console.warn('👤 عضو تم العثور عليه:', memberData.firstName, 'العلاقة:', memberData.relation);
+        
         if (memberData.firstName && memberData.firstName.trim() !== '') {
           familyMembers.push(memberData);
         }
       });
 
+      console.warn('👥 إجمالي أفراد العائلة المُعالجين:', familyMembers.length);
+      console.warn('📋 قائمة أفراد العائلة:', familyMembers.map(m => `${m.firstName} - ${m.relation}`));
+
       setLoadingProgress(60);
       setLoadingStage('بناء الشجرة...');
 
-      const simpleTree = buildSimpleTreeStructure(familyMembers);
-      const extendedTree = buildExtendedTreeStructure(familyMembers);
+      const builtTreeData = buildTreeStructure(familyMembers);
+      
+      console.warn('🌳 بيانات الشجرة المبنية:', builtTreeData);
       
       setLoadingProgress(100);
       setLoadingStage('اكتمل التحميل');
       
-      setSimpleTreeData(simpleTree);
-      setExtendedTreeData(extendedTree);
+      setTreeData(builtTreeData);
       
-      showSnackbar(`✅ تم تحميل عائلتك: ${familyMembers.length} أفراد (${isExtendedView ? 'شجرة موسعة' : 'رب العائلة وأولاده'})`, 'success');
+      // تسجيل مقاييس الأداء
+      const treeDepth = builtTreeData ? calculateTreeDepth(builtTreeData) + 1 : 1;
+      const hasFather = familyMembers.some(m => m.relation === 'والد');
+      const hasGrandchildren = familyMembers.some(m => m.relation === 'حفيد' || m.relation === 'حفيدة');
+      const grandchildrenCount = familyMembers.filter(m => m.relation === 'حفيد' || m.relation === 'حفيدة').length;
+      
+      monitorPerformance({
+        personCount: familyMembers.length,
+        maxDepthReached: treeDepth,
+        familyCount: 1,
+        loadTime: 1000
+      });
+      
+      if (hasFather) {
+        if (hasGrandchildren) {
+          showSnackbar(`✅ تم تحميل الشجرة الهرمية: ${familyMembers.length} أفراد (${treeDepth} أجيال - تشمل ${grandchildrenCount} حفيد/حفيدة)`, 'success');
+        } else {
+          showSnackbar(`✅ تم تحميل الشجرة الهرمية: ${familyMembers.length} أفراد (${treeDepth} أجيال)`, 'success');
+        }
+      } else {
+        if (hasGrandchildren) {
+          showSnackbar(`✅ تم تحميل عائلتك: ${familyMembers.length} أفراد (تشمل ${grandchildrenCount} حفيد/حفيدة)`, 'success');
+        } else {
+          showSnackbar(`✅ تم تحميل عائلتك: ${familyMembers.length} أفراد (رب العائلة وأولاده)`, 'success');
+        }
+      }
 
     } catch {
       setError('فشل في تحميل الشجرة');
@@ -701,16 +293,22 @@ export default function FamilyTreeAdvanced() {
     } finally {
       setLoading(false);
     }
-  }, [uid, showSnackbar, buildSimpleTreeStructure, buildExtendedTreeStructure, isExtendedView]);
+  }, [uid, showSnackbar, monitorPerformance, buildTreeStructure, calculateTreeDepth, sanitizeMemberData]);
+
+  // تحديث مرجع loadTree
+  useEffect(() => {
+    loadTreeRef.current = loadTree;
+  }, [loadTree]);
 
   // ===========================================================================
   // دوال التحكم
   // ===========================================================================
 
   const handleRefresh = useCallback(() => {
-    setSimpleTreeData(null);
-    loadSimpleTree();
-  }, [loadSimpleTree]);
+    // تنظيف البيانات السابقة
+    setTreeData(null);
+    loadTree();
+  }, [loadTree]);
 
   // ===========================================================================
   // دالة رسم الشجرة
@@ -719,49 +317,44 @@ export default function FamilyTreeAdvanced() {
   // استبدل دالة drawTreeWithD3 بهذا الكود الذي يحافظ على التصميم الأصلي مع أنيميشن بسيط:
 
 const drawTreeWithD3 = useCallback((data) => {
-  if (!data || !svgRef.current || !containerRef.current) return;
+  console.warn('🎨 بدء رسم الشجرة في D3:', data);
+  
+  if (!data || !svgRef.current || !containerRef.current) {
+    console.warn('❌ عدم توفر البيانات أو المراجع المطلوبة:', {
+      data: !!data,
+      svgRef: !!svgRef.current,
+      containerRef: !!containerRef.current
+    });
+    return;
+  }
+
+  // تنظيف أفضل للموارد السابقة
+  // تنظيف ReactDOM roots السابقة
+  if (reactRootsRef.current) {
+    reactRootsRef.current.forEach((root) => {
+      try {
+        if (root && root.unmount) {
+          root.unmount();
+        }
+      } catch (error) {
+        console.warn('تحذير في تنظيف ReactDOM root السابق:', error);
+      }
+    });
+    reactRootsRef.current.clear();
+  }
 
   const screenWidth = window.innerWidth;
-  const screenHeight = window.innerHeight;
 
-  // تحديد أحجام الكروت والمسافات حسب حجم الشاشة
-  let cardWidth, cardHeight, horizontalGap, verticalGap, parentChildGap;
+  let cardWidth = 200;  // عرض أقل قليلاً لمزيد من المساحة
+  let cardHeight = 100;
 
   if (screenWidth < 480) {
-    // هواتف صغيرة
-    cardWidth = 160;
-    cardHeight = 90;
-    horizontalGap = 40;
-    verticalGap = 60;
-    parentChildGap = 180;
+    cardWidth = 150;    // تقليل للشاشات الصغيرة
+    cardHeight = 85;
   } else if (screenWidth < 768) {
-    // هواتف كبيرة وتابلت صغير
-    cardWidth = 190;
+    cardWidth = 175;
+    cardHeight = 92;
     cardHeight = 100;
-    horizontalGap = 60;
-    verticalGap = 70;
-    parentChildGap = 200;
-  } else if (screenWidth < 1024) {
-    // تابلت
-    cardWidth = 220;
-    cardHeight = 110;
-    horizontalGap = 80;
-    verticalGap = 80;
-    parentChildGap = 220;
-  } else if (screenWidth < 1440) {
-    // شاشات متوسطة
-    cardWidth = 240;
-    cardHeight = 120;
-    horizontalGap = 100;
-    verticalGap = 90;
-    parentChildGap = 250;
-  } else {
-    // شاشات كبيرة
-    cardWidth = 260;
-    cardHeight = 130;
-    horizontalGap = 120;
-    verticalGap = 100;
-    parentChildGap = 280;
   }
 
   const avatarSize = cardHeight * 0.45;
@@ -778,19 +371,10 @@ const drawTreeWithD3 = useCallback((data) => {
   svg.property('__zoom', d3.zoomIdentity); 
   svg.selectAll('*').remove(); 
 
-  // إعداد بيانات الشجرة وتحديد النوع
-  const root = d3.hierarchy(data);
-  const isExtended = data.attributes?.treeType === 'extended';
-
-  // إعداد الأبعاد - توسيع للشجرة الموسعة
+  // إعداد الأبعاد
   const container = containerRef.current;
-  const baseWidth = container.clientWidth;
-  const baseHeight = container.clientHeight;
-  
-  // توسيع أبعاد SVG للشجرة الموسعة لاستيعاب العقد الإضافية
-  const width = isExtended ? Math.max(baseWidth, screenWidth * 1.5) : baseWidth;
-  const height = isExtended ? Math.max(baseHeight, screenHeight * 1.2) : baseHeight;
-  
+  const width = container.clientWidth;
+  const height = container.clientHeight;
   svg.attr('width', width).attr('height', height).style('background', 'transparent');
 
   // ✅ أنشئ g ثم فعّل الزووم عليه
@@ -809,6 +393,8 @@ const drawTreeWithD3 = useCallback((data) => {
     svg.call(zoom);
     svg.property('__zoom', d3.zoomIdentity); 
 
+  // إعداد بيانات الشجرة
+  const root = d3.hierarchy(data);
   // حساب عمق الشجرة (عدد الأجيال)
   let maxDepth = 1;
   let generationCounts = {};
@@ -819,331 +405,33 @@ const drawTreeWithD3 = useCallback((data) => {
     if (generationCounts[d.depth] > maxBreadth) maxBreadth = generationCounts[d.depth];
   });
 
-  // إعداد المسافات حسب نوع الشجرة - استخدام المتغيرات المتجاوبة
-  const dynamicHeight = Math.max(verticalGap * maxDepth, 180);
-  const dynamicWidth = width - 100;
+  // إعدادات الشجرة المحسنة للهيكل الهرمي
+  const treeType = data.attributes?.treeType || 'simple';
+  const verticalGap = treeType === 'hierarchical' ? 140 : 120; // زيادة المسافة العمودية
+  const dynamicHeight = Math.max(verticalGap * maxDepth, 250);
+  const dynamicWidth = width - 80; // تقليل الهوامش لمزيد من المساحة
 
-  // إعداد تخطيط الشجرة مع توزيع أفقي متجاوب
+  // إعداد تخطيط الشجرة مع توزيع أفقي أوسع
   const treeLayout = d3.tree()
     .size([dynamicWidth, dynamicHeight])
     .separation((a, b) => {
-      // مسافة أفقية متجاوبة حسب حجم الشاشة
-      const baseSeparation = horizontalGap / cardWidth;
-      return a.parent === b.parent ? baseSeparation : baseSeparation * 1.2;
+      // مسافة أكبر بين العقد لإظهار الخطوط بوضوح
+      return a.parent === b.parent ? 2.5 : 3;
     }); 
 
   treeLayout(root);
 
-  // ===========================================================================
-  // نظام موحد لرسم خطوط الاتصال
-  // ===========================================================================
-  
-  // إعدادات خطوط الاتصال الموحدة
-  const CONNECTION_STYLES = {
-    // جميع الخطوط بنفس النمط الموحد للشجرة البسيطة
-    primary: {
-      stroke: "#6366f1",
-      strokeWidth: 3,
-      opacity: 0.8,
-      isDashed: false
-    },
-    sibling: {
-      stroke: "#6366f1",
-      strokeWidth: 3,
-      opacity: 0.8,
-      isDashed: false
-    },
-    relative: {
-      stroke: "#6366f1",
-      strokeWidth: 3,
-      opacity: 0.8,
-      isDashed: false
-    },
-    spouse: {
-      stroke: "#6366f1",
-      strokeWidth: 3,
-      opacity: 0.8,
-      isDashed: false
-    },
-    secondary: {
-      stroke: "#6366f1",
-      strokeWidth: 3,
-      opacity: 0.8,
-      isDashed: false
-    }
-  };
-
-  // دالة موحدة لرسم خط منحني مع أنماط محددة مسبقاً
-  const drawUnifiedLine = (g, startX, startY, endX, endY, className, styleType = 'primary', delay = 0, duration = 400, customStyle = null) => {
-    // التأكد من وجود النمط، وإلا استخدم النمط الأساسي
-    const style = customStyle || CONNECTION_STYLES[styleType] || CONNECTION_STYLES.primary;
-    
-    // التحقق من صحة البيانات
-    if (!style || !g) {
-      return null;
-    }
-    
-    // كيرف ناعم لجميع الخطوط
-    let pathData;
-    
-    // حساب نقاط التحكم للكيرف
-    const dx = endX - startX;
-    const dy = endY - startY;
-    const curveStrength = Math.min(Math.abs(dx), Math.abs(dy)) * 0.5;
-    
-    if (Math.abs(dx) > Math.abs(dy)) {
-      // خط أفقي أكثر - كيرف أفقي
-      const controlPoint1X = startX + curveStrength;
-      const controlPoint2X = endX - curveStrength;
-      
-      pathData = `M${startX},${startY} 
-                  C${controlPoint1X},${startY} ${controlPoint2X},${endY} ${endX},${endY}`;
-    } else {
-      // خط عمودي أكثر - كيرف عمودي
-      const controlPoint1Y = startY + curveStrength;
-      const controlPoint2Y = endY - curveStrength;
-      
-      pathData = `M${startX},${startY} 
-                  C${startX},${controlPoint1Y} ${endX},${controlPoint2Y} ${endX},${endY}`;
-    }
-    
-    const line = g.append("path")
-      .attr("class", `unified-connection-line ${className}`)
-      .attr("d", pathData)
-      .style("fill", "none")
-      .style("stroke", style.stroke || "#6366f1")
-      .style("stroke-width", style.strokeWidth || 2)
-      .style("stroke-linecap", "round")
-      .style("stroke-linejoin", "round")
-      .style("opacity", 0)
-      .style("filter", "drop-shadow(0 2px 6px rgba(0,0,0,0.15))")
-      .style("stroke-dasharray", function() {
-        const totalLength = this.getTotalLength();
-        return `${totalLength} ${totalLength}`;
-      })
-      .style("stroke-dashoffset", function() {
-        return this.getTotalLength();
-      });
-
-    if (style.isDashed) {
-      line.style("stroke-dasharray", "8,6");
-    }
-
-    // أنيميشن رسم الخط مع تأثير متدرج
-    line.transition()
-      .delay(delay || 0)
-      .duration(duration || 800)
-      .ease(d3.easeQuadInOut)
-      .style("stroke-dashoffset", 0)
-      .style("opacity", style.opacity || 0.8)
-      .on("end", function() {
-        // إزالة الـ dash array بعد انتهاء الأنيميشن
-        if (!style.isDashed) {
-          d3.select(this).style("stroke-dasharray", "none");
-        }
-      });    // تأثير التفاعل عند التحويم مع تحسينات
-    line.on("mouseenter", function() {
-      d3.select(this)
-        .transition()
-        .duration(300)
-        .style("stroke-width", (style.strokeWidth || 2) + 2)
-        .style("opacity", Math.min((style.opacity || 0.8) + 0.2, 1))
-        .style("filter", "drop-shadow(0 4px 12px rgba(0,0,0,0.3))")
-        .style("stroke", d3.color(style.stroke || "#6366f1").brighter(0.3));
-    })
-    .on("mouseleave", function() {
-      d3.select(this)
-        .transition()
-        .duration(300)
-        .style("stroke-width", style.strokeWidth || 2)
-        .style("opacity", style.opacity || 0.8)
-        .style("filter", "drop-shadow(0 2px 6px rgba(0,0,0,0.15))")
-        .style("stroke", style.stroke || "#6366f1");
-    });
-    
-    return line;
-  };
-
-  // رسم الروابط الإضافية للشجرة الموسعة بنفس نمط الشجرة الأصلية
-  if (isExtended && data.parents && data.parents.length > 0) {
-    const parentX = root.x; // الوالد في نفس المحور الأفقي لصاحب الحساب
-    const parentY = root.y - parentChildGap; // استخدام المسافة المتجاوبة
-    
-    // إذا كان هناك أشقاء، ارسم نظام خطوط كامل
-    if (data.siblings && data.siblings.length > 0) {
-      // تحديد مواقع الأشقاء باستخدام المسافة المتجاوبة
-      const siblingPositions = data.siblings.map((sibling, index) => {
-        if (data.siblings.length === 1) {
-          return root.x + (index === 0 ? -(cardWidth + horizontalGap) : (cardWidth + horizontalGap));
-        } else if (data.siblings.length === 2) {
-          return root.x + (index === 0 ? -(cardWidth + horizontalGap) : (cardWidth + horizontalGap));
-        } else {
-          const spacing = cardWidth + horizontalGap;
-          const totalWidth = (data.siblings.length - 1) * spacing;
-          const startX = root.x - totalWidth / 2;
-          return startX + (index * spacing);
-        }
-      });
-      
-      // جميع المواقع (الأشقاء + صاحب الحساب)
-      const allPositions = [...siblingPositions, root.x].sort((a, b) => a - b);
-      const leftmost = allPositions[0];
-      const rightmost = allPositions[allPositions.length - 1];
-      const horizontalLineY = root.y - (verticalGap * 0.7); // مستوى الخط الأفقي متجاوب
-      
-      // 1. خط عمودي من الوالد إلى الخط الأفقي - موحد
-      drawUnifiedLine(g, parentX, parentY + cardHeight/2, parentX, horizontalLineY, "parent-to-horizontal-line", "primary", 600, 600);
-      
-      // 2. خط أفقي يربط جميع الأشقاء مع صاحب الحساب - موحد
-      drawUnifiedLine(g, leftmost, horizontalLineY, rightmost, horizontalLineY, "horizontal-siblings-line", "secondary", 700, 600);
-      
-      // 3. خط عمودي من الخط الأفقي إلى صاحب الحساب - موحد  
-      drawUnifiedLine(g, root.x, horizontalLineY, root.x, root.y - cardHeight/2, "horizontal-to-owner", "sibling", 800, 400);
-      
-      // 4. خطوط عمودية من الخط الأفقي إلى كل شقيق - موحدة
-      data.siblings.forEach((sibling, index) => {
-        let siblingX;
-        if (data.siblings.length === 1) {
-          siblingX = root.x + (index === 0 ? -(cardWidth + horizontalGap) : (cardWidth + horizontalGap));
-        } else if (data.siblings.length === 2) {
-          siblingX = root.x + (index === 0 ? -(cardWidth + horizontalGap) : (cardWidth + horizontalGap));
-        } else {
-          const spacing = cardWidth + horizontalGap;
-          const totalWidth = (data.siblings.length - 1) * spacing;
-          const startX = root.x - totalWidth / 2;
-          siblingX = startX + (index * spacing);
-        }
-        
-        drawUnifiedLine(g, siblingX, horizontalLineY, siblingX, root.y - cardHeight/2, `horizontal-to-sibling-${index}`, "sibling", 800 + index * 100, 400);
-      });
-    } else {
-      // إذا لم يكن هناك أشقاء، ارسم خط مباشر من الوالد إلى صاحب الحساب
-      drawUnifiedLine(g, root.x, parentY + cardHeight/2, root.x, root.y - cardHeight/2, "parent-to-owner-direct", "primary", 600, 800);
-    }
-  }
-
-  // رسم خطوط ربط لأولاد الإخوة والأخوات - مربوطين بآبائهم الصحيحين
-  if (isExtended && data.nephewsNieces && data.nephewsNieces.length > 0 && data.siblings && data.siblings.length > 0) {
-    data.nephewsNieces.forEach((nephewNiece, index) => {
-      const nephewY = root.y + parentChildGap;
-      
-      // العثور على الأخ المرتبط بهذا ابن الأخ
-      const linkedSiblingId = data.nephewToSiblingMap?.get(nephewNiece.id);
-      let parentSiblingX = root.x; // موقع افتراضي
-      
-      if (linkedSiblingId && data.siblings) {
-        const siblingIndex = data.siblings.findIndex(s => s.id === linkedSiblingId);
-        if (siblingIndex !== -1) {
-          // حساب موقع الأخ المحدد
-          if (data.siblings.length === 1) {
-            parentSiblingX = root.x + (siblingIndex === 0 ? -(cardWidth + horizontalGap) : (cardWidth + horizontalGap));
-          } else if (data.siblings.length === 2) {
-            parentSiblingX = root.x + (siblingIndex === 0 ? -(cardWidth + horizontalGap) : (cardWidth + horizontalGap));
-          } else {
-            const spacing = cardWidth + horizontalGap;
-            const totalWidth = (data.siblings.length - 1) * spacing;
-            const startX = root.x - totalWidth / 2;
-            parentSiblingX = startX + (siblingIndex * spacing);
-          }
-        }
-      }
-      
-      // موقع ابن الأخ - تحت أخيه مباشرة
-      const nephewX = parentSiblingX;
-      
-      // خط ربط مباشر من الأخ إلى ابنه
-      const siblingBottomY = root.y + cardHeight/2;
-      drawUnifiedLine(g, parentSiblingX, siblingBottomY, nephewX, nephewY - cardHeight/2, `nephew-to-parent-${index}`, "relative", 1200 + index * 150, 400);
-      
-      // إضافة تسمية للخط (اختيارية)
-      g.append("text")
-        .attr("x", nephewX + 10)
-        .attr("y", (siblingBottomY + nephewY - cardHeight/2) / 2)
-        .attr("font-size", "10px")
-        .attr("fill", "#666")
-        .attr("opacity", 0.7)
-        .text(`↳ ${nephewNiece.parentRelation}`);
-    });
-  }
-
-  if (isExtended && data.unclesAunts && data.parents && data.parents.length > 0) {
-    // رسم خطوط للأعمام والعمات - كأشقاء للوالد
-    const parentY = root.y - parentChildGap;
-    const parentX = root.x;
-    
-    // تحديد مواقع الأعمام باستخدام المسافة المتجاوبة
-    const unclePositions = data.unclesAunts.map((uncle, index) => {
-      const uncleSpacing = (cardWidth + horizontalGap) * 1.5;
-      return root.x + (index % 2 === 0 ? -uncleSpacing : uncleSpacing);
-    });
-    
-    // جميع المواقع (الأعمام + الوالد) في نفس المستوى
-    const allParentLevelPositions = [...unclePositions, parentX].sort((a, b) => a - b);
-    const leftmost = allParentLevelPositions[0];
-    const rightmost = allParentLevelPositions[allParentLevelPositions.length - 1];
-    const horizontalLineY = parentY - (verticalGap * 0.7); // خط أفقي أعلى مستوى الوالد والأعمام
-    
-    // 1. خط أفقي يربط الوالد مع الأعمام (كأشقاء) - موحد
-    drawUnifiedLine(g, leftmost, horizontalLineY, rightmost, horizontalLineY, "parent-uncles-horizontal-line", "secondary", 900, 600);
-    
-    // 2. خط عمودي من الخط الأفقي إلى الوالد - موحد
-    drawUnifiedLine(g, parentX, horizontalLineY, parentX, parentY, "horizontal-to-parent", "primary", 950, 400);
-    
-    // 3. خطوط عمودية من الخط الأفقي إلى كل عم - موحدة
-    data.unclesAunts.forEach((uncle, index) => {
-      const uncleSpacing = (cardWidth + horizontalGap) * 1.5;
-      const uncleX = root.x + (index % 2 === 0 ? -uncleSpacing : uncleSpacing);
-      
-      drawUnifiedLine(g, uncleX, horizontalLineY, uncleX, parentY, `horizontal-to-uncle-${index}`, "relative", 950 + index * 100, 400);
-    });
-  }
-
-  if (isExtended && data.motherSide && data.parents && data.parents.length > 0) {
-    // رسم خطوط للأخوال والخالات - كأشقاء للأم
-    const parentY = root.y - parentChildGap;
-    
-    // إذا كان هناك أم، فالأخوال يرتبطون بها كأشقاء
-    // نفترض أن الأم في موقع مختلف قليلاً عن الأب للتمييز
-    const motherX = root.x + (horizontalGap * 1.2); // الأم بجانب الأب
-    
-    // تحديد مواقع الأخوال باستخدام المسافة المتجاوبة
-    const maternalUnclePositions = data.motherSide.map((uncle, index) => {
-      const maternalSpacing = (cardWidth + horizontalGap) * 2.5;
-      return root.x + (index % 2 === 0 ? -maternalSpacing : maternalSpacing);
-    });
-    
-    // خط أفقي منفصل للأخوال والأم
-    const allMaternalPositions = [...maternalUnclePositions, motherX].sort((a, b) => a - b);
-    const leftmostMaternal = allMaternalPositions[0];
-    const rightmostMaternal = allMaternalPositions[allMaternalPositions.length - 1];
-    const maternalHorizontalLineY = parentY - 80; // مستوى منفصل للجانب الأمومي
-    
-    // 1. خط أفقي يربط الأم مع الأخوال (كأشقاء) - موحد
-    drawUnifiedLine(g, leftmostMaternal, maternalHorizontalLineY, rightmostMaternal, maternalHorizontalLineY, "maternal-horizontal-line", "spouse", 1100, 600);
-    
-    // 2. خط عمودي من الخط الأفقي إلى الأم - موحد
-    drawUnifiedLine(g, motherX, maternalHorizontalLineY, motherX, parentY, "horizontal-to-mother", "spouse", 1150, 400);
-    
-    // 3. خطوط عمودية من الخط الأفقي إلى كل خال - موحدة
-    data.motherSide.forEach((uncle, index) => {
-      const uncleSpacing = (cardWidth + horizontalGap) * 2.5;
-      const uncleX = root.x + (index % 2 === 0 ? -uncleSpacing : uncleSpacing);
-      
-      drawUnifiedLine(g, uncleX, maternalHorizontalLineY, uncleX, parentY, `horizontal-to-maternal-uncle-${index}`, "spouse", 1150 + index * 100, 400);
-    });
-  }
-
-  // رسم الروابط مع أنيميشن بسيط - استخدام النظام الموحد للشجرة العادية والموسعة
+  // رسم الروابط مع أنيميشن بسيط
   const links = g.selectAll(".link")
     .data(root.links())
     .enter().append("path")
-    .attr("class", "link unified-connection-line")
+    .attr("class", "link")
     .style("fill", "none")
     .attr("d", d => {
         const source = d.source;
         const target = d.target;
         const midY = source.y + (target.y - source.y) / 2;
-        const radius = 20; // نصف قطر موحد
+        const radius = 18;
         return `M${source.x},${source.y}
                 L${source.x},${midY - radius}
                 Q${source.x},${midY} ${source.x + (target.x > source.x ? radius : -radius)},${midY}
@@ -1151,117 +439,373 @@ const drawTreeWithD3 = useCallback((data) => {
                 Q${target.x},${midY} ${target.x},${midY + radius}
                 L${target.x},${target.y}`;
       })
-    .style("stroke", CONNECTION_STYLES.primary?.stroke || "#6366f1")
-    .style("stroke-width", CONNECTION_STYLES.primary?.strokeWidth || 3)
+    .style("stroke", "#2196f3")  // لون أزرق أكثر وضوحاً
+    .style("stroke-width", 3)        // خط أسمك للوضوح
     .style("stroke-linecap", "round")
     .style("stroke-linejoin", "round")
     .style("opacity", 0) // بدء مخفي للأنيميشن
-    .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.15))")
+    .style("filter", "drop-shadow(0 2px 4px rgba(33, 150, 243, 0.3))")  // ظل للخطوط
     .style("stroke-dasharray", "none");
 
-  // أنيميشن موحد للروابط مع تأثيرات التفاعل
+  // أنيميشن بسيط للروابط
   links.transition()
     .delay(500)
     .duration(800)
     .ease(d3.easeQuadOut)
-    .style("opacity", CONNECTION_STYLES.primary?.opacity || 0.8)
-    .on("end", function() {
-      // إضافة تأثيرات التفاعل بعد الانتهاء من الأنيميشن
+    .style("opacity", 0.9);  // شفافية أقل للوضوح
+
+  // إضافة تأثيرات تفاعلية للروابط
+  links
+    .on("mouseenter", function() {
       d3.select(this)
-        .on("mouseenter", function() {
-          d3.select(this)
-            .transition()
-            .duration(200)
-            .style("stroke-width", (CONNECTION_STYLES.primary?.strokeWidth || 2) + 1)
-            .style("opacity", Math.min((CONNECTION_STYLES.primary?.opacity || 0.8) + 0.2, 1))
-            .style("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.25))");
-        })
-        .on("mouseleave", function() {
-          d3.select(this)
-            .transition()
-            .duration(200)
-            .style("stroke-width", CONNECTION_STYLES.primary?.strokeWidth || 2)
-            .style("opacity", CONNECTION_STYLES.primary?.opacity || 0.8)
-            .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.15))");
-        });
+        .style("stroke-width", 4)
+        .style("opacity", 1)
+        .style("stroke", "#1976d2");
+    })
+    .on("mouseleave", function() {
+      d3.select(this)
+        .style("stroke-width", 3)
+        .style("opacity", 0.9)
+        .style("stroke", "#2196f3");
     });
 
-  // رسم العقد مع أنيميشن محسن
+  // رسم العقد مع أنيميشن بسيط
   const nodes = g.selectAll(".node")
     .data(root.descendants())
     .enter().append("g")
     .attr("class", "node")
-    .attr("data-depth", d => d.depth)
-    .attr("transform", d => `translate(${d.x},${d.y - 20}) scale(0.8)`) // بدء من أعلى وأصغر حجماً
-    .style("opacity", 0);
+    .attr("data-depth", d => d.depth) // للأنيميشن CSS
+    .attr("transform", d => `translate(${d.x},${d.y})`)
+    .style("opacity", 0); // بدء مخفي للأنيميشن
 
-  // أنيميشن متدرج وجميل للعقد
+  // أنيميشن بسيط للعقد
   nodes.transition()
-    .delay((d, i) => d.depth * 150 + i * 100)
-    .duration(800)
-    .ease(d3.easeBackOut.overshoot(1.2))
-    .style("opacity", 1)
-    .attr("transform", d => `translate(${d.x},${d.y}) scale(1)`);
+    .delay((d, i) => d.depth * 200 + i * 50)
+    .duration(600)
+    .ease(d3.easeBackOut)
+    .style("opacity", 1); // إظهار جميع العقد
 
-  // إضافة محتوى العقد مع أنيميشن إضافي
+  // إضافة محتوى العقد - نفس التصميم الأصلي تماماً
   nodes.each(function(d) {
-    const nodeGroup = d3.select(this);
-    const nodeData = d.data.attributes || d.data;
-    
-    const uniqueId = nodeData.id || nodeData.globalId || Math.random().toString(36).substring(7);
-    const name = nodeData.name || `${nodeData.firstName || ''} ${nodeData.fatherName || ''}`.trim() || '';
-    const relation = nodeData.relation || 'عضو';
-    
-    // استخدام الدالة الموحدة لرسم الكارت
-    drawNodeCard(nodeGroup, nodeData, name, relation, uniqueId, cardWidth, cardHeight, padding, avatarSize, textStartX);
+  const nodeGroup = d3.select(this);
+  const nodeData = d.data.attributes || d.data;
+  
+  const uniqueId = nodeData.id || nodeData.globalId || Math.random().toString(36).substring(7);
+  const name = nodeData.name || `${nodeData.firstName || ''} ${nodeData.fatherName || ''}`.trim() || '';
+  const relation = nodeData.relation || 'عضو';
+  const nameY = -cardHeight / 2 + padding + 14;
+  const relationY = nameY + 18;
+  const childBoxWidth = 40;
+  const childBoxHeight = 16;
+  const childBoxX = -cardWidth / 2 + padding;
+  const childBoxY = cardHeight / 2 - childBoxHeight - 4;
+  const childTextX = childBoxX + childBoxWidth / 2;
+  const childTextY = childBoxY + childBoxHeight / 2 + 1.5;
+  const ageBoxWidth = 40;
+  const ageBoxHeight = 16;
+  const ageBoxX = cardWidth / 2 - padding - ageBoxWidth;
+  const ageBoxY = cardHeight / 2 - ageBoxHeight - 4;
+  const ageTextX = ageBoxX + ageBoxWidth / 2;
+  const ageTextY = ageBoxY + ageBoxHeight / 2 + 1.5;
+  // عمر محسوب
+  const calculateAge = (birthdate) => {
+    if (!birthdate) return '';
+    const birth = new Date(birthdate);
+    const today = new Date();
+    if (isNaN(birth.getTime())) return '';
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age > 0 ? age : '';
+  };
+  const age = calculateAge(nodeData.birthdate || nodeData.birthDate);
 
-    // إضافة تأثير hover للكارت
-    nodeGroup.select(".family-node-card")
-      .on("mouseenter", function() {
-        d3.select(this)
-          .transition()
-          .duration(200)
-          .attr("transform", "scale(1.05)")
-          .style("filter", "drop-shadow(0 8px 25px rgba(0,0,0,0.2))");
-      })
-      .on("mouseleave", function() {
-        d3.select(this)
-          .transition()
-          .duration(200)
-          .attr("transform", "scale(1)")
-          .style("filter", "drop-shadow(0 4px 12px rgba(0,0,0,0.15))");
-      });
+  // الكارت
+  // 🟦 تحديد الألوان حسب الجنس أو النوع من الملف المنفصل
+  let colors = RELATION_COLORS.DEFAULT;
 
-    // إضافة تأثير البحث إذا وجد
-    if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCase())) {
-      nodeGroup.select("rect.family-node-card")
-        .transition()
-        .duration(600)
-        .attr("stroke", "#f59e0b")
-        .attr("stroke-width", 4)
-        .style("filter", "drop-shadow(0 4px 15px rgba(245,158,11,0.4))");
+  // العقدة الوهمية (الجذر الافتراضي) تصميم خاص
+  if (nodeData.isVirtualRoot) {
+    colors = RELATION_COLORS.VIRTUAL_ROOT;
+    cardWidth = cardWidth * 0.8; // حجم أصغر
+    cardHeight = cardHeight * 0.7;
+  } else if (nodeData.isVirtualGrandfather) {
+    // الجد الافتراضي
+    colors = RELATION_COLORS.VIRTUAL_GRANDFATHER;
+  } else if (nodeData.isGrandfather || relation === 'جد') {
+    // الجد الحقيقي
+    colors = RELATION_COLORS.GRANDFATHER;
+  } else if (relation === 'جدة') {
+    // الجدة
+    colors = RELATION_COLORS.GRANDMOTHER;
+  } else if (nodeData.isGrandchild || relation === 'حفيد') {
+    // الحفيد
+    colors = RELATION_COLORS.GRANDCHILD_MALE;
+  } else if (relation === 'حفيدة') {
+    // الحفيدة
+    colors = RELATION_COLORS.GRANDCHILD_FEMALE;
+  } else if (nodeData.isNephewNiece) {
+    // تمييز أبناء الإخوة والأخوات بلون مختلف
+    if (RelationUtils.isMaleRelation(relation) || nodeData.gender === "male") {
+      colors = RELATION_COLORS.NEPHEW_NIECE_MALE;
+    } else if (RelationUtils.isFemaleRelation(relation) || nodeData.gender === "female") {
+      colors = RELATION_COLORS.NEPHEW_NIECE_FEMALE;
+    } else {
+      colors = RELATION_COLORS.NEPHEW_NIECE_MALE; // افتراضي للذكور
     }
+  } else {
+    // العلاقات العادية
+    if (RelationUtils.isMaleRelation(relation) || nodeData.gender === "male") {
+      colors = RELATION_COLORS.MALE;
+    } else if (RelationUtils.isFemaleRelation(relation) || nodeData.gender === "female") {
+      colors = RELATION_COLORS.FEMALE;
+    }
+  }
 
-    // عند الضغط مع تأثير
-    nodeGroup.on("click", function() {
-      // تأثير النقر
-      d3.select(this)
+  nodeGroup.append("rect")
+    .attr("width", cardWidth)
+    .attr("height", cardHeight)
+    .attr("x", -cardWidth / 2)
+    .attr("y", -cardHeight / 2)
+    .attr("rx", 14)
+    .attr("fill", colors.fill)
+    .attr("stroke", colors.stroke)
+    .attr("stroke-width", 2.5)  // إطار أسمك للوضوح
+    .attr("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.1))")  // ظل للكروت
+    .attr("class", "family-node-card");
+
+  // صورة أو أفاتار (تخطي للعقدة الوهمية والجد الافتراضي)
+  if (!nodeData.isVirtualRoot && !nodeData.isVirtualGrandfather) {
+    // ⭕️ دائرة خلفية الصورة
+    nodeGroup.append("circle")
+      .attr("cx", -cardWidth / 2 + padding + avatarSize / 2)
+      .attr("cy", -cardHeight / 2 + padding + avatarSize / 2)
+      .attr("r", avatarSize / 2)
+      .attr("fill", "#fff")
+      .attr("stroke", "#ddd")
+      .attr("stroke-width", 1.5);
+
+    // 🟢 ClipPath دائري للصورة
+    nodeGroup.append("clipPath")
+      .attr("id", `avatar-circle-${uniqueId}`)
+      .append("circle")
+      .attr("cx", -cardWidth / 2 + padding + avatarSize / 2)
+      .attr("cy", -cardHeight / 2 + padding + avatarSize / 2)
+      .attr("r", avatarSize / 2);
+
+    // 🖼️ صورة داخل الدائرة مع تقطيع وتوسيط
+    nodeGroup.append("image")
+      .attr("href",
+        nodeData.avatar ||
+        (nodeData.gender === "female" || FEMALE_RELATIONS.includes(relation)
+          ? "/icons/girl.png"
+          : "/icons/boy.png")
+      )
+      .attr("x", -cardWidth / 2 + padding)
+      .attr("y", -cardHeight / 2 + padding)
+      .attr("width", avatarSize)
+      .attr("height", avatarSize)
+      .attr("clip-path", `url(#avatar-circle-${uniqueId})`)
+      .attr("preserveAspectRatio", "xMidYMid slice");
+  }
+
+  // الاسم (مع منطق خاص للعقدة الوهمية)
+  if (nodeData.isVirtualRoot) {
+    // العقدة الوهمية تظهر بشكل مبسط أو مخفي
+    nodeGroup.append("text")
+      .text("🏠") // أيقونة بيت بدلاً من النص
+      .attr("x", 0)
+      .attr("y", 5)
+      .attr("font-size", 20)
+      .attr("text-anchor", "middle")
+      .attr("fill", "#94a3b8");
+  } else if (nodeData.isVirtualGrandfather) {
+    // الجد الافتراضي
+    nodeGroup.append("text")
+      .text("👴") // أيقونة جد
+      .attr("x", -cardWidth / 2 + padding + avatarSize / 2)
+      .attr("y", -cardHeight / 2 + padding + avatarSize / 2 + 8)
+      .attr("font-size", 24)
+      .attr("text-anchor", "middle")
+      .attr("fill", "#d97706");
+    
+    nodeGroup.append("text")
+      .text(name.length > 18 ? name.slice(0, 16) + '…' : name)
+      .attr("x", textStartX)
+      .attr("y", nameY)
+      .attr("font-size", 13)
+      .attr("font-weight", "bold")
+      .attr("fill", "#92400e");
+
+    nodeGroup.append("text")
+      .text("👑 " + relation)
+      .attr("x", textStartX)
+      .attr("y", relationY)
+      .attr("font-size", 11)
+      .attr("fill", "#d97706");
+  } else {
+    nodeGroup.append("text")
+      .text(name.length > 22 ? name.slice(0, 20) + '…' : name)
+      .attr("x", textStartX)
+      .attr("y", nameY)
+      .attr("font-size", 13)
+      .attr("font-weight", "bold")
+      .attr("fill", "#111");
+
+    // العلاقة مع رمز مميز من الملف المنفصل
+    const relationIcon = RelationUtils.getRelationIcon(relation, nodeData.isNephewNiece);
+    const displayRelation = relationIcon ? `${relationIcon} ${relation}` : relation;
+    
+    nodeGroup.append("text")
+      .text(displayRelation)
+      .attr("x", textStartX)
+      .attr("y", relationY)
+      .attr("font-size", 11)
+      .attr("fill", nodeData.isNephewNiece ? "#f59e0b" : "#666");
+  }
+
+  // العمر (تخطي للعقدة الوهمية والجد الافتراضي)
+  if (age && !nodeData.isVirtualRoot && !nodeData.isVirtualGrandfather) {
+    // الخلفية
+    nodeGroup.append("rect")
+      .attr("x", ageBoxX)
+      .attr("y", ageBoxY)
+      .attr("width", ageBoxWidth)
+      .attr("height", ageBoxHeight)
+      .attr("rx", 8)
+      .attr("fill", "rgba(25, 118, 210, 0.08)")
+      .attr("stroke", "#1976d2")
+      .attr("stroke-width", 0.8);
+
+    // النص في المنتصف تمامًا
+    nodeGroup.append("text")
+      .text(age + " سنة") // إضافة كلمة سنة بجانب العمر
+      .attr("x", ageTextX)
+      .attr("y", ageTextY)
+      .attr("font-size", 10)
+      .attr("fill", "#1976d2")
+      .attr("font-weight", "600")
+      .attr("text-anchor", "middle")
+      .attr("dominant-baseline", "middle");
+  }
+
+  // ✅ الخلفية خلف عدد الأطفال (تخطي للعقدة الوهمية والجد الافتراضي)
+  if (d.children && d.children.length > 0 && !nodeData.isVirtualRoot && !nodeData.isVirtualGrandfather) {
+    let childText = ` ${d.children.length}`;
+    let hasGrandchildren = false;
+    let grandchildrenCount = 0;
+    
+    // حساب عدد الأحفاد
+    d.children.forEach(child => {
+      if (child.children && child.children.length > 0) {
+        hasGrandchildren = true;
+        grandchildrenCount += child.children.length;
+      }
+    });
+
+    // إذا كان هناك أحفاد، اعرض الرقمين مع لون مميز
+    if (hasGrandchildren) {
+      childText = ` ${d.children.length}/${grandchildrenCount}`;
+      
+      nodeGroup.append("rect")
+        .attr("x", childBoxX)
+        .attr("y", childBoxY)
+        .attr("width", childBoxWidth)
+        .attr("height", childBoxHeight)
+        .attr("rx", 8)
+        .attr("fill", "rgba(33, 150, 243, 0.08)") // لون أزرق للإشارة للأحفاد
+        .attr("stroke", "#2196f3")
+        .attr("stroke-width", 0.8);
+
+      nodeGroup.append("text")
+        .text(childText)
+        .attr("x", childTextX)
+        .attr("y", childTextY)
+        .attr("font-size", 10)
+        .attr("fill", "#2196f3")
+        .attr("font-weight", "600")
+        .attr("text-anchor", "middle")
+        .attr("dominant-baseline", "middle");
+    } else {
+      // عرض عادي للأطفال فقط
+      nodeGroup.append("rect")
+        .attr("x", childBoxX)
+        .attr("y", childBoxY)
+        .attr("width", childBoxWidth)
+        .attr("height", childBoxHeight)
+        .attr("rx", 8)
+        .attr("fill", "rgba(76, 175, 80, 0.08)")
+        .attr("stroke", "#4caf50")
+        .attr("stroke-width", 0.8);
+
+      nodeGroup.append("text")
+        .text(childText)
+        .attr("x", childTextX)
+        .attr("y", childTextY)
+        .attr("font-size", 10)
+        .attr("fill", "#4caf50")
+        .attr("font-weight", "600")
+        .attr("text-anchor", "middle")
+        .attr("dominant-baseline", "middle");
+    }
+  }
+
+if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQueryRef.current.toLowerCase())) {
+  nodeGroup.select("rect.family-node-card")
+    .transition()
+    .duration(600)
+    .attr("stroke", "#f59e0b")
+    .attr("stroke-width", 3);
+}
+
+  // إضافة تأثيرات تفاعلية للعقد
+  nodeGroup
+    .on("mouseenter", function() {
+      d3.select(this).select("rect.family-node-card")
+        .style("transform", "scale(1.05)")
+        .style("filter", "drop-shadow(0 6px 12px rgba(0,0,0,0.2))")
         .transition()
-        .duration(150)
-        .style("transform", "scale(0.95)")
+        .duration(200);
+      
+      // تمييز الروابط المتصلة
+      d3.selectAll(".link")
+        .filter(linkData => 
+          linkData.source.data.id === d.data.id || 
+          linkData.target.data.id === d.data.id
+        )
+        .style("stroke", "#1976d2")
+        .style("stroke-width", 4)
+        .style("opacity", 1);
+    })
+    .on("mouseleave", function() {
+      d3.select(this).select("rect.family-node-card")
+        .style("transform", "scale(1)")
+        .style("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.1))")
         .transition()
-        .duration(150)
-        .style("transform", "scale(1)");
-        
-      handleNodeClick?.({
+        .duration(200);
+      
+      // إعادة الروابط لحالتها الطبيعية
+      d3.selectAll(".link")
+        .style("stroke", "#2196f3")
+        .style("stroke-width", 3)
+        .style("opacity", 0.9);
+    })
+    .on("click", () => {
+      // تجنب عرض تفاصيل الجد الافتراضي إذا لم يكن له معلومات كافية
+      if (nodeData.isVirtualGrandfather && !nodeData.avatar && !nodeData.phone) {
+        return; // لا تفعل شيئاً للجد الافتراضي
+      }
+      
+      handleNodeClickRef.current?.({
         ...nodeData,
         name,
+        age,
         children: d.children || []
       });
     });
   });
 
-  // معالجة تداخل العقد - نفس الطريقة الأصلية
+  // معالجة تداخل العقد المحسنة للهيكل الهرمي
   const nodesByDepth = {};
   root.each(d => {
     if (!nodesByDepth[d.depth]) nodesByDepth[d.depth] = [];
@@ -1273,8 +817,8 @@ const drawTreeWithD3 = useCallback((data) => {
     for (let i = 1; i < nodes.length; i++) {
       const prev = nodes[i - 1];
       const curr = nodes[i];
-      // إذا كان هناك تداخل أو تقاطع بين الكروت، نحرك العقدة الحالية يميناً
-      const minDistance = 340; 
+      // مسافة أكبر بكثير لإظهار الخطوط والعلاقات بوضوح
+      const minDistance = treeType === 'hierarchical' ? 280 : 260; 
       if (curr.x - prev.x < minDistance) {
         const shift = minDistance - (curr.x - prev.x);
         curr.x += shift;
@@ -1305,9 +849,9 @@ const drawTreeWithD3 = useCallback((data) => {
         
         if (fullWidth > 0 && fullHeight > 0) {
           const scale = Math.min(
-            (width * 0.9) / fullWidth,
-            (height * 0.9) / fullHeight,
-            1.2
+            (width * 0.8) / fullWidth,   // مساحة أقل للتمركز لإظهار المسافات
+            (height * 0.8) / fullHeight,
+            1.0   // حد أقصى أصغر للحفاظ على الوضوح
           );
           
           const centerX = bounds.x + fullWidth / 2;
@@ -1329,265 +873,14 @@ const drawTreeWithD3 = useCallback((data) => {
         // Removed unused 'error'
       }
     }
-    
-    // رسم العُقد الإضافية للشجرة الموسعة بنفس التصميم الأصلي
-    if (isExtended) {
-      // رسم عُقد الوالدين
-      if (data.parents) {
-        data.parents.forEach((parent, index) => {
-          const parentNode = g.append("g")
-            .attr("class", "node extended-node parent-node")
-            .attr("transform", `translate(${root.x}, ${root.y - parentChildGap - 30}) scale(0.7)`)
-            .style("cursor", "pointer")
-            .style("opacity", 0);
-            
-          // رسم الكارت باستخدام الدالة المشتركة
-          const nodeData = parent.attributes || parent;
-          const name = nodeData.name || parent.name || '';
-          const relation = nodeData.relation || 'والد';
-          const uniqueId = nodeData.id || nodeData.globalId || `parent_${index}`;
-          
-          drawNodeCard(parentNode, nodeData, name, relation, uniqueId, cardWidth, cardHeight, padding, avatarSize, textStartX);
-          
-          // إضافة تأثيرات التفاعل
-          parentNode.select(".family-node-card")
-            .on("mouseenter", function() {
-              d3.select(this)
-                .transition()
-                .duration(200)
-                .attr("transform", "scale(1.08)")
-                .style("filter", "drop-shadow(0 10px 30px rgba(0,0,0,0.25))");
-            })
-            .on("mouseleave", function() {
-              d3.select(this)
-                .transition()
-                .duration(200)
-                .attr("transform", "scale(1)")
-                .style("filter", "drop-shadow(0 4px 12px rgba(0,0,0,0.15))");
-            });
-          
-          // أنيميشن الظهور محسن
-          parentNode.transition()
-            .delay(800 + index * 200)
-            .duration(800)
-            .ease(d3.easeBackOut.overshoot(1.3))
-            .style("opacity", 1)
-            .attr("transform", `translate(${root.x}, ${root.y - parentChildGap}) scale(1)`);
-        });
-      }
-      
-      // رسم عُقد الإخوة والأخوات
-      if (data.siblings) {
-        data.siblings.forEach((sibling, index) => {
-          // توزيع أفضل للأشقاء - تجنب التداخل باستخدام المسافات المتجاوبة
-          let siblingX;
-          const siblingSpacing = cardWidth + horizontalGap;
-          if (data.siblings.length === 1) {
-            siblingX = root.x + (index === 0 ? -siblingSpacing : siblingSpacing);
-          } else if (data.siblings.length === 2) {
-            siblingX = root.x + (index === 0 ? -siblingSpacing : siblingSpacing);
-          } else {
-            // للأشقاء الأكثر من 2 - توزيع متوازن
-            const totalWidth = (data.siblings.length - 1) * siblingSpacing;
-            const startX = root.x - totalWidth / 2;
-            siblingX = startX + (index * siblingSpacing);
-          }
-          
-          const siblingNode = g.append("g")
-            .attr("class", "node extended-node sibling-node")
-            .attr("transform", `translate(${siblingX}, ${root.y + 20}) scale(0.8)`)
-            .style("cursor", "pointer")
-            .style("opacity", 0);
-            
-          // رسم الكارت باستخدام الدالة المشتركة
-          const nodeData = sibling.attributes || sibling;
-          const name = nodeData.name || sibling.name || '';
-          const relation = nodeData.relation || 'شقيق';
-          const uniqueId = nodeData.id || nodeData.globalId || `sibling_${index}`;
-          
-          drawNodeCard(siblingNode, nodeData, name, relation, uniqueId, cardWidth, cardHeight, padding, avatarSize, textStartX);
-          
-          // إضافة تأثيرات التفاعل
-          siblingNode.select(".family-node-card")
-            .on("mouseenter", function() {
-              d3.select(this)
-                .transition()
-                .duration(200)
-                .attr("transform", "scale(1.08)")
-                .style("filter", "drop-shadow(0 10px 30px rgba(0,0,0,0.25))");
-            })
-            .on("mouseleave", function() {
-              d3.select(this)
-                .transition()
-                .duration(200)
-                .attr("transform", "scale(1)")
-                .style("filter", "drop-shadow(0 4px 12px rgba(0,0,0,0.15))");
-            });
-            
-          // أنيميشن الظهور محسن
-          siblingNode.transition()
-            .delay(1000 + index * 150)
-            .duration(700)
-            .ease(d3.easeBackOut.overshoot(1.2))
-            .style("opacity", 1)
-            .attr("transform", `translate(${siblingX}, ${root.y}) scale(1)`);
-        });
-      }
-      
-      // رسم عُقد أولاد الإخوة والأخوات (أبناء الأشقاء) - تحت آبائهم الصحيحين
-      if (data.nephewsNieces) {
-        data.nephewsNieces.forEach((nephewNiece, index) => {
-          const baseY = root.y + parentChildGap; // أسفل مستوى صاحب الحساب
-          
-          // العثور على الأخ المرتبط بهذا ابن الأخ
-          const linkedSiblingId = data.nephewToSiblingMap?.get(nephewNiece.id);
-          let nephewX = root.x; // موقع افتراضي
-          
-          if (linkedSiblingId && data.siblings) {
-            const siblingIndex = data.siblings.findIndex(s => s.id === linkedSiblingId);
-            if (siblingIndex !== -1) {
-              // حساب موقع الأخ المحدد
-              if (data.siblings.length === 1) {
-                nephewX = root.x + (siblingIndex === 0 ? -(cardWidth + horizontalGap) : (cardWidth + horizontalGap));
-              } else if (data.siblings.length === 2) {
-                nephewX = root.x + (siblingIndex === 0 ? -(cardWidth + horizontalGap) : (cardWidth + horizontalGap));
-              } else {
-                const spacing = cardWidth + horizontalGap;
-                const totalWidth = (data.siblings.length - 1) * spacing;
-                const startX = root.x - totalWidth / 2;
-                nephewX = startX + (siblingIndex * spacing);
-              }
-              
-              // إذا كان للأخ أكثر من طفل، نوزعهم حول موقعه
-              const siblingChildren = data.nephewsNieces.filter(nn => 
-                data.nephewToSiblingMap?.get(nn.id) === linkedSiblingId
-              );
-              
-              if (siblingChildren.length > 1) {
-                const childIndex = siblingChildren.findIndex(child => child.id === nephewNiece.id);
-                const childSpacing = 100; // مسافة بين أطفال نفس الأخ
-                const totalChildWidth = (siblingChildren.length - 1) * childSpacing;
-                const startChildX = nephewX - totalChildWidth / 2;
-                nephewX = startChildX + (childIndex * childSpacing);
-              }
-            }
-          }
-          
-          const nephewNode = g.append("g")
-            .attr("class", "node extended-node nephew-niece-node")
-            .attr("transform", `translate(${nephewX}, ${baseY})`)
-            .style("cursor", "pointer")
-            .style("opacity", 0);
-            
-          // رسم الكارت باستخدام الدالة المشتركة
-          const nodeData = nephewNiece.attributes || nephewNiece;
-          const name = nodeData.name || nephewNiece.name || '';
-          const relation = nodeData.relation || 'ابن/بنت الأخ/الأخت';
-          const uniqueId = nodeData.id || nodeData.globalId || `nephew_niece_${index}`;
-          
-          drawNodeCard(nephewNode, nodeData, name, relation, uniqueId, cardWidth, cardHeight, padding, avatarSize, textStartX);
-            
-          // أنيميشن الظهور
-          nephewNode.transition()
-            .delay(1200 + index * 150)
-            .duration(600)
-            .ease(d3.easeBackOut)
-            .style("opacity", 1);
-        });
-      }
-      
-      // رسم عُقد الأعمام والعمات
-      if (data.unclesAunts) {
-        data.unclesAunts.forEach((uncleAunt, index) => {
-          const uncleSpacing = (cardWidth + horizontalGap) * 1.5;
-          const uncleAuntNode = g.append("g")
-            .attr("class", "node extended-node uncle-aunt-node")
-            .attr("transform", `translate(${root.x + (index % 2 === 0 ? -uncleSpacing : uncleSpacing)}, ${root.y - parentChildGap})`)
-            .style("cursor", "pointer")
-            .style("opacity", 0);
-            
-          // رسم الكارت باستخدام الدالة المشتركة
-          const nodeData = uncleAunt.attributes || uncleAunt;
-          const name = nodeData.name || uncleAunt.name || '';
-          const relation = nodeData.relation || 'عم';
-          const uniqueId = nodeData.id || nodeData.globalId || `uncle_${index}`;
-          
-          drawNodeCard(uncleAuntNode, nodeData, name, relation, uniqueId, cardWidth, cardHeight, padding, avatarSize, textStartX);
-            
-          // أنيميشن الظهور
-          uncleAuntNode.transition()
-            .delay(1200 + index * 100)
-            .duration(600)
-            .ease(d3.easeBackOut)
-            .style("opacity", 1);
-        });
-      }
-      
-      // رسم عُقد الأخوال والخالات
-      if (data.motherSide) {
-        data.motherSide.forEach((motherSide, index) => {
-          const motherSideNode = g.append("g")
-            .attr("class", "node extended-node mother-side-node")
-            .attr("transform", `translate(${root.x + (index % 2 === 0 ? -500 : 500)}, ${root.y - 50})`)
-            .style("cursor", "pointer")
-            .style("opacity", 0);
-            
-          // رسم الكارت باستخدام الدالة المشتركة
-          const nodeData = motherSide.attributes || motherSide;
-          const name = nodeData.name || motherSide.name || '';
-          const relation = nodeData.relation || 'خال';
-          const uniqueId = nodeData.id || nodeData.globalId || `mother_side_${index}`;
-          
-          drawNodeCard(motherSideNode, nodeData, name, relation, uniqueId, cardWidth, cardHeight, padding, avatarSize, textStartX);
-            
-          // أنيميشن الظهور
-          motherSideNode.transition()
-            .delay(1400 + index * 100)
-            .duration(600)
-            .ease(d3.easeBackOut)
-            .style("opacity", 1);
-        });
-      }
-      
-      // رسم عُقدة الزوجة
-      if (data.spouse) {
-        const spouseX = root.x + (cardWidth + horizontalGap);
-        const spouseNode = g.append("g")
-          .attr("class", "node extended-node spouse-node")
-          .attr("transform", `translate(${spouseX}, ${root.y})`)
-          .style("cursor", "pointer")
-          .style("opacity", 0);
-          
-        // رسم الكارت باستخدام الدالة المشتركة
-        const nodeData = data.spouse.attributes || data.spouse;
-        const name = nodeData.name || data.spouse.name || '';
-        const relation = nodeData.relation || 'زوجة';
-        const uniqueId = nodeData.id || nodeData.globalId || 'spouse';
-        
-        drawNodeCard(spouseNode, nodeData, name, relation, uniqueId, cardWidth, cardHeight, padding, avatarSize, textStartX);
-          
-        // رمز القلب للزواج
-        spouseNode.append("text")
-          .attr("x", cardWidth / 2 - 20)
-          .attr("y", -cardHeight / 2 + 20)
-          .style("font-size", "16px")
-          .style("fill", "#ec4899")
-          .text("💕");
-          
-        // أنيميشن الظهور
-        spouseNode.transition()
-          .delay(600)
-          .duration(600)
-          .ease(d3.easeBackOut)
-          .style("opacity", 1);
-          
-        // خط الربط للزوجة بالنمط الموحد
-        drawUnifiedLine(g, root.x + cardWidth/2, root.y, spouseX - cardWidth/2, root.y, "spouse-link", "spouse", 400, 800);
-      }
-    }
   }, 1200);
 
-}, [handleNodeClick, searchQuery, drawNodeCard]);
+}, []); // إزالة dependencies لمنع الحلقة اللانهائية
+
+  // تحديث مرجع drawTreeWithD3
+  useEffect(() => {
+    drawTreeRef.current = drawTreeWithD3;
+  }, [drawTreeWithD3]);
 
   // دالة البحث المحلية - مبسطة
   const performSearch = useCallback((query) => {
@@ -1641,20 +934,26 @@ const drawTreeWithD3 = useCallback((data) => {
       return;
     }
 
-    loadSimpleTree();
-  }, [uid, navigate, loadSimpleTree]);
+    loadTree();
+  }, [uid, navigate, loadTree]);
 
   // تأثير رسم الشجرة
   useEffect(() => {
-    const currentTreeData = isExtendedView ? extendedTreeData : simpleTreeData;
-    if (currentTreeData && svgRef.current && containerRef.current) {
+    console.warn('🎨 useEffect رسم الشجرة:', { 
+      treeData: !!treeData, 
+      svgRef: !!svgRef.current, 
+      containerRef: !!containerRef.current 
+    });
+    
+    if (treeData && svgRef.current && containerRef.current) {
+      console.warn('🌳 بدء رسم الشجرة:', treeData);
       const timer = setTimeout(() => {
-        drawTreeWithD3(currentTreeData);
+        drawTreeRef.current?.(treeData);
       }, 200);
       
       return () => clearTimeout(timer);
     }
-  }, [drawTreeWithD3, simpleTreeData, extendedTreeData, isExtendedView]);
+  }, [treeData]); // استخدام المرجع بدلاً من drawTreeWithD3
 
   // تأثير البحث
   useEffect(() => {
@@ -1678,13 +977,25 @@ const drawTreeWithD3 = useCallback((data) => {
     };
   }, []);
 
+  // تحميل البيانات تلقائياً عند تحميل المكون
+  useEffect(() => {
+    if (uid) {
+      console.warn('🚀 تحميل البيانات تلقائياً عند بدء المكون');
+      if (loadTreeRef.current) {
+        loadTreeRef.current();
+      }
+    } else {
+      console.warn('⚠️ لا يوجد معرف مستخدم، إعادة توجيه لتسجيل الدخول');
+      navigate('/login');
+    }
+  }, [uid, navigate]);
+
   // ===========================================================================
   // واجهة المستخدم
   // ===========================================================================
 
   const renderTreeView = () => {
-    const currentTreeData = isExtendedView ? extendedTreeData : simpleTreeData;
-    const treeTitle = isExtendedView ? 'الشجرة الموسعة - جميع العلاقات' : 'شجرة عائلتك';
+    const treeTitle = 'شجرة عائلتك';
     
     return (
       <Box
@@ -1725,7 +1036,7 @@ const drawTreeWithD3 = useCallback((data) => {
               إعادة المحاولة
             </Button>
           </Box>
-        ) : currentTreeData ? (
+        ) : treeData ? (
           <svg
             ref={svgRef}
             width="100%"
@@ -1776,10 +1087,10 @@ const drawTreeWithD3 = useCallback((data) => {
               <Box textAlign="center">
                 <AccountTreeIcon sx={{ fontSize: 120, color: '#10b981', mb: 2 }} />
                 <Typography variant="h4" sx={{ mb: 1, fontFamily: 'Cairo, sans-serif', color: '#10b981' }}>
-                   ابنِ شجرة عائلتك
+                  🌳 ابنِ شجرة عائلتك
                 </Typography>
                 <Typography variant="body1" sx={{ color: 'text.secondary', mb: 3, maxWidth: 500, fontFamily: 'Cairo, sans-serif' }}>
-                  ‍👩‍👧‍👦 أضف أفراد عائلتك المباشرين: رب العائلة وأولاده وبناته
+                  👨‍👩‍👧‍👦 أضف أفراد عائلتك: الوالد، رب العائلة، الأطفال، الإخوة، والأقارب
                 </Typography>
                 <Box display="flex" gap={2} justifyContent="center">
                   <Button
@@ -1855,7 +1166,22 @@ const drawTreeWithD3 = useCallback((data) => {
               WebkitTextFillColor: 'transparent'
             }}
           >
-            🌳 شجرة عائلتك
+             شجرة عائلتك
+          </Typography>
+          
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              color: 'text.secondary',
+              fontFamily: 'Cairo, sans-serif',
+              fontSize: { xs: '0.7rem', sm: '0.75rem' },
+              opacity: 0.8,
+              maxWidth: '600px',
+              margin: '0 auto',
+              display: 'block'
+            }}
+          >
+            👨‍👩‍👧‍👦 هيكل كامل: الوالد → رب العائلة والإخوة والزوجات → الأطفال وأبناء الإخوة
           </Typography>
         </Box>
 
@@ -1878,64 +1204,27 @@ const drawTreeWithD3 = useCallback((data) => {
           />
         )}
 
-        {/* الأزرار الرئيسية - تصميم متناسق */}
+        {/* الأزرار الرئيسية - أحجام مقللة */}
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'center', 
-          gap: { xs: 1, sm: 1.5, md: 2 }, 
+          gap: { xs: 0.5, sm: 1 }, 
           flexWrap: 'wrap', 
-          mb: 2,
-          alignItems: 'center',
-          px: { xs: 1, sm: 2 }
+          mb: 1,
+          alignItems: 'center'
         }}>
-          {/* زر التبديل بين الشجرة البسيطة والموسعة */}
-          <Button 
-            variant="contained"
-            size="medium"
-            onClick={() => setIsExtendedView(!isExtendedView)}
-            disabled={loading || (!simpleTreeData && !extendedTreeData)}
-            sx={{
-              fontFamily: 'Cairo, sans-serif',
-              px: { xs: 1.5, sm: 2 },
-              py: { xs: 0.5, sm: 0.75 },
-              fontSize: { xs: '0.75rem', sm: '0.85rem' },
-              borderRadius: 2,
-              minWidth: { xs: '120px', sm: '140px' },
-              background: isExtendedView 
-                ? 'linear-gradient(45deg, #2196f3 0%, #1976d2 100%)' 
-                : 'linear-gradient(45deg, #4caf50 0%, #388e3c 100%)',
-              boxShadow: isExtendedView 
-                ? '0 2px 8px rgba(33,150,243,0.25)' 
-                : '0 2px 8px rgba(76,175,80,0.25)',
-              '&:hover': {
-                background: isExtendedView 
-                  ? 'linear-gradient(45deg, #1976d2 0%, #1565c0 100%)' 
-                  : 'linear-gradient(45deg, #388e3c 0%, #2e7d32 100%)',
-                transform: 'translateY(-1px)',
-                boxShadow: isExtendedView 
-                  ? '0 4px 12px rgba(33,150,243,0.3)' 
-                  : '0 4px 12px rgba(76,175,80,0.3)'
-              },
-              transition: 'all 0.2s ease'
-            }}
-          >
-            {isExtendedView ? '🌲 الشجرة الموسعة' : '🌳 الشجرة البسيطة'}
-          </Button>
-
           {/* أزرار الإجراءات الأساسية */}
           <Button 
             variant="contained" 
-            size="medium"
+            size={window.innerWidth < 600 ? "small" : "medium"}
             onClick={() => navigate('/family')} 
             disabled={loading} 
             startIcon={<PersonAddIcon />} 
             sx={{ 
-              fontFamily: 'Cairo, sans-serif',
-              px: { xs: 1.5, sm: 2 },
-              py: { xs: 0.5, sm: 0.75 },
-              fontSize: { xs: '0.75rem', sm: '0.85rem' },
+              px: { xs: 1, sm: 1.5 },
+              py: { xs: 0.25, sm: 0.5 },
+              fontSize: { xs: '0.7rem', sm: '0.8rem' },
               borderRadius: 2,
-              minWidth: { xs: '120px', sm: '140px' },
               background: 'linear-gradient(45deg, #1976d2 0%, #1565c0 100%)',
               boxShadow: '0 2px 8px rgba(25,118,210,0.25)',
               '&:hover': { 
@@ -1951,17 +1240,15 @@ const drawTreeWithD3 = useCallback((data) => {
 
           <Button 
             variant="contained" 
-            size="medium"
+            size={window.innerWidth < 600 ? "small" : "medium"}
             onClick={() => navigate('/statistics')}
             disabled={loading} 
             startIcon={<BarChartIcon />} 
             sx={{ 
-              fontFamily: 'Cairo, sans-serif',
-              px: { xs: 1.5, sm: 2 },
-              py: { xs: 0.5, sm: 0.75 },
-              fontSize: { xs: '0.75rem', sm: '0.85rem' },
+              px: { xs: 1, sm: 1.5 },
+              py: { xs: 0.25, sm: 0.5 },
+              fontSize: { xs: '0.7rem', sm: '0.8rem' },
               borderRadius: 2,
-              minWidth: { xs: '120px', sm: '140px' },
               background: 'linear-gradient(45deg, #10b981 0%, #059669 100%)',
               boxShadow: '0 2px 8px rgba(16,185,129,0.25)',
               '&:hover': { 
@@ -2073,6 +1360,41 @@ const drawTreeWithD3 = useCallback((data) => {
           />
         </Box>
 
+        {/* إحصائيات الأداء - أحجام مقللة */}
+        {performanceMetrics.personCount > 0 && (
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            gap: { xs: 0.5, sm: 0.75 }, 
+            flexWrap: 'wrap',
+            alignItems: 'center'
+          }}>
+            <Chip 
+              size="small" 
+              label={`👥 ${performanceMetrics.personCount} شخص`} 
+              variant="outlined"
+              sx={{
+                fontSize: { xs: '0.6rem', sm: '0.7rem' },
+                height: { xs: 20, sm: 24 }
+              }}
+            />
+            
+            <Chip 
+              size="small" 
+              label={
+                treeData?.attributes?.treeType === 'hierarchical' 
+                  ? `🏛️ شجرة هرمية (${performanceMetrics.maxDepthReached} أجيال)` 
+                  : `🌳 شجرة بسيطة (${performanceMetrics.maxDepthReached} أجيال)`
+              }
+              variant="outlined" 
+              color={treeData?.attributes?.treeType === 'hierarchical' ? 'primary' : 'success'}
+              sx={{
+                fontSize: { xs: '0.6rem', sm: '0.7rem' },
+                height: { xs: 20, sm: 24 }
+              }}
+            />
+          </Box>
+        )}
       </Box>
     </Paper>
   );
@@ -2084,10 +1406,10 @@ const drawTreeWithD3 = useCallback((data) => {
         {renderTreeView()}
       </Box>
 
-      {/* حوار تفاصيل الشخص */}
+      {/* الحوارات */}
       <Dialog open={!!selectedNode} onClose={() => setSelectedNode(null)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ color: '#1976d2', fontWeight: 'bold', fontFamily: 'Cairo, sans-serif' }}>
-          {(selectedNode?.gender === 'female' || selectedNode?.relation === 'بنت') ? '♀️' : '♂️'} {selectedNode?.name || 'تفاصيل الشخص'}
+          {(selectedNode?.gender === 'female' || (selectedNode?.relation && FEMALE_RELATIONS.includes(selectedNode?.relation))) ? '♀️' : '♂️'} {selectedNode?.name || 'تفاصيل الشخص'}
         </DialogTitle>
         <DialogContent>
           {selectedNode && (
@@ -2097,6 +1419,9 @@ const drawTreeWithD3 = useCallback((data) => {
               </Typography>
               <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 <Chip label={selectedNode.relation || ''} color="primary" variant="outlined" />
+                {selectedNode.isNephewNiece && (
+                  <Chip label="👶 ابن/بنت الأخ/الأخت" color="warning" variant="outlined" />
+                )}
                 {selectedNode.isExtended && (
                   <Chip label="عائلة مرتبطة" color="secondary" variant="outlined" />
                 )}
@@ -2105,12 +1430,30 @@ const drawTreeWithD3 = useCallback((data) => {
                 )}
               </Box>
               {selectedNode.age && <Typography variant="body2" sx={{ mb: 1 }}>العمر: {selectedNode.age} سنة</Typography>}
-              {/* أضف هذا الجزء هنا - عدد الأطفال */}
-                    {(selectedNode.relation === 'رب العائلة' && selectedNode.children && selectedNode.children.length > 0) && (
-                      <Typography variant="body2" sx={{ mb: 1, color: '#4caf50', fontWeight: 'bold' }}>
-                         عدد الأطفال: {selectedNode.children.length}
-                      </Typography>
-                    )}
+              {/* عدد الأطفال والأحفاد */}
+              {(selectedNode.children && selectedNode.children.length > 0) && (
+                <Box>
+                  <Typography variant="body2" sx={{ mb: 1, color: '#4caf50', fontWeight: 'bold' }}>
+                    عدد الأطفال: {selectedNode.children.length}
+                  </Typography>
+                  {(() => {
+                    let grandchildrenCount = 0;
+                    selectedNode.children.forEach(child => {
+                      if (child.children && child.children.length > 0) {
+                        grandchildrenCount += child.children.length;
+                      }
+                    });
+                    if (grandchildrenCount > 0) {
+                      return (
+                        <Typography variant="body2" sx={{ mb: 1, color: '#2196f3', fontWeight: 'bold' }}>
+                          عدد الأحفاد: {grandchildrenCount}
+                        </Typography>
+                      );
+                    }
+                    return null;
+                  })()}
+                </Box>
+              )}
 
               {selectedNode.phone && <Typography variant="body2" sx={{ mb: 1 }}>الهاتف: {selectedNode.phone}</Typography>}
               {selectedNode.location && (

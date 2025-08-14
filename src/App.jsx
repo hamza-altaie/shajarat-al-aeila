@@ -12,7 +12,16 @@ import InstallPrompt from './components/InstallPrompt';
 // 🎨 إنشاء المظهر الديناميكي
 // ======================================================
 const createDynamicTheme = (mode = 'light') => {
-  const isRTL = document.dir === 'rtl' || document.documentElement.lang === 'ar';
+  // التأكد من تحديد الاتجاه بأمان
+  let isRTL = false;
+  try {
+    isRTL = document.dir === 'rtl' || 
+           document.documentElement.lang === 'ar' || 
+           document.documentElement.getAttribute('dir') === 'rtl';
+  } catch {
+    // في حالة عدم توفر document، استخدم RTL كافتراضي للعربية
+    isRTL = true;
+  }
   
   return createTheme({
     direction: isRTL ? 'rtl' : 'ltr',
