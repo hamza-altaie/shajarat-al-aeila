@@ -792,39 +792,35 @@ const drawTreeWithD3 = useCallback((data) => {
   
   // إعدادات خطوط الاتصال الموحدة
   const CONNECTION_STYLES = {
-    // الخطوط الأساسية (الوالد - الطفل)
+    // جميع الخطوط بنفس النمط الموحد للشجرة البسيطة
     primary: {
       stroke: "#6366f1",
       strokeWidth: 3,
       opacity: 0.8,
       isDashed: false
     },
-    // خطوط الأشقاء
     sibling: {
-      stroke: "#8b5cf6", 
-      strokeWidth: 2.5,
-      opacity: 0.75,
+      stroke: "#6366f1",
+      strokeWidth: 3,
+      opacity: 0.8,
       isDashed: false
     },
-    // خطوط الأقارب (أعمام، أولاد أشقاء)
     relative: {
-      stroke: "#06b6d4",
-      strokeWidth: 2,
-      opacity: 0.65,
-      isDashed: true
-    },
-    // خطوط الأزواج
-    spouse: {
-      stroke: "#10b981",
-      strokeWidth: 2.5,
-      opacity: 0.7,
+      stroke: "#6366f1",
+      strokeWidth: 3,
+      opacity: 0.8,
       isDashed: false
     },
-    // خطوط ثانوية (خطوط أفقية مساعدة)
+    spouse: {
+      stroke: "#6366f1",
+      strokeWidth: 3,
+      opacity: 0.8,
+      isDashed: false
+    },
     secondary: {
-      stroke: "#64748b",
-      strokeWidth: 2,
-      opacity: 0.6,
+      stroke: "#6366f1",
+      strokeWidth: 3,
+      opacity: 0.8,
       isDashed: false
     }
   };
