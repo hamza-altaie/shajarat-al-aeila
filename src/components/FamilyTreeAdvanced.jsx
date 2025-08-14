@@ -628,16 +628,46 @@ const drawTreeWithD3 = useCallback((data) => {
   if (!data || !svgRef.current || !containerRef.current) return;
 
   const screenWidth = window.innerWidth;
+  const screenHeight = window.innerHeight;
 
-  let cardWidth = 220;
-  let cardHeight = 110;
+  // تحديد أحجام الكروت والمسافات حسب حجم الشاشة
+  let cardWidth, cardHeight, horizontalGap, verticalGap, parentChildGap;
 
   if (screenWidth < 480) {
+    // هواتف صغيرة
     cardWidth = 160;
     cardHeight = 90;
+    horizontalGap = 40;
+    verticalGap = 60;
+    parentChildGap = 180;
   } else if (screenWidth < 768) {
+    // هواتف كبيرة وتابلت صغير
     cardWidth = 190;
     cardHeight = 100;
+    horizontalGap = 60;
+    verticalGap = 70;
+    parentChildGap = 200;
+  } else if (screenWidth < 1024) {
+    // تابلت
+    cardWidth = 220;
+    cardHeight = 110;
+    horizontalGap = 80;
+    verticalGap = 80;
+    parentChildGap = 220;
+  } else if (screenWidth < 1440) {
+    // شاشات متوسطة
+    cardWidth = 240;
+    cardHeight = 120;
+    horizontalGap = 100;
+    verticalGap = 90;
+    parentChildGap = 250;
+  } else {
+    // شاشات كبيرة
+    cardWidth = 260;
+    cardHeight = 130;
+    horizontalGap = 120;
+    verticalGap = 100;
+    parentChildGap = 280;
   }
 
   const avatarSize = cardHeight * 0.45;
@@ -664,8 +694,8 @@ const drawTreeWithD3 = useCallback((data) => {
   const baseHeight = container.clientHeight;
   
   // توسيع أبعاد SVG للشجرة الموسعة لاستيعاب العقد الإضافية
-  const width = isExtended ? Math.max(baseWidth, 1400) : baseWidth;
-  const height = isExtended ? Math.max(baseHeight, 800) : baseHeight;
+  const width = isExtended ? Math.max(baseWidth, screenWidth * 1.5) : baseWidth;
+  const height = isExtended ? Math.max(baseHeight, screenHeight * 1.2) : baseHeight;
   
   svg.attr('width', width).attr('height', height).style('background', 'transparent');
 
@@ -695,17 +725,17 @@ const drawTreeWithD3 = useCallback((data) => {
     if (generationCounts[d.depth] > maxBreadth) maxBreadth = generationCounts[d.depth];
   });
 
-  // إعداد المسافات حسب نوع الشجرة
-  const verticalGap = isExtended ? 70 : 55;
+  // إعداد المسافات حسب نوع الشجرة - استخدام المتغيرات المتجاوبة
   const dynamicHeight = Math.max(verticalGap * maxDepth, 180);
   const dynamicWidth = width - 100;
 
-  // إعداد تخطيط الشجرة مع توزيع أفقي متساوٍ تماماً (بدون أي تراكب)
+  // إعداد تخطيط الشجرة مع توزيع أفقي متجاوب
   const treeLayout = d3.tree()
     .size([dynamicWidth, dynamicHeight])
-    .separation(() => {
-      // توزيع أفقي متساوٍ تماماً بين جميع العقد في نفس الجيل (1)
-      return 1;
+    .separation((a, b) => {
+      // مسافة أفقية متجاوبة حسب حجم الشاشة
+      const baseSeparation = horizontalGap / cardWidth;
+      return a.parent === b.parent ? baseSeparation : baseSeparation * 1.2;
     }); 
 
   treeLayout(root);
@@ -713,18 +743,18 @@ const drawTreeWithD3 = useCallback((data) => {
   // رسم الروابط الإضافية للشجرة الموسعة بنفس نمط الشجرة الأصلية
   if (isExtended && data.parents && data.parents.length > 0) {
     const parentX = root.x; // الوالد في نفس المحور الأفقي لصاحب الحساب
-    const parentY = root.y - 200; // الوالد أعلى من صاحب الحساب
+    const parentY = root.y - parentChildGap; // استخدام المسافة المتجاوبة
     
     // إذا كان هناك أشقاء، ارسم نظام خطوط كامل
     if (data.siblings && data.siblings.length > 0) {
-      // تحديد مواقع الأشقاء
+      // تحديد مواقع الأشقاء باستخدام المسافة المتجاوبة
       const siblingPositions = data.siblings.map((sibling, index) => {
         if (data.siblings.length === 1) {
-          return root.x + (index === 0 ? -350 : 350);
+          return root.x + (index === 0 ? -(cardWidth + horizontalGap) : (cardWidth + horizontalGap));
         } else if (data.siblings.length === 2) {
-          return root.x + (index === 0 ? -350 : 350);
+          return root.x + (index === 0 ? -(cardWidth + horizontalGap) : (cardWidth + horizontalGap));
         } else {
-          const spacing = 300;
+          const spacing = cardWidth + horizontalGap;
           const totalWidth = (data.siblings.length - 1) * spacing;
           const startX = root.x - totalWidth / 2;
           return startX + (index * spacing);
@@ -735,7 +765,7 @@ const drawTreeWithD3 = useCallback((data) => {
       const allPositions = [...siblingPositions, root.x].sort((a, b) => a - b);
       const leftmost = allPositions[0];
       const rightmost = allPositions[allPositions.length - 1];
-      const horizontalLineY = root.y - 50; // مستوى الخط الأفقي
+      const horizontalLineY = root.y - (verticalGap * 0.7); // مستوى الخط الأفقي متجاوب
       
       // 1. خط عمودي من الوالد إلى الخط الأفقي
       g.append("path")
@@ -786,11 +816,11 @@ const drawTreeWithD3 = useCallback((data) => {
       data.siblings.forEach((sibling, index) => {
         let siblingX;
         if (data.siblings.length === 1) {
-          siblingX = root.x + (index === 0 ? -350 : 350);
+          siblingX = root.x + (index === 0 ? -(cardWidth + horizontalGap) : (cardWidth + horizontalGap));
         } else if (data.siblings.length === 2) {
-          siblingX = root.x + (index === 0 ? -350 : 350);
+          siblingX = root.x + (index === 0 ? -(cardWidth + horizontalGap) : (cardWidth + horizontalGap));
         } else {
-          const spacing = 300;
+          const spacing = cardWidth + horizontalGap;
           const totalWidth = (data.siblings.length - 1) * spacing;
           const startX = root.x - totalWidth / 2;
           siblingX = startX + (index * spacing);
@@ -839,19 +869,20 @@ const drawTreeWithD3 = useCallback((data) => {
 
   if (isExtended && data.unclesAunts && data.parents && data.parents.length > 0) {
     // رسم خطوط للأعمام والعمات - كأشقاء للوالد
-    const parentY = root.y - 200;
+    const parentY = root.y - parentChildGap;
     const parentX = root.x;
     
-    // تحديد مواقع الأعمام
+    // تحديد مواقع الأعمام باستخدام المسافة المتجاوبة
     const unclePositions = data.unclesAunts.map((uncle, index) => {
-      return root.x + (index % 2 === 0 ? -200 : 200);
+      const uncleSpacing = (cardWidth + horizontalGap) * 1.5;
+      return root.x + (index % 2 === 0 ? -uncleSpacing : uncleSpacing);
     });
     
     // جميع المواقع (الأعمام + الوالد) في نفس المستوى
     const allParentLevelPositions = [...unclePositions, parentX].sort((a, b) => a - b);
     const leftmost = allParentLevelPositions[0];
     const rightmost = allParentLevelPositions[allParentLevelPositions.length - 1];
-    const horizontalLineY = parentY - 50; // خط أفقي أعلى مستوى الوالد والأعمام
+    const horizontalLineY = parentY - (verticalGap * 0.7); // خط أفقي أعلى مستوى الوالد والأعمام
     
     // 1. خط أفقي يربط الوالد مع الأعمام (كأشقاء)
     g.append("path")
@@ -885,7 +916,8 @@ const drawTreeWithD3 = useCallback((data) => {
     
     // 3. خطوط عمودية من الخط الأفقي إلى كل عم
     data.unclesAunts.forEach((uncle, index) => {
-      const uncleX = root.x + (index % 2 === 0 ? -200 : 200);
+      const uncleSpacing = (cardWidth + horizontalGap) * 1.5;
+      const uncleX = root.x + (index % 2 === 0 ? -uncleSpacing : uncleSpacing);
       
       g.append("path")
         .attr("class", `horizontal-to-uncle-${index}`)
@@ -905,15 +937,16 @@ const drawTreeWithD3 = useCallback((data) => {
 
   if (isExtended && data.motherSide && data.parents && data.parents.length > 0) {
     // رسم خطوط للأخوال والخالات - كأشقاء للأم
-    const parentY = root.y - 200;
+    const parentY = root.y - parentChildGap;
     
     // إذا كان هناك أم، فالأخوال يرتبطون بها كأشقاء
     // نفترض أن الأم في موقع مختلف قليلاً عن الأب للتمييز
-    const motherX = root.x + 100; // الأم بجانب الأب
+    const motherX = root.x + (horizontalGap * 1.2); // الأم بجانب الأب
     
-    // تحديد مواقع الأخوال
+    // تحديد مواقع الأخوال باستخدام المسافة المتجاوبة
     const maternalUnclePositions = data.motherSide.map((uncle, index) => {
-      return root.x + (index % 2 === 0 ? -500 : 500);
+      const maternalSpacing = (cardWidth + horizontalGap) * 2.5;
+      return root.x + (index % 2 === 0 ? -maternalSpacing : maternalSpacing);
     });
     
     // خط أفقي منفصل للأخوال والأم
@@ -954,7 +987,8 @@ const drawTreeWithD3 = useCallback((data) => {
     
     // 3. خطوط عمودية من الخط الأفقي إلى كل خال
     data.motherSide.forEach((uncle, index) => {
-      const uncleX = root.x + (index % 2 === 0 ? -500 : 500);
+      const uncleSpacing = (cardWidth + horizontalGap) * 2.5;
+      const uncleX = root.x + (index % 2 === 0 ? -uncleSpacing : uncleSpacing);
       
       g.append("path")
         .attr("class", `horizontal-to-maternal-uncle-${index}`)
@@ -1273,7 +1307,7 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
         data.parents.forEach((parent, index) => {
           const parentNode = g.append("g")
             .attr("class", "node extended-node parent-node")
-            .attr("transform", `translate(${root.x}, ${root.y - 200})`)
+            .attr("transform", `translate(${root.x}, ${root.y - parentChildGap})`)
             .style("cursor", "pointer")
             .style("opacity", 0);
             
@@ -1297,18 +1331,18 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
       // رسم عُقد الإخوة والأخوات
       if (data.siblings) {
         data.siblings.forEach((sibling, index) => {
-          // توزيع أفضل للأشقاء - تجنب التداخل
+          // توزيع أفضل للأشقاء - تجنب التداخل باستخدام المسافات المتجاوبة
           let siblingX;
+          const siblingSpacing = cardWidth + horizontalGap;
           if (data.siblings.length === 1) {
-            siblingX = root.x + (index === 0 ? -350 : 350);
+            siblingX = root.x + (index === 0 ? -siblingSpacing : siblingSpacing);
           } else if (data.siblings.length === 2) {
-            siblingX = root.x + (index === 0 ? -350 : 350);
+            siblingX = root.x + (index === 0 ? -siblingSpacing : siblingSpacing);
           } else {
             // للأشقاء الأكثر من 2 - توزيع متوازن
-            const spacing = 300;
-            const totalWidth = (data.siblings.length - 1) * spacing;
+            const totalWidth = (data.siblings.length - 1) * siblingSpacing;
             const startX = root.x - totalWidth / 2;
-            siblingX = startX + (index * spacing);
+            siblingX = startX + (index * siblingSpacing);
           }
           
           const siblingNode = g.append("g")
@@ -1337,9 +1371,10 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
       // رسم عُقد الأعمام والعمات
       if (data.unclesAunts) {
         data.unclesAunts.forEach((uncleAunt, index) => {
+          const uncleSpacing = (cardWidth + horizontalGap) * 1.5;
           const uncleAuntNode = g.append("g")
             .attr("class", "node extended-node uncle-aunt-node")
-            .attr("transform", `translate(${root.x + (index % 2 === 0 ? -200 : 200)}, ${root.y - 200})`)
+            .attr("transform", `translate(${root.x + (index % 2 === 0 ? -uncleSpacing : uncleSpacing)}, ${root.y - parentChildGap})`)
             .style("cursor", "pointer")
             .style("opacity", 0);
             
@@ -1388,9 +1423,10 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
       
       // رسم عُقدة الزوجة
       if (data.spouse) {
+        const spouseX = root.x + (cardWidth + horizontalGap);
         const spouseNode = g.append("g")
           .attr("class", "node extended-node spouse-node")
-          .attr("transform", `translate(${root.x + 250}, ${root.y})`)
+          .attr("transform", `translate(${spouseX}, ${root.y})`)
           .style("cursor", "pointer")
           .style("opacity", 0);
           
@@ -1421,14 +1457,14 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
         g.append("path")
           .attr("class", "spouse-link")
           .attr("d", () => {
-            const midX = root.x + 125;
+            const midX = root.x + (cardWidth + horizontalGap) / 2;
             const radius = 18;
             return `M${root.x + cardWidth/2},${root.y}
                     L${midX - radius},${root.y}
                     Q${midX},${root.y} ${midX},${root.y}
                     L${midX},${root.y}
                     Q${midX},${root.y} ${midX + radius},${root.y}
-                    L${root.x + 250 - cardWidth/2},${root.y}`;
+                    L${spouseX - cardWidth/2},${root.y}`;
           })
           .style("fill", "none")
           .style("stroke", "#cbd5e1")
