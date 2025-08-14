@@ -34,12 +34,6 @@ export default function FamilyTreeAdvanced() {
   // ===========================================================================
   
   const [selectedNode, setSelectedNode] = useState(null);
-  const [performanceMetrics, setPerformanceMetrics] = useState({
-    loadTime: 0,
-    personCount: 0,
-    maxDepthReached: 0,
-    memoryUsage: 0
-  });
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('info');
@@ -140,43 +134,6 @@ export default function FamilyTreeAdvanced() {
     
     setSelectedNode(nodeData);
   }, []);
-
-  const monitorPerformance = useCallback((metrics) => {
-    // دمج الإحصائيات من النافذة العامة إن وجدت
-    const globalMetrics = window.familyTreeMetrics || {};
-    
-    setPerformanceMetrics(prev => ({
-      ...prev,
-      ...metrics,
-      maxDepthReached: Math.max(prev.maxDepthReached || 0, globalMetrics.maxDepthReached || 0, metrics.maxDepthReached || 0)
-    }));
-    
-    // رسائل تحسينية بناءً على الأداء
-    if (metrics.personCount > 100) {
-      showSnackbar(`🚀 أداء استثنائي! تم تحميل ${metrics.personCount} شخص بنجاح`, 'success');
-    } else if (metrics.personCount > 50) {
-      showSnackbar(`✅ تم تحميل ${metrics.personCount} شخص بنجاح`, 'success');
-    }
-    
-    if (metrics.familyCount > 5) {
-      showSnackbar(`🏛️ شجرة كبيرة: تم ربط ${metrics.familyCount} عائلة`, 'info');
-    } else if (metrics.familyCount > 1) {
-      showSnackbar(`🏛️ تم ربط ${metrics.familyCount} عائلة`, 'info');
-    }
-    
-    // تتبع العمق المحقق مع تقييم متقدم للأجيال
-    const actualDepth = globalMetrics.maxDepthReached || metrics.maxDepthReached;
-    if (actualDepth >= 15) {
-      showSnackbar(`🏛️ شجرة قبيلة عظيمة! ${actualDepth} جيل - نظام متقدم جداً`, 'success');
-    } else if (actualDepth >= 10) {
-      showSnackbar(`🌳 شجرة عميقة ممتازة: ${actualDepth} جيل`, 'success');
-    } else if (actualDepth >= 5) {
-      showSnackbar(`🌿 عمق جيد: ${actualDepth} أجيال`, 'info');
-    } else if (actualDepth >= 2) {
-      showSnackbar(`👨‍👩‍👧‍👦 شجرة عائلية: ${actualDepth} أجيال`, 'info');
-    }
-    
-  }, [showSnackbar]);
 
   // ===========================================================================
   // دوال البناء
@@ -591,14 +548,6 @@ export default function FamilyTreeAdvanced() {
       setSimpleTreeData(simpleTree);
       setExtendedTreeData(extendedTree);
       
-      // تسجيل مقاييس الأداء
-      monitorPerformance({
-        personCount: familyMembers.length,
-        maxDepthReached: isExtendedView ? 3 : 2,
-        familyCount: 1,
-        loadTime: 1000
-      });
-      
       showSnackbar(`✅ تم تحميل عائلتك: ${familyMembers.length} أفراد (${isExtendedView ? 'شجرة موسعة' : 'رب العائلة وأولاده'})`, 'success');
 
     } catch {
@@ -607,7 +556,7 @@ export default function FamilyTreeAdvanced() {
     } finally {
       setLoading(false);
     }
-  }, [uid, showSnackbar, monitorPerformance, buildSimpleTreeStructure, buildExtendedTreeStructure, isExtendedView]);
+  }, [uid, showSnackbar, buildSimpleTreeStructure, buildExtendedTreeStructure, isExtendedView]);
 
   // ===========================================================================
   // دوال التحكم
@@ -1961,50 +1910,6 @@ if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCas
           />
         </Box>
 
-        {/* إحصائيات الأداء - أحجام مقللة */}
-        {performanceMetrics.personCount > 0 && (
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            gap: { xs: 0.5, sm: 0.75 }, 
-            flexWrap: 'wrap',
-            alignItems: 'center'
-          }}>
-            <Chip 
-              size="small" 
-              label={`👥 ${performanceMetrics.personCount} شخص`} 
-              variant="outlined"
-              sx={{
-                fontSize: { xs: '0.6rem', sm: '0.7rem' },
-                height: { xs: 20, sm: 24 }
-              }}
-            />
-            
-            {performanceMetrics.maxDepthReached > 0 && (
-              <Chip 
-                size="small" 
-                label={`📊 ${performanceMetrics.maxDepthReached + 1} جيل`} 
-                variant="outlined" 
-                color="info"
-                sx={{
-                  fontSize: { xs: '0.6rem', sm: '0.7rem' },
-                  height: { xs: 20, sm: 24 }
-                }}
-              />
-            )}
-            
-            <Chip 
-              size="small" 
-              label="🌳 شجرة بسيطة" 
-              variant="outlined" 
-              color="success"
-              sx={{
-                fontSize: { xs: '0.6rem', sm: '0.7rem' },
-                height: { xs: 20, sm: 24 }
-              }}
-            />
-          </Box>
-        )}
       </Box>
     </Paper>
   );
