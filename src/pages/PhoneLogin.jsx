@@ -39,12 +39,11 @@ const PhoneLogin = () => {
           setError('');
           testFirebaseConnection().then(result => {
             if (!result.success) {
-              console.warn('⚠️ تحذير Firebase:', result.error);
+              // تجاهل أخطاء الاتصال في التطوير
             }
           });
         }
       } catch (error) {
-        console.error('خطأ في فحص Firebase:', error);
         setFirebaseStatus({
           isInitialized: false,
           error: error.message || 'فشل في فحص حالة Firebase'

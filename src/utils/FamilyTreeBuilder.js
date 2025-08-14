@@ -64,16 +64,10 @@ export class FamilyTreeBuilder {
 
   // العثور على رب العائلة
   findFamilyHead = (members) => {
-    console.warn('🔍 البحث عن رب العائلة في:', members.length, 'أعضاء');
-    console.warn('📋 الأعضاء:', members.map(m => `${m.firstName} - ${m.relation}`));
-    
     const head = members.find(m => m.relation === 'رب العائلة');
     if (head) {
-      console.warn('👑 تم العثور على رب العائلة:', head.firstName);
       return head;
     }
-    
-    console.warn('⚠️ لم يتم العثور على رب العائلة، اختيار الأول:', members[0]?.firstName);
     
     const sorted = [...members].sort((a, b) => {
       const dateA = new Date(a.createdAt || 0);
@@ -391,8 +385,6 @@ export class FamilyTreeBuilder {
     const accountOwner = familyMembers.find(m => m.relation === 'رب العائلة');
     
     if (!father || !accountOwner) {
-      console.warn('❌ لم يتم العثور على الأب أو رب العائلة');
-      console.warn('👥 العلاقات الموجودة:', familyMembers.map(m => m.relation));
       return null;
     }
 
@@ -539,16 +531,11 @@ export class FamilyTreeBuilder {
 
   // بناء الشجرة البسيطة (بدون والد)
   buildSimpleTree = (familyMembers) => {
-    console.warn('🏗️ بناء شجرة بسيطة');
     const head = this.findFamilyHead(familyMembers);
-    console.warn('👑 رب العائلة الموجود:', head);
-    
-    if (!head) {
-      console.warn('❌ لم يتم العثور على رب العائلة');
-      return null;
-    }
 
-    const rootNode = {
+    if (!head) {
+      return null;
+    }    const rootNode = {
       name: this.buildFullName(head),
       id: head.globalId,
       avatar: head.avatar || null,
@@ -560,28 +547,21 @@ export class FamilyTreeBuilder {
       children: []
     };
 
-    console.warn('🌳 العقدة الجذر تم إنشاؤها:', rootNode.name);
-
     // إضافة الأطفال مع الأحفاد
     const children = familyMembers.filter(m => 
       (m.relation === 'ابن' || m.relation === 'بنت') && 
       this.isChildOfParent(m, head)
     );
 
-    console.warn('👶 الأطفال الموجودون:', children.length, children.map(c => c.firstName));
-
     this.addChildrenToNode(rootNode, children, 'simple', familyMembers, head);
 
     // التحقق من وجود إخوة وأخوات
     const hasSiblings = familyMembers.some(m => RelationUtils.isSibling(m.relation));
 
-    console.warn('👫 هل يوجد إخوة؟', hasSiblings);
-
     if (hasSiblings) {
       return this.buildSimpleTreeWithSiblings(familyMembers, rootNode, head);
     }
 
-    console.warn('✅ الشجرة البسيطة مكتملة:', rootNode);
     return rootNode;
   };
 
@@ -671,11 +651,7 @@ export class FamilyTreeBuilder {
 
   // الدالة الرئيسية لبناء الشجرة
   buildTreeStructure = (familyMembers) => {
-    console.warn('🏗️ بناء الشجرة - البدء');
-    console.warn('📊 عدد أفراد العائلة المستلمين:', familyMembers?.length || 0);
-    
     if (!familyMembers || familyMembers.length === 0) {
-      console.warn('❌ لا توجد بيانات أفراد العائلة');
       return null;
     }
 
@@ -684,25 +660,20 @@ export class FamilyTreeBuilder {
 
     // تنظيف البيانات
     const cleanMembers = familyMembers.map(this.sanitizeMemberData);
-    console.warn('🧹 البيانات بعد التنظيف:', cleanMembers.length);
 
     // التحقق من صحة ربط الأحفاد
     this.validateGrandchildrenConnections(cleanMembers);
 
     // تحديد نوع الشجرة وبناؤها
     const treeType = RelationUtils.determineTreeType(cleanMembers);
-    console.warn('🌳 نوع الشجرة المحدد:', treeType);
     
     switch (treeType) {
       case 'hierarchical':
-        console.warn('🏗️ بناء شجرة هرمية');
         return this.buildHierarchicalTree(cleanMembers);
       case 'simple_with_siblings':
       case 'simple':
-        console.warn('🏗️ بناء شجرة بسيطة');
         return this.buildSimpleTree(cleanMembers);
       default:
-        console.warn('❌ نوع شجرة غير مدعوم:', treeType);
         return null;
     }
   };

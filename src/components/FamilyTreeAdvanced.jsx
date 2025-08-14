@@ -52,7 +52,6 @@ export default function FamilyTreeAdvanced() {
   const [error, setError] = useState(null);
   
   const uid = localStorage.getItem('verifiedUid');
-  console.warn('🆔 معرف المستخدم (UID):', uid);
   
   const navigate = useNavigate();
   
@@ -110,8 +109,8 @@ export default function FamilyTreeAdvanced() {
             if (root && root.unmount) {
               root.unmount();
             }
-          } catch (error) {
-            console.warn('تحذير في تنظيف ReactDOM root:', error);
+          } catch {
+            // تجاهل أخطاء التنظيف
           }
         });
         currentReactRoots.clear();
@@ -212,7 +211,6 @@ export default function FamilyTreeAdvanced() {
 
   const loadTree = useCallback(async () => {
     if (!uid) {
-      console.warn('⚠️ لا يوجد معرف مستخدم (uid)');
       setError('لم يتم العثور على معرف المستخدم');
       return;
     }
@@ -222,13 +220,10 @@ export default function FamilyTreeAdvanced() {
     setLoadingProgress(0);
 
     try {
-      console.warn('🔍 محاولة تحميل البيانات للمستخدم:', uid);
       const familySnapshot = await getDocs(collection(db, 'users', uid, 'family'));
       const familyMembers = [];
       
       setLoadingProgress(30);
-      
-      console.warn('📊 عدد المستندات المسترجعة:', familySnapshot.size);
       
       familySnapshot.forEach(doc => {
         const memberData = sanitizeMemberData({ 
@@ -238,22 +233,15 @@ export default function FamilyTreeAdvanced() {
           familyUid: uid
         });
         
-        console.warn('👤 عضو تم العثور عليه:', memberData.firstName, 'العلاقة:', memberData.relation);
-        
         if (memberData.firstName && memberData.firstName.trim() !== '') {
           familyMembers.push(memberData);
         }
       });
 
-      console.warn('👥 إجمالي أفراد العائلة المُعالجين:', familyMembers.length);
-      console.warn('📋 قائمة أفراد العائلة:', familyMembers.map(m => `${m.firstName} - ${m.relation}`));
-
       setLoadingProgress(60);
       setLoadingStage('بناء الشجرة...');
 
       const builtTreeData = buildTreeStructure(familyMembers);
-      
-      console.warn('🌳 بيانات الشجرة المبنية:', builtTreeData);
       
       setLoadingProgress(100);
       setLoadingStage('اكتمل التحميل');
@@ -317,14 +305,7 @@ export default function FamilyTreeAdvanced() {
   // استبدل دالة drawTreeWithD3 بهذا الكود الذي يحافظ على التصميم الأصلي مع أنيميشن بسيط:
 
 const drawTreeWithD3 = useCallback((data) => {
-  console.warn('🎨 بدء رسم الشجرة في D3:', data);
-  
   if (!data || !svgRef.current || !containerRef.current) {
-    console.warn('❌ عدم توفر البيانات أو المراجع المطلوبة:', {
-      data: !!data,
-      svgRef: !!svgRef.current,
-      containerRef: !!containerRef.current
-    });
     return;
   }
 
@@ -336,8 +317,8 @@ const drawTreeWithD3 = useCallback((data) => {
         if (root && root.unmount) {
           root.unmount();
         }
-      } catch (error) {
-        console.warn('تحذير في تنظيف ReactDOM root السابق:', error);
+      } catch {
+        // تجاهل أخطاء التنظيف
       }
     });
     reactRootsRef.current.clear();
@@ -939,14 +920,7 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
 
   // تأثير رسم الشجرة
   useEffect(() => {
-    console.warn('🎨 useEffect رسم الشجرة:', { 
-      treeData: !!treeData, 
-      svgRef: !!svgRef.current, 
-      containerRef: !!containerRef.current 
-    });
-    
     if (treeData && svgRef.current && containerRef.current) {
-      console.warn('🌳 بدء رسم الشجرة:', treeData);
       const timer = setTimeout(() => {
         drawTreeRef.current?.(treeData);
       }, 200);
@@ -980,12 +954,10 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
   // تحميل البيانات تلقائياً عند تحميل المكون
   useEffect(() => {
     if (uid) {
-      console.warn('🚀 تحميل البيانات تلقائياً عند بدء المكون');
       if (loadTreeRef.current) {
         loadTreeRef.current();
       }
     } else {
-      console.warn('⚠️ لا يوجد معرف مستخدم، إعادة توجيه لتسجيل الدخول');
       navigate('/login');
     }
   }, [uid, navigate]);
