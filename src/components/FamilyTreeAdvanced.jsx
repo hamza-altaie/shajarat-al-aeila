@@ -79,6 +79,38 @@ export default function FamilyTreeAdvanced() {
     }
   }, []);
 
+  // دالة مساعدة لمطابقة أسماء الأشقاء مع أبنائهم
+  const findMatchingSibling = useCallback((nephewNiece, siblings, rootAttributes) => {
+    if (!siblings || !nephewNiece.parentName) return null;
+    
+    const parentName = nephewNiece.parentName.trim();
+    const fatherName = rootAttributes.fatherName || '';
+    const grandfatherName = rootAttributes.grandfatherName || '';
+    
+    // البحث المتقدم عن الأخ المطابق
+    return siblings.find(sibling => {
+      const siblingName = sibling.name || '';
+      const siblingFullName = siblingName.trim();
+      
+      // مطابقة مباشرة للاسم الأول
+      if (siblingFullName.includes(parentName)) return true;
+      
+      // مطابقة الاسم الكامل
+      const expectedFullName = `${parentName} ${fatherName}`.trim();
+      if (siblingFullName === expectedFullName) return true;
+      
+      // مطابقة بالاسم الثلاثي
+      const expectedTripleName = `${parentName} ${fatherName} ${grandfatherName}`.trim();
+      if (siblingFullName === expectedTripleName) return true;
+      
+      // مطابقة عكسية - إذا كان اسم الأخ يحتوي على اسم الأب
+      const siblingFirstName = siblingFullName.split(' ')[0];
+      if (siblingFirstName === parentName) return true;
+      
+      return false;
+    });
+  }, []);
+
   const sanitizeMemberData = (memberData) => {
     return {
       ...memberData,
@@ -276,43 +308,69 @@ export default function FamilyTreeAdvanced() {
       }))
     ];
 
-    // إضافة أولاد الإخوة والأخوات (أبناء الأشقاء)
+    // إضافة أولاد الإخوة والأخوات (أبناء الأشقاء) مع ربطهم بآبائهم الصحيحين
     const nephews = membersByRelation['ابن الأخ'] || [];
     const nieces = membersByRelation['بنت الأخ'] || [];
     const sisterSons = membersByRelation['ابن الأخت'] || [];
     const sisterDaughters = membersByRelation['بنت الأخت'] || [];
     
+    // إنشاء خريطة لربط كل ابن أخ بأخيه الصحيح
+    const nephewToSiblingMap = new Map();
+    
     if (nephews.length > 0 || nieces.length > 0 || sisterSons.length > 0 || sisterDaughters.length > 0) {
-      rootNode.nephewsNieces = [
+      const allNephewsNieces = [
         ...nephews.map(nephew => ({
           name: buildFullName(nephew),
           id: nephew.globalId,
           avatar: nephew.avatar,
           attributes: { ...nephew, treeType: 'extended', generation: 1 },
-          children: []
+          children: [],
+          parentName: nephew.fatherName, // اسم الأب (الأخ)
+          parentRelation: 'أخ'
         })),
         ...nieces.map(niece => ({
           name: buildFullName(niece),
           id: niece.globalId,
           avatar: niece.avatar,
           attributes: { ...niece, treeType: 'extended', generation: 1 },
-          children: []
+          children: [],
+          parentName: niece.fatherName, // اسم الأب (الأخ)
+          parentRelation: 'أخ'
         })),
         ...sisterSons.map(son => ({
           name: buildFullName(son),
           id: son.globalId,
           avatar: son.avatar,
           attributes: { ...son, treeType: 'extended', generation: 1 },
-          children: []
+          children: [],
+          parentName: son.fatherName, // اسم الأب
+          parentRelation: 'أخت'
         })),
         ...sisterDaughters.map(daughter => ({
           name: buildFullName(daughter),
           id: daughter.globalId,
           avatar: daughter.avatar,
           attributes: { ...daughter, treeType: 'extended', generation: 1 },
-          children: []
+          children: [],
+          parentName: daughter.fatherName, // اسم الأب
+          parentRelation: 'أخت'
         }))
       ];
+      
+      // ربط كل ابن أخ بأخيه الصحيح باستخدام الدالة المحسنة
+      allNephewsNieces.forEach(nephewNiece => {
+        const matchingSibling = findMatchingSibling(nephewNiece, rootNode.siblings, rootNode.attributes);
+        
+        if (matchingSibling) {
+          nephewToSiblingMap.set(nephewNiece.id, matchingSibling.id);
+          console.log(`🔗 ربط ${nephewNiece.name} بـ ${matchingSibling.name}`);
+        } else {
+          console.warn(`⚠️ لم يتم العثور على أخ مطابق لـ ${nephewNiece.name} (أب: ${nephewNiece.parentName})`);
+        }
+      });
+      
+      rootNode.nephewsNieces = allNephewsNieces;
+      rootNode.nephewToSiblingMap = nephewToSiblingMap;
     }
 
     // إضافة الأولاد
@@ -405,7 +463,7 @@ export default function FamilyTreeAdvanced() {
     }
 
     return rootNode;
-  }, [buildFullName, findFamilyHead]);
+  }, [buildFullName, findFamilyHead, findMatchingSibling]);
 
   // دالة مشتركة لرسم الكارت بنفس التصميم الأصلي
   const drawNodeCard = useCallback((nodeGroup, nodeData, name, relation, uniqueId, cardWidth, cardHeight, padding, avatarSize, textStartX) => {
@@ -728,44 +786,145 @@ const drawTreeWithD3 = useCallback((data) => {
 
   treeLayout(root);
 
-  // دالة موحدة لرسم خط منحني
-  const drawCurvedLine = (g, startX, startY, endX, endY, className, strokeColor = "#cbd5e1", strokeWidth = 2, delay = 0, duration = 400, opacity = 0.85, isDashed = false) => {
+  // ===========================================================================
+  // نظام موحد لرسم خطوط الاتصال
+  // ===========================================================================
+  
+  // إعدادات خطوط الاتصال الموحدة
+  const CONNECTION_STYLES = {
+    // الخطوط الأساسية (الوالد - الطفل)
+    primary: {
+      stroke: "#6366f1",
+      strokeWidth: 3,
+      opacity: 0.8,
+      isDashed: false
+    },
+    // خطوط الأشقاء
+    sibling: {
+      stroke: "#8b5cf6", 
+      strokeWidth: 2.5,
+      opacity: 0.75,
+      isDashed: false
+    },
+    // خطوط الأقارب (أعمام، أولاد أشقاء)
+    relative: {
+      stroke: "#06b6d4",
+      strokeWidth: 2,
+      opacity: 0.65,
+      isDashed: true
+    },
+    // خطوط الأزواج
+    spouse: {
+      stroke: "#10b981",
+      strokeWidth: 2.5,
+      opacity: 0.7,
+      isDashed: false
+    },
+    // خطوط ثانوية (خطوط أفقية مساعدة)
+    secondary: {
+      stroke: "#64748b",
+      strokeWidth: 2,
+      opacity: 0.6,
+      isDashed: false
+    }
+  };
+
+  // دالة موحدة لرسم خط منحني مع أنماط محددة مسبقاً
+  const drawUnifiedLine = (g, startX, startY, endX, endY, className, styleType = 'primary', delay = 0, duration = 400, customStyle = null) => {
+    // التأكد من وجود النمط، وإلا استخدم النمط الأساسي
+    const style = customStyle || CONNECTION_STYLES[styleType] || CONNECTION_STYLES.primary;
+    
+    // التحقق من صحة البيانات
+    if (!style || !g) {
+      console.warn('DrawUnifiedLine: Missing required parameters', { style, g, styleType });
+      return null;
+    }
+    
     const midY = startY + (endY - startY) / 2;
-    const radius = 18;
+    const radius = 20; // نصف قطر موحد للانحناءات
     
     let pathData;
-    if (startX === endX) {
+    if (Math.abs(startX - endX) < 5) {
       // خط عمودي منحني
       pathData = `M${startX},${startY}
                   L${startX},${midY - radius}
                   Q${startX},${midY} ${startX},${midY + radius}
                   L${startX},${endY}`;
     } else {
-      // خط أفقي مستقيم
-      pathData = `M${startX},${startY} L${endX},${endY}`;
+      // خط أفقي مع انحناءات ناعمة في الزوايا
+      if (Math.abs(startY - endY) < 5) {
+        // خط أفقي مستقيم
+        pathData = `M${startX},${startY} L${endX},${endY}`;
+      } else {
+        // خط مائل مع انحناء
+        const midX = startX + (endX - startX) / 2;
+        pathData = `M${startX},${startY}
+                   Q${midX},${startY} ${midX},${midY}
+                   Q${midX},${endY} ${endX},${endY}`;
+      }
     }
     
     const line = g.append("path")
-      .attr("class", className)
+      .attr("class", `unified-connection-line ${className}`)
       .attr("d", pathData)
       .style("fill", "none")
-      .style("stroke", strokeColor)
-      .style("stroke-width", strokeWidth)
+      .style("stroke", style.stroke || "#6366f1")
+      .style("stroke-width", style.strokeWidth || 2)
       .style("stroke-linecap", "round")
-      .style("opacity", 0);
+      .style("stroke-linejoin", "round")
+      .style("opacity", 0)
+      .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.15))");
     
-    if (isDashed) {
-      line.style("stroke-dasharray", "4,4");
+    if (style.isDashed) {
+      line.style("stroke-dasharray", "6,4");
     }
     
+    // تأثير الحركة الموحد
     line.transition()
-      .delay(delay)
-      .duration(duration)
+      .delay(delay || 0)
+      .duration(duration || 400)
       .ease(d3.easeQuadOut)
-      .style("opacity", opacity);
+      .style("opacity", style.opacity || 0.8);
+    
+    // تأثير التفاعل عند التحويم
+    line.on("mouseenter", function() {
+      d3.select(this)
+        .transition()
+        .duration(200)
+        .style("stroke-width", (style.strokeWidth || 2) + 1)
+        .style("opacity", Math.min((style.opacity || 0.8) + 0.2, 1))
+        .style("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.25))");
+    })
+    .on("mouseleave", function() {
+      d3.select(this)
+        .transition()
+        .duration(200)
+        .style("stroke-width", style.strokeWidth || 2)
+        .style("opacity", style.opacity || 0.8)
+        .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.15))");
+    });
     
     return line;
   };
+
+  // دالة مساعدة للحصول على نوع العلاقة المناسب (مستقبلية)
+  // const getRelationshipType = (relationshipContext) => {
+  //   switch (relationshipContext) {
+  //     case 'parent-child':
+  //       return 'primary';
+  //     case 'sibling':
+  //       return 'sibling';
+  //     case 'uncle-aunt':
+  //     case 'nephew-niece':
+  //       return 'relative';
+  //     case 'spouse':
+  //       return 'spouse';
+  //     case 'horizontal-connector':
+  //       return 'secondary';
+  //     default:
+  //       return 'primary';
+  //   }
+  // };
 
   // رسم الروابط الإضافية للشجرة الموسعة بنفس نمط الشجرة الأصلية
   if (isExtended && data.parents && data.parents.length > 0) {
@@ -794,45 +953,16 @@ const drawTreeWithD3 = useCallback((data) => {
       const rightmost = allPositions[allPositions.length - 1];
       const horizontalLineY = root.y - (verticalGap * 0.7); // مستوى الخط الأفقي متجاوب
       
-      // 1. خط عمودي من الوالد إلى الخط الأفقي - منحني
-      const parentToHorizontalMidY = parentY + cardHeight/2 + (horizontalLineY - parentY - cardHeight/2) / 2;
-      const radius = 18;
-      g.append("path")
-        .attr("class", "parent-to-horizontal-line")
-        .attr("d", `M${parentX},${parentY + cardHeight/2}
-                   L${parentX},${parentToHorizontalMidY - radius}
-                   Q${parentX},${parentToHorizontalMidY} ${parentX},${parentToHorizontalMidY + radius}
-                   L${parentX},${horizontalLineY}`)
-        .style("fill", "none")
-        .style("stroke", "#cbd5e1")
-        .style("stroke-width", 2)
-        .style("stroke-linecap", "round")
-        .style("opacity", 0)
-        .transition()
-        .delay(600)
-        .duration(600)
-        .ease(d3.easeQuadOut)
-        .style("opacity", 0.85);
+      // 1. خط عمودي من الوالد إلى الخط الأفقي - موحد
+      drawUnifiedLine(g, parentX, parentY + cardHeight/2, parentX, horizontalLineY, "parent-to-horizontal-line", "primary", 600, 600);
       
-      // 2. خط أفقي يربط جميع الأشقاء مع صاحب الحساب - منحني
-      g.append("path")
-        .attr("class", "horizontal-siblings-line")
-        .attr("d", `M${leftmost},${horizontalLineY} L${rightmost},${horizontalLineY}`)
-        .style("fill", "none")
-        .style("stroke", "#cbd5e1")
-        .style("stroke-width", 2)
-        .style("stroke-linecap", "round")
-        .style("opacity", 0)
-        .transition()
-        .delay(700)
-        .duration(600)
-        .ease(d3.easeQuadOut)
-        .style("opacity", 0.85);
+      // 2. خط أفقي يربط جميع الأشقاء مع صاحب الحساب - موحد
+      drawUnifiedLine(g, leftmost, horizontalLineY, rightmost, horizontalLineY, "horizontal-siblings-line", "secondary", 700, 600);
       
-      // 3. خط عمودي من الخط الأفقي إلى صاحب الحساب - منحني  
-      drawCurvedLine(g, root.x, horizontalLineY, root.x, root.y - cardHeight/2, "horizontal-to-owner", "#cbd5e1", 2, 800, 400, 0.85);
+      // 3. خط عمودي من الخط الأفقي إلى صاحب الحساب - موحد  
+      drawUnifiedLine(g, root.x, horizontalLineY, root.x, root.y - cardHeight/2, "horizontal-to-owner", "sibling", 800, 400);
       
-      // 4. خطوط عمودية من الخط الأفقي إلى كل شقيق - منحنية
+      // 4. خطوط عمودية من الخط الأفقي إلى كل شقيق - موحدة
       data.siblings.forEach((sibling, index) => {
         let siblingX;
         if (data.siblings.length === 1) {
@@ -846,33 +976,55 @@ const drawTreeWithD3 = useCallback((data) => {
           siblingX = startX + (index * spacing);
         }
         
-        drawCurvedLine(g, siblingX, horizontalLineY, siblingX, root.y - cardHeight/2, `horizontal-to-sibling-${index}`, "#cbd5e1", 2, 800 + index * 100, 400, 0.85);
+        drawUnifiedLine(g, siblingX, horizontalLineY, siblingX, root.y - cardHeight/2, `horizontal-to-sibling-${index}`, "sibling", 800 + index * 100, 400);
       });
     } else {
       // إذا لم يكن هناك أشقاء، ارسم خط مباشر من الوالد إلى صاحب الحساب
-      drawCurvedLine(g, root.x, root.y - cardHeight/2, root.x, parentY + cardHeight/2, "parent-to-owner-direct", "#cbd5e1", 2, 600, 800, 0.85);
+      drawUnifiedLine(g, root.x, parentY + cardHeight/2, root.x, root.y - cardHeight/2, "parent-to-owner-direct", "primary", 600, 800);
     }
   }
 
-  // رسم خطوط ربط لأولاد الإخوة والأخوات - منحنية
+  // رسم خطوط ربط لأولاد الإخوة والأخوات - مربوطين بآبائهم الصحيحين
   if (isExtended && data.nephewsNieces && data.nephewsNieces.length > 0 && data.siblings && data.siblings.length > 0) {
     data.nephewsNieces.forEach((nephewNiece, index) => {
-      let nephewX;
-      const nephewSpacing = cardWidth + horizontalGap;
       const nephewY = root.y + parentChildGap;
       
-      if (data.nephewsNieces.length === 1) {
-        nephewX = root.x + (index === 0 ? -nephewSpacing * 2 : nephewSpacing * 2);
-      } else if (data.nephewsNieces.length === 2) {
-        nephewX = root.x + (index === 0 ? -nephewSpacing * 2 : nephewSpacing * 2);
-      } else {
-        const totalWidth = (data.nephewsNieces.length - 1) * nephewSpacing;
-        const startX = root.x - totalWidth / 2 - nephewSpacing;
-        nephewX = startX + (index * nephewSpacing);
+      // العثور على الأخ المرتبط بهذا ابن الأخ
+      const linkedSiblingId = data.nephewToSiblingMap?.get(nephewNiece.id);
+      let parentSiblingX = root.x; // موقع افتراضي
+      
+      if (linkedSiblingId && data.siblings) {
+        const siblingIndex = data.siblings.findIndex(s => s.id === linkedSiblingId);
+        if (siblingIndex !== -1) {
+          // حساب موقع الأخ المحدد
+          if (data.siblings.length === 1) {
+            parentSiblingX = root.x + (siblingIndex === 0 ? -(cardWidth + horizontalGap) : (cardWidth + horizontalGap));
+          } else if (data.siblings.length === 2) {
+            parentSiblingX = root.x + (siblingIndex === 0 ? -(cardWidth + horizontalGap) : (cardWidth + horizontalGap));
+          } else {
+            const spacing = cardWidth + horizontalGap;
+            const totalWidth = (data.siblings.length - 1) * spacing;
+            const startX = root.x - totalWidth / 2;
+            parentSiblingX = startX + (siblingIndex * spacing);
+          }
+        }
       }
       
-      // خط ربط منحني من مستوى الأشقاء إلى أولادهم
-      drawCurvedLine(g, nephewX, root.y + 10, nephewX, nephewY - cardHeight/2, `nephew-niece-link-${index}`, "#9ca3af", 1.5, 1200 + index * 150, 400, 0.7, true);
+      // موقع ابن الأخ - تحت أخيه مباشرة
+      const nephewX = parentSiblingX;
+      
+      // خط ربط مباشر من الأخ إلى ابنه
+      const siblingBottomY = root.y + cardHeight/2;
+      drawUnifiedLine(g, parentSiblingX, siblingBottomY, nephewX, nephewY - cardHeight/2, `nephew-to-parent-${index}`, "relative", 1200 + index * 150, 400);
+      
+      // إضافة تسمية للخط (اختيارية)
+      g.append("text")
+        .attr("x", nephewX + 10)
+        .attr("y", (siblingBottomY + nephewY - cardHeight/2) / 2)
+        .attr("font-size", "10px")
+        .attr("fill", "#666")
+        .attr("opacity", 0.7)
+        .text(`↳ ${nephewNiece.parentRelation}`);
     });
   }
 
@@ -893,30 +1045,18 @@ const drawTreeWithD3 = useCallback((data) => {
     const rightmost = allParentLevelPositions[allParentLevelPositions.length - 1];
     const horizontalLineY = parentY - (verticalGap * 0.7); // خط أفقي أعلى مستوى الوالد والأعمام
     
-    // 1. خط أفقي يربط الوالد مع الأعمام (كأشقاء)
-    g.append("path")
-      .attr("class", "parent-uncles-horizontal-line")
-      .attr("d", `M${leftmost},${horizontalLineY} L${rightmost},${horizontalLineY}`)
-      .style("fill", "none")
-      .style("stroke", "#cbd5e1")
-      .style("stroke-width", 2)
-      .style("stroke-linecap", "round")
-      .style("opacity", 0)
-      .transition()
-      .delay(900)
-      .duration(600)
-      .ease(d3.easeQuadOut)
-      .style("opacity", 0.85);
+    // 1. خط أفقي يربط الوالد مع الأعمام (كأشقاء) - موحد
+    drawUnifiedLine(g, leftmost, horizontalLineY, rightmost, horizontalLineY, "parent-uncles-horizontal-line", "secondary", 900, 600);
     
-    // 2. خط عمودي من الخط الأفقي إلى الوالد - منحني
-    drawCurvedLine(g, parentX, horizontalLineY, parentX, parentY, "horizontal-to-parent", "#cbd5e1", 2, 950, 400, 0.85);
+    // 2. خط عمودي من الخط الأفقي إلى الوالد - موحد
+    drawUnifiedLine(g, parentX, horizontalLineY, parentX, parentY, "horizontal-to-parent", "primary", 950, 400);
     
-    // 3. خطوط عمودية من الخط الأفقي إلى كل عم - منحنية
+    // 3. خطوط عمودية من الخط الأفقي إلى كل عم - موحدة
     data.unclesAunts.forEach((uncle, index) => {
       const uncleSpacing = (cardWidth + horizontalGap) * 1.5;
       const uncleX = root.x + (index % 2 === 0 ? -uncleSpacing : uncleSpacing);
       
-      drawCurvedLine(g, uncleX, horizontalLineY, uncleX, parentY, `horizontal-to-uncle-${index}`, "#cbd5e1", 2, 950 + index * 100, 400, 0.85);
+      drawUnifiedLine(g, uncleX, horizontalLineY, uncleX, parentY, `horizontal-to-uncle-${index}`, "relative", 950 + index * 100, 400);
     });
   }
 
@@ -940,44 +1080,32 @@ const drawTreeWithD3 = useCallback((data) => {
     const rightmostMaternal = allMaternalPositions[allMaternalPositions.length - 1];
     const maternalHorizontalLineY = parentY - 80; // مستوى منفصل للجانب الأمومي
     
-    // 1. خط أفقي يربط الأم مع الأخوال (كأشقاء)
-    g.append("path")
-      .attr("class", "maternal-horizontal-line")
-      .attr("d", `M${leftmostMaternal},${maternalHorizontalLineY} L${rightmostMaternal},${maternalHorizontalLineY}`)
-      .style("fill", "none")
-      .style("stroke", "#22c55e") // لون مختلف للجانب الأمومي
-      .style("stroke-width", 2)
-      .style("stroke-linecap", "round")
-      .style("opacity", 0)
-      .transition()
-      .delay(1100)
-      .duration(600)
-      .ease(d3.easeQuadOut)
-      .style("opacity", 0.85);
+    // 1. خط أفقي يربط الأم مع الأخوال (كأشقاء) - موحد
+    drawUnifiedLine(g, leftmostMaternal, maternalHorizontalLineY, rightmostMaternal, maternalHorizontalLineY, "maternal-horizontal-line", "spouse", 1100, 600);
     
-    // 2. خط عمودي من الخط الأفقي إلى الأم - منحني
-    drawCurvedLine(g, motherX, maternalHorizontalLineY, motherX, parentY, "horizontal-to-mother", "#22c55e", 2, 1150, 400, 0.85);
+    // 2. خط عمودي من الخط الأفقي إلى الأم - موحد
+    drawUnifiedLine(g, motherX, maternalHorizontalLineY, motherX, parentY, "horizontal-to-mother", "spouse", 1150, 400);
     
-    // 3. خطوط عمودية من الخط الأفقي إلى كل خال - منحنية
+    // 3. خطوط عمودية من الخط الأفقي إلى كل خال - موحدة
     data.motherSide.forEach((uncle, index) => {
       const uncleSpacing = (cardWidth + horizontalGap) * 2.5;
       const uncleX = root.x + (index % 2 === 0 ? -uncleSpacing : uncleSpacing);
       
-      drawCurvedLine(g, uncleX, maternalHorizontalLineY, uncleX, parentY, `horizontal-to-maternal-uncle-${index}`, "#22c55e", 2, 1150 + index * 100, 400, 0.85);
+      drawUnifiedLine(g, uncleX, maternalHorizontalLineY, uncleX, parentY, `horizontal-to-maternal-uncle-${index}`, "spouse", 1150 + index * 100, 400);
     });
   }
 
-  // رسم الروابط مع أنيميشن بسيط - نفس النمط للشجرة العادية والموسعة
+  // رسم الروابط مع أنيميشن بسيط - استخدام النظام الموحد للشجرة العادية والموسعة
   const links = g.selectAll(".link")
     .data(root.links())
     .enter().append("path")
-    .attr("class", "link")
+    .attr("class", "link unified-connection-line")
     .style("fill", "none")
     .attr("d", d => {
         const source = d.source;
         const target = d.target;
         const midY = source.y + (target.y - source.y) / 2;
-        const radius = 18;
+        const radius = 20; // نصف قطر موحد
         return `M${source.x},${source.y}
                 L${source.x},${midY - radius}
                 Q${source.x},${midY} ${source.x + (target.x > source.x ? radius : -radius)},${midY}
@@ -985,20 +1113,40 @@ const drawTreeWithD3 = useCallback((data) => {
                 Q${target.x},${midY} ${target.x},${midY + radius}
                 L${target.x},${target.y}`;
       })
-    .style("stroke", "#cbd5e1")
-    .style("stroke-width", 2)
+    .style("stroke", CONNECTION_STYLES.primary?.stroke || "#6366f1")
+    .style("stroke-width", CONNECTION_STYLES.primary?.strokeWidth || 3)
     .style("stroke-linecap", "round")
     .style("stroke-linejoin", "round")
     .style("opacity", 0) // بدء مخفي للأنيميشن
-    .style("filter", "none")
+    .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.15))")
     .style("stroke-dasharray", "none");
 
-  // أنيميشن بسيط للروابط
+  // أنيميشن موحد للروابط مع تأثيرات التفاعل
   links.transition()
     .delay(500)
     .duration(800)
     .ease(d3.easeQuadOut)
-    .style("opacity", 0.85);
+    .style("opacity", CONNECTION_STYLES.primary?.opacity || 0.8)
+    .on("end", function() {
+      // إضافة تأثيرات التفاعل بعد الانتهاء من الأنيميشن
+      d3.select(this)
+        .on("mouseenter", function() {
+          d3.select(this)
+            .transition()
+            .duration(200)
+            .style("stroke-width", (CONNECTION_STYLES.primary?.strokeWidth || 2) + 1)
+            .style("opacity", Math.min((CONNECTION_STYLES.primary?.opacity || 0.8) + 0.2, 1))
+            .style("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.25))");
+        })
+        .on("mouseleave", function() {
+          d3.select(this)
+            .transition()
+            .duration(200)
+            .style("stroke-width", CONNECTION_STYLES.primary?.strokeWidth || 2)
+            .style("opacity", CONNECTION_STYLES.primary?.opacity || 0.8)
+            .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.15))");
+        });
+    });
 
   // رسم العقد مع أنيميشن بسيط
   const nodes = g.selectAll(".node")
@@ -1184,23 +1332,43 @@ const drawTreeWithD3 = useCallback((data) => {
         });
       }
       
-      // رسم عُقد أولاد الإخوة والأخوات (أبناء الأشقاء)
+      // رسم عُقد أولاد الإخوة والأخوات (أبناء الأشقاء) - تحت آبائهم الصحيحين
       if (data.nephewsNieces) {
         data.nephewsNieces.forEach((nephewNiece, index) => {
-          // توزيع أولاد الإخوة بين الشقيق المناسب
-          let nephewX;
-          const nephewSpacing = cardWidth + horizontalGap;
           const baseY = root.y + parentChildGap; // أسفل مستوى صاحب الحساب
           
-          if (data.nephewsNieces.length === 1) {
-            nephewX = root.x + (index === 0 ? -nephewSpacing * 2 : nephewSpacing * 2);
-          } else if (data.nephewsNieces.length === 2) {
-            nephewX = root.x + (index === 0 ? -nephewSpacing * 2 : nephewSpacing * 2);
-          } else {
-            // للعدد الأكبر - توزيع متوازن
-            const totalWidth = (data.nephewsNieces.length - 1) * nephewSpacing;
-            const startX = root.x - totalWidth / 2 - nephewSpacing;
-            nephewX = startX + (index * nephewSpacing);
+          // العثور على الأخ المرتبط بهذا ابن الأخ
+          const linkedSiblingId = data.nephewToSiblingMap?.get(nephewNiece.id);
+          let nephewX = root.x; // موقع افتراضي
+          
+          if (linkedSiblingId && data.siblings) {
+            const siblingIndex = data.siblings.findIndex(s => s.id === linkedSiblingId);
+            if (siblingIndex !== -1) {
+              // حساب موقع الأخ المحدد
+              if (data.siblings.length === 1) {
+                nephewX = root.x + (siblingIndex === 0 ? -(cardWidth + horizontalGap) : (cardWidth + horizontalGap));
+              } else if (data.siblings.length === 2) {
+                nephewX = root.x + (siblingIndex === 0 ? -(cardWidth + horizontalGap) : (cardWidth + horizontalGap));
+              } else {
+                const spacing = cardWidth + horizontalGap;
+                const totalWidth = (data.siblings.length - 1) * spacing;
+                const startX = root.x - totalWidth / 2;
+                nephewX = startX + (siblingIndex * spacing);
+              }
+              
+              // إذا كان للأخ أكثر من طفل، نوزعهم حول موقعه
+              const siblingChildren = data.nephewsNieces.filter(nn => 
+                data.nephewToSiblingMap?.get(nn.id) === linkedSiblingId
+              );
+              
+              if (siblingChildren.length > 1) {
+                const childIndex = siblingChildren.findIndex(child => child.id === nephewNiece.id);
+                const childSpacing = 100; // مسافة بين أطفال نفس الأخ
+                const totalChildWidth = (siblingChildren.length - 1) * childSpacing;
+                const startChildX = nephewX - totalChildWidth / 2;
+                nephewX = startChildX + (childIndex * childSpacing);
+              }
+            }
           }
           
           const nephewNode = g.append("g")
@@ -1311,30 +1479,8 @@ const drawTreeWithD3 = useCallback((data) => {
           .ease(d3.easeBackOut)
           .style("opacity", 1);
           
-        // خط الربط للزوجة بنفس النمط
-        g.append("path")
-          .attr("class", "spouse-link")
-          .attr("d", () => {
-            const midX = root.x + (cardWidth + horizontalGap) / 2;
-            const radius = 18;
-            return `M${root.x + cardWidth/2},${root.y}
-                    L${midX - radius},${root.y}
-                    Q${midX},${root.y} ${midX},${root.y}
-                    L${midX},${root.y}
-                    Q${midX},${root.y} ${midX + radius},${root.y}
-                    L${spouseX - cardWidth/2},${root.y}`;
-          })
-          .style("fill", "none")
-          .style("stroke", "#cbd5e1")
-          .style("stroke-width", 2)
-          .style("stroke-linecap", "round")
-          .style("stroke-linejoin", "round")
-          .style("opacity", 0)
-          .transition()
-          .delay(400)
-          .duration(800)
-          .ease(d3.easeQuadOut)
-          .style("opacity", 0.85);
+        // خط الربط للزوجة بالنمط الموحد
+        drawUnifiedLine(g, root.x + cardWidth/2, root.y, spouseX - cardWidth/2, root.y, "spouse-link", "spouse", 400, 800);
       }
     }
   }, 1200);

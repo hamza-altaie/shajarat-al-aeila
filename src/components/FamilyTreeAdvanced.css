@@ -349,7 +349,47 @@
   opacity: 0.8;
 }
 
-/* خطوط الاتصال */
+/* خطوط الاتصال الموحدة */
+.unified-connection-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.320, 1);
+  cursor: pointer;
+}
+
+/* تحسينات خاصة لكل نوع خط */
+.unified-connection-line.parent-to-horizontal-line,
+.unified-connection-line.horizontal-to-owner,
+.unified-connection-line.parent-to-owner-direct {
+  filter: drop-shadow(0 3px 6px rgba(99, 102, 241, 0.2));
+}
+
+.unified-connection-line.horizontal-siblings-line,
+.unified-connection-line.parent-uncles-horizontal-line,
+.unified-connection-line.maternal-horizontal-line {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+}
+
+.unified-connection-line.nephew-niece-link,
+.unified-connection-line.horizontal-to-uncle,
+.unified-connection-line.horizontal-to-maternal-uncle {
+  stroke-dasharray: 6,4;
+  animation: dash 20s linear infinite;
+}
+
+.unified-connection-line.spouse-link {
+  filter: drop-shadow(0 2px 6px rgba(16, 185, 129, 0.3));
+}
+
+/* أنيميشن خط متقطع للأقارب */
+@keyframes dash {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+/* خطوط الاتصال التقليدية - للتوافق مع الشجرة القديمة */
 .family-tree-chart-container .link {
   fill: none;
   stroke: var(--family-primary);
