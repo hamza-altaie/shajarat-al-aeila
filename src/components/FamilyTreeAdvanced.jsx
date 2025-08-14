@@ -501,26 +501,74 @@ export default function FamilyTreeAdvanced() {
       cardStroke = "#e91e63";
     }
 
-    // الكارت الرئيسي
+    // الكارت الرئيسي مع تحسينات التنسيق
     nodeGroup.append("rect")
       .attr("width", cardWidth)
       .attr("height", cardHeight)
       .attr("x", -cardWidth / 2)
       .attr("y", -cardHeight / 2)
-      .attr("rx", 14)
+      .attr("rx", 16)
       .attr("fill", cardFill)
       .attr("stroke", cardStroke)
-      .attr("stroke-width", 2)
-      .attr("class", "family-node-card");
+      .attr("stroke-width", 3)
+      .attr("class", "family-node-card")
+      .style("filter", "drop-shadow(0 4px 12px rgba(0,0,0,0.15))")
+      .style("cursor", "pointer");
 
-    // دائرة خلفية الصورة
+    // إضافة نقاط الربط المرئية مع تأثيرات
+    // نقطة الربط العلوية
+    const topPoint = nodeGroup.append("circle")
+      .attr("cx", 0)
+      .attr("cy", -cardHeight / 2)
+      .attr("r", 4)
+      .attr("fill", cardStroke)
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 2)
+      .attr("class", "connection-point top-point")
+      .style("opacity", 0.7)
+      .style("cursor", "pointer");
+
+    // نقطة الربط السفلية
+    const bottomPoint = nodeGroup.append("circle")
+      .attr("cx", 0)
+      .attr("cy", cardHeight / 2)
+      .attr("r", 4)
+      .attr("fill", cardStroke)
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 2)
+      .attr("class", "connection-point bottom-point")
+      .style("opacity", 0.7)
+      .style("cursor", "pointer");
+
+    // تأثيرات التفاعل لنقاط الربط
+    [topPoint, bottomPoint].forEach(point => {
+      point.on("mouseenter", function() {
+        d3.select(this)
+          .transition()
+          .duration(200)
+          .attr("r", 6)
+          .style("opacity", 1)
+          .attr("stroke-width", 3);
+      })
+      .on("mouseleave", function() {
+        d3.select(this)
+          .transition()
+          .duration(200)
+          .attr("r", 4)
+          .style("opacity", 0.7)
+          .attr("stroke-width", 2);
+      });
+    });
+
+    // دائرة خلفية الصورة مع تحسينات
     nodeGroup.append("circle")
       .attr("cx", -cardWidth / 2 + padding + avatarSize / 2)
       .attr("cy", -cardHeight / 2 + padding + avatarSize / 2)
-      .attr("r", avatarSize / 2)
+      .attr("r", avatarSize / 2 + 2)
       .attr("fill", "#fff")
-      .attr("stroke", "#ddd")
-      .attr("stroke-width", 1.5);
+      .attr("stroke", cardStroke)
+      .attr("stroke-width", 2)
+      .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.1))");
 
     // ClipPath دائري للصورة
     nodeGroup.append("clipPath")
@@ -545,44 +593,47 @@ export default function FamilyTreeAdvanced() {
       .attr("clip-path", `url(#avatar-circle-${uniqueId})`)
       .attr("preserveAspectRatio", "xMidYMid slice");
 
-    // الاسم
+    // الاسم مع تحسين التنسيق
     nodeGroup.append("text")
-      .text(name.length > 22 ? name.slice(0, 20) + '…' : name)
+      .text(name.length > 20 ? name.slice(0, 18) + '…' : name)
       .attr("x", textStartX)
       .attr("y", nameY)
-      .attr("font-size", 13)
+      .attr("font-size", 14)
       .attr("font-weight", "bold")
-      .attr("fill", "#111");
+      .attr("fill", "#1a1a1a")
+      .style("text-shadow", "0 1px 2px rgba(0,0,0,0.1)");
 
-    // العلاقة
+    // العلاقة مع تحسين التنسيق
     nodeGroup.append("text")
       .text(relation)
       .attr("x", textStartX)
       .attr("y", relationY)
-      .attr("font-size", 11)
-      .attr("fill", "#666");
+      .attr("font-size", 12)
+      .attr("font-weight", "500")
+      .attr("fill", "#4a4a4a");
 
     if (age) {
-      // خلفية العمر
+      // خلفية العمر مع تحسينات
       nodeGroup.append("rect")
         .attr("x", ageBoxX)
         .attr("y", ageBoxY)
         .attr("width", ageBoxWidth)
         .attr("height", ageBoxHeight)
-        .attr("rx", 8)
-        .attr("fill", "rgba(25, 118, 210, 0.08)")
-        .attr("stroke", "rgba(25, 118, 210, 0.2)")
-        .attr("stroke-width", 1);
+        .attr("rx", 10)
+        .attr("fill", "rgba(25, 118, 210, 0.1)")
+        .attr("stroke", "rgba(25, 118, 210, 0.3)")
+        .attr("stroke-width", 1.5)
+        .style("filter", "drop-shadow(0 1px 3px rgba(0,0,0,0.1))");
 
-      // نص العمر
+      // نص العمر مع تحسينات
       nodeGroup.append("text")
         .text(`${age} سنة`)
         .attr("x", ageTextX)
         .attr("y", ageTextY)
         .attr("text-anchor", "middle")
         .attr("dominant-baseline", "middle")
-        .attr("font-size", 9)
-        .attr("font-weight", "500")
+        .attr("font-size", 10)
+        .attr("font-weight", "600")
         .attr("fill", "#1976d2");
     }
   }, []);
@@ -836,28 +887,28 @@ const drawTreeWithD3 = useCallback((data) => {
       return null;
     }
     
-    const midY = startY + (endY - startY) / 2;
-    const radius = 20; // نصف قطر موحد للانحناءات
-    
+    // كيرف ناعم لجميع الخطوط
     let pathData;
-    if (Math.abs(startX - endX) < 5) {
-      // خط عمودي منحني
-      pathData = `M${startX},${startY}
-                  L${startX},${midY - radius}
-                  Q${startX},${midY} ${startX},${midY + radius}
-                  L${startX},${endY}`;
+    
+    // حساب نقاط التحكم للكيرف
+    const dx = endX - startX;
+    const dy = endY - startY;
+    const curveStrength = Math.min(Math.abs(dx), Math.abs(dy)) * 0.5;
+    
+    if (Math.abs(dx) > Math.abs(dy)) {
+      // خط أفقي أكثر - كيرف أفقي
+      const controlPoint1X = startX + curveStrength;
+      const controlPoint2X = endX - curveStrength;
+      
+      pathData = `M${startX},${startY} 
+                  C${controlPoint1X},${startY} ${controlPoint2X},${endY} ${endX},${endY}`;
     } else {
-      // خط أفقي مع انحناءات ناعمة في الزوايا
-      if (Math.abs(startY - endY) < 5) {
-        // خط أفقي مستقيم
-        pathData = `M${startX},${startY} L${endX},${endY}`;
-      } else {
-        // خط مائل مع انحناء
-        const midX = startX + (endX - startX) / 2;
-        pathData = `M${startX},${startY}
-                   Q${midX},${startY} ${midX},${midY}
-                   Q${midX},${endY} ${endX},${endY}`;
-      }
+      // خط عمودي أكثر - كيرف عمودي
+      const controlPoint1Y = startY + curveStrength;
+      const controlPoint2Y = endY - curveStrength;
+      
+      pathData = `M${startX},${startY} 
+                  C${startX},${controlPoint1Y} ${endX},${controlPoint2Y} ${endX},${endY}`;
     }
     
     const line = g.append("path")
@@ -869,35 +920,49 @@ const drawTreeWithD3 = useCallback((data) => {
       .style("stroke-linecap", "round")
       .style("stroke-linejoin", "round")
       .style("opacity", 0)
-      .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.15))");
-    
+      .style("filter", "drop-shadow(0 2px 6px rgba(0,0,0,0.15))")
+      .style("stroke-dasharray", function() {
+        const totalLength = this.getTotalLength();
+        return `${totalLength} ${totalLength}`;
+      })
+      .style("stroke-dashoffset", function() {
+        return this.getTotalLength();
+      });
+
     if (style.isDashed) {
-      line.style("stroke-dasharray", "6,4");
+      line.style("stroke-dasharray", "8,6");
     }
-    
-    // تأثير الحركة الموحد
+
+    // أنيميشن رسم الخط مع تأثير متدرج
     line.transition()
       .delay(delay || 0)
-      .duration(duration || 400)
-      .ease(d3.easeQuadOut)
-      .style("opacity", style.opacity || 0.8);
-    
-    // تأثير التفاعل عند التحويم
+      .duration(duration || 800)
+      .ease(d3.easeQuadInOut)
+      .style("stroke-dashoffset", 0)
+      .style("opacity", style.opacity || 0.8)
+      .on("end", function() {
+        // إزالة الـ dash array بعد انتهاء الأنيميشن
+        if (!style.isDashed) {
+          d3.select(this).style("stroke-dasharray", "none");
+        }
+      });    // تأثير التفاعل عند التحويم مع تحسينات
     line.on("mouseenter", function() {
       d3.select(this)
         .transition()
-        .duration(200)
-        .style("stroke-width", (style.strokeWidth || 2) + 1)
+        .duration(300)
+        .style("stroke-width", (style.strokeWidth || 2) + 2)
         .style("opacity", Math.min((style.opacity || 0.8) + 0.2, 1))
-        .style("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.25))");
+        .style("filter", "drop-shadow(0 4px 12px rgba(0,0,0,0.3))")
+        .style("stroke", d3.color(style.stroke || "#6366f1").brighter(0.3));
     })
     .on("mouseleave", function() {
       d3.select(this)
         .transition()
-        .duration(200)
+        .duration(300)
         .style("stroke-width", style.strokeWidth || 2)
         .style("opacity", style.opacity || 0.8)
-        .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.15))");
+        .style("filter", "drop-shadow(0 2px 6px rgba(0,0,0,0.15))")
+        .style("stroke", style.stroke || "#6366f1");
     });
     
     return line;
@@ -1144,23 +1209,24 @@ const drawTreeWithD3 = useCallback((data) => {
         });
     });
 
-  // رسم العقد مع أنيميشن بسيط
+  // رسم العقد مع أنيميشن محسن
   const nodes = g.selectAll(".node")
     .data(root.descendants())
     .enter().append("g")
     .attr("class", "node")
-    .attr("data-depth", d => d.depth) // للأنيميشن CSS
-    .attr("transform", d => `translate(${d.x},${d.y})`)
-    .style("opacity", 0); // بدء مخفي للأنيميشن
+    .attr("data-depth", d => d.depth)
+    .attr("transform", d => `translate(${d.x},${d.y - 20}) scale(0.8)`) // بدء من أعلى وأصغر حجماً
+    .style("opacity", 0);
 
-  // أنيميشن بسيط للعقد
+  // أنيميشن متدرج وجميل للعقد
   nodes.transition()
-    .delay((d, i) => d.depth * 200 + i * 50)
-    .duration(600)
-    .ease(d3.easeBackOut)
-    .style("opacity", 1);
+    .delay((d, i) => d.depth * 150 + i * 100)
+    .duration(800)
+    .ease(d3.easeBackOut.overshoot(1.2))
+    .style("opacity", 1)
+    .attr("transform", d => `translate(${d.x},${d.y}) scale(1)`);
 
-  // إضافة محتوى العقد - استخدام الدالة الموحدة لضمان التوافق
+  // إضافة محتوى العقد مع أنيميشن إضافي
   nodes.each(function(d) {
     const nodeGroup = d3.select(this);
     const nodeData = d.data.attributes || d.data;
@@ -1172,24 +1238,51 @@ const drawTreeWithD3 = useCallback((data) => {
     // استخدام الدالة الموحدة لرسم الكارت
     drawNodeCard(nodeGroup, nodeData, name, relation, uniqueId, cardWidth, cardHeight, padding, avatarSize, textStartX);
 
+    // إضافة تأثير hover للكارت
+    nodeGroup.select(".family-node-card")
+      .on("mouseenter", function() {
+        d3.select(this)
+          .transition()
+          .duration(200)
+          .attr("transform", "scale(1.05)")
+          .style("filter", "drop-shadow(0 8px 25px rgba(0,0,0,0.2))");
+      })
+      .on("mouseleave", function() {
+        d3.select(this)
+          .transition()
+          .duration(200)
+          .attr("transform", "scale(1)")
+          .style("filter", "drop-shadow(0 4px 12px rgba(0,0,0,0.15))");
+      });
+
     // إضافة تأثير البحث إذا وجد
     if (searchQuery.length > 1 && name.toLowerCase().includes(searchQuery.toLowerCase())) {
       nodeGroup.select("rect.family-node-card")
         .transition()
         .duration(600)
         .attr("stroke", "#f59e0b")
-        .attr("stroke-width", 3);
+        .attr("stroke-width", 4)
+        .style("filter", "drop-shadow(0 4px 15px rgba(245,158,11,0.4))");
     }
 
-    // عند الضغط
-    nodeGroup.on("click", () => {
+    // عند الضغط مع تأثير
+    nodeGroup.on("click", function() {
+      // تأثير النقر
+      d3.select(this)
+        .transition()
+        .duration(150)
+        .style("transform", "scale(0.95)")
+        .transition()
+        .duration(150)
+        .style("transform", "scale(1)");
+        
       handleNodeClick?.({
         ...nodeData,
         name,
         children: d.children || []
       });
     });
-});
+  });
 
   // معالجة تداخل العقد - نفس الطريقة الأصلية
   const nodesByDepth = {};
@@ -1267,7 +1360,7 @@ const drawTreeWithD3 = useCallback((data) => {
         data.parents.forEach((parent, index) => {
           const parentNode = g.append("g")
             .attr("class", "node extended-node parent-node")
-            .attr("transform", `translate(${root.x}, ${root.y - parentChildGap})`)
+            .attr("transform", `translate(${root.x}, ${root.y - parentChildGap - 30}) scale(0.7)`)
             .style("cursor", "pointer")
             .style("opacity", 0);
             
@@ -1279,12 +1372,30 @@ const drawTreeWithD3 = useCallback((data) => {
           
           drawNodeCard(parentNode, nodeData, name, relation, uniqueId, cardWidth, cardHeight, padding, avatarSize, textStartX);
           
-          // أنيميشن الظهور
+          // إضافة تأثيرات التفاعل
+          parentNode.select(".family-node-card")
+            .on("mouseenter", function() {
+              d3.select(this)
+                .transition()
+                .duration(200)
+                .attr("transform", "scale(1.08)")
+                .style("filter", "drop-shadow(0 10px 30px rgba(0,0,0,0.25))");
+            })
+            .on("mouseleave", function() {
+              d3.select(this)
+                .transition()
+                .duration(200)
+                .attr("transform", "scale(1)")
+                .style("filter", "drop-shadow(0 4px 12px rgba(0,0,0,0.15))");
+            });
+          
+          // أنيميشن الظهور محسن
           parentNode.transition()
-            .delay(800)
-            .duration(600)
-            .ease(d3.easeBackOut)
-            .style("opacity", 1);
+            .delay(800 + index * 200)
+            .duration(800)
+            .ease(d3.easeBackOut.overshoot(1.3))
+            .style("opacity", 1)
+            .attr("transform", `translate(${root.x}, ${root.y - parentChildGap}) scale(1)`);
         });
       }
       
@@ -1307,7 +1418,7 @@ const drawTreeWithD3 = useCallback((data) => {
           
           const siblingNode = g.append("g")
             .attr("class", "node extended-node sibling-node")
-            .attr("transform", `translate(${siblingX}, ${root.y})`)
+            .attr("transform", `translate(${siblingX}, ${root.y + 20}) scale(0.8)`)
             .style("cursor", "pointer")
             .style("opacity", 0);
             
@@ -1318,13 +1429,31 @@ const drawTreeWithD3 = useCallback((data) => {
           const uniqueId = nodeData.id || nodeData.globalId || `sibling_${index}`;
           
           drawNodeCard(siblingNode, nodeData, name, relation, uniqueId, cardWidth, cardHeight, padding, avatarSize, textStartX);
+          
+          // إضافة تأثيرات التفاعل
+          siblingNode.select(".family-node-card")
+            .on("mouseenter", function() {
+              d3.select(this)
+                .transition()
+                .duration(200)
+                .attr("transform", "scale(1.08)")
+                .style("filter", "drop-shadow(0 10px 30px rgba(0,0,0,0.25))");
+            })
+            .on("mouseleave", function() {
+              d3.select(this)
+                .transition()
+                .duration(200)
+                .attr("transform", "scale(1)")
+                .style("filter", "drop-shadow(0 4px 12px rgba(0,0,0,0.15))");
+            });
             
-          // أنيميشن الظهور
+          // أنيميشن الظهور محسن
           siblingNode.transition()
-            .delay(1000 + index * 100)
-            .duration(600)
-            .ease(d3.easeBackOut)
-            .style("opacity", 1);
+            .delay(1000 + index * 150)
+            .duration(700)
+            .ease(d3.easeBackOut.overshoot(1.2))
+            .style("opacity", 1)
+            .attr("transform", `translate(${siblingX}, ${root.y}) scale(1)`);
         });
       }
       
