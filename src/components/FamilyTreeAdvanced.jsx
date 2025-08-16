@@ -1153,7 +1153,6 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
               display: 'block'
             }}
           >
-            👨‍👩‍👧‍👦 هيكل كامل: الوالد → رب العائلة والإخوة والزوجات → الأطفال وأبناء الإخوة
           </Typography>
         </Box>
 
