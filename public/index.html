@@ -36,24 +36,5 @@
   <noscript>يجب تمكين JavaScript لتشغيل هذا التطبيق.</noscript>
   <div id="root"></div>
   
-  <!-- تسجيل Service Worker -->
-  <script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
-        .then((registration) => {
-          console.log('✅ Service Worker registered successfully');
-          
-          // إضافة هذا للمساعدة في إطلاق beforeinstallprompt
-          registration.addEventListener('updatefound', () => {
-            console.log('🔄 Service Worker updating...');
-          });
-        })
-        .catch((registrationError) => {
-          console.log('❌ Service Worker registration failed:', registrationError);
-        });
-    });
-  }
-  </script>
 </body>
 </html>
