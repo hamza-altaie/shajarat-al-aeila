@@ -1,282 +1,147 @@
-// src/userService.js - خدمات إدارة المستخدمين
-import { 
-  doc, 
-  getDoc, 
-  setDoc, 
-  updateDoc, 
-  deleteDoc, 
-  collection, 
-  query, 
-  where, 
-  getDocs,
-  serverTimestamp 
-} from 'firebase/firestore';
-import { db } from './firebase/config';
+// src/userService.js
+const API  = import.meta.env.VITE_API_BASE;
+const AUTH = import.meta.env.VITE_AUTH_BASE;
 
-// ===========================================================================
-// خدمات المستخدم الأساسية
-// ===========================================================================
+export function getStoredAuth() {
+  try { return JSON.parse(localStorage.getItem('banilam_auth') || '{}'); }
+  catch { return {}; }
+}
+export function setStoredAuth(o) { localStorage.setItem('banilam_auth', JSON.stringify(o || {})); }
+export function clearStoredAuth() { localStorage.removeItem('banilam_auth'); }
 
-/**
- * جلب بيانات المستخدم من Firestore
- * @param {string} uid - معرف المستخدم
- * @returns {Object|null} بيانات المستخدم أو null
- */
-export const fetchUserData = async (uid) => {
-  try {
-    const userRef = doc(db, 'users', uid);
-    const userSnap = await getDoc(userRef);
+async function parseJson(r) {
+  const txt = await r.text();
+  try { return txt ? JSON.parse(txt) : {}; } catch { return { message: txt || '' }; }
+}
+function wpErrorMessage(j) {
+  if (!j) return 'حدث خطأ غير متوقع';
+  if (j.message) return j.message;
+  if (j.data && j.data.message) return j.data.message;
+  return 'تعذر تنفيذ العملية';
+}
 
-    if (userSnap.exists()) {
-      return {
-        uid,
-        ...userSnap.data()
-      };
-    } else {
-      // إذا لم توجد بيانات، أنشئ مستند جديد للمستخدم ببيانات أساسية
-      const newUserData = {
-        uid,
-        createdAt: serverTimestamp(),
-      };
-      await setDoc(userRef, newUserData);
-      return { uid, ...newUserData };
-    }
-  } catch (err) {
-    console.error('خطأ في جلب بيانات المستخدم:', err);
-    throw new Error('فشل في جلب بيانات المستخدم');
+// ضمان وإدارة الـ nonce + إعادة المحاولة مرّة واحدة عند 401/403
+async function ensureNonce() {
+  const a = getStoredAuth();
+  if (!a?.nonce) await fetchNonce();
+}
+async function apiFetch(url, opts = {}, retried = false) {
+  await ensureNonce();
+  const a = getStoredAuth();
+  const h = new Headers(opts.headers || {});
+  if (a?.nonce) h.set('X-WP-Nonce', a.nonce);
+
+  const r = await fetch(url, { credentials: 'include', ...opts, headers: h });
+  if ((r.status === 401 || r.status === 403) && !retried) {
+    // قد يكون الـ nonce منتهيًا
+    await fetchNonce();
+    return apiFetch(url, opts, true);
   }
-};
+  return r;
+}
 
-/**
- * إنشاء أو تحديث بيانات المستخدم
- * @param {string} uid - معرف المستخدم
- * @param {Object} userData - بيانات المستخدم
- * @returns {Object} نتيجة العملية
- */
-export const createOrUpdateUser = async (uid, userData) => {
-  try {
-    const userRef = doc(db, 'users', uid);
-    
-    // التحقق من وجود المستخدم
-    const existingUser = await getDoc(userRef);
-    
-    const dataToSave = {
-      ...userData,
-      uid,
-      updatedAt: serverTimestamp(),
-      ...(existingUser.exists() ? {} : { createdAt: serverTimestamp() })
-    };
+/* ======================
+   OTP / جلسات ووردبريس
+   ====================== */
 
-    await setDoc(userRef, dataToSave, { merge: true });
-    
-    return {
-      success: true,
-      data: dataToSave,
-      isNewUser: !existingUser.exists()
-    };
-    
-  } catch (error) {
-    console.error('❌ خطأ في حفظ بيانات المستخدم:', error);
-    throw new Error(`فشل في حفظ بيانات المستخدم: ${error.message}`);
-  }
-};
-
-/**
- * تحديث بيانات المستخدم
- * @param {string} uid - معرف المستخدم
- * @param {Object} updates - التحديثات
- * @returns {boolean} نجح التحديث أم لا
- */
-export const updateUser = async (uid, updates) => {
-  try {
-    const userRef = doc(db, 'users', uid);
-    
-    const dataToUpdate = {
-      ...updates,
-      updatedAt: serverTimestamp()
-    };
-
-    await updateDoc(userRef, dataToUpdate);
-    
-    return true;
-    
-  } catch (error) {
-    console.error('❌ خطأ في تحديث بيانات المستخدم:', error);
-    throw new Error(`فشل في تحديث بيانات المستخدم: ${error.message}`);
-  }
-};
-
-/**
- * حذف بيانات المستخدم
- * @param {string} uid - معرف المستخدم
- * @returns {boolean} نجح الحذف أم لا
- */
-export const deleteUser = async (uid) => {
-  try {
-    const userRef = doc(db, 'users', uid);
-    await deleteDoc(userRef);
-    
-    return true;
-    
-  } catch (error) {
-    console.error('❌ خطأ في حذف بيانات المستخدم:', error);
-    throw new Error(`فشل في حذف بيانات المستخدم: ${error.message}`);
-  }
-};
-
-/**
- * البحث عن المستخدمين برقم الهاتف
- * @param {string} phoneNumber - رقم الهاتف
- * @returns {Array} قائمة المستخدمين
- */
-export const findUserByPhone = async (phoneNumber) => {
-  try {
-    const usersRef = collection(db, 'users');
-    const q = query(usersRef, where('phoneNumber', '==', phoneNumber));
-    const querySnapshot = await getDocs(q);
-    
-    const users = [];
-    querySnapshot.forEach((doc) => {
-      users.push({
-        uid: doc.id,
-        ...doc.data()
-      });
-    });
-    
-    return users;
-    
-  } catch (error) {
-    console.error('❌ خطأ في البحث عن المستخدم:', error);
-    throw new Error(`فشل في البحث عن المستخدم: ${error.message}`);
-  }
-};
-
-/**
- * تحديث آخر تسجيل دخول
- * @param {string} uid - معرف المستخدم
- * @returns {boolean} نجح التحديث أم لا
- */
-export const updateLastLogin = async (uid) => {
-  try {
-    const userRef = doc(db, 'users', uid);
-    await updateDoc(userRef, {
-      lastLogin: serverTimestamp(),
-      lastActive: serverTimestamp()
-    });
-    
-    return true;
-    
-  } catch (error) {
-    console.warn('⚠️ لم يتم تحديث آخر تسجيل دخول:', error);
-    // لا نرمي خطأ هنا لأنه ليس حرجياً
-    return false;
-  }
-};
-
-/**
- * التحقق من صحة بيانات المستخدم
- * @param {Object} userData - بيانات المستخدم
- * @returns {Object} نتيجة التحقق
- */
-export const validateUserData = (userData) => {
-  const errors = [];
-  
-  if (!userData.phoneNumber) {
-    errors.push('رقم الهاتف مطلوب');
-  }
-  
-  if (userData.phoneNumber && !/^\+9647\d{8}$/.test(userData.phoneNumber)) {
-    errors.push('رقم الهاتف غير صحيح');
-  }
-  
-  if (userData.displayName && userData.displayName.length < 2) {
-    errors.push('الاسم يجب أن يكون أكثر من حرفين');
-  }
-  
-  return {
-    isValid: errors.length === 0,
-    errors
-  };
-};
-
-/**
- * إحصائيات المستخدم
- * @param {string} uid - معرف المستخدم
- * @returns {Object} إحصائيات المستخدم
- */
-export const getUserStats = async (uid) => {
-  try {
-    const userData = await fetchUserData(uid);
-    
-    if (!userData) {
-      return null;
-    }
-    
-    // حساب الإحصائيات الأساسية
-    const stats = {
-      joinDate: userData.createdAt,
-      lastLogin: userData.lastLogin,
-      familyRole: userData.isFamilyRoot ? 'رب العائلة' : 'عضو',
-      profileCompletion: calculateProfileCompletion(userData)
-    };
-    
-    return stats;
-    
-  } catch (error) {
-    console.error('❌ خطأ في جلب إحصائيات المستخدم:', error);
-    return null;
-  }
-};
-
-/**
- * حساب نسبة اكتمال الملف الشخصي
- * @param {Object} userData - بيانات المستخدم
- * @returns {number} نسبة الاكتمال (0-100)
- */
-const calculateProfileCompletion = (userData) => {
-  let completion = 0;
-  const fields = [
-    'phoneNumber',
-    'displayName',
-    'firstName',
-    'lastName',
-    'birthDate',
-    'profilePicture'
-  ];
-  
-  fields.forEach(field => {
-    if (userData[field]) {
-      completion += (100 / fields.length);
-    }
+// طلب إرسال رمز
+export async function requestOtp(phone) {
+  const r = await fetch(`${AUTH}/otp/request`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone })
   });
-  
-  return Math.round(completion);
-};
+  if (!r.ok) {
+    const j = await parseJson(r);
+    throw new Error(wpErrorMessage(j) || 'تعذر إرسال الرمز');
+  }
+  return r.json();
+}
 
-// ===========================================================================
-// كائن الخدمة الرئيسي
-// ===========================================================================
+// التحقق من الرمز وتسجيل الدخول
+export async function verifyOtp(phone, code) {
+  const r = await fetch(`${AUTH}/otp/verify`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone, code })
+  });
+  if (!r.ok) {
+    const j = await parseJson(r);
+    throw new Error(wpErrorMessage(j) || 'رمز غير صحيح أو منتهي');
+  }
+  const d = await r.json(); // { nonce, user }
+  setStoredAuth({ nonce: d.nonce, user: d.user });
+  return d.user;
+}
 
-export const userService = {
-  // الوظائف الأساسية
-  fetchUserData,
-  createOrUpdateUser,
-  updateUser,
-  deleteUser,
-  
-  // البحث والاستعلام
-  findUserByPhone,
-  
-  // التحديثات المختصرة
-  updateLastLogin,
-  
-  // التحقق والإحصائيات
-  validateUserData,
-  getUserStats,
-  
-  // وظائف مساعدة
-  calculateProfileCompletion
-};
+// جلب/تحديث nonce
+export async function fetchNonce() {
+  const r = await fetch(`${AUTH}/nonce`, { credentials: 'include' });
+  const j = await parseJson(r);
+  if (j?.nonce) setStoredAuth({ ...getStoredAuth(), nonce: j.nonce });
+  return j;
+}
 
-// التصدير الافتراضي
-export default userService;
+// معلومات المستخدم الحالي من الجلسة
+export async function me() {
+  const r = await fetch(`${AUTH}/me`, { credentials: 'include' });
+  if (!r.ok) return null; // غير مسجّل
+  return r.json();
+}
+
+// تسجيل الخروج
+export async function logout() {
+  try {
+    await fetch(`${AUTH}/logout`, { method: 'POST', credentials: 'include' });
+  } finally {
+    clearStoredAuth();
+  }
+}
+
+/* ======================
+   REST للأفراد/الشجرة
+   ====================== */
+
+function jsonHeaders() { return { 'Content-Type': 'application/json' }; }
+
+export async function listPersons(q = '') {
+  const u = q ? `${API}/persons?q=${encodeURIComponent(q)}` : `${API}/persons`;
+  const r = await apiFetch(u);
+  if (!r.ok) { const j = await parseJson(r); throw new Error(wpErrorMessage(j) || 'فشل جلب الأفراد'); }
+  return r.json();
+}
+
+export async function createPerson(body) {
+  const r = await apiFetch(`${API}/persons`, {
+    method: 'POST',
+    headers: jsonHeaders(),
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) { const j = await parseJson(r); throw new Error(wpErrorMessage(j) || 'فشل إنشاء العضو'); }
+  return r.json();
+}
+
+export async function updatePerson(id, body) {
+  const r = await apiFetch(`${API}/persons/${id}`, {
+    method: 'PATCH',
+    headers: jsonHeaders(),
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) { const j = await parseJson(r); throw new Error(wpErrorMessage(j) || 'فشل تحديث العضو'); }
+  return r.json();
+}
+
+export async function deletePerson(id) {
+  const r = await apiFetch(`${API}/persons/${id}`, { method: 'DELETE' });
+  if (!r.ok) { const j = await parseJson(r); throw new Error(wpErrorMessage(j) || 'فشل حذف العضو'); }
+  return r.json();
+}
+
+export async function getTree(rootId = null) {
+  const u = rootId ? `${API}/tree?root_id=${encodeURIComponent(rootId)}` : `${API}/tree`;
+  const r = await apiFetch(u, { cache: 'no-store' });
+  if (!r.ok) { const j = await parseJson(r); throw new Error(wpErrorMessage(j) || 'فشل جلب الشجرة'); }
+  return r.json();
+}

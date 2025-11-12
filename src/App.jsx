@@ -351,7 +351,7 @@ function ThemeManager({ children }) {
 function App() {
   return (
     <ThemeManager>
-      <Router>
+      <Router basename={import.meta.env.BASE_URL}>
         <AuthProvider>
           <AuthMonitor>
             <AppRoutes />

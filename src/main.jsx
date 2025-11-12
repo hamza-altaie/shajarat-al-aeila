@@ -265,10 +265,6 @@ const appInfo = {
 if (import.meta.env.DEV) {
   window.debugApp = {
     info: appInfo,
-    firebase: {
-      projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN
-    },
     actions: {
       reload: () => window.location.reload(),
       clearStorage: () => {
@@ -278,17 +274,8 @@ if (import.meta.env.DEV) {
         } catch (error) {
           console.error('❌ فشل في مسح البيانات المحلية:', error);
         }
-      },
-      checkFirebase: async () => {
-        try {
-          const { getFirebaseStatus } = await import('./firebase/config');
-          const status = getFirebaseStatus();
-          return status;
-        } catch (error) {
-          console.error('❌ خطأ في فحص Firebase:', error);
-          return { error: error.message };
-        }
       }
+      // ✅ تم إزالة checkFirebase الذي كان يستورد ./firebase/config
     }
   };
 }
