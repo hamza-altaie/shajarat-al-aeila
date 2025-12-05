@@ -19,8 +19,6 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import HomeIcon from '@mui/icons-material/Home';
 import AssessmentIcon from '@mui/icons-material/Assessment';
-
-import { db } from '../firebase/config';
 import { collection, getDocs } from 'firebase/firestore';
 import { familyAnalytics } from '../utils/FamilyAnalytics';
 
@@ -105,7 +103,7 @@ const Statistics = () => {
   // تحميل بيانات الشجرة العادية
   const loadSimpleTreeData = useCallback(async (uid) => {
     
-    const familySnapshot = await getDocs(collection(db, 'users', uid, 'family'));
+    const familySnapshot = await getDocs(collection( 'users', uid, 'family'));
     const familyMembers = [];
     
     familySnapshot.forEach(doc => {

@@ -26,19 +26,38 @@ async function ensureNonce() {
   if (!a?.nonce) await fetchNonce();
 }
 async function apiFetch(url, opts = {}, retried = false) {
-  await ensureNonce();
-  const a = getStoredAuth();
-  const h = new Headers(opts.headers || {});
-  if (a?.nonce) h.set('X-WP-Nonce', a.nonce);
+  // هل هذا الطلب موجّه إلى API تبع العائلة؟
+  const isFamilyApi = url.startsWith(API);
 
-  const r = await fetch(url, { credentials: 'include', ...opts, headers: h });
-  if ((r.status === 401 || r.status === 403) && !retried) {
-    // قد يكون الـ nonce منتهيًا
+  const h = new Headers(opts.headers || {});
+
+  // إذا **مو** Family API (يعني شيء يعتمد على ووردبريس/النونس)
+  // نستخدم نظام الـ nonce والكوكي
+  if (!isFamilyApi) {
+    await ensureNonce();
+    const a = getStoredAuth();
+    if (a?.nonce) {
+      h.set('X-WP-Nonce', a.nonce);
+    }
+  }
+
+  // مع Family API: لا نرسل كوكي ولا نونس
+  const r = await fetch(url, {
+    // للأفراد/الشجرة لا نحتاج الكوكي نهائياً
+    credentials: isFamilyApi ? 'omit' : 'include',
+    ...opts,
+    headers: h
+  });
+
+  // إعادة محاولة جلب nonce فقط للطلبات اللي تعتمد على ووردبريس
+  if (!isFamilyApi && (r.status === 401 || r.status === 403) && !retried) {
     await fetchNonce();
     return apiFetch(url, opts, true);
   }
+
   return r;
 }
+
 
 /* ======================
    OTP / جلسات ووردبريس

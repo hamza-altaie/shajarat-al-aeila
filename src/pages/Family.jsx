@@ -16,12 +16,10 @@ import {
   People as FamilyIcon
 } from '@mui/icons-material';
 
-import { doc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { db, storage } from '../firebase/config';
-
 import { useNavigate } from 'react-router-dom';
 import { validateName, validateBirthdate } from '../hooks/usePhoneAuth';
+import { listPersons, createPerson, updatePerson, deletePerson } from '../userService';
+
 
 // نموذج البيانات الافتراضي
 const DEFAULT_FORM = {
@@ -141,24 +139,14 @@ export default function Family() {
     setSnackbarOpen(true);
   }, []);
 
+  
   // دالة حذف الصورة القديمة
   const deleteOldAvatar = async (oldAvatarUrl) => {
-    if (!oldAvatarUrl?.includes('firebase')) return true;
-    
-    try {
-      const url = new URL(oldAvatarUrl);
-      const pathSegments = url.pathname.split('/');
-      const encodedPath = pathSegments[pathSegments.length - 1];
-      const filePath = decodeURIComponent(encodedPath.split('?')[0]);
-      
-      const oldAvatarRef = ref(storage, filePath);
-      await deleteObject(oldAvatarRef);
-      return true;
-    } catch (error) {
-      console.error('خطأ في حذف الصورة القديمة:', error);
-      return false;
-    }
+    // حالياً لا يوجد حذف فعلي من الخادم، فقط نتجاهل العملية
+    if (!oldAvatarUrl) return true;
+    return true;
   };
+
 
   // دالة حساب العمر
   const calculateAge = (birthdate) => {
@@ -214,51 +202,48 @@ export default function Family() {
   };
 
   // تحميل بيانات العائلة
-  const loadFamily = useCallback(async () => {
-    if (!uid) {
-      navigate('/login');
-      return;
-    }
+const loadFamily = useCallback(async () => {
+  if (!uid) {
+    navigate('/login');
+    return;
+  }
 
-    setLoading(true);
-    try {
-      const familyCollection = collection(db, 'users', uid, 'family');
-      const snapshot = await getDocs(familyCollection);
-      
-      const familyData = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id || data.id,
-          firstName: data.firstName || '',
-          fatherName: data.fatherName || '',
-          grandfatherName: data.grandfatherName || '',
-          surname: data.surname || '',
-          relation: data.relation || '',
-          birthdate: data.birthdate || '',
-          avatar: data.avatar || '',
-          parentId: data.parentId || '',
-          manualParentName: data.manualParentName || '',
-          createdAt: data.createdAt || '',
-          updatedAt: data.updatedAt || ''
-        };
-      }).filter(member => member.id && member.firstName);
+  setLoading(true);
+  try {
+    const response = await listPersons();
+    const dataArray = Array.isArray(response)
+      ? response
+      : Array.isArray(response?.items)
+      ? response.items
+      : [];
 
-      setMembers(familyData);
-      
-    } catch (error) {
-      console.error('خطأ في تحميل بيانات العائلة:', error);
-      
-      if (error.code === 'permission-denied') {
-        showSnackbar('ليس لديك صلاحية للوصول إلى هذه البيانات', 'error');
-        navigate('/login');
-      } else {
-        showSnackbar('حدث خطأ أثناء تحميل بيانات العائلة', 'error');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [uid, navigate, showSnackbar]);
+    const familyData = dataArray
+      .map((data) => ({
+        id: String(data.id || data.ID || data.person_id || ''),
+        firstName: data.firstName || data.first_name || '',
+        fatherName: data.fatherName || data.father_name || '',
+        grandfatherName: data.grandfatherName || data.grandfather_name || '',
+        surname: data.surname || data.lastName || data.last_name || '',
+        relation: data.relation || '',
+        birthdate: data.birthdate || data.birth_date || '',
+        avatar: data.avatar || '',
+        parentId: data.parentId || data.parent_id || '',
+        manualParentName: data.manualParentName || data.manual_parent_name || '',
+        createdAt: data.createdAt || data.created_at || '',
+        updatedAt: data.updatedAt || data.updated_at || '',
+      }))
+      .filter((member) => member.id && member.firstName);
 
+    setMembers(familyData);
+  } catch (error) {
+    console.error('خطأ في تحميل بيانات العائلة:', error);
+    showSnackbar('حدث خطأ أثناء تحميل بيانات العائلة', 'error');
+  } finally {
+    setLoading(false);
+  }
+}, [uid, navigate, showSnackbar]);
+
+  
   // التحقق من صحة البيانات
   const validateForm = () => {
     const errors = {};
@@ -307,13 +292,13 @@ export default function Family() {
   // معالجة رفع الصورة
   const handleAvatarUpload = async (file) => {
     if (!file) return null;
-    
+
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!validTypes.includes(file.type)) {
       showSnackbar('نوع الملف غير مدعوم. استخدم JPEG, PNG, أو WebP', 'error');
       return null;
     }
-    
+
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
       showSnackbar('حجم الصورة كبير جداً. الحد الأقصى 5MB', 'error');
@@ -321,38 +306,23 @@ export default function Family() {
     }
 
     setAvatarUploading(true);
-    
+
     try {
-      if (!storage) throw new Error('Firebase Storage غير مُهيأ');
-      
-      const oldAvatarUrl = form.avatar;
-      if (oldAvatarUrl?.trim()) {
-        await deleteOldAvatar(oldAvatarUrl);
-      }
-      
-      const timestamp = Date.now();
-      const cleanFileName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
-      const fileName = `avatars/${uid}/${timestamp}_${cleanFileName}`;
-      
-      const avatarRef = ref(storage, fileName);
-      const snapshot = await uploadBytes(avatarRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      
-      setForm(prev => ({ ...prev, avatar: downloadURL }));
-      setAvatarUploadSuccess(true); // ✅ تعيين حالة النجاح
-      
-      if (form.id) {
-        await setDoc(doc(db, 'users', uid, 'family', form.id), {
-          avatar: downloadURL,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-        
-        await loadFamily();
-      }
-      
+      // تحويل الصورة إلى Data URL (Base64) ليتم حفظها مع بيانات العضو
+      const toDataUrl = (file) =>
+        new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+      const dataUrl = await toDataUrl(file);
+
+      setForm(prev => ({ ...prev, avatar: dataUrl }));
+      setAvatarUploadSuccess(true);
       showSnackbar('تم رفع الصورة بنجاح', 'success');
-      return downloadURL;
-      
+      return dataUrl;
     } catch (error) {
       console.error('خطأ في رفع الصورة:', error);
       showSnackbar('فشل رفع الصورة', 'error');
@@ -362,68 +332,67 @@ export default function Family() {
     }
   };
 
+
   // معالجة إرسال النموذج
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    const errors = validateForm();
-    setFieldErrors(errors);
-    
-    if (Object.keys(errors).length > 0) {
-      showSnackbar('يرجى تصحيح الأخطاء أولاً', 'error');
-      return false;
+  e.preventDefault();
+  
+  const errors = validateForm();
+  setFieldErrors(errors);
+  
+  if (Object.keys(errors).length > 0) {
+    showSnackbar('يرجى تصحيح الأخطاء أولاً', 'error');
+    return false;
+  }
+
+  setLoading(true);
+
+  try {
+    let linkedParentUid = null;
+    if (form.parentId && form.parentId !== 'manual') {
+      const parentMember = members.find(m => m.id === form.parentId);
+      linkedParentUid = parentMember ? uid : null;
     }
 
-    setLoading(true);
+    const memberData = {
+      firstName: form.firstName || '',
+      fatherName: form.fatherName || '',
+      grandfatherName: form.grandfatherName || '',
+      surname: form.surname || '',
+      birthdate: form.birthdate || '',
+      relation: form.relation || '',
+      parentId: form.parentId || '',
+      avatar: form.avatar || '',
+      manualParentName: form.manualParentName || '',
+      linkedParentUid,
+      updatedAt: new Date().toISOString(),
+    };
 
-    try {
-      let linkedParentUid = null;
-      if (form.parentId && form.parentId !== 'manual') {
-        const parentMember = members.find(m => m.id === form.parentId);
-        linkedParentUid = parentMember ? uid : null;
+    if (form.id) {
+      await updatePerson(form.id, memberData);
+      showSnackbar('تم تحديث بيانات العضو بنجاح');
+    } else {
+      const created = await createPerson(memberData);
+      if (created && (created.id || created.ID || created.person_id)) {
+        memberData.id = String(created.id || created.ID || created.person_id);
       }
-
-      const memberData = {
-        firstName: form.firstName || '',
-        fatherName: form.fatherName || '',
-        grandfatherName: form.grandfatherName || '',
-        surname: form.surname || '',
-        birthdate: form.birthdate || '',
-        relation: form.relation || '',
-        parentId: form.parentId || '',
-        avatar: form.avatar || '',
-        manualParentName: form.manualParentName || '',
-        linkedParentUid,
-        updatedAt: new Date().toISOString(),
-      };
-
-      if (form.id) {
-        await setDoc(doc(db, 'users', uid, 'family', form.id), memberData, { merge: true });
-        showSnackbar('تم تحديث بيانات العضو بنجاح');
-      } else {
-        const newDocRef = doc(collection(db, 'users', uid, 'family'));
-        const newMemberData = { 
-          ...memberData, 
-          id: newDocRef.id,
-          createdAt: new Date().toISOString()
-        };
-        await setDoc(newDocRef, newMemberData);
-        showSnackbar('تم إضافة العضو بنجاح');
-      }
-
-      await loadFamily();
-      setForm(DEFAULT_FORM);
-      setAvatarUploadSuccess(false); // ✅ إعادة تعيين حالة رفع الصورة
-      setShowAddForm(false); // ✅ إخفاء النموذج بعد الإضافة
-      return true;
-    } catch (error) {
-      console.error('خطأ في حفظ البيانات:', error);
-      showSnackbar('حدث خطأ أثناء حفظ البيانات', 'error');
-      return false;
-    } finally {
-      setLoading(false);
+      showSnackbar('تم إضافة العضو بنجاح');
     }
-  };
+
+    await loadFamily();
+    setForm(DEFAULT_FORM);
+    setAvatarUploadSuccess(false); // ✅ إعادة تعيين حالة رفع الصورة
+    setShowAddForm(false);         // ✅ إخفاء النموذج بعد الإضافة
+    return true;
+  } catch (error) {
+    console.error('خطأ في حفظ البيانات:', error);
+    showSnackbar(error.message || 'حدث خطأ أثناء حفظ البيانات', 'error');
+    return false;
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // معالجة تعديل العضو
   const handleEdit = (member) => {
@@ -442,6 +411,7 @@ export default function Family() {
     setDeleteDialogOpen(true);
   };
 
+  
   // تأكيد الحذف
   const confirmDelete = async () => {
     setDeleteDialogOpen(false);
@@ -459,7 +429,7 @@ export default function Family() {
         await deleteOldAvatar(memberToDelete.avatar);
       }
       
-      await deleteDoc(doc(db, 'users', uid, 'family', deleteMemberId));
+      await deletePerson(deleteMemberId);
       await loadFamily();
       showSnackbar('تم حذف العضو بنجاح');
     } catch (error) {

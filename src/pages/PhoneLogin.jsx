@@ -5,14 +5,7 @@ import {
 } from '@mui/material';
 import { Phone as PhoneIcon, Security as SecurityIcon, Warning as WarningIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { auth, getFirebaseStatus, testFirebaseConnection } from '../firebase/config';
-import {
-  signInWithPhoneNumber, 
-  RecaptchaVerifier, 
-  updateProfile,
-  onAuthStateChanged 
-} from 'firebase/auth';
-import userService from '../userService';
+import { useAuth } from '../AuthContext.jsx';
 
 const PhoneLogin = () => {
   const navigate = useNavigate();
@@ -22,82 +15,16 @@ const PhoneLogin = () => {
   const [confirmationLoading, setConfirmationLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [firebaseStatus, setFirebaseStatus] = useState(null);
+  const [firebaseStatus] = useState({ isInitialized: true });
   const [timer, setTimer] = useState(0);
   const [phoneInput, setPhoneInput] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
 
-  // فحص حالة Firebase عند التحميل
-  useEffect(() => {
-    const checkStatus = async () => {
-      try {
-        const status = getFirebaseStatus();
-        setFirebaseStatus(status);
-        if (!status.isInitialized) {
-          setError('❌ خطأ في تهيئة Firebase. يرجى التحقق من الإعدادات.');
-        } else {
-          setError('');
-          testFirebaseConnection().then(result => {
-            if (!result.success) {
-              // تجاهل أخطاء الاتصال في التطوير
-            }
-          });
-        }
-      } catch (error) {
-        setFirebaseStatus({
-          isInitialized: false,
-          error: error.message || 'فشل في فحص حالة Firebase'
-        });
-        setError('⚠️ تحذير: قد تكون هناك مشكلة في إعدادات Firebase');
-      }
-    };
-    checkStatus();
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && localStorage.getItem('verifiedUid') && localStorage.getItem('verifiedPhone')) {
-        navigate('/family');
-      }
-    });
-    return () => unsubscribe();
-  }, [navigate]);
-
-  useEffect(() => {
-    if (!firebaseStatus?.services?.auth) return;
-    const setupRecaptcha = async () => {
-      try {
-        if (window.recaptchaVerifier) {
-          try {
-            await window.recaptchaVerifier.clear();
-          } catch {
-            console.warn('تنظيف reCAPTCHA السابق...');
-          }
-          window.recaptchaVerifier = null;
-        }
-        const container = document.getElementById('recaptcha-container');
-        if (container) container.innerHTML = '';
-        const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          size: 'invisible',
-          callback: () => {},
-          'expired-callback': () => {
-            console.warn('⚠️ انتهت صلاحية reCAPTCHA');
-            setError('انتهت صلاحية التحقق الأمني، يرجى المحاولة مرة أخرى');
-          },
-          'error-callback': (err) => {
-            console.error('❌ خطأ reCAPTCHA:', err);
-            setError('خطأ في نظام التحقق الأمني');
-          }
-        });
-        await verifier.render();
-        window.recaptchaVerifier = verifier;
-      } catch (err) {
-        console.error('❌ فشل إعداد reCAPTCHA:', err);
-        setError('فشل في إعداد نظام التحقق الأمني');
-      }
-    };
-    setupRecaptcha();
-  }, [firebaseStatus]);
+  const {
+    loginPhoneRequest,
+    loginPhoneVerify,
+    clearError,
+  } = useAuth() || {};
 
   useEffect(() => {
     if (timer > 0) {
@@ -140,68 +67,32 @@ const PhoneLogin = () => {
       setError('❌ يرجى إدخال رقم هاتف صحيح');
       return;
     }
-    if (!firebaseStatus?.isInitialized) {
-      setError('❌ Firebase غير جاهز. أعد تحميل الصفحة');
-      return;
-    }
+
     setLoading(true);
     setError('');
     setSuccess('');
+    if (clearError) {
+      clearError();
+    }
+
     try {
-      let verifier = window.recaptchaVerifier;
-      if (!verifier) {
-        setError('❌ حدثت مشكلة في التحقق الأمني، يرجى إعادة تحميل الصفحة');
-        setLoading(false);
-        return;
+      if (!loginPhoneRequest) {
+        throw new Error('خدمة إرسال الرمز غير متاحة حالياً');
       }
-      const confirmation = await signInWithPhoneNumber(auth, phoneNumber, verifier);
-      setConfirmationResult(confirmation);
+
+      const res = await loginPhoneRequest(phoneNumber);
+
+      if (!res?.success) {
+        throw new Error(res?.error || 'فشل في إرسال الكود');
+      }
+
+      setConfirmationResult(true);
       setSuccess(`✅ تم إرسال كود التحقق إلى ${phoneNumber}`);
       setTimer(120);
     } catch (error) {
-      let errorMessage = 'فشل في إرسال الكود';
-      switch (error.code) {
-        case 'auth/invalid-app-credential':
-          errorMessage = '❌ خطأ في إعدادات Firebase: تحقق من أن localhost مُضاف في Authorized domains وتفعيل Phone Authentication.';
-          break;
-        case 'auth/argument-error':
-          errorMessage = 'خطأ في إعدادات reCAPTCHA. سيتم إعادة المحاولة...';
-          setConfirmationResult(null);
-          setTimer(0);
-          if (window.recaptchaVerifier) {
-            window.recaptchaVerifier.clear();
-            window.recaptchaVerifier = null;
-          }
-          break;
-        case 'auth/app-not-authorized':
-          errorMessage = '❌ التطبيق غير مُخول: أضف المجال الحالي في Firebase Console.';
-          break;
-        case 'auth/operation-not-allowed':
-          errorMessage = '❌ Phone Authentication غير مفعل: فعل Phone Authentication في Firebase Console.';
-          break;
-        case 'auth/invalid-phone-number':
-          errorMessage = 'رقم الهاتف غير صحيح. استخدم تنسيق: +9647xxxxxxxx';
-          break;
-        case 'auth/too-many-requests':
-          errorMessage = 'تم تجاوز الحد المسموح. انتظر 15 دقيقة أو جرب من جهاز آخر';
-          break;
-        case 'auth/captcha-check-failed':
-          errorMessage = 'فشل التحقق الأمني. أعد المحاولة أو حدث الصفحة';
-          break;
-        case 'auth/quota-exceeded':
-          errorMessage = 'تم تجاوز حصة الرسائل اليومية. جرب غداً أو تواصل مع الدعم';
-          break;
-        default:
-          if (error.message.includes('site key') || error.message.includes('Invalid site key')) {
-            errorMessage = '❌ مشكلة في إعدادات reCAPTCHA: راجع إعدادات App Check في Firebase Console.';
-          } else if (error.message.includes('network') || error.message.includes('fetch')) {
-            errorMessage = 'مشكلة في الاتصال بالإنترنت. تحقق من اتصالك وأعد المحاولة';
-          } else {
-            errorMessage = `خطأ غير متوقع: ${error.message}`;
-          }
-          break;
-      }
-      setError(errorMessage);
+      setConfirmationResult(null);
+      setTimer(0);
+      setError(error.message || 'فشل في إرسال الكود');
     } finally {
       setLoading(false);
     }
@@ -223,74 +114,46 @@ const PhoneLogin = () => {
     }
     setConfirmationLoading(true);
     setError('');
+    setSuccess('');
+    if (clearError) {
+      clearError();
+    }
+
     try {
-      const result = await confirmationResult.confirm(verificationCode.trim());
-      const user = result.user;
-      localStorage.setItem('verifiedUid', user.uid);
-      localStorage.setItem('verifiedPhone', user.phoneNumber);
-      localStorage.setItem('lastLogin', new Date().toISOString());
-      if (!user.displayName) {
-        await updateProfile(user, {
-          displayName: `مستخدم ${user.phoneNumber.replace('+964', '0')}`
-        });
+      if (!loginPhoneVerify) {
+        throw new Error('خدمة التحقق غير متاحة حالياً');
       }
+
+      const result = await loginPhoneVerify(phoneNumber, verificationCode.trim());
+
+      if (!result?.success) {
+        throw new Error(result?.error || '❌ كود التحقق غير صحيح');
+      }
+
+      const user = result.user || {};
+
       try {
-        await userService.createOrUpdateUser(user.uid, {
-          phone: user.phoneNumber,
-          displayName: user.displayName || `مستخدم ${user.phoneNumber.replace('+964', '0')}`,
-          isActive: true,
-          authMethod: 'phone'
-        });
-        let retries = 0;
-        let userDoc = null;
-        while (retries < 5 && !userDoc) {
-          try {
-            userDoc = await userService.fetchUserData(user.uid);
-          } catch {
-            await new Promise(res => setTimeout(res, 500));
-            retries++;
-          }
+        const uid = user.id || user.ID || user.uid;
+        if (uid) {
+          localStorage.setItem('verifiedUid', String(uid));
         }
-        if (!userDoc) {
-          setError('⚠️ حدثت مشكلة في حفظ بيانات المستخدم. يرجى إعادة المحاولة لاحقاً.');
-          setConfirmationLoading(false);
-          return;
+        const phone = user.phone || user.phoneNumber || phoneNumber;
+        if (phone) {
+          localStorage.setItem('verifiedPhone', phone);
         }
-      } catch (dbError) {
-        console.warn('⚠️ تحذير: مشكلة في حفظ البيانات:', dbError);
+        localStorage.setItem('lastLogin', new Date().toISOString());
+      } catch (e) {
+        console.warn('⚠️ تحذير: مشكلة في حفظ بيانات المستخدم محليًا:', e);
       }
+
       setSuccess('🎉 تم تسجيل الدخول بنجاح! جاري التوجه للتطبيق...');
-      if (window.recaptchaVerifier) {
-        window.recaptchaVerifier.clear();
-        window.recaptchaVerifier = null;
-      }
       setTimeout(() => {
         navigate('/family');
       }, 2000);
     } catch (error) {
-      let errorMessage = '❌ كود التحقق غير صحيح';
-      switch (error.code) {
-        case 'auth/invalid-verification-code':
-          errorMessage = '❌ كود التحقق غير صحيح. تأكد من إدخال الكود الصحيح';
-          break;
-        case 'auth/code-expired':
-          errorMessage = '❌ انتهت صلاحية كود التحقق. يرجى طلب كود جديد';
-          setConfirmationResult(null);
-          setTimer(0);
-          break;
-        case 'auth/session-expired':
-          errorMessage = '❌ انتهت جلسة التحقق. يرجى البدء من جديد';
-          setConfirmationResult(null);
-          setTimer(0);
-          break;
-        case 'auth/missing-verification-code':
-          errorMessage = '❌ لم يتم إدخال كود التحقق';
-          break;
-        default:
-          errorMessage = `❌ خطأ في التحقق: ${error.message}`;
-      }
-      setError(errorMessage);
-      if (error.code === 'auth/invalid-verification-code') {
+      const message = error.message || '❌ كود التحقق غير صحيح';
+      setError(message);
+      if (!message.includes('جلسة التحقق') && !message.includes('غير متاحة')) {
         setVerificationCode('');
       }
     } finally {

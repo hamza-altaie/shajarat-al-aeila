@@ -21,7 +21,6 @@ import SearchIcon from '@mui/icons-material/Search';
 import BarChartIcon from '@mui/icons-material/BarChart';
 
 // استيرادات Firebase
-import { db } from '../firebase/config';
 import { collection, getDocs } from 'firebase/firestore';
 
 // استيراد المكونات والأدوات المنفصلة
@@ -220,7 +219,7 @@ export default function FamilyTreeAdvanced() {
     setLoadingProgress(0);
 
     try {
-      const familySnapshot = await getDocs(collection(db, 'users', uid, 'family'));
+      const familySnapshot = await getDocs(collection( 'users', uid, 'family'));
       const familyMembers = [];
       
       setLoadingProgress(30);
