@@ -1,12 +1,18 @@
 // src/AuthContext.jsx
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+
+// 🔥 استيراد Firebase
 import {
-  fetchNonce,
-  me as getMe,
-  logout as wpLogout,
-  requestOtp,
-  verifyOtp,
-} from './userService';
+  sendOtp as firebaseSendOtp,
+  verifyOtp as firebaseVerifyOtp,
+  logout as firebaseLogout,
+  getCurrentUser
+} from './firebase/auth';
+
+// ✅ استيراد Supabase للبيانات فقط (ليس للمصادقة)
+import {
+  getMe as supabaseGetMe,
+} from './services/userService';
 
 // عرّف الـ Context محليًا وصدّر useAuth
 export const AuthContext = createContext(null);
@@ -28,19 +34,20 @@ export const AuthProvider = ({ children }) => {
     (async () => {
       try {
         setError(null);
-        await fetchNonce();
-        const u = await getMe(); // 401 إن ماكو جلسة
+        const u = await getCurrentUser();
         if (!mounted) return;
         if (u) {
           setUser(u);
           setUserData(u);
           setIsAuthenticated(true);
+          console.log("🔥 مستخدم Firebase:", u);
         } else {
           setUser(null);
           setUserData(null);
           setIsAuthenticated(false);
         }
-      } catch {
+      } catch (err) {
+        console.error("خطأ في تحميل المستخدم:", err);
         if (mounted) {
           setUser(null);
           setUserData(null);
@@ -57,7 +64,7 @@ export const AuthProvider = ({ children }) => {
   const loginPhoneRequest = useCallback(async (phone) => {
     try {
       setError(null);
-      await requestOtp(phone);
+      await firebaseSendOtp(phone);
       return { success: true };
     } catch (err) {
       setError(err.message || 'تعذر إرسال الرمز');
@@ -70,45 +77,20 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       setLoading(true);
-      const u = await verifyOtp(phone, code);
-      setUser(u);
-      setUserData(u);
-      setIsAuthenticated(true);
-      return { success: true, user: u };
+      const result = await firebaseVerifyOtp(code);
+      if (result && result.user) {
+        setUser(result.user);
+        setUserData(result.user);
+        setIsAuthenticated(true);
+        return { success: true };
+      } else {
+        throw new Error('فشل التحقق من الرمز');
+      }
     } catch (err) {
-      setError(err.message || 'رمز غير صحيح أو منتهي الصلاحية');
+      setError(err.message || 'فشل التحقق من الرمز');
       return { success: false, error: err.message };
     } finally {
       setLoading(false);
-    }
-  }, []);
-
-  // تحديث محلي لبيانات المستخدم (بدون API)
-  const updateUserData = useCallback(async (newData) => {
-    try {
-      const merged = { ...(userData || {}), ...(newData || {}), updatedAt: new Date().toISOString() };
-      setUserData(merged);
-      setUser(merged);
-      return true;
-    } catch {
-      setError('فشل في تحديث البيانات');
-      return false;
-    }
-  }, [userData]);
-
-  // تحديث من الخادم
-  const refreshUserData = useCallback(async () => {
-    try {
-      setError(null);
-      const u = await getMe();
-      setUser(u || null);
-      setUserData(u || null);
-      setIsAuthenticated(!!u);
-    } catch (err) {
-      setUser(null);
-      setUserData(null);
-      setIsAuthenticated(false);
-      setError(err.message || 'فشل في جلب بيانات المستخدم');
     }
   }, []);
 
@@ -117,7 +99,7 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       setLoading(true);
-      await wpLogout();
+      await firebaseLogout();
       setUser(null);
       setUserData(null);
       setIsAuthenticated(false);
@@ -132,7 +114,6 @@ export const AuthProvider = ({ children }) => {
 
   const clearError = useCallback(() => setError(null), []);
 
-  // صلاحيات بسيطة مبدئيًا
   const hasPermission = useCallback(() => !!isAuthenticated, [isAuthenticated]);
 
   const value = {
@@ -141,21 +122,15 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated,
     loading,
     error,
-
     loginPhoneRequest,
     loginPhoneVerify,
     logout,
-    refreshUserData,
-    updateUserData,
     clearError,
     hasPermission,
-
-    // أسماء بديلة
     isLoading: loading,
     isLoggedIn: isAuthenticated,
     userPhone: userData?.phone,
     userId: userData?.id || userData?.uid,
-    isFamilyHead: true,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

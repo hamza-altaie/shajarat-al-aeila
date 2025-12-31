@@ -33,66 +33,114 @@ const PhoneLogin = () => {
     }
   }, [timer]);
 
-  // التحقق من الرقم العراقي
+  // التحقق من الرقم العراقي (10-11 رقم)
   const isValidIraqiNumber = (phoneInput) => {
     if (!phoneInput || typeof phoneInput !== 'string') return false;
     const cleanInput = phoneInput.replace(/\s|\(|\)/g, '');
     const validPatterns = [
-      /^07[0-9]{8}$/,
-      /^7[0-9]{8}$/,
-      /^7[0-9]{9}$/
+      /^07[0-9]{9}$/,       // 0771234567 (10 أرقام)
+      /^07[0-9]{10}$/,      // 07712345670 (11 رقم)
+      /^7[0-9]{9}$/,        // 771234567 (10 أرقام)
+      /^7[0-9]{10}$/        // 7712345670 (11 رقم)
     ];
     return validPatterns.some(pattern => pattern.test(cleanInput));
   };
 
-  // تغيير رقم الهاتف
+  // تغيير رقم الهاتف (قبول 10-11 رقم)
   const handlePhoneChange = (e) => {
     let value = e.target.value.replace(/[^\d]/g, '');
-    if (value.length > 10) value = value.slice(0, 10);
+    
+    // ❌ الحد الأقصى للرقم العراقي هو 11 رقم (07XXXXXXXXXX)
+    if (value.length > 11) {
+      value = value.slice(0, 11);
+    }
+    
     setPhoneInput(value);
     let formattedPhone = '';
+    
+    // تنسيق الرقم بناءً على البداية
     if (value.length > 0) {
-      if (value.startsWith('07') && value.length === 10) {
-        formattedPhone = '+964' + value.substring(1);
-      } else if (value.startsWith('7') && (value.length === 9 || value.length === 10)) {
-        formattedPhone = '+964' + value;
+      if (value.startsWith('07')) {
+        // 07xxxxxxxxx أو 07xxxxxxxxxxx (10-11 أرقام) -> +964 7xxxxxxxxxx
+        if (value.length === 10 || value.length === 11) {
+          const withoutZero = value.substring(1); // 7xxxxxxxxx أو 7xxxxxxxxxxx
+          formattedPhone = '+964' + withoutZero;
+          console.log(`📱 صيغة محلية: ${value} -> ${formattedPhone} (${withoutZero.length} أرقام بعد 964)`);
+        }
+      } else if (value.startsWith('7')) {
+        // 7xxxxxxxxx أو 7xxxxxxxxxxx (9-10 أرقام) -> +964 7xxxxxxxxxx
+        if ((value.length === 9 || value.length === 10)) {
+          formattedPhone = '+964' + value;
+          console.log(`📱 صيغة مختصرة: ${value} -> ${formattedPhone} (${value.length} أرقام بعد 964)`);
+        }
+      } else {
+        console.warn(`⚠️ رقم غير معروف يبدأ بـ: ${value.substring(0, 1)}`);
       }
     }
+    
     setPhoneNumber(formattedPhone);
   };
 
   // إرسال كود التحقق
   const handleSendCode = async () => {
+    // 1. التحقق من صحة الرقم - الحد الأدنى 13 حرف (+964 + 9 أرقام)
     if (!phoneNumber || phoneNumber.length < 13) {
-      setError('❌ يرجى إدخال رقم هاتف صحيح');
+      setError('❌ يرجى إدخال رقم هاتف صحيح (10-11 رقم محلي)');
+      return;
+    }
+
+    // 2. التحقق الإضافي من صيغة الرقم (10 أرقام بعد 964)
+    const digitCount = phoneNumber.replace(/[^\d]/g, '').length;
+    if (digitCount !== 13) {
+      setError(`❌ خطأ في طول الرقم: يجب أن يكون 10 أرقام بعد 964 (13 مجموع)، الحالي: ${digitCount} أرقام`);
+      return;
+    }
+
+    if (!phoneNumber.startsWith('+9647')) {
+      setError('❌ رقم غير صحيح: يجب أن يبدأ الرقم بـ +9647');
       return;
     }
 
     setLoading(true);
     setError('');
     setSuccess('');
-    if (clearError) {
-      clearError();
-    }
+    if (clearError) clearError();
 
     try {
+      // 3. التحقق من وجود دالة الإرسال
       if (!loginPhoneRequest) {
         throw new Error('خدمة إرسال الرمز غير متاحة حالياً');
       }
 
+      // 4. محاولة إرسال الكود
       const res = await loginPhoneRequest(phoneNumber);
 
       if (!res?.success) {
         throw new Error(res?.error || 'فشل في إرسال الكود');
       }
 
+      // 5. نجاح الإرسال
       setConfirmationResult(true);
       setSuccess(`✅ تم إرسال كود التحقق إلى ${phoneNumber}`);
       setTimer(120);
+
     } catch (error) {
       setConfirmationResult(null);
+      
+      const errorMessage = error.message || 'فشل في إرسال الكود';
+      
+      // معالجة أخطاء Firebase الشائعة
+      if (errorMessage.includes('firebase') || errorMessage.includes('Firebase')) {
+        setError('⚠️ خطأ في Firebase - تحقق من متغيرات البيئة وإعدادات المشروع');
+      } else if (errorMessage.includes('reCAPTCHA')) {
+        setError('⚠️ خطأ في reCAPTCHA - حاول لاحقاً أو أعد تحميل الصفحة');
+      } else if (errorMessage.includes('429') || errorMessage.includes('Too Many Requests')) {
+        setError('⏳ لقد تجاوزت حد المحاولات. يرجى الانتظار 15 دقيقة');
+        setTimer(60);
+      } else {
+        setError(errorMessage);
+      }
       setTimer(0);
-      setError(error.message || 'فشل في إرسال الكود');
     } finally {
       setLoading(false);
     }
@@ -147,9 +195,21 @@ const PhoneLogin = () => {
       }
 
       setSuccess('🎉 تم تسجيل الدخول بنجاح! جاري التوجه للتطبيق...');
+      
+      // 🧪 تحديث الحالة فوراً في التطوير
+      try {
+        const devUser = localStorage.getItem('dev_user');
+        if (devUser) {
+          console.log("✅ تم حفظ المستخدم في localStorage بنجاح");
+        }
+      } catch (e) {
+        console.warn("تحذير: لم يتم حفظ المستخدم");
+      }
+      
+      // التوجيه مرة واحدة فقط بعد تأخير قصير
       setTimeout(() => {
-        navigate('/family');
-      }, 2000);
+        window.location.href = '/app/family';
+      }, 1000);
     } catch (error) {
       const message = error.message || '❌ كود التحقق غير صحيح';
       setError(message);
@@ -249,6 +309,15 @@ const PhoneLogin = () => {
         </Box>
 
         {/* تحذير حالة Firebase */}
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <Typography variant="body2" fontWeight="bold">
+            🔥 Firebase Phone Authentication
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            سيتم إرسال SMS حقيقي إلى رقمك. تأكد من توفر رصيد في حسابك.
+          </Typography>
+        </Alert>
+
         {firebaseStatus && !firebaseStatus.isInitialized && (
           <Alert severity="error" sx={{ mb: 3 }} icon={<WarningIcon />}>
             <Typography variant="body2" fontWeight="bold">
@@ -270,6 +339,12 @@ const PhoneLogin = () => {
           >
             تسجيل الدخول برقم الهاتف
           </Typography>
+
+          {/* 🧪 تنبيه وضع التطوير */}
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <strong>🧪 وضع التطوير:</strong> لا يتم إرسال SMS فعلي<br/>
+            استخدم أي رقم + كود: <strong>123456</strong>
+          </Alert>
 
           {/* حقل رقم الهاتف */}
           <Box mb={3}>
@@ -322,6 +397,9 @@ const PhoneLogin = () => {
                 </Typography>
               </Box>
             )}
+            
+            {/* 🔐 reCAPTCHA Container - rendered at bottom of page */}
+            {/* Note: The recaptcha-container is rendered below as a hidden div */}
             
             <Button
               variant="contained"
@@ -469,10 +547,8 @@ const PhoneLogin = () => {
           </Box>
         </Box>
 
-        {/* حاوية reCAPTCHA */}
-        <Box sx={{ mt: 2, mb: 2, textAlign: 'center' }}>
-          <div id="recaptcha-container"></div>
-        </Box>
+        {/* حاوية reCAPTCHA - مخفية (غير مرئية) */}
+        <div id="recaptcha-container" style={{ visibility: 'hidden', height: 0, position: 'absolute' }}></div>
       </Paper>
     </Container>
   );

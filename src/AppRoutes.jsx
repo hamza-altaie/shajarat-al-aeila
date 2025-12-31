@@ -18,8 +18,13 @@ export default function AppRoutes() {
     isAuthenticated ? <Navigate to="/family" replace /> : <Navigate to="/login" replace />;
 
   // صفحة اللوجن: لو المستخدم مسجّل، وديه لإدارة العائلة
-  const LoginRoute = () =>
-    isAuthenticated ? <Navigate to="/family" replace /> : <PhoneLogin />;
+  const LoginRoute = () => {
+    // تجنب إعادة التوجيه المتكررة
+    if (isAuthenticated) {
+      return <Navigate to="/family" replace />;
+    }
+    return <PhoneLogin />;
+  };
 
   const NotFound = () => (
     <div

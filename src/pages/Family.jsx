@@ -18,7 +18,7 @@ import {
 
 import { useNavigate } from 'react-router-dom';
 import { validateName, validateBirthdate } from '../hooks/usePhoneAuth';
-import { listPersons, createPerson, updatePerson, deletePerson } from '../userService';
+import { listPersons, createPerson, updatePerson, deletePerson } from "../services/userService";
 
 
 // نموذج البيانات الافتراضي
@@ -218,22 +218,33 @@ const loadFamily = useCallback(async () => {
       : [];
 
     const familyData = dataArray
-      .map((data) => ({
-        id: String(data.id || data.ID || data.person_id || ''),
-        firstName: data.firstName || data.first_name || '',
-        fatherName: data.fatherName || data.father_name || '',
-        grandfatherName: data.grandfatherName || data.grandfather_name || '',
-        surname: data.surname || data.lastName || data.last_name || '',
-        relation: data.relation || '',
-        birthdate: data.birthdate || data.birth_date || '',
-        avatar: data.avatar || '',
-        parentId: data.parentId || data.parent_id || '',
-        manualParentName: data.manualParentName || data.manual_parent_name || '',
-        createdAt: data.createdAt || data.created_at || '',
-        updatedAt: data.updatedAt || data.updated_at || '',
-      }))
+      .map((data) => {
+        // تحديد العلاقة بناءً على is_root والجنس
+        let relation = '';
+        if (data.is_root) {
+          relation = 'رب العائلة';
+        } else {
+          relation = data.gender === 'M' ? 'ابن' : 'بنت';
+        }
+
+        return {
+          id: String(data.id || data.ID || data.person_id || ''),
+          firstName: data.first_name || data.firstName || '',
+          fatherName: data.father_name || data.fatherName || '',
+          grandfatherName: data.grandfather_name || data.grandfatherName || '',
+          surname: data.family_name || data.surname || data.lastName || data.last_name || '',
+          relation: relation,
+          birthdate: data.birthdate || data.birth_date || '',
+          avatar: data.avatar || '',
+          parentId: data.parent_id || data.parentId || '',
+          manualParentName: data.manualParentName || data.manual_parent_name || '',
+          createdAt: data.created_at || data.createdAt || '',
+          updatedAt: data.updated_at || data.updatedAt || '',
+        };
+      })
       .filter((member) => member.id && member.firstName);
 
+    console.log("✅ عدد الأشخاص المحملين:", familyData.length);
     setMembers(familyData);
   } catch (error) {
     console.error('خطأ في تحميل بيانات العائلة:', error);
@@ -354,19 +365,23 @@ const loadFamily = useCallback(async () => {
       linkedParentUid = parentMember ? uid : null;
     }
 
+    // تحديد الجنس بناءً على العلاقة
+    const maleRelations = ['رب العائلة', 'ابن', 'أخ', 'والد', 'جد', 'عم', 'خال', 
+                           'ابن عم', 'ابن خال', 'ابن أخ', 'ابن أخت', 'حفيد', 
+                           'زوج الابنة', 'صهر', 'حمو', 'أخو الزوج', 'جد الجد', 'حفيد الحفيد'];
+    
+    const gender = maleRelations.includes(form.relation) ? 'M' : 'F';
+
     const memberData = {
-      firstName: form.firstName || '',
-      fatherName: form.fatherName || '',
-      grandfatherName: form.grandfatherName || '',
-      surname: form.surname || '',
-      birthdate: form.birthdate || '',
-      relation: form.relation || '',
-      parentId: form.parentId || '',
-      avatar: form.avatar || '',
-      manualParentName: form.manualParentName || '',
-      linkedParentUid,
-      updatedAt: new Date().toISOString(),
+      first_name: form.firstName || '',
+      father_name: form.fatherName || '',
+      family_name: form.surname || '',
+      gender: gender,
+      is_root: form.relation === 'رب العائلة', // فقط رب العائلة
+      parent_id: form.parentId && form.parentId !== 'manual' ? form.parentId : null,
     };
+
+    console.log("💾 حفظ بيانات:", { ...memberData, relation: form.relation });
 
     if (form.id) {
       await updatePerson(form.id, memberData);

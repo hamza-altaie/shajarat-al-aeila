@@ -19,9 +19,7 @@ import WarningIcon from '@mui/icons-material/Warning';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import SearchIcon from '@mui/icons-material/Search';
 import BarChartIcon from '@mui/icons-material/BarChart';
-
-// استيرادات Firebase
-import { collection, getDocs } from 'firebase/firestore';
+import { getTree } from "../services/userService";
 
 // استيراد المكونات والأدوات المنفصلة
 import './FamilyTreeAdvanced.css';
@@ -208,79 +206,97 @@ export default function FamilyTreeAdvanced() {
   // دوال التحميل الرئيسية
   // ===========================================================================
 
+  // ✅ التعديل الثاني: تحديث دالة التحميل
   const loadTree = useCallback(async () => {
-    if (!uid) {
-      setError('لم يتم العثور على معرف المستخدم');
-      return;
-    }
-    
     setLoading(true);
-    setLoadingStage('تحميل عائلتك...');
-    setLoadingProgress(0);
+    setLoadingStage('جاري تحميل سجل القبيلة...');
+    setLoadingProgress(10);
 
     try {
-      const familySnapshot = await getDocs(collection( 'users', uid, 'family'));
-      const familyMembers = [];
+      // 1. جلب البيانات من Supabase
+      const response = await getTree(); 
+      setLoadingProgress(50);
       
-      setLoadingProgress(30);
-      
-      familySnapshot.forEach(doc => {
-        const memberData = sanitizeMemberData({ 
-          ...doc.data(), 
-          id: doc.id,
-          globalId: `${uid}_${doc.id}`,
-          familyUid: uid
-        });
+      let rawData = [];
+
+      // 2. معالجة البيانات القادمة (Supabase يعيد persons و relations منفصلين)
+      if (response.persons && response.relations) {
+        setLoadingStage('معالجة العلاقات...');
         
-        if (memberData.firstName && memberData.firstName.trim() !== '') {
-          familyMembers.push(memberData);
-        }
-      });
+        // تحويل مصفوفة الأشخاص إلى Map للوصول السريع
+        const personsMap = new Map(response.persons.map(p => {
+          // تحديد العلاقة بناءً على is_root والجنس
+          let relation = '';
+          if (p.is_root) {
+            relation = 'رب العائلة';
+          } else {
+            relation = p.gender === 'M' ? 'ابن' : 'بنت';
+          }
 
-      setLoadingProgress(60);
-      setLoadingStage('بناء الشجرة...');
+          return [p.id, { 
+            ...p,
+            // تحويل أسماء الحقول من Supabase إلى التنسيق المتوقع
+            firstName: p.first_name || '',
+            fatherName: p.father_name || '',
+            surname: p.family_name || '',
+            relation: relation,
+            grandfatherName: '',
+            parentId: null
+          }];
+        }));
 
-      const builtTreeData = buildTreeStructure(familyMembers);
-      
-      setLoadingProgress(100);
-      setLoadingStage('اكتمل التحميل');
-      
-      setTreeData(builtTreeData);
-      
-      // تسجيل مقاييس الأداء
-      const treeDepth = builtTreeData ? calculateTreeDepth(builtTreeData) + 1 : 1;
-      const hasFather = familyMembers.some(m => m.relation === 'والد');
-      const hasGrandchildren = familyMembers.some(m => m.relation === 'حفيد' || m.relation === 'حفيدة');
-      const grandchildrenCount = familyMembers.filter(m => m.relation === 'حفيد' || m.relation === 'حفيدة').length;
-      
-      monitorPerformance({
-        personCount: familyMembers.length,
-        maxDepthReached: treeDepth,
-        familyCount: 1,
-        loadTime: 1000
-      });
-      
-      if (hasFather) {
-        if (hasGrandchildren) {
-          showSnackbar(`✅ تم تحميل الشجرة الهرمية: ${familyMembers.length} أفراد (${treeDepth} أجيال - تشمل ${grandchildrenCount} حفيد/حفيدة)`, 'success');
-        } else {
-          showSnackbar(`✅ تم تحميل الشجرة الهرمية: ${familyMembers.length} أفراد (${treeDepth} أجيال)`, 'success');
-        }
-      } else {
-        if (hasGrandchildren) {
-          showSnackbar(`✅ تم تحميل عائلتك: ${familyMembers.length} أفراد (تشمل ${grandchildrenCount} حفيد/حفيدة)`, 'success');
-        } else {
-          showSnackbar(`✅ تم تحميل عائلتك: ${familyMembers.length} أفراد (رب العائلة وأولاده)`, 'success');
-        }
+        // دمج العلاقات: نضع parent_id داخل كائن الابن
+        response.relations.forEach(rel => {
+          const child = personsMap.get(rel.child_id);
+          if (child) {
+            // إضافة خاصية parent_id التي يعتمد عليها كود بناء الشجرة القديم لديك
+            child.parent_id = rel.parent_id;
+            child.parentId = rel.parent_id;
+          }
+        });
+
+        // إرجاع المصفوفة المدمجة
+        rawData = Array.from(personsMap.values());
+        console.log("📊 بيانات الشجرة بعد التحويل:", rawData);
+
+      } else if (Array.isArray(response)) {
+        // احتياط: في حال كانت البيانات مصفوفة واحدة
+        rawData = response.map(p => ({
+          ...p,
+          firstName: p.first_name || p.firstName || '',
+          fatherName: p.father_name || p.fatherName || '',
+          surname: p.family_name || p.surname || '',
+          relation: p.gender === 'M' ? 'ابن' : 'بنت',
+          grandfatherName: '',
+          parentId: p.parent_id || p.parentId || null
+        }));
       }
 
-    } catch {
-      setError('فشل في تحميل الشجرة');
-      showSnackbar('❌ فشل في تحميل الشجرة', 'error');
+      // التحقق من وجود بيانات
+      if (rawData.length === 0) {
+         setLoading(false);
+         showSnackbar('⚠️ لم يتم العثور على بيانات', 'warning');
+         return;
+      }
+
+      setLoadingStage('بناء هيكل العلاقات...');
+
+      // 3. استخدام دالتك الأصلية لبناء الهيكل (لم نغيرها)
+      const builtTreeData = buildTreeStructure(rawData);
+      
+      setTreeData(builtTreeData);
+      setLoadingProgress(100);
+      
+      showSnackbar(`✅ تم تحميل ${rawData.length} عضو بنجاح`, 'success');
+
+    } catch (err) {
+      console.error('خطأ في تحميل الشجرة:', err);
+      setError('تعذر الاتصال بقاعدة البيانات');
+      showSnackbar('❌ فشل الاتصال بالخادم', 'error');
     } finally {
       setLoading(false);
     }
-  }, [uid, showSnackbar, monitorPerformance, buildTreeStructure, calculateTreeDepth, sanitizeMemberData]);
+  }, [showSnackbar, buildTreeStructure]); // أزلنا uid لأنه لم يعد ضرورياً للتحميل
 
   // تحديث مرجع loadTree
   useEffect(() => {
@@ -578,8 +594,8 @@ const drawTreeWithD3 = useCallback((data) => {
       .attr("href",
         nodeData.avatar ||
         (nodeData.gender === "female" || FEMALE_RELATIONS.includes(relation)
-          ? "/icons/girl.png"
-          : "/icons/boy.png")
+          ? "/app/icons/girl.png"
+          : "/app/icons/boy.png")
       )
       .attr("x", -cardWidth / 2 + padding)
       .attr("y", -cardHeight / 2 + padding)

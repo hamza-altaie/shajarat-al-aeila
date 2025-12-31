@@ -35,7 +35,9 @@ export default defineConfig({
     cors: true,
     hmr: {
       overlay: true,
-      clientPort: 5173
+      protocol: 'ws',
+      host: 'localhost',
+      // لا تحدد clientPort - اترك Vite يختاره تلقائياً
     }
   },
 
