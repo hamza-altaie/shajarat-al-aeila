@@ -225,21 +225,13 @@ export default function FamilyTreeAdvanced() {
         
         // تحويل مصفوفة الأشخاص إلى Map للوصول السريع
         const personsMap = new Map(response.persons.map(p => {
-          // تحديد العلاقة بناءً على is_root والجنس
-          let relation = '';
-          if (p.is_root) {
-            relation = 'رب العائلة';
-          } else {
-            relation = p.gender === 'M' ? 'ابن' : 'بنت';
-          }
-
           return [p.id, { 
             ...p,
             // تحويل أسماء الحقول من Supabase إلى التنسيق المتوقع
             firstName: p.first_name || '',
             fatherName: p.father_name || '',
             surname: p.family_name || '',
-            relation: relation,
+            relation: p.relation || (p.is_root ? 'رب العائلة' : (p.gender === 'M' ? 'ابن' : 'بنت')),
             grandfatherName: '',
             parentId: null
           }];

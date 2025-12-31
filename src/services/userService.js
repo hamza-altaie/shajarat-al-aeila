@@ -57,6 +57,7 @@ export async function createPerson(personData) {
         father_name: personData.father_name,
         family_name: personData.family_name,
         gender: personData.gender,
+        relation: personData.relation, // حفظ العلاقة
         is_root: personData.is_root || false,
         created_by: user.id
       }])
@@ -87,6 +88,7 @@ export async function updatePerson(id, personData) {
         father_name: personData.father_name,
         family_name: personData.family_name,
         gender: personData.gender,
+        relation: personData.relation, // تحديث العلاقة
         is_root: personData.is_root
       })
       .eq('id', id)

@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS persons (
   father_name TEXT,
   family_name TEXT,
   gender TEXT CHECK (gender IN ('M', 'F')),
+  relation TEXT, -- العلاقة: رب العائلة، ابن، بنت، والد، جد، إلخ
   is_root BOOLEAN DEFAULT FALSE,
   created_by TEXT, -- Firebase UID (نوع TEXT)
   created_at TIMESTAMPTZ DEFAULT NOW()

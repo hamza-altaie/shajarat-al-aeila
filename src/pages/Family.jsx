@@ -218,30 +218,20 @@ const loadFamily = useCallback(async () => {
       : [];
 
     const familyData = dataArray
-      .map((data) => {
-        // تحديد العلاقة بناءً على is_root والجنس
-        let relation = '';
-        if (data.is_root) {
-          relation = 'رب العائلة';
-        } else {
-          relation = data.gender === 'M' ? 'ابن' : 'بنت';
-        }
-
-        return {
-          id: String(data.id || data.ID || data.person_id || ''),
-          firstName: data.first_name || data.firstName || '',
-          fatherName: data.father_name || data.fatherName || '',
-          grandfatherName: data.grandfather_name || data.grandfatherName || '',
-          surname: data.family_name || data.surname || data.lastName || data.last_name || '',
-          relation: relation,
-          birthdate: data.birthdate || data.birth_date || '',
-          avatar: data.avatar || '',
-          parentId: data.parent_id || data.parentId || '',
-          manualParentName: data.manualParentName || data.manual_parent_name || '',
-          createdAt: data.created_at || data.createdAt || '',
-          updatedAt: data.updated_at || data.updatedAt || '',
-        };
-      })
+      .map((data) => ({
+        id: String(data.id || data.ID || data.person_id || ''),
+        firstName: data.first_name || data.firstName || '',
+        fatherName: data.father_name || data.fatherName || '',
+        grandfatherName: data.grandfather_name || data.grandfatherName || '',
+        surname: data.family_name || data.surname || data.lastName || data.last_name || '',
+        relation: data.relation || (data.is_root ? 'رب العائلة' : (data.gender === 'M' ? 'ابن' : 'بنت')),
+        birthdate: data.birthdate || data.birth_date || '',
+        avatar: data.avatar || '',
+        parentId: data.parent_id || data.parentId || '',
+        manualParentName: data.manualParentName || data.manual_parent_name || '',
+        createdAt: data.created_at || data.createdAt || '',
+        updatedAt: data.updated_at || data.updatedAt || '',
+      }))
       .filter((member) => member.id && member.firstName);
 
     console.log("✅ عدد الأشخاص المحملين:", familyData.length);
@@ -377,11 +367,12 @@ const loadFamily = useCallback(async () => {
       father_name: form.fatherName || '',
       family_name: form.surname || '',
       gender: gender,
-      is_root: form.relation === 'رب العائلة', // فقط رب العائلة
+      relation: form.relation, // حفظ العلاقة الفعلية
+      is_root: form.relation === 'رب العائلة',
       parent_id: form.parentId && form.parentId !== 'manual' ? form.parentId : null,
     };
 
-    console.log("💾 حفظ بيانات:", { ...memberData, relation: form.relation });
+    console.log("💾 حفظ بيانات:", memberData);
 
     if (form.id) {
       await updatePerson(form.id, memberData);
@@ -396,8 +387,8 @@ const loadFamily = useCallback(async () => {
 
     await loadFamily();
     setForm(DEFAULT_FORM);
-    setAvatarUploadSuccess(false); // ✅ إعادة تعيين حالة رفع الصورة
-    setShowAddForm(false);         // ✅ إخفاء النموذج بعد الإضافة
+    setAvatarUploadSuccess(false);
+    setShowAddForm(false);
     return true;
   } catch (error) {
     console.error('خطأ في حفظ البيانات:', error);
