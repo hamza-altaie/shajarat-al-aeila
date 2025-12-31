@@ -19,7 +19,6 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import HomeIcon from '@mui/icons-material/Home';
 import AssessmentIcon from '@mui/icons-material/Assessment';
-import { collection, getDocs } from 'firebase/firestore';
 import { familyAnalytics } from '../utils/FamilyAnalytics';
 
 const Statistics = () => {
@@ -101,33 +100,47 @@ const Statistics = () => {
   // تم حذف دالة البحث عن العائلات المرتبطة
 
   // تحميل بيانات الشجرة العادية
-  const loadSimpleTreeData = useCallback(async (uid) => {
-    
-    const familySnapshot = await getDocs(collection( 'users', uid, 'family'));
-    const familyMembers = [];
-    
-    familySnapshot.forEach(doc => {
-      const memberData = { 
-        ...doc.data(), 
-        id: doc.id,
-        globalId: `${uid}_${doc.id}`,
-        familyUid: uid
-      };
+  const loadSimpleTreeData = useCallback(async () => {
+    try {
+      // استخدام Supabase بدلاً من Firebase
+      const { getTree } = await import('../services/userService');
+      const response = await getTree();
       
-      if (memberData.firstName && memberData.firstName.trim() !== '') {
-        const cleanMember = buildCleanMember(memberData);
-        familyMembers.push(cleanMember);
+      if (!response || !response.persons) {
+        setFamilyMembers([]);
+        setError('لا توجد بيانات');
+        return;
       }
-    });
 
-    setFamilyMembers(familyMembers);
-    const treeData = buildTreeData(familyMembers);
-    setTreeData(treeData);
-  }, [buildTreeData, buildCleanMember]);
+      // تحويل البيانات من Supabase
+      const members = response.persons.map(person => ({
+        id: String(person.id),
+        globalId: String(person.id),
+        firstName: person.first_name || '',
+        fatherName: person.father_name || '',
+        surname: person.family_name || '',
+        grandfatherName: '',
+        relation: person.relation || (person.is_root ? 'رب العائلة' : (person.gender === 'M' ? 'ابن' : 'بنت')),
+        gender: person.gender,
+        birthdate: person.birthdate || '',
+        createdAt: person.created_at || '',
+      }));
+
+      const cleanMembers = members.map(buildCleanMember);
+      setFamilyMembers(cleanMembers);
+      
+      const tree = buildTreeData(cleanMembers);
+      setTreeData(tree);
+      
+    } catch (err) {
+      console.error('خطأ في تحميل البيانات:', err);
+      setError('فشل في تحميل بيانات العائلة');
+    }
+  }, [buildCleanMember, buildTreeData]);
 
   // تم حذف دالة تحميل الشجرة الموسعة
 
-  // تحميل بيانات العائلة مباشرة من Firebase
+  // تحميل بيانات العائلة من Supabase
   useEffect(() => {
     const loadFamilyData = async () => {
       try {
