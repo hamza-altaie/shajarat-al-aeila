@@ -18,7 +18,13 @@ import {
 
 import { useNavigate } from 'react-router-dom';
 import { validateName, validateBirthdate } from '../hooks/usePhoneAuth';
-import { listPersons, createPerson, updatePerson, deletePerson } from "../services/userService";
+import { useTribe } from '../contexts/TribeContext';
+import { 
+  listTribePersons, 
+  createTribePerson, 
+  updateTribePerson, 
+  deleteTribePerson 
+} from "../services/tribeService";
 
 
 // نموذج البيانات الافتراضي
@@ -35,75 +41,34 @@ const DEFAULT_FORM = {
   manualParentName: ''
 };
 
-// علاقات العائلة المتاحة
+// علاقات العائلة - نموذج شامل للربط الذكي
 const FAMILY_RELATIONS = [
-  // العائلة المباشرة
-  { value: 'رب العائلة', label: '👨‍👩‍👧‍👦 رب العائلة' },
-  { value: 'زوجة', label: '👩 زوجة' },
-  { value: 'ابن', label: '👦 ابن' },
-  { value: 'بنت', label: '👧 بنت' },
+  // === أنا ===
+  { value: 'أنا', label: '🙋‍♂️ أنا (صاحب الحساب)', category: 'أساسي', info: 'سجل نفسك أولاً' },
   
-  // الوالدين والأجداد
-  { value: 'والد', label: '👨‍🦳 والد' },
-  { value: 'والدة', label: '👵 والدة' },
-  { value: 'جد', label: '👴 جد' },
-  { value: 'جدة', label: '👵 جدة' },
-  { value: 'جد الجد', label: '👴 جد الجد' },
-  { value: 'جدة الجد', label: '👵 جدة الجد' },
+  // === أولادي ===
+  { value: 'ابن', label: '👦 ابني', category: 'أولادي', info: 'أولادك الذكور' },
+  { value: 'بنت', label: '👧 بنتي', category: 'أولادي', info: 'بناتك الإناث' },
   
-  // الإخوة والأخوات
-  { value: 'أخ', label: '👨 أخ' },
-  { value: 'أخت', label: '👩 أخت' },
-  { value: 'أخ غير شقيق', label: '👨 أخ غير شقيق' },
-  { value: 'أخت غير شقيقة', label: '👩 أخت غير شقيقة' },
+  // === إخوتي ===
+  { value: 'أخ', label: '👨 أخي', category: 'إخوتي', info: 'إخوتك (نفس الوالد)' },
+  { value: 'أخت', label: '👩 أختي', category: 'إخوتي', info: 'أخواتك (نفس الوالد)' },
   
-  // الأعمام والعمات
-  { value: 'عم', label: '👨‍🦰 عم' },
-  { value: 'عمة', label: '👩‍🦰 عمة' },
-  { value: 'ابن عم', label: '👨 ابن عم' },
-  { value: 'بنت عم', label: '👩 بنت عم' },
+  // === أصولي (للربط) ===
+  { value: 'والد', label: '👨 والدي (أبي)', category: 'أصولي', info: 'والدك - للربط مع شجرته' },
+  { value: 'والدة', label: '👩 والدتي (أمي)', category: 'أصولي', info: 'والدتك' },
+  { value: 'جد', label: '👴 جدي', category: 'أصولي', info: 'جدك - للربط مع شجرته' },
+  { value: 'جدة', label: '👵 جدتي', category: 'أصولي', info: 'جدتك' },
   
-  // الأخوال والخالات
-  { value: 'خال', label: '👨‍🦲 خال' },
-  { value: 'خالة', label: '👩‍🦲 خالة' },
-  { value: 'ابن خال', label: '👨 ابن خال' },
-  { value: 'بنت خال', label: '👩 بنت خال' },
-  
-  // أطفال الإخوة والأخوات
-  { value: 'ابن أخ', label: '👦 ابن أخ' },
-  { value: 'بنت أخ', label: '👧 بنت أخ' },
-  { value: 'ابن أخت', label: '👦 ابن أخت' },
-  { value: 'بنت أخت', label: '👧 بنت أخت' },
-  
-  // الأحفاد
-  { value: 'حفيد', label: '👦 حفيد' },
-  { value: 'حفيدة', label: '👧 حفيدة' },
-  { value: 'حفيد الحفيد', label: '👶 حفيد الحفيد' },
-  { value: 'حفيدة الحفيد', label: '👶 حفيدة الحفيد' },
-  
-  // علاقات الزواج
-  { value: 'زوج الابنة', label: '👨 زوج الابنة' },
-  { value: 'زوجة الابن', label: '👩 زوجة الابن' },
-  { value: 'صهر', label: '👨 صهر' },
-  { value: 'كنة', label: '👩 كنة' },
-  
-  // أهل الزوجة/الزوج
-  { value: 'حمو', label: '👨‍🦳 حمو (والد الزوج)' },
-  { value: 'حماة', label: '👵 حماة (والدة الزوج)' },
-  { value: 'أخو الزوج', label: '👨 أخو الزوج' },
-  { value: 'أخت الزوج', label: '👩 أخت الزوج' },
-  
-  // علاقات أخرى
-  { value: 'زوجة ثانية', label: '👩 زوجة ثانية' },
-  { value: 'زوجة ثالثة', label: '👩 زوجة ثالثة' },
-  { value: 'زوجة رابعة', label: '👩 زوجة رابعة' },
-  
-  // قرابة بعيدة
-  { value: 'ابن عم الوالد', label: '👨 ابن عم الوالد' },
-  { value: 'بنت عم الوالد', label: '👩 بنت عم الوالد' }
+  // === الزواج ===
+  { value: 'زوج', label: '💍 زوجي', category: 'زواج', info: 'زوجك/زوجتك' },
+  { value: 'زوجة', label: '💍 زوجتي', category: 'زواج', info: 'زوجك/زوجتك' },
 ];
 
 export default function Family() {
+  // الحصول على بيانات القبيلة
+  const { tribe, membership, loading: tribeLoading, canEdit } = useTribe();
+  
   // الحالات الأساسية
   const [form, setForm] = useState(DEFAULT_FORM);
   const [members, setMembers] = useState([]);
@@ -201,47 +166,47 @@ export default function Family() {
     }
   };
 
-  // تحميل بيانات العائلة
+  // تحميل بيانات العائلة (من القبيلة)
 const loadFamily = useCallback(async () => {
-  if (!uid) {
-    navigate('/login');
-    return;
+  if (!tribe?.id) {
+    console.log('⏳ في انتظار تحميل القبيلة...');
+    return; // انتظر تحميل القبيلة
   }
 
+  console.log('🔄 تحميل أفراد القبيلة:', tribe.id);
   setLoading(true);
   try {
-    const response = await listPersons();
-    const dataArray = Array.isArray(response)
-      ? response
-      : Array.isArray(response?.items)
-      ? response.items
-      : [];
+    const response = await listTribePersons(tribe.id, search);
+    console.log('✅ استجابة الخادم:', response);
+    const dataArray = Array.isArray(response) ? response : [];
 
     const familyData = dataArray
       .map((data) => ({
-        id: String(data.id || data.ID || data.person_id || ''),
-        firstName: data.first_name || data.firstName || '',
-        fatherName: data.father_name || data.fatherName || '',
-        grandfatherName: data.grandfather_name || data.grandfatherName || '',
-        surname: data.family_name || data.surname || data.lastName || data.last_name || '',
-        relation: data.relation || (data.is_root ? 'رب العائلة' : (data.gender === 'M' ? 'ابن' : 'بنت')),
-        birthdate: data.birthdate || data.birth_date || '',
-        avatar: data.avatar || '',
-        parentId: data.parent_id || data.parentId || '',
-        manualParentName: data.manualParentName || data.manual_parent_name || '',
-        createdAt: data.created_at || data.createdAt || '',
-        updatedAt: data.updated_at || data.updatedAt || '',
+        id: String(data.id || ''),
+        firstName: data.first_name || '',
+        fatherName: data.father_name || '',
+        grandfatherName: data.grandfather_name || '',
+        surname: data.family_name || '',
+        relation: data.relation || '',
+        birthdate: data.birth_date || '',
+        avatar: data.photo_url || '',
+        parentId: data.parent_id || '',
+        createdAt: data.created_at || '',
+        updatedAt: data.updated_at || '',
+        createdBy: data.created_by || '',
+        generation: data.generation || 0,
       }))
       .filter((member) => member.id && member.firstName);
 
+    console.log('✅ تم تحميل', familyData.length, 'أفراد');
     setMembers(familyData);
   } catch (error) {
-    console.error('خطأ في تحميل بيانات العائلة:', error);
+    console.error('❌ خطأ في تحميل بيانات العائلة:', error);
     showSnackbar('حدث خطأ أثناء تحميل بيانات العائلة', 'error');
   } finally {
     setLoading(false);
   }
-}, [uid, navigate, showSnackbar]);
+}, [tribe?.id, search, showSnackbar]);
 
   
   // التحقق من صحة البيانات
@@ -337,6 +302,16 @@ const loadFamily = useCallback(async () => {
   const handleSubmit = async (e) => {
   e.preventDefault();
   
+  if (!tribe?.id) {
+    showSnackbar('لم يتم تحميل بيانات القبيلة', 'error');
+    return false;
+  }
+
+  if (!canEdit) {
+    showSnackbar('ليس لديك صلاحية للتعديل', 'error');
+    return false;
+  }
+  
   const errors = validateForm();
   setFieldErrors(errors);
   
@@ -348,12 +323,6 @@ const loadFamily = useCallback(async () => {
   setLoading(true);
 
   try {
-    let linkedParentUid = null;
-    if (form.parentId && form.parentId !== 'manual') {
-      const parentMember = members.find(m => m.id === form.parentId);
-      linkedParentUid = parentMember ? uid : null;
-    }
-
     // تحديد الجنس بناءً على العلاقة
     const maleRelations = ['رب العائلة', 'ابن', 'أخ', 'والد', 'جد', 'عم', 'خال', 
                            'ابن عم', 'ابن خال', 'ابن أخ', 'ابن أخت', 'حفيد', 
@@ -364,21 +333,19 @@ const loadFamily = useCallback(async () => {
     const memberData = {
       first_name: form.firstName || '',
       father_name: form.fatherName || '',
+      grandfather_name: form.grandfatherName || '',
       family_name: form.surname || '',
       gender: gender,
-      relation: form.relation, // حفظ العلاقة الفعلية
+      relation: form.relation,
       is_root: form.relation === 'رب العائلة',
-      parent_id: form.parentId && form.parentId !== 'manual' ? form.parentId : null,
+      birth_date: form.birthdate || null,
     };
 
     if (form.id) {
-      await updatePerson(form.id, memberData);
+      await updateTribePerson(tribe.id, form.id, memberData);
       showSnackbar('تم تحديث بيانات العضو بنجاح');
     } else {
-      const created = await createPerson(memberData);
-      if (created && (created.id || created.ID || created.person_id)) {
-        memberData.id = String(created.id || created.ID || created.person_id);
-      }
+      await createTribePerson(tribe.id, memberData);
       showSnackbar('تم إضافة العضو بنجاح');
     }
 
@@ -424,6 +391,16 @@ const loadFamily = useCallback(async () => {
       return;
     }
 
+    if (!tribe?.id) {
+      showSnackbar('لم يتم تحميل بيانات القبيلة', 'error');
+      return;
+    }
+
+    if (!canEdit) {
+      showSnackbar('ليس لديك صلاحية للحذف', 'error');
+      return;
+    }
+
     const memberToDelete = members.find(m => m.id === deleteMemberId);
 
     setLoading(true);
@@ -432,7 +409,7 @@ const loadFamily = useCallback(async () => {
         await deleteOldAvatar(memberToDelete.avatar);
       }
       
-      await deletePerson(deleteMemberId);
+      await deleteTribePerson(tribe.id, deleteMemberId);
       await loadFamily();
       showSnackbar('تم حذف العضو بنجاح');
     } catch (error) {
@@ -539,12 +516,10 @@ const loadFamily = useCallback(async () => {
 
   // تحميل البيانات عند بداية المكون
   useEffect(() => {
-    if (uid) {
+    if (tribe?.id && !tribeLoading) {
       loadFamily();
-    } else {
-      navigate('/login');
     }
-  }, [uid, loadFamily, navigate]);
+  }, [tribe?.id, tribeLoading, loadFamily]);
 
   // عرض النموذج
   const renderForm = () => (
@@ -942,6 +917,18 @@ const loadFamily = useCallback(async () => {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
+      {/* مؤشر التحميل الأولي */}
+      {(tribeLoading || (loading && members.length === 0)) && (
+        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="50vh">
+          <CircularProgress size={60} />
+          <Typography variant="h6" sx={{ mt: 3 }}>
+            {tribeLoading ? 'جاري تحميل بيانات القبيلة...' : 'جاري تحميل الأفراد...'}
+          </Typography>
+        </Box>
+      )}
+
+      {!tribeLoading && (
+        <>
       {/* الهيدر */}
       <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" mb={4} gap={2}>
         <Box textAlign={{ xs: 'center', sm: 'left' }}>
@@ -950,12 +937,15 @@ const loadFamily = useCallback(async () => {
             fontWeight="bold" 
             gutterBottom 
             fontSize={{ xs: '2rem', sm: '3rem' }}
-            sx={{ color: '#1976d2' }}  // أو أي لون تريده
+            sx={{ color: '#1976d2' }}
           >
-            🏠 إدارة العائلة
+            🌳 {tribe?.name || 'شجرة القبيلة'}
           </Typography>
           <Typography variant="h6" color="text.secondary">
-            أضف وأدر أفراد عائلتك
+            أضف عائلتك المباشرة • النظام يحسب جميع العلاقات تلقائياً
+          </Typography>
+          <Typography variant="caption" color="primary.main" sx={{ display: 'block', mt: 0.5, fontWeight: 'bold' }}>
+            🎯 أنت + أولادك + إخوتك + والديك = الشجرة الكاملة تلقائياً (أعمام، أخوال، أحفاد، إلخ)
           </Typography>
         </Box>
 
@@ -1040,9 +1030,56 @@ const loadFamily = useCallback(async () => {
 
       {/* قسم إضافة عضو جديد */}
       <Paper elevation={3} sx={{ p: { xs: 2, sm: 4 }, mb: 4, borderRadius: 3 }}>
-        <Typography variant="h5" fontWeight="bold" gutterBottom sx={{ mb: 3 }}>
-          إضافة عضو جديد
+        <Typography variant="h5" fontWeight="bold" gutterBottom>
+          ➕ بناء شجرتك العائلية
         </Typography>
+        
+        {/* رسالة توضيحية بسيطة */}
+        {members.length === 0 ? (
+          <Alert severity="info" icon="🎯" sx={{ mb: 3 }}>
+            <Typography variant="body1" fontWeight="bold" gutterBottom>
+              أضف فقط 4 أشياء - النظام يحسب الباقي تلقائياً!
+            </Typography>
+            <Typography variant="body2" component="div" sx={{ lineHeight: 2.2 }}>
+              <Box component="span" sx={{ display: 'block', mb: 1 }}>
+                1️⃣ <strong>سجّل نفسك</strong> (أنا) - اسمك الرباعي<br/>
+                2️⃣ <strong>أضف أولادك</strong> (ابني، بنتي)<br/>
+                3️⃣ <strong>أضف إخوتك</strong> (أخي، أختي)<br/>
+                4️⃣ <strong>أضف والديك وأجدادك</strong> (والدي، جدي)
+              </Box>
+              
+              <Divider sx={{ my: 2 }} />
+              
+              <Box sx={{ p: 2, bgcolor: 'success.lighter', borderRadius: 2, border: '2px solid', borderColor: 'success.main' }}>
+                <Typography variant="body2" fontWeight="bold" color="success.dark" gutterBottom>
+                  ✨ النظام الذكي يحسب تلقائياً:
+                </Typography>
+                <Typography variant="caption" component="div" sx={{ lineHeight: 1.8 }}>
+                  ✅ <strong>أولاد أخي</strong> = أبناء إخوتي<br/>
+                  ✅ <strong>أولاد عمي</strong> = أبناء إخوة والدي<br/>
+                  ✅ <strong>أعمامي</strong> = إخوة والدي<br/>
+                  ✅ <strong>أخوالي</strong> = إخوة والدتي<br/>
+                  ✅ <strong>أحفادي</strong> = أبناء أبنائي<br/>
+                  ✅ <strong>أجداد الأجداد</strong> = كل السلسلة للأعلى<br/>
+                  ✅ <strong>وجميع العلاقات الأخرى</strong> - لا نهاية!
+                </Typography>
+              </Box>
+              
+              <Box sx={{ mt: 2, p: 1.5, bgcolor: 'info.lighter', borderRadius: 1 }}>
+                <Typography variant="caption" fontWeight="bold" color="info.dark">
+                  💡 كلما أضاف المزيد من الناس بياناتهم، كلما اكتملت الشجرة أكثر وظهرت علاقات جديدة تلقائياً!
+                </Typography>
+              </Box>
+            </Typography>
+          </Alert>
+        ) : (
+          <Alert severity="success" icon="✅" sx={{ mb: 3 }}>
+            <Typography variant="body2">
+              ممتاز! استمر - فقط أضف: <strong>أولادك، إخوتك، والديك</strong> والنظام يحسب الباقي
+            </Typography>
+          </Alert>
+        )}
+        
         {!showAddForm && (
           <Button
             variant="contained"
@@ -1104,27 +1141,89 @@ const loadFamily = useCallback(async () => {
             {filteredMembers.length > 0 ? (
               filteredMembers.map(renderMemberCard)
             ) : (
-              <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 6 }}>
-                <PersonIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h5" color="text.secondary" gutterBottom>
-                  {search ? 'لا توجد نتائج للبحث' : 'لم يتم إضافة أي أفراد بعد'}
+              <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 8 }}>
+                <Typography variant="h1" sx={{ fontSize: '80px', mb: 2 }}>
+                  🌱
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  {search ? 'جرب البحث بكلمات مختلفة' : 'ابدأ بإضافة أول فرد في العائلة'}
+                <Typography variant="h4" color="text.primary" gutterBottom fontWeight="bold">
+                  {search ? 'لا توجد نتائج' : 'ابدأ شجرتك الآن'}
+                </Typography>
+                <Typography variant="body1" color="text.secondary" sx={{ mb: 2, maxWidth: 600, mx: 'auto' }}>
+                  {search 
+                    ? 'جرّب البحث بكلمات أخرى' 
+                    : 'فقط أضف: أنت + أولادك + إخوتك + والديك. النظام يحسب باقي العلاقات (أعمام، أخوال، أحفاد، إلخ) تلقائياً!'
+                  }
                 </Typography>
                 {!search && (
-                  <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={() => {
-                      setForm(DEFAULT_FORM);
-                      setAvatarUploadSuccess(false); // ✅ إعادة تعيين حالة رفع الصورة
-                      document.querySelector('input[name="firstName"]')?.focus();
-                    }}
-                    sx={{ borderRadius: 2 }}
-                  >
-                    إضافة أول فرد
-                  </Button>
+                  <>
+                    <Box sx={{ mb: 4, p: 3, bgcolor: 'background.paper', borderRadius: 3, maxWidth: 700, mx: 'auto', border: '2px solid', borderColor: 'primary.main', boxShadow: 2 }}>
+                      <Typography variant="h6" fontWeight="bold" color="primary.main" gutterBottom textAlign="center">
+                        🎯 النظام الذكي - مثال عملي
+                      </Typography>
+                      
+                      <Grid container spacing={2} sx={{ mt: 1 }}>
+                        <Grid size={{ xs: 12, md: 6 }}>
+                          <Paper sx={{ p: 2, bgcolor: 'info.lighter', height: '100%' }}>
+                            <Typography variant="subtitle2" fontWeight="bold" color="info.dark" gutterBottom>
+                              📝 ما تضيفه أنت (4 أشياء فقط):
+                            </Typography>
+                            <Typography variant="caption" component="div" sx={{ lineHeight: 2 }}>
+                              1. نفسك: "علي محمد أحمد"<br/>
+                              2. أولادك: "حسن"، "فاطمة"<br/>
+                              3. أخوك: "كريم"<br/>
+                              4. والدك: "محمد أحمد"
+                            </Typography>
+                          </Paper>
+                        </Grid>
+                        
+                        <Grid size={{ xs: 12, md: 6 }}>
+                          <Paper sx={{ p: 2, bgcolor: 'success.lighter', height: '100%' }}>
+                            <Typography variant="subtitle2" fontWeight="bold" color="success.dark" gutterBottom>
+                              ✨ النظام يحسب تلقائياً:
+                            </Typography>
+                            <Typography variant="caption" component="div" sx={{ lineHeight: 2 }}>
+                              ✅ كريم = أخوك<br/>
+                              ✅ أبناء كريم = <strong>أولاد أخيك</strong><br/>
+                              ✅ إخوة محمد = أعمامك<br/>
+                              ✅ أبناء إخوة محمد = <strong>أولاد عمك</strong><br/>
+                              ✅ أبناء حسن = أحفادك<br/>
+                              ✅ وجميع العلاقات - لا نهاية!
+                            </Typography>
+                          </Paper>
+                        </Grid>
+                      </Grid>
+                      
+                      <Divider sx={{ my: 2 }} />
+                      
+                      <Box sx={{ p: 2, bgcolor: 'warning.lighter', borderRadius: 2 }}>
+                        <Typography variant="body2" fontWeight="bold" color="warning.dark" textAlign="center">
+                          💡 كلما أضاف المزيد من الناس، كلما اكتشف النظام علاقات جديدة!
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      size="large"
+                      startIcon={<AddIcon />}
+                      onClick={() => {
+                        setShowAddForm(true);
+                        setForm({...DEFAULT_FORM, relation: 'أنا'});
+                        setAvatarUploadSuccess(false);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      sx={{ 
+                        borderRadius: 3, 
+                        px: 5, 
+                        py: 2, 
+                        fontWeight: 'bold',
+                        fontSize: '1.1rem',
+                        boxShadow: 3
+                      }}
+                    >
+                      🙋‍♂️ سجّل نفسك الآن
+                    </Button>
+                  </>
                 )}
               </Box>
             )}
@@ -1345,6 +1444,8 @@ const loadFamily = useCallback(async () => {
           {snackbarMessage}
         </Alert>
       </Snackbar>
+      </>
+      )}
     </Container>
   );
 }

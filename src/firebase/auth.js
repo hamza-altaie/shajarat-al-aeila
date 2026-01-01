@@ -129,8 +129,10 @@ export async function getCurrentUser() {
       unsubscribe();
       if (user) {
         resolve({
+          uid: user.uid,
           id: user.uid,
-          phone: user.phoneNumber
+          phone: user.phoneNumber,
+          phoneNumber: user.phoneNumber
         });
       } else {
         resolve(null);

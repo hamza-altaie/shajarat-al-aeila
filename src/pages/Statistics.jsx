@@ -20,9 +20,11 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import HomeIcon from '@mui/icons-material/Home';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import { familyAnalytics } from '../utils/FamilyAnalytics';
+import { useTribe } from '../contexts/TribeContext';
 
 const Statistics = () => {
   const navigate = useNavigate();
+  const { tribe, loading: tribeLoading } = useTribe();
   
   // مرجع لتتبع التحميل الأولي
   const initialLoadRef = useRef(true);
@@ -107,10 +109,16 @@ const Statistics = () => {
 
   // تحميل بيانات الشجرة العادية
   const loadSimpleTreeData = useCallback(async () => {
+    if (!tribe?.id) {
+      setFamilyMembers([]);
+      setError('لم يتم تحميل بيانات القبيلة');
+      return;
+    }
+
     try {
-      // استخدام Supabase بدلاً من Firebase
-      const { getTree } = await import('../services/userService');
-      const response = await getTree();
+      // استخدام Tribe Service بدلاً من userService
+      const { getTribeTree } = await import('../services/tribeService');
+      const response = await getTribeTree(tribe.id);
       
       if (!response || !response.persons) {
         setFamilyMembers([]);
@@ -125,7 +133,7 @@ const Statistics = () => {
         firstName: person.first_name || '',
         fatherName: person.father_name || '',
         surname: person.family_name || '',
-        grandfatherName: '',
+        grandfatherName: person.grandfather_name || '',
         relation: person.relation || (person.is_root ? 'رب العائلة' : (person.gender === 'M' ? 'ابن' : 'بنت')),
         gender: person.gender,
         birthdate: person.birthdate || '',
@@ -149,27 +157,19 @@ const Statistics = () => {
   // تحميل بيانات العائلة من Supabase
   useEffect(() => {
     const loadFamilyData = async () => {
+      if (!tribe?.id || tribeLoading) {
+        return;
+      }
+
       try {
         setLoading(true);
-        const uid = localStorage.getItem('verifiedUid');
-        
-        if (!uid) {
-          setError('لم يتم العثور على معرف المستخدم');
-          return;
-        }
 
-        // تحميل العائلات المرتبطة أولاً
-        // لا حاجة لتحميل روابط إضافية
-        
-        // التحقق من وجود روابط
-        // تم إزالة نظام الروابط كاملاً
-
-        // تحميل الشجرة العادية افتراضياً
-        await loadSimpleTreeData(uid);
+        // تحميل بيانات القبيلة
+        await loadSimpleTreeData();
 
       } catch (err) {
         console.error('خطأ في تحميل البيانات:', err);
-        setError('فشل في تحميل بيانات العائلة');
+        setError('فشل في تحميل بيانات القبيلة');
       } finally {
         setLoading(false);
         // تعيين أن التحميل الأولي قد انتهى
@@ -178,7 +178,7 @@ const Statistics = () => {
     };
 
     loadFamilyData();
-  }, [loadSimpleTreeData]);
+  }, [tribe?.id, tribeLoading, loadSimpleTreeData]);
 
   // تحديث البيانات عند تغيير نوع الشجرة فقط
   useEffect(() => {

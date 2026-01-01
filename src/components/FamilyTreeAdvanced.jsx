@@ -19,7 +19,8 @@ import WarningIcon from '@mui/icons-material/Warning';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import SearchIcon from '@mui/icons-material/Search';
 import BarChartIcon from '@mui/icons-material/BarChart';
-import { getTree } from "../services/userService";
+import { getTribeTree } from "../services/tribeService";
+import { useTribe } from '../contexts/TribeContext';
 
 // استيراد المكونات والأدوات المنفصلة
 import './FamilyTreeAdvanced.css';
@@ -31,6 +32,7 @@ export default function FamilyTreeAdvanced() {
   // الحالات الأساسية
   // ===========================================================================
   
+  const { tribe, loading: tribeLoading } = useTribe();
   const [selectedNode, setSelectedNode] = useState(null);
   const [performanceMetrics, setPerformanceMetrics] = useState({
     loadTime: 0,
@@ -208,13 +210,17 @@ export default function FamilyTreeAdvanced() {
 
   // ✅ التعديل الثاني: تحديث دالة التحميل
   const loadTree = useCallback(async () => {
+    if (!tribe?.id || tribeLoading) {
+      return;
+    }
+
     setLoading(true);
     setLoadingStage('جاري تحميل سجل القبيلة...');
     setLoadingProgress(10);
 
     try {
-      // 1. جلب البيانات من Supabase
-      const response = await getTree(); 
+      // 1. جلب البيانات من Supabase Tribe
+      const response = await getTribeTree(tribe.id); 
       setLoadingProgress(50);
       
       let rawData = [];
@@ -232,7 +238,7 @@ export default function FamilyTreeAdvanced() {
             fatherName: p.father_name || '',
             surname: p.family_name || '',
             relation: p.relation || (p.is_root ? 'رب العائلة' : (p.gender === 'M' ? 'ابن' : 'بنت')),
-            grandfatherName: '',
+            grandfatherName: p.grandfather_name || '',
             parentId: null
           }];
         }));
@@ -287,7 +293,7 @@ export default function FamilyTreeAdvanced() {
     } finally {
       setLoading(false);
     }
-  }, [showSnackbar, buildTreeStructure]); // أزلنا uid لأنه لم يعد ضرورياً للتحميل
+  }, [tribe?.id, tribeLoading, showSnackbar, buildTreeStructure]);
 
   // تحديث مرجع loadTree
   useEffect(() => {
@@ -916,13 +922,12 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
   // ===========================================================================
 
   useEffect(() => {
-    if (!uid) {
-      navigate('/login');
+    if (!tribe?.id || tribeLoading) {
       return;
     }
 
     loadTree();
-  }, [uid, navigate, loadTree]);
+  }, [tribe?.id, tribeLoading, loadTree]);
 
   // تأثير رسم الشجرة
   useEffect(() => {

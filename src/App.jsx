@@ -6,6 +6,7 @@ import { CssBaseline, GlobalStyles, Box, CircularProgress, Typography } from '@m
 // استيراد المكونات الأساسية - مُصحح
 import AppRoutes from './AppRoutes.jsx';
 import { AuthProvider } from './AuthContext.jsx';
+import { TribeProvider } from './contexts/TribeContext.jsx';
 import InstallPrompt from './components/InstallPrompt';
 
 // ======================================================
@@ -353,10 +354,12 @@ function App() {
     <ThemeManager>
       <Router basename={import.meta.env.BASE_URL}>
         <AuthProvider>
-          <AuthMonitor>
-            <AppRoutes />
-            <InstallPrompt />
-          </AuthMonitor>
+          <TribeProvider>
+            <AuthMonitor>
+              <AppRoutes />
+              <InstallPrompt />
+            </AuthMonitor>
+          </TribeProvider>
         </AuthProvider>
       </Router>
     </ThemeManager>
