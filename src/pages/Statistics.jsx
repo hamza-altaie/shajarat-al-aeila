@@ -490,7 +490,7 @@ const Statistics = () => {
               border: '1px solid #2196f3'
             }}>
               <Grid container spacing={2} alignItems="center">
-                <Grid item xs={12} md={8}>
+                <Grid size={{ xs: 12, md: 8 }}>
                   <Typography variant="h5" sx={{ 
                     fontFamily: 'Cairo, sans-serif', 
                     color: '#1976d2',
@@ -503,7 +503,7 @@ const Statistics = () => {
                     جودة البيانات: {analysis?.metadata?.dataQuality || 'غير محددة'} • آخر تحديث: {analysis?.metadata?.analysisDate ? new Date(analysis.metadata.analysisDate).toLocaleString('ar-SA') : 'غير محدد'}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} md={4}>
+                <Grid size={{ xs: 12, md: 4 }}>
                   <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                     <Chip
                       icon={<BarChartIcon />}
@@ -552,7 +552,7 @@ const Statistics = () => {
                 <TabPanel value={activeTab} index={0}>
                   <Grid container spacing={3}>
                     {/* العنوان */}
-                    <Grid item xs={12}>
+                    <Grid size={{ xs: 12 }}>
                       <Typography variant="h5" sx={{ 
                         mb: 3, 
                         color: 'primary.main', 
@@ -564,7 +564,7 @@ const Statistics = () => {
                     </Grid>
                     
                     {/* الإحصائيات الأساسية */}
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <StatCard
                         title="إجمالي الأعضاء"
                         value={analysis?.metadata?.treeMetrics?.totalNodes || analysis?.metadata?.totalMembers || 0}
@@ -573,7 +573,7 @@ const Statistics = () => {
                       />
                     </Grid>
 
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <StatCard
                         title="الذكور"
                         value={analysis?.basicStats?.genderDistribution?.males || 0}
@@ -583,7 +583,7 @@ const Statistics = () => {
                       />
                     </Grid>
 
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <StatCard
                         title="الإناث"
                         value={analysis?.basicStats?.genderDistribution?.females || 0}
@@ -593,7 +593,7 @@ const Statistics = () => {
                       />
                     </Grid>
 
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <StatCard
                         title="جودة البيانات"
                         value={`${analysis?.basicStats?.dataCompleteness || 0}%`}
@@ -605,7 +605,7 @@ const Statistics = () => {
                     </Grid>
 
                     {/* توزيع الأعمار */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Paper sx={{ p: 3, height: '100%' }}>
                         <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           🎂 توزيع الأعمار
@@ -619,7 +619,7 @@ const Statistics = () => {
                     </Grid>
 
                     {/* أكبر الأجيال */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Paper sx={{ p: 3, height: '100%' }}>
                         <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           🏛️ توزيع الأجيال
@@ -641,7 +641,7 @@ const Statistics = () => {
                 <TabPanel value={activeTab} index={1}>
                   <Grid container spacing={3}>
                     {/* العنوان */}
-                    <Grid item xs={12}>
+                    <Grid size={{ xs: 12 }}>
                       <Typography variant="h5" sx={{ 
                         mb: 3, 
                         color: 'secondary.main', 
@@ -653,7 +653,7 @@ const Statistics = () => {
                     </Grid>
 
                     {/* توزيع الأعمار المفصل */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Paper sx={{ p: 3, height: '100%' }}>
                         <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           🎂 فئات الأعمار التفصيلية
@@ -667,7 +667,7 @@ const Statistics = () => {
                     </Grid>
 
                     {/* الهرم السكاني */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Paper sx={{ p: 3, height: '100%' }}>
                         <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           📊 الهرم السكاني
@@ -718,7 +718,7 @@ const Statistics = () => {
                     </Grid>
 
                     {/* التوزيع الجنسي حسب الأجيال */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Paper sx={{ p: 3, height: '100%' }}>
                         <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           ⚖️ التوزيع الجنسي حسب الأجيال
@@ -728,7 +728,9 @@ const Statistics = () => {
                             {analysis.demographicAnalysis.genderByGeneration.map((gen, index) => (
                               <ListItem key={index} sx={{ py: 1 }}>
                                 <ListItemText
+                                  component="div"
                                   primary={`الجيل ${gen.generation}`}
+                                  secondaryTypographyProps={{ component: 'div' }}
                                   secondary={
                                     <Box sx={{ mt: 1 }}>
                                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
@@ -759,13 +761,13 @@ const Statistics = () => {
                     </Grid>
 
                     {/* نسبة الإعالة */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Paper sx={{ p: 3, height: '100%' }}>
                         <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           👨‍👩‍👧‍👦 إحصائيات الإعالة
                         </Typography>
                         <Grid container spacing={2}>
-                          <Grid item xs={6}>
+                          <Grid size={{ xs: 6 }}>
                             <StatCard
                               title="الأطفال"
                               value={analysis?.demographicAnalysis?.ageGroups?.['أطفال (0-12)'] || 0}
@@ -773,7 +775,7 @@ const Statistics = () => {
                               color="info"
                             />
                           </Grid>
-                          <Grid item xs={6}>
+                          <Grid size={{ xs: 6 }}>
                             <StatCard
                               title="كبار السن"
                               value={analysis?.demographicAnalysis?.ageGroups?.['كبار السن (56+)'] || 0}
@@ -781,7 +783,7 @@ const Statistics = () => {
                               color="warning"
                             />
                           </Grid>
-                          <Grid item xs={12}>
+                          <Grid size={{ xs: 12 }}>
                             <StatCard
                               title="الفئة المنتجة"
                               value={(analysis?.demographicAnalysis?.ageGroups?.['شباب (18-35)'] || 0) + 
@@ -799,7 +801,7 @@ const Statistics = () => {
                 <TabPanel value={activeTab} index={2}>
                   <Grid container spacing={3}>
                     {/* العنوان */}
-                    <Grid item xs={12}>
+                    <Grid size={{ xs: 12 }}>
                       <Typography variant="h5" color="text.secondary" sx={{ 
                         mb: 3, 
                         color: 'info.main', 
@@ -811,7 +813,7 @@ const Statistics = () => {
                     </Grid>
 
                     {/* إحصائيات الأجيال */}
-                    <Grid item xs={12} md={4}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                       <StatCard
                         title="عدد الأجيال"
                         value={analysis?.generationAnalysis?.totalGenerations || 0}
@@ -820,7 +822,7 @@ const Statistics = () => {
                       />
                     </Grid>
 
-                    <Grid item xs={12} md={4}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                       <StatCard
                         title="أكبر جيل"
                         value={analysis?.generationAnalysis?.largestGeneration?.count || 0}
@@ -829,7 +831,7 @@ const Statistics = () => {
                       />
                     </Grid>
 
-                    <Grid item xs={12} md={4}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                       <StatCard
                         title="متوسط حجم الجيل"
                         value={analysis?.generationAnalysis?.totalGenerations > 0 ? 
@@ -840,7 +842,7 @@ const Statistics = () => {
                     </Grid>
 
                     {/* تفاصيل الأجيال */}
-                    <Grid item xs={12} md={8}>
+                    <Grid size={{ xs: 12, md: 8 }}>
                       <Paper sx={{ p: 3, height: '400px', overflow: 'auto' }}>
                         <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           📋 تفاصيل كل جيل
@@ -862,7 +864,9 @@ const Statistics = () => {
                                   />
                                 </ListItemIcon>
                                 <ListItemText
+                                  component="div"
                                   primary={`الجيل ${gen.generation}`}
+                                  secondaryTypographyProps={{ component: 'div' }}
                                   secondary={
                                     <Box>
                                       <Typography variant="body2">
@@ -896,7 +900,7 @@ const Statistics = () => {
                     </Grid>
 
                     {/* نمو الأجيال */}
-                    <Grid item xs={12} md={4}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                       <Paper sx={{ p: 3, height: '400px' }}>
                         <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           📈 نمو الأجيال
@@ -906,7 +910,9 @@ const Statistics = () => {
                             {analysis.generationAnalysis.generationGrowth.map((growth, index) => (
                               <ListItem key={index} sx={{ py: 1 }}>
                                 <ListItemText
+                                  component="div"
                                   primary={`${growth.fromGeneration} → ${growth.toGeneration}`}
+                                  secondaryTypographyProps={{ component: 'div' }}
                                   secondary={
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                       <Typography 
@@ -937,7 +943,7 @@ const Statistics = () => {
                 <TabPanel value={activeTab} index={3}>
                   <Grid container spacing={3}>
                     {/* العنوان */}
-                    <Grid item xs={12}>
+                    <Grid size={{ xs: 12 }}>
                       <Typography variant="h5" sx={{ 
                         mb: 3, 
                         color: 'warning.main', 
@@ -949,7 +955,7 @@ const Statistics = () => {
                     </Grid>
 
                     {/* المهن */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Paper sx={{ p: 3, height: '400px' }}>
                         <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           💼 توزيع المهن
@@ -965,7 +971,7 @@ const Statistics = () => {
                     </Grid>
 
                     {/* التعليم */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Paper sx={{ p: 3, height: '400px' }}>
                         <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           🎓 المستوى التعليمي
@@ -981,7 +987,7 @@ const Statistics = () => {
                     </Grid>
 
                     {/* المواقع الجغرافية */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Paper sx={{ p: 3, height: '400px' }}>
                         <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           🌍 التوزيع الجغرافي
@@ -997,13 +1003,13 @@ const Statistics = () => {
                     </Grid>
 
                     {/* إحصائيات متقدمة */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Paper sx={{ p: 3, height: '400px' }}>
                         <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           📊 إحصائيات متقدمة
                         </Typography>
                         <Grid container spacing={2}>
-                          <Grid item xs={12}>
+                          <Grid size={{ xs: 12 }}>
                             <StatCard
                               title="معدل التوظيف"
                               value={`${analysis?.professionalAnalysis?.employmentRate || 0}%`}
@@ -1012,7 +1018,7 @@ const Statistics = () => {
                               progress={analysis?.professionalAnalysis?.employmentRate || 0}
                             />
                           </Grid>
-                          <Grid item xs={12}>
+                          <Grid size={{ xs: 12 }}>
                             <StatCard
                               title="التغطية الجغرافية"
                               value={`${analysis?.professionalAnalysis?.geographicDistribution?.coverage || 0}%`}
@@ -1021,7 +1027,7 @@ const Statistics = () => {
                               progress={analysis?.professionalAnalysis?.geographicDistribution?.coverage || 0}
                             />
                           </Grid>
-                          <Grid item xs={12}>
+                          <Grid size={{ xs: 12 }}>
                             <StatCard
                               title="المواقع الفريدة"
                               value={analysis?.professionalAnalysis?.geographicDistribution?.uniqueLocations || 0}
@@ -1038,7 +1044,7 @@ const Statistics = () => {
                 <TabPanel value={activeTab} index={4}>
                   <Grid container spacing={3}>
                     {/* العنوان */}
-                    <Grid item xs={12}>
+                    <Grid size={{ xs: 12 }}>
                       <Typography variant="h5" sx={{ 
                         mb: 3, 
                         color: 'error.main', 
@@ -1050,7 +1056,7 @@ const Statistics = () => {
                     </Grid>
 
                     {/* الرؤى الذكية */}
-                    <Grid item xs={12}>
+                    <Grid size={{ xs: 12 }}>
                       <Paper sx={{ p: 3, mb: 3 }}>
                         <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           🧠 تحليل ذكي للبيانات
@@ -1058,7 +1064,7 @@ const Statistics = () => {
                         {analysis?.insights?.length > 0 ? (
                           <Grid container spacing={2}>
                             {analysis.insights.map((insight, index) => (
-                              <Grid item xs={12} md={6} key={index}>
+                              <Grid size={{ xs: 12, md: 6 }} key={index}>
                                 <Alert 
                                   severity={
                                     insight.level === 'positive' ? 'success' :
@@ -1088,7 +1094,7 @@ const Statistics = () => {
                     </Grid>
 
                     {/* توصيات لتحسين البيانات */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Paper sx={{ p: 3, height: '400px' }}>
                         <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           ✨ توصيات لتحسين البيانات
@@ -1142,13 +1148,13 @@ const Statistics = () => {
                     </Grid>
 
                     {/* ملخص الأداء */}
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Paper sx={{ p: 3, height: '400px' }}>
                         <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
                           ⚡ ملخص الأداء
                         </Typography>
                         <Grid container spacing={2}>
-                          <Grid item xs={12}>
+                          <Grid size={{ xs: 12 }}>
                             <StatCard
                               title="سرعة التحليل"
                               value={`${analysis?.metadata?.processingTime || 0}`}
@@ -1156,7 +1162,7 @@ const Statistics = () => {
                               color="success"
                             />
                           </Grid>
-                          <Grid item xs={6}>
+                          <Grid size={{ xs: 6 }}>
                             <StatCard
                               title="الأعضاء"
                               value={analysis?.metadata?.treeMetrics?.totalNodes || analysis?.metadata?.totalMembers || 0}
@@ -1164,7 +1170,7 @@ const Statistics = () => {
                               color="primary"
                             />
                           </Grid>
-                          <Grid item xs={6}>
+                          <Grid size={{ xs: 6 }}>
                             <StatCard
                               title="الأجيال"
                               value={analysis?.generationAnalysis?.totalGenerations || 0}
@@ -1172,7 +1178,7 @@ const Statistics = () => {
                               color="info"
                             />
                           </Grid>
-                          <Grid item xs={12}>
+                          <Grid size={{ xs: 12 }}>
                             <Alert severity="success">
                               <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif' }}>
                                 🎯 تم إنجاز التحليل بنجاح! جميع البيانات محدثة ودقيقة.
@@ -1207,3 +1213,4 @@ const Statistics = () => {
 };
 
 export default Statistics;
+

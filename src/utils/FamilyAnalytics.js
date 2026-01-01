@@ -103,25 +103,19 @@ export class FamilyAnalytics {
       allMembers = Object.values(memberMap);
     }
     
-    // إزالة التكرار بناءً على الاسم الكامل + تاريخ الميلاد (أكثر دقة)
+    // إزالة التكرار بناءً على ID الفريد
     const uniqueMembers = [];
-    const seenNames = new Set();
+    const seenIds = new Set();
 
     allMembers.forEach((member) => {
-      // بناء مفتاح فريد بناءً على الاسم الكامل مع تنظيف إضافي
-      let fullName = this.buildFullName(member).trim().toLowerCase();
-      // إزالة المسافات الإضافية والنصوص الزائدة
-      fullName = fullName.replace(/\s+/g, ' ') // توحيد المسافات
-                        .replace(/\(عائلة مرتبطة\)/g, '') // إزالة "(عائلة مرتبطة)"
-                        .replace(/\s+/g, ' ') // توحيد المسافات مرة أخرى
-                        .trim();
-                        
-      // إضافة تاريخ الميلاد للتأكد من التميز
-      const birthDate = member.birthDate || member.birthdate || '';
-      const uniqueKey = `${fullName}_${birthDate}`;
+      // استخدام ID الفريد (من قاعدة البيانات) بدلاً من الاسم
+      const memberId = member.id || member.globalId;
       
-      if (!seenNames.has(uniqueKey)) {
-        seenNames.add(uniqueKey);
+      if (memberId && !seenIds.has(memberId)) {
+        seenIds.add(memberId);
+        uniqueMembers.push(member);
+      } else if (!memberId) {
+        // إذا لم يكن هناك ID، نضيف العضو بدون تحقق (حالة نادرة)
         uniqueMembers.push(member);
       }
     });
