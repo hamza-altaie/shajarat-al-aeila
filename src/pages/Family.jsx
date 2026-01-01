@@ -35,6 +35,7 @@ const DEFAULT_FORM = {
   surname: '',
   birthdate: '',
   relation: '',
+  gender: '', // إضافة حقل الجنس
   parentId: '',
   id: null,
   avatar: '',
@@ -237,6 +238,11 @@ const loadFamily = useCallback(async () => {
       errors.relation = 'اختر القرابة';
     }
     
+    // ✅ إذا كانت العلاقة "أنا"، يجب اختيار الجنس
+    if (form.relation === 'أنا' && !form.gender) {
+      errors.gender = 'يجب اختيار الجنس';
+    }
+    
     if (form.id && form.parentId === form.id) {
       errors.parentId = 'لا يمكن للفرد أن يكون أبًا لنفسه';
     }
@@ -324,11 +330,19 @@ const loadFamily = useCallback(async () => {
 
   try {
     // تحديد الجنس بناءً على العلاقة
-    const maleRelations = ['رب العائلة', 'ابن', 'أخ', 'والد', 'جد', 'عم', 'خال', 
-                           'ابن عم', 'ابن خال', 'ابن أخ', 'ابن أخت', 'حفيد', 
-                           'زوج الابنة', 'صهر', 'حمو', 'أخو الزوج', 'جد الجد', 'حفيد الحفيد'];
+    let gender;
     
-    const gender = maleRelations.includes(form.relation) ? 'M' : 'F';
+    // إذا كان المستخدم اختار الجنس يدوياً (عند اختيار "أنا")
+    if (form.gender) {
+      gender = form.gender;
+    } else {
+      // أو تحديد تلقائي بناءً على العلاقة
+      const maleRelations = ['رب العائلة', 'ابن', 'أخ', 'والد', 'جد', 'عم', 'خال', 
+                             'ابن عم', 'ابن خال', 'ابن أخ', 'ابن أخت', 'حفيد', 
+                             'زوج الابنة', 'صهر', 'حمو', 'أخو الزوج', 'جد الجد', 'حفيد الحفيد', 'زوج'];
+      
+      gender = maleRelations.includes(form.relation) ? 'M' : 'F';
+    }
 
     const memberData = {
       first_name: form.firstName || '',
@@ -741,6 +755,36 @@ const loadFamily = useCallback(async () => {
                 </option>
               ))}
             </TextField>
+            
+            {/* ✅ حقل الجنس (يظهر فقط عند اختيار "أنا") */}
+            {form.relation === 'أنا' && (
+              <TextField
+                select
+                label="الجنس"
+                name="gender"
+                value={form.gender}
+                onChange={handleChange}
+                fullWidth
+                size="medium"
+                SelectProps={{ native: true }}
+                required
+                error={!!fieldErrors.gender}
+                helperText={fieldErrors.gender || "اختر الجنس"}
+                InputLabelProps={{ shrink: true }}
+                sx={{
+                  '& .MuiFormHelperText-root': {
+                    minHeight: '20px'
+                  },
+                  '& .MuiSelect-select': {
+                    textAlign: 'right'
+                  }
+                }}
+              >
+                <option value="">اختر الجنس</option>
+                <option value="M">👨 ذكر</option>
+                <option value="F">👩 أنثى</option>
+              </TextField>
+            )}
           </Box>
         </Box>
       </Paper>
