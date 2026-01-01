@@ -75,24 +75,30 @@ const Statistics = () => {
   const buildTreeData = useCallback((members) => {
     if (!members || members.length === 0) return null;
     
-    // البحث عن رب العائلة
-    const head = members.find(m => m.relation === 'رب العائلة') || members[0];
+    // البحث عن رب العائلة (الجذر)
+    const head = members.find(m => m.relation === 'رب العائلة' || m.is_root) || members[0];
     if (!head) return null;
 
-    return {
+    // بناء الشجرة بشكل متكرر - نشمل جميع الأعضاء الآخرين كأطفال
+    const buildChildren = (parentId) => {
+      return members
+        .filter(m => m.parentId === parentId || (m.id !== head.id && !m.parentId && parentId === head.id))
+        .map(child => ({
+          name: child.name,
+          id: child.globalId,
+          attributes: child,
+          children: buildChildren(child.id)
+        }));
+    };
+
+    const tree = {
       name: head.name,
       id: head.globalId,
       attributes: head,
-      children: members.filter(m => 
-        (m.relation === 'ابن' || m.relation === 'بنت') && 
-        m.id !== head.id
-      ).map(child => ({
-        name: child.name,
-        id: child.globalId,
-        attributes: child,
-        children: []
-      }))
+      children: buildChildren(head.id)
     };
+    
+    return tree;
   }, []);
 
   // تم حذف دالة بناء الشجرة الموسعة

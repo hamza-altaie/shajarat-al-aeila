@@ -38,29 +38,16 @@ export class FamilyAnalytics {
     // الرؤى الذكية
     const insights = this.generateSmartInsights(allMembers, basicStats);
     
-    // تجميع النتائج - مع إعطاء أولوية قصوى لعدد العقد من الشجرة الفعلية
-    const actualTreeNodes = (typeof window !== 'undefined' && window.familyTreeMetrics && window.familyTreeMetrics.totalNodes) 
-                           ? window.familyTreeMetrics.totalNodes 
-                           : null;
-    
-    // استخدام عدد الشجرة الفعلي إذا كان متوفراً، وإلا العدد المحسوب
-    const finalMembersCount = actualTreeNodes !== null ? actualTreeNodes : allMembers.length;
+    // استخدام عدد الأعضاء الفعلي
+    const finalMembersCount = allMembers.length;
 
     const analysis = {
       metadata: {
         totalMembers: finalMembersCount,
-        uniqueMembers: allMembers.length, // بعد إزالة التكرار
-        rawCount: allMembers.length, // العدد قبل التصحيح
-        correctedCount: finalMembersCount, // العدد المصحح النهائي
+        uniqueMembers: allMembers.length,
         analysisDate: new Date().toISOString(),
         processingTime: Date.now() - startTime,
-        dataQuality: this.assessDataQuality(allMembers),
-        // إضافة معلومات إضافية من window.familyTreeMetrics إذا كانت متوفرة
-        treeMetrics: typeof window !== 'undefined' && window.familyTreeMetrics ? {
-          maxDepthReached: window.familyTreeMetrics.maxDepthReached,
-          totalNodes: window.familyTreeMetrics.totalNodes,
-          actualMembersCount: window.familyTreeMetrics.actualMembersCount
-        } : null
+        dataQuality: this.assessDataQuality(allMembers)
       },
       basicStats,
       generationAnalysis,
@@ -120,19 +107,8 @@ export class FamilyAnalytics {
       }
     });
 
-    // إعطاء الأولوية المطلقة لعدد العقد من window.familyTreeMetrics
-    const finalCount = (typeof window !== 'undefined' && window.familyTreeMetrics && window.familyTreeMetrics.totalNodes) 
-                      ? window.familyTreeMetrics.totalNodes 
-                      : uniqueMembers.length;
-
-    // إذا كان لدينا عدد من الشجرة الفعلية مختلف، نحتاج لتطبيقه
+    // تطبيع البيانات
     const finalMembers = uniqueMembers.map(member => this.normalizeMemberData(member));
-    
-    // تطبيق العدد الصحيح عبر تقليل الأعضاء إذا لزم الأمر
-    if (finalCount < finalMembers.length) {
-
-      return finalMembers.slice(0, finalCount);
-    }
     
     return finalMembers;
   }
