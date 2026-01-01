@@ -234,7 +234,6 @@ const loadFamily = useCallback(async () => {
       }))
       .filter((member) => member.id && member.firstName);
 
-    console.log("✅ عدد الأشخاص المحملين:", familyData.length);
     setMembers(familyData);
   } catch (error) {
     console.error('خطأ في تحميل بيانات العائلة:', error);
@@ -371,8 +370,6 @@ const loadFamily = useCallback(async () => {
       is_root: form.relation === 'رب العائلة',
       parent_id: form.parentId && form.parentId !== 'manual' ? form.parentId : null,
     };
-
-    console.log("💾 حفظ بيانات:", memberData);
 
     if (form.id) {
       await updatePerson(form.id, memberData);
