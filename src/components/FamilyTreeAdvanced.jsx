@@ -249,7 +249,6 @@ export default function FamilyTreeAdvanced() {
 
         // إرجاع المصفوفة المدمجة
         rawData = Array.from(personsMap.values());
-        console.log("📊 بيانات الشجرة بعد التحويل:", rawData);
 
       } else if (Array.isArray(response)) {
         // احتياط: في حال كانت البيانات مصفوفة واحدة
