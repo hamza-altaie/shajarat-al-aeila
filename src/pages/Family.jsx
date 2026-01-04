@@ -19,6 +19,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { validateName, validateBirthdate } from '../hooks/usePhoneAuth';
 import { useTribe } from '../contexts/TribeContext';
+import { useAuth } from '../AuthContext';
 import { 
   listTribePersons, 
   createTribePerson, 
@@ -67,8 +68,9 @@ const FAMILY_RELATIONS = [
 ];
 
 export default function Family() {
-  // الحصول على بيانات القبيلة
-  const { tribe, membership, loading: tribeLoading, canEdit } = useTribe();
+  // الحصول على بيانات القبيلة والمصادقة
+  const { tribe, membership, loading: tribeLoading, canEdit, isAdmin } = useTribe();
+  const { logout, user } = useAuth();
   
   // الحالات الأساسية
   const [form, setForm] = useState(DEFAULT_FORM);
@@ -104,6 +106,15 @@ export default function Family() {
     setSnackbarSeverity(severity);
     setSnackbarOpen(true);
   }, []);
+
+  // ✅ التحقق من ملكية البيانات - هل المستخدم هو من أضاف هذا الشخص؟
+  const canEditMember = useCallback((member) => {
+    if (!user?.uid) return false;
+    // Admin يمكنه تعديل أي شيء
+    if (isAdmin) return true;
+    // المستخدم يمكنه تعديل البيانات التي أضافها فقط
+    return member.createdBy === user.uid;
+  }, [user?.uid, isAdmin]);
 
   
   // دالة حذف الصورة القديمة
@@ -167,21 +178,28 @@ export default function Family() {
     }
   };
 
-  // تحميل بيانات العائلة (من القبيلة)
+  // تحميل بيانات العائلة (من القبيلة) - فقط البيانات التي أضافها المستخدم الحالي
 const loadFamily = useCallback(async () => {
   if (!tribe?.id) {
     console.log('⏳ في انتظار تحميل القبيلة...');
     return; // انتظر تحميل القبيلة
   }
 
-  console.log('🔄 تحميل أفراد القبيلة:', tribe.id);
+  if (!user?.uid) {
+    console.log('⏳ في انتظار تسجيل الدخول...');
+    return;
+  }
+
+  console.log('🔄 تحميل أفراد المستخدم:', user.uid);
   setLoading(true);
   try {
     const response = await listTribePersons(tribe.id, search);
     console.log('✅ استجابة الخادم:', response);
     const dataArray = Array.isArray(response) ? response : [];
 
+    // ✅ تصفية البيانات - فقط البيانات التي أضافها المستخدم الحالي
     const familyData = dataArray
+      .filter((data) => data.created_by === user.uid) // فقط بيانات المستخدم الحالي
       .map((data) => ({
         id: String(data.id || ''),
         firstName: data.first_name || '',
@@ -199,7 +217,7 @@ const loadFamily = useCallback(async () => {
       }))
       .filter((member) => member.id && member.firstName);
 
-    console.log('✅ تم تحميل', familyData.length, 'أفراد');
+    console.log('✅ تم تحميل', familyData.length, 'من أفرادك');
     setMembers(familyData);
   } catch (error) {
     console.error('❌ خطأ في تحميل بيانات العائلة:', error);
@@ -207,7 +225,7 @@ const loadFamily = useCallback(async () => {
   } finally {
     setLoading(false);
   }
-}, [tribe?.id, search, showSnackbar]);
+}, [tribe?.id, user?.uid, search, showSnackbar]);
 
   
   // التحقق من صحة البيانات
@@ -380,6 +398,11 @@ const loadFamily = useCallback(async () => {
 
   // معالجة تعديل العضو
   const handleEdit = (member) => {
+    // التحقق من أن المستخدم يملك هذه البيانات
+    if (!canEditMember(member)) {
+      showSnackbar('لا يمكنك تعديل بيانات أضافها شخص آخر', 'warning');
+      return;
+    }
     setForm({ ...member });
     setAvatarUploadSuccess(false); // ✅ إعادة تعيين حالة رفع الصورة
     setEditModalOpen(true);
@@ -391,6 +414,14 @@ const loadFamily = useCallback(async () => {
       showSnackbar('معرف العضو غير موجود', 'error');
       return;
     }
+    
+    // التحقق من أن المستخدم يملك هذه البيانات
+    const member = members.find(m => m.id === id);
+    if (member && !canEditMember(member)) {
+      showSnackbar('لا يمكنك حذف بيانات أضافها شخص آخر', 'warning');
+      return;
+    }
+    
     setDeleteMemberId(id);
     setDeleteDialogOpen(true);
   };
@@ -469,10 +500,17 @@ const loadFamily = useCallback(async () => {
   };
 
   // تسجيل الخروج
-  const handleLogout = () => {
-    localStorage.removeItem('verifiedUid');
-    localStorage.removeItem('verifiedPhone');
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      await logout();
+      localStorage.removeItem('verifiedUid');
+      localStorage.removeItem('verifiedPhone');
+      navigate('/login');
+    } catch (error) {
+      console.error('خطأ في تسجيل الخروج:', error);
+      // حتى لو فشل، ننتقل لصفحة تسجيل الدخول
+      navigate('/login');
+    }
   };
 
   // تحديث البحث والتصفية مع الترتيب
@@ -528,12 +566,12 @@ const loadFamily = useCallback(async () => {
     setFilteredMembers(sortedMembers);
   }, [search, members]);
 
-  // تحميل البيانات عند بداية المكون
+  // تحميل البيانات عند بداية المكون أو تغير المستخدم
   useEffect(() => {
-    if (tribe?.id && !tribeLoading) {
+    if (tribe?.id && user?.uid && !tribeLoading) {
       loadFamily();
     }
-  }, [tribe?.id, tribeLoading, loadFamily]);
+  }, [tribe?.id, user?.uid, tribeLoading, loadFamily]);
 
   // عرض النموذج
   const renderForm = () => (
@@ -940,21 +978,32 @@ const loadFamily = useCallback(async () => {
         </CardContent>
 
         <CardActions sx={{ justifyContent: 'center', pb: 2 }}>
-          <IconButton
-            color="primary"
-            onClick={() => handleEdit(member)}
-            sx={{ mx: 1 }}
-          >
-            <EditIcon />
-          </IconButton>
-          
-          <IconButton
-            color="error"
-            onClick={() => handleDeleteConfirmation(member.id)}
-            sx={{ mx: 1 }}
-          >
-            <DeleteIcon />
-          </IconButton>
+          {/* أزرار التعديل والحذف - تظهر فقط لصاحب البيانات أو Admin */}
+          {canEditMember(member) ? (
+            <>
+              <IconButton
+                color="primary"
+                onClick={() => handleEdit(member)}
+                sx={{ mx: 1 }}
+                title="تعديل"
+              >
+                <EditIcon />
+              </IconButton>
+              
+              <IconButton
+                color="error"
+                onClick={() => handleDeleteConfirmation(member.id)}
+                sx={{ mx: 1 }}
+                title="حذف"
+              >
+                <DeleteIcon />
+              </IconButton>
+            </>
+          ) : (
+            <Typography variant="caption" color="text.secondary" sx={{ py: 1 }}>
+              🔒 أُضيف بواسطة عضو آخر
+            </Typography>
+          )}
         </CardActions>
       </Card>
   );
@@ -998,7 +1047,10 @@ const loadFamily = useCallback(async () => {
             variant="contained"
             color="success"
             startIcon={<VisibilityIcon />}
-            onClick={() => navigate('/tree')}
+            onClick={() => {
+              console.log('🌳 الانتقال إلى صفحة الشجرة...');
+              navigate('/tree');
+            }}
             sx={{ 
               borderRadius: 2,
               px: { xs: 2, sm: 3 },
@@ -1021,6 +1073,18 @@ const loadFamily = useCallback(async () => {
             <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
               الشجرة
             </Box>
+          </Button>
+          
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={() => navigate('/add-person')}
+            sx={{ 
+              borderRadius: 2,
+              display: { xs: 'none', sm: 'flex' }
+            }}
+          >
+            إضافة ذكية
           </Button>
           
           <IconButton onClick={handleSettingsClick}>

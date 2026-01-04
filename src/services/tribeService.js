@@ -62,7 +62,7 @@ export async function checkUserMembership(tribeId) {
       .select('*')
       .eq('tribe_id', tribeId)
       .eq('firebase_uid', user.uid)
-      .single();
+      .maybeSingle(); // استخدام maybeSingle بدلاً من single لتجنب خطأ 406
 
     if (error && error.code !== 'PGRST116') throw error;
     return data;
@@ -121,30 +121,47 @@ async function createAutoRelations(tribeId, newPerson, membership, userId) {
       return; // يجب أن يضيف المستخدم نفسه أولاً
     }
 
-    // 2. إذا كان "ابن" أو "بنت" → المستخدم هو الوالد
-    if (relation === 'ابن' || relation === 'بنت') {
-      await supabase
+    // دالة مساعدة لإضافة علاقة مع التحقق من عدم وجودها
+    const addRelationIfNotExists = async (parentId, childId) => {
+      // التحقق من وجود العلاقة - استخدام maybeSingle بدلاً من single
+      const { data: existing } = await supabase
+        .from('relations')
+        .select('id')
+        .eq('parent_id', parentId)
+        .eq('child_id', childId)
+        .maybeSingle(); // لا يعطي خطأ إذا لم يجد نتائج
+      
+      if (existing) {
+        console.log('⚠️ العلاقة موجودة مسبقاً');
+        return false;
+      }
+
+      const { error } = await supabase
         .from('relations')
         .insert({
           tribe_id: tribeId,
-          parent_id: userPersonId,
-          child_id: newPerson.id,
+          parent_id: parentId,
+          child_id: childId,
           created_by: userId
         });
-      console.log(`✅ تم ربط ${relation}: ${userPersonId} → ${newPerson.id}`);
+      
+      if (error && error.code !== '23505') { // تجاهل خطأ التكرار
+        console.error('❌ خطأ في إضافة العلاقة:', error);
+        return false;
+      }
+      return true;
+    };
+
+    // 2. إذا كان "ابن" أو "بنت" → المستخدم هو الوالد
+    if (relation === 'ابن' || relation === 'بنت') {
+      const added = await addRelationIfNotExists(userPersonId, newPerson.id);
+      if (added) console.log(`✅ تم ربط ${relation}: ${userPersonId} → ${newPerson.id}`);
     }
     
     // 3. إذا كان "والد" أو "والدة" → المستخدم هو الطفل
     else if (relation === 'والد' || relation === 'والدة') {
-      await supabase
-        .from('relations')
-        .insert({
-          tribe_id: tribeId,
-          parent_id: newPerson.id,
-          child_id: userPersonId,
-          created_by: userId
-        });
-      console.log(`✅ تم ربط ${relation}: ${newPerson.id} → ${userPersonId}`);
+      const added = await addRelationIfNotExists(newPerson.id, userPersonId);
+      if (added) console.log(`✅ تم ربط ${relation}: ${newPerson.id} → ${userPersonId}`);
     }
     
     // 4. إذا كان "أخ" أو "أخت" → نفس الوالد
@@ -158,15 +175,8 @@ async function createAutoRelations(tribeId, newPerson, membership, userId) {
         .single();
       
       if (parentRel) {
-        await supabase
-          .from('relations')
-          .insert({
-            tribe_id: tribeId,
-            parent_id: parentRel.parent_id,
-            child_id: newPerson.id,
-            created_by: userId
-          });
-        console.log(`✅ تم ربط ${relation}: ${parentRel.parent_id} → ${newPerson.id}`);
+        const added = await addRelationIfNotExists(parentRel.parent_id, newPerson.id);
+        if (added) console.log(`✅ تم ربط ${relation}: ${parentRel.parent_id} → ${newPerson.id}`);
       } else {
         console.log('⚠️ لم يتم العثور على والد المستخدم، يجب إضافة الوالد أولاً');
       }
@@ -183,20 +193,268 @@ async function createAutoRelations(tribeId, newPerson, membership, userId) {
         .single();
       
       if (parentRel) {
-        await supabase
-          .from('relations')
-          .insert({
-            tribe_id: tribeId,
-            parent_id: newPerson.id,
-            child_id: parentRel.parent_id,
-            created_by: userId
-          });
-        console.log(`✅ تم ربط ${relation}: ${newPerson.id} → ${parentRel.parent_id}`);
+        const added = await addRelationIfNotExists(newPerson.id, parentRel.parent_id);
+        if (added) console.log(`✅ تم ربط ${relation}: ${newPerson.id} → ${parentRel.parent_id}`);
       }
     }
   } catch (err) {
     console.error('❌ خطأ في إنشاء العلاقات التلقائية:', err);
     // لا نرمي الخطأ لأن إضافة الشخص نجحت
+  }
+}
+
+// =============================================
+// 🧠 الربط الذكي الشامل - يعمل تلقائياً
+// =============================================
+
+/**
+ * تنظيف وتوحيد الاسم للمقارنة
+ */
+function normalizeNameForMatch(name) {
+  if (!name) return '';
+  return name
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/أ|إ|آ/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .toLowerCase();
+}
+
+/**
+ * مقارنة اسمين (مع تسامح للأخطاء الإملائية)
+ */
+function namesAreSimilar(name1, name2, threshold = 0.85) {
+  const n1 = normalizeNameForMatch(name1);
+  const n2 = normalizeNameForMatch(name2);
+  
+  if (!n1 || !n2) return false;
+  if (n1 === n2) return true;
+  
+  // حساب التشابه البسيط
+  const maxLen = Math.max(n1.length, n2.length);
+  if (maxLen === 0) return false;
+  
+  let matches = 0;
+  const shorter = n1.length <= n2.length ? n1 : n2;
+  const longer = n1.length > n2.length ? n1 : n2;
+  
+  for (let i = 0; i < shorter.length; i++) {
+    if (longer.includes(shorter[i])) matches++;
+  }
+  
+  return (matches / maxLen) >= threshold;
+}
+
+/**
+ * 🧠 الربط الذكي الشامل - يعمل تلقائياً عند إضافة شخص
+ * يبحث عن: والد، أبناء، إخوة، جد
+ */
+async function smartAutoLink(tribeId, newPerson, userId) {
+  try {
+    console.log('🧠 بدء الربط الذكي الشامل لـ:', newPerson.first_name);
+    
+    // جلب كل الأشخاص والعلاقات
+    const { data: allPersons } = await supabase
+      .from('persons')
+      .select('*')
+      .eq('tribe_id', tribeId);
+    
+    const { data: allRelations } = await supabase
+      .from('relations')
+      .select('*')
+      .eq('tribe_id', tribeId);
+    
+    if (!allPersons) return;
+    
+    // بناء خريطة العلاقات
+    const childToParent = new Map();
+    const parentToChildren = new Map();
+    
+    for (const rel of (allRelations || [])) {
+      childToParent.set(rel.child_id, rel.parent_id);
+      if (!parentToChildren.has(rel.parent_id)) {
+        parentToChildren.set(rel.parent_id, []);
+      }
+      parentToChildren.get(rel.parent_id).push(rel.child_id);
+    }
+    
+    let linkedCount = 0;
+    
+    // دالة للتحقق من وجود العلاقة قبل إنشائها
+    const relationExists = async (parentId, childId) => {
+      const { data } = await supabase
+        .from('relations')
+        .select('id')
+        .eq('tribe_id', tribeId)
+        .eq('parent_id', parentId)
+        .eq('child_id', childId)
+        .maybeSingle();
+      return !!data;
+    };
+    
+    // ========================================
+    // 1️⃣ البحث عن الوالد (father_name → شخص first_name مطابق)
+    // ========================================
+    if (newPerson.father_name && !childToParent.has(newPerson.id)) {
+      const potentialFather = allPersons.find(p => {
+        if (p.id === newPerson.id) return false;
+        
+        // مطابقة الاسم الأول للوالد
+        const nameMatch = namesAreSimilar(p.first_name, newPerson.father_name);
+        
+        // مطابقة اسم الجد إذا متوفر
+        let grandMatch = true;
+        if (newPerson.grandfather_name && p.father_name) {
+          grandMatch = namesAreSimilar(p.father_name, newPerson.grandfather_name);
+        }
+        
+        return nameMatch && grandMatch;
+      });
+      
+      if (potentialFather) {
+        // التحقق من عدم وجود العلاقة مسبقاً
+        const exists = await relationExists(potentialFather.id, newPerson.id);
+        if (!exists) {
+          const { error } = await supabase
+            .from('relations')
+            .insert({
+              tribe_id: tribeId,
+              parent_id: potentialFather.id,
+              child_id: newPerson.id,
+              created_by: userId
+            });
+          
+          if (!error) {
+            linkedCount++;
+            console.log(`🔗 تم ربط "${newPerson.first_name}" مع والده "${potentialFather.first_name}"`);
+            childToParent.set(newPerson.id, potentialFather.id);
+          }
+        }
+      }
+    }
+    
+    // ========================================
+    // 2️⃣ البحث عن أبناء (أشخاص father_name = first_name لهذا الشخص)
+    // ========================================
+    const potentialChildren = allPersons.filter(p => {
+      if (p.id === newPerson.id) return false;
+      if (childToParent.has(p.id)) return false; // لديه والد بالفعل
+      
+      // مطابقة: father_name للشخص = first_name للشخص الجديد
+      const nameMatch = namesAreSimilar(p.father_name, newPerson.first_name);
+      
+      // مطابقة إضافية: grandfather_name = father_name للشخص الجديد
+      let grandMatch = true;
+      if (p.grandfather_name && newPerson.father_name) {
+        grandMatch = namesAreSimilar(p.grandfather_name, newPerson.father_name);
+      }
+      
+      return nameMatch && grandMatch;
+    });
+    
+    for (const child of potentialChildren) {
+      // التحقق من عدم وجود العلاقة مسبقاً
+      const exists = await relationExists(newPerson.id, child.id);
+      if (!exists) {
+        const { error } = await supabase
+          .from('relations')
+          .insert({
+            tribe_id: tribeId,
+            parent_id: newPerson.id,
+            child_id: child.id,
+            created_by: userId
+          });
+        
+        if (!error) {
+          linkedCount++;
+          console.log(`🔗 تم ربط "${child.first_name}" كابن لـ "${newPerson.first_name}"`);
+          childToParent.set(child.id, newPerson.id);
+        }
+      }
+    }
+    
+    // ========================================
+    // 3️⃣ البحث عن إخوة (نفس father_name + grandfather_name)
+    // ========================================
+    if (newPerson.father_name) {
+      // البحث عن إخوة محتملين
+      const potentialSiblings = allPersons.filter(p => {
+        if (p.id === newPerson.id) return false;
+        
+        const sameFather = namesAreSimilar(p.father_name, newPerson.father_name);
+        const sameGrandfather = !newPerson.grandfather_name || !p.grandfather_name ||
+          namesAreSimilar(p.grandfather_name, newPerson.grandfather_name);
+        
+        return sameFather && sameGrandfather;
+      });
+      
+      // إذا وجدنا إخوة، نتحقق هل أحدهم مرتبط بوالد
+      for (const sibling of potentialSiblings) {
+        if (childToParent.has(sibling.id)) {
+          const siblingParentId = childToParent.get(sibling.id);
+          
+          // إذا الشخص الجديد غير مرتبط بوالد، نربطه بنفس والد الأخ
+          if (!childToParent.has(newPerson.id)) {
+            // التحقق من عدم وجود العلاقة
+            const exists = await relationExists(siblingParentId, newPerson.id);
+            if (!exists) {
+              const { error } = await supabase
+                .from('relations')
+                .insert({
+                  tribe_id: tribeId,
+                  parent_id: siblingParentId,
+                  child_id: newPerson.id,
+                  created_by: userId
+                });
+            
+              if (!error) {
+                linkedCount++;
+                const parentName = allPersons.find(p => p.id === siblingParentId)?.first_name;
+                console.log(`🔗 تم ربط "${newPerson.first_name}" مع والده "${parentName}" (عبر الأخ "${sibling.first_name}")`);
+                childToParent.set(newPerson.id, siblingParentId);
+              }
+            }
+          }
+          break;
+        }
+      }
+      
+      // ربط الإخوة غير المرتبطين بنفس الوالد
+      if (childToParent.has(newPerson.id)) {
+        const newPersonParentId = childToParent.get(newPerson.id);
+        
+        for (const sibling of potentialSiblings) {
+          if (!childToParent.has(sibling.id)) {
+            // التحقق من عدم وجود العلاقة
+            const exists = await relationExists(newPersonParentId, sibling.id);
+            if (!exists) {
+              const { error } = await supabase
+                .from('relations')
+                .insert({
+                  tribe_id: tribeId,
+                  parent_id: newPersonParentId,
+                  child_id: sibling.id,
+                  created_by: userId
+                });
+              
+              if (!error) {
+                linkedCount++;
+                console.log(`🔗 تم ربط الأخ "${sibling.first_name}" مع نفس الوالد`);
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    if (linkedCount > 0) {
+      console.log(`✅ الربط الذكي: تم إنشاء ${linkedCount} علاقة جديدة`);
+    }
+    
+  } catch (err) {
+    console.error('❌ خطأ في الربط الذكي:', err);
+    // لا نرمي الخطأ - الربط الذكي اختياري
   }
 }
 
@@ -222,8 +480,11 @@ export async function createTribePerson(tribeId, personData) {
 
     if (error) throw error;
 
-    // إنشاء العلاقات التلقائية
+    // إنشاء العلاقات التلقائية (القديمة - للعلاقات المباشرة مثل "ابن"، "والد")
     await createAutoRelations(tribeId, data, membership, user.uid);
+    
+    // 🧠 الربط الذكي الشامل - يعمل تلقائياً
+    await smartAutoLink(tribeId, data, user.uid);
 
     // إضافة سجل في Audit Log
     await logPersonAction(tribeId, data.id, 'create', user.uid, null, data);
@@ -253,6 +514,14 @@ export async function updateTribePerson(tribeId, personId, personData) {
       .eq('tribe_id', tribeId)
       .single();
 
+    // ✅ التحقق من الملكية - فقط صاحب البيانات أو Admin يمكنه التعديل
+    const isAdmin = membership.role === 'admin';
+    const isOwner = oldData?.created_by === user.uid;
+    
+    if (!isAdmin && !isOwner) {
+      throw new Error('لا يمكنك تعديل بيانات أضافها شخص آخر');
+    }
+
     const { data, error } = await supabase
       .from('persons')
       .update({
@@ -265,6 +534,9 @@ export async function updateTribePerson(tribeId, personId, personData) {
       .single();
 
     if (error) throw error;
+
+    // 🧠 إعادة الربط الذكي عند التحديث (إذا تغيرت الأسماء)
+    await smartAutoLink(tribeId, data, user.uid);
 
     // سجل التعديل
     await logPersonAction(tribeId, personId, 'update', user.uid, oldData, data);
@@ -292,6 +564,14 @@ export async function deleteTribePerson(tribeId, personId) {
       .eq('id', personId)
       .eq('tribe_id', tribeId)
       .single();
+
+    // ✅ التحقق من الملكية - فقط صاحب البيانات أو Admin يمكنه الحذف
+    const isAdmin = membership.role === 'admin';
+    const isOwner = oldData?.created_by === user.uid;
+    
+    if (!isAdmin && !isOwner) {
+      throw new Error('لا يمكنك حذف بيانات أضافها شخص آخر');
+    }
 
     const { error } = await supabase
       .from('persons')
@@ -378,12 +658,122 @@ export async function getTribeTree(tribeId) {
 
     if (relationsError) throw relationsError;
 
+    // ✅ إزالة العلاقات المكررة (نفس parent_id و child_id)
+    const uniqueRelations = [];
+    const seenRelations = new Set();
+    
+    for (const rel of (relations || [])) {
+      const key = `${rel.parent_id}-${rel.child_id}`;
+      if (!seenRelations.has(key)) {
+        seenRelations.add(key);
+        uniqueRelations.push(rel);
+      }
+    }
+
     return {
       persons: persons || [],
-      relations: relations || []
+      relations: uniqueRelations
     };
   } catch (err) {
     console.error("❌ خطأ في تحميل الشجرة:", err);
+    throw err;
+  }
+}
+
+// =============================================
+// 🔧 إصلاح العلاقات المفقودة
+// =============================================
+
+// ربط شخص بوالد
+export async function linkPersonToParent(tribeId, childId, parentId) {
+  try {
+    const user = await getCurrentUser();
+    if (!user?.uid) throw new Error('المستخدم غير مسجل');
+
+    // التحقق من عدم وجود العلاقة
+    const { data: existing } = await supabase
+      .from('relations')
+      .select('id')
+      .eq('tribe_id', tribeId)
+      .eq('parent_id', parentId)
+      .eq('child_id', childId)
+      .single();
+
+    if (existing) {
+      console.log('⚠️ العلاقة موجودة مسبقاً');
+      return existing;
+    }
+
+    const { data, error } = await supabase
+      .from('relations')
+      .insert({
+        tribe_id: tribeId,
+        parent_id: parentId,
+        child_id: childId,
+        created_by: user.uid
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    console.log(`✅ تم ربط ${childId} بالوالد ${parentId}`);
+    return data;
+  } catch (err) {
+    console.error("❌ خطأ في ربط الشخص:", err);
+    throw err;
+  }
+}
+
+// إصلاح علاقات الإخوة غير المرتبطين
+export async function fixUnlinkedSiblings(tribeId, userPersonId) {
+  try {
+    // 1. الحصول على والد المستخدم
+    const { data: parentRel } = await supabase
+      .from('relations')
+      .select('parent_id')
+      .eq('tribe_id', tribeId)
+      .eq('child_id', userPersonId)
+      .single();
+
+    if (!parentRel) {
+      console.log('⚠️ لم يتم العثور على والد المستخدم');
+      return { fixed: 0 };
+    }
+
+    const parentId = parentRel.parent_id;
+
+    // 2. الحصول على جميع الأشخاص بعلاقة "أخ" أو "أخت"
+    const { data: siblings } = await supabase
+      .from('persons')
+      .select('id, first_name, relation')
+      .eq('tribe_id', tribeId)
+      .in('relation', ['أخ', 'أخت']);
+
+    if (!siblings || siblings.length === 0) {
+      return { fixed: 0 };
+    }
+
+    // 3. التحقق من كل أخ/أخت إذا كان مرتبطاً
+    let fixedCount = 0;
+    for (const sibling of siblings) {
+      const { data: existingRel } = await supabase
+        .from('relations')
+        .select('id')
+        .eq('tribe_id', tribeId)
+        .eq('child_id', sibling.id)
+        .single();
+
+      if (!existingRel) {
+        // ربط الأخ بالوالد
+        await linkPersonToParent(tribeId, sibling.id, parentId);
+        console.log(`✅ تم ربط الأخ "${sibling.first_name}" بالوالد`);
+        fixedCount++;
+      }
+    }
+
+    return { fixed: fixedCount, parentId };
+  } catch (err) {
+    console.error("❌ خطأ في إصلاح علاقات الإخوة:", err);
     throw err;
   }
 }
@@ -474,5 +864,488 @@ export async function listTribeContributors(tribeId) {
   } catch (err) {
     console.error("❌ خطأ في تحميل المساهمين:", err);
     throw err;
+  }
+}
+
+// =============================================
+// 🧠 نظام الربط الذكي الموحد
+// =============================================
+
+/**
+ * التحقق من وجود شخص مشابه قبل الإضافة
+ */
+export async function checkDuplicatePerson(tribeId, firstName, fatherName, grandfatherName = null, excludeId = null) {
+  try {
+    let query = supabase
+      .from('persons')
+      .select('id, first_name, father_name, grandfather_name, family_name, gender, birth_date')
+      .eq('tribe_id', tribeId)
+      .ilike('first_name', firstName.trim())
+      .ilike('father_name', fatherName.trim());
+    
+    if (excludeId) {
+      query = query.neq('id', excludeId);
+    }
+    
+    const { data, error } = await query;
+    
+    if (error) throw error;
+    
+    // إذا وجدنا تطابق، نحسب درجة التشابه
+    if (data && data.length > 0) {
+      const matches = data.map(person => {
+        let score = 70; // الاسم + اسم الأب متطابقان
+        
+        if (grandfatherName && person.grandfather_name?.toLowerCase().trim() === grandfatherName.toLowerCase().trim()) {
+          score += 20;
+        }
+        
+        return {
+          ...person,
+          matchScore: score,
+          isExactMatch: score >= 90
+        };
+      });
+      
+      return matches.sort((a, b) => b.matchScore - a.matchScore);
+    }
+    
+    return [];
+  } catch (err) {
+    console.error("❌ خطأ في البحث عن التكرار:", err);
+    return [];
+  }
+}
+
+/**
+ * البحث عن والد محتمل
+ */
+export async function findPotentialParent(tribeId, fatherName, grandfatherName = null) {
+  try {
+    let query = supabase
+      .from('persons')
+      .select('*')
+      .eq('tribe_id', tribeId)
+      .ilike('first_name', fatherName.trim());
+    
+    if (grandfatherName) {
+      query = query.ilike('father_name', grandfatherName.trim());
+    }
+    
+    const { data, error } = await query.order('generation', { ascending: true });
+    
+    if (error) throw error;
+    
+    return data || [];
+  } catch (err) {
+    console.error("❌ خطأ في البحث عن الوالد:", err);
+    return [];
+  }
+}
+
+/**
+ * إنشاء شخص مع الربط الذكي التلقائي
+ */
+export async function createSmartPerson(tribeId, personData) {
+  try {
+    const user = await getCurrentUser();
+    if (!user?.uid) throw new Error('المستخدم غير مسجل');
+
+    // التحقق من العضوية
+    const membership = await checkUserMembership(tribeId);
+    if (!membership) throw new Error('يجب الانضمام للقبيلة أولاً');
+
+    // التحقق من التكرار
+    const duplicates = await checkDuplicatePerson(
+      tribeId,
+      personData.first_name,
+      personData.father_name,
+      personData.grandfather_name
+    );
+    
+    if (duplicates.length > 0 && duplicates[0].isExactMatch) {
+      return {
+        success: false,
+        error: 'duplicate',
+        existingPerson: duplicates[0],
+        message: `يوجد شخص مشابه: ${duplicates[0].first_name} بن ${duplicates[0].father_name}`
+      };
+    }
+
+    // البحث عن والد محتمل للربط التلقائي
+    const potentialParents = await findPotentialParent(
+      tribeId,
+      personData.father_name,
+      personData.grandfather_name
+    );
+
+    // إضافة الشخص
+    const { data: newPerson, error } = await supabase
+      .from('persons')
+      .insert({
+        tribe_id: tribeId,
+        ...personData,
+        created_by: user.uid,
+        auto_linked: potentialParents.length > 0,
+        link_source: potentialParents.length > 0 ? 'auto_name' : null
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // إنشاء العلاقة التلقائية إذا وجدنا والداً
+    let linkResult = null;
+    if (potentialParents.length > 0) {
+      const bestParent = potentialParents[0];
+      
+      // تحقق من أن الشخص الجديد ليس أقدم من الوالد المحتمل
+      const isValidLink = !personData.birth_date || !bestParent.birth_date || 
+        new Date(personData.birth_date) > new Date(bestParent.birth_date);
+      
+      if (isValidLink) {
+        // إنشاء العلاقة
+        const { error: relError } = await supabase
+          .from('relations')
+          .insert({
+            tribe_id: tribeId,
+            parent_id: bestParent.id,
+            child_id: newPerson.id,
+            created_by: user.uid
+          });
+        
+        if (!relError) {
+          // تحديث جيل الشخص الجديد
+          await supabase
+            .from('persons')
+            .update({ 
+              generation: (bestParent.generation || 0) + 1,
+              confidence_score: potentialParents.length === 1 ? 95 : 75
+            })
+            .eq('id', newPerson.id);
+          
+          linkResult = {
+            linked: true,
+            parentId: bestParent.id,
+            parentName: bestParent.first_name,
+            confidence: potentialParents.length === 1 ? 95 : 75
+          };
+          
+          console.log(`✅ تم الربط التلقائي مع "${bestParent.first_name}"`);
+        }
+      }
+    }
+
+    // إنشاء العلاقات الإضافية (لـ "أنا"، الأبناء، الوالدين)
+    await createAutoRelations(tribeId, newPerson, membership, user.uid);
+
+    // سجل التعديل
+    await logPersonAction(tribeId, newPerson.id, 'create', user.uid, null, newPerson);
+
+    return {
+      success: true,
+      person: newPerson,
+      linkResult,
+      similarPersons: duplicates.filter(d => !d.isExactMatch)
+    };
+  } catch (err) {
+    console.error("❌ خطأ في إضافة الشخص:", err);
+    throw err;
+  }
+}
+
+/**
+ * بناء الشجرة الهرمية الموحدة
+ */
+export async function buildUnifiedTree(tribeId) {
+  try {
+    // جلب جميع الأشخاص
+    const { data: persons, error: personsError } = await supabase
+      .from('persons')
+      .select('*')
+      .eq('tribe_id', tribeId)
+      .order('generation', { ascending: true });
+
+    if (personsError) throw personsError;
+
+    // جلب جميع العلاقات
+    const { data: relations, error: relationsError } = await supabase
+      .from('relations')
+      .select('*')
+      .eq('tribe_id', tribeId);
+
+    if (relationsError) throw relationsError;
+
+    // إنشاء خريطة للأشخاص
+    const personsMap = new Map();
+    (persons || []).forEach(p => {
+      personsMap.set(p.id, {
+        id: String(p.id),
+        firstName: p.first_name,
+        fatherName: p.father_name,
+        grandfatherName: p.grandfather_name,
+        surname: p.family_name,
+        fullName: `${p.first_name} بن ${p.father_name || ''}`.trim(),
+        gender: p.gender,
+        birthDate: p.birth_date,
+        isAlive: p.is_alive !== false,
+        photoUrl: p.photo_url,
+        generation: p.generation || 0,
+        relation: p.relation,
+        createdBy: p.created_by,
+        children: [],
+        _raw: p
+      });
+    });
+
+    // بناء علاقات الوالد-الابن
+    const childIds = new Set();
+    (relations || []).forEach(rel => {
+      const parent = personsMap.get(rel.parent_id);
+      const child = personsMap.get(rel.child_id);
+      
+      if (parent && child) {
+        parent.children.push(child);
+        child.parentId = String(rel.parent_id);
+        childIds.add(rel.child_id);
+      }
+    });
+
+    // إيجاد الجذور (الأشخاص بدون آباء)
+    const roots = [];
+    personsMap.forEach((person, id) => {
+      if (!childIds.has(id)) {
+        roots.push(person);
+      }
+    });
+
+    // ترتيب الجذور والأطفال
+    const sortByGenThenName = (a, b) => {
+      if (a.generation !== b.generation) {
+        return a.generation - b.generation;
+      }
+      return (a.firstName || '').localeCompare(b.firstName || '', 'ar');
+    };
+
+    roots.sort(sortByGenThenName);
+
+    // ترتيب الأطفال بشكل متكرر
+    const sortChildren = (node) => {
+      if (node.children && node.children.length > 0) {
+        node.children.sort((a, b) => (a.firstName || '').localeCompare(b.firstName || '', 'ar'));
+        node.children.forEach(sortChildren);
+      }
+    };
+
+    roots.forEach(sortChildren);
+
+    // حساب الإحصائيات
+    let maxGeneration = 0;
+    let totalCount = 0;
+    const countStats = (node, depth = 0) => {
+      totalCount++;
+      if (depth > maxGeneration) maxGeneration = depth;
+      (node.children || []).forEach(child => countStats(child, depth + 1));
+    };
+    roots.forEach(root => countStats(root));
+
+    return {
+      roots,
+      allPersons: Array.from(personsMap.values()),
+      relations: relations || [],
+      stats: {
+        totalPersons: totalCount,
+        maxGeneration,
+        rootsCount: roots.length,
+        linkedPersons: childIds.size,
+        unlinkedPersons: roots.length
+      }
+    };
+  } catch (err) {
+    console.error("❌ خطأ في بناء الشجرة:", err);
+    throw err;
+  }
+}
+
+/**
+ * الحصول على الشجرة بتنسيق D3
+ */
+export async function getUnifiedTreeForD3(tribeId) {
+  try {
+    const tree = await buildUnifiedTree(tribeId);
+    
+    if (!tree.roots || tree.roots.length === 0) {
+      return null;
+    }
+
+    // تحويل إلى تنسيق D3
+    const convertNode = (node) => ({
+      id: node.id,
+      name: node.fullName || node.firstName,
+      firstName: node.firstName,
+      fatherName: node.fatherName,
+      surname: node.surname,
+      gender: node.gender,
+      birthDate: node.birthDate,
+      isAlive: node.isAlive,
+      photoUrl: node.photoUrl,
+      generation: node.generation,
+      relation: node.relation,
+      children: (node.children || []).map(convertNode)
+    });
+
+    // إذا كان هناك جذر واحد
+    if (tree.roots.length === 1) {
+      return {
+        tree: convertNode(tree.roots[0]),
+        stats: tree.stats
+      };
+    }
+
+    // إذا كان هناك عدة جذور، ننشئ جذراً افتراضياً
+    return {
+      tree: {
+        id: 'tribe-root',
+        name: '🏛️ شجرة القبيلة',
+        isVirtualRoot: true,
+        children: tree.roots.map(convertNode)
+      },
+      stats: tree.stats
+    };
+  } catch (err) {
+    console.error("❌ خطأ في تحويل الشجرة:", err);
+    throw err;
+  }
+}
+
+/**
+ * الحصول على نسب شخص (من الجذر إليه)
+ */
+export async function getPersonLineage(tribeId, personId) {
+  try {
+    const lineage = [];
+    let currentId = personId;
+    const visited = new Set();
+    
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId);
+      
+      const { data: person } = await supabase
+        .from('persons')
+        .select('*')
+        .eq('id', currentId)
+        .single();
+      
+      if (!person) break;
+      
+      lineage.unshift({
+        id: String(person.id),
+        firstName: person.first_name,
+        fatherName: person.father_name,
+        fullName: `${person.first_name} بن ${person.father_name || ''}`.trim()
+      });
+      
+      const { data: relation } = await supabase
+        .from('relations')
+        .select('parent_id')
+        .eq('child_id', currentId)
+        .eq('tribe_id', tribeId)
+        .limit(1)
+        .single();
+      
+      currentId = relation?.parent_id;
+    }
+    
+    return lineage;
+  } catch (err) {
+    console.error("❌ خطأ في جلب النسب:", err);
+    return [];
+  }
+}
+
+/**
+ * دمج شخصين (عند اكتشاف أنهما نفس الشخص)
+ */
+export async function mergePersons(tribeId, keepPersonId, removePersonId) {
+  try {
+    const user = await getCurrentUser();
+    if (!user?.uid) throw new Error('المستخدم غير مسجل');
+
+    // نقل علاقات الشخص المحذوف للشخص المحتفظ به
+    // 1. العلاقات كوالد
+    await supabase
+      .from('relations')
+      .update({ parent_id: keepPersonId })
+      .eq('tribe_id', tribeId)
+      .eq('parent_id', removePersonId);
+    
+    // 2. العلاقات كابن
+    await supabase
+      .from('relations')
+      .update({ child_id: keepPersonId })
+      .eq('tribe_id', tribeId)
+      .eq('child_id', removePersonId);
+    
+    // حذف الشخص المكرر
+    await supabase
+      .from('persons')
+      .delete()
+      .eq('id', removePersonId)
+      .eq('tribe_id', tribeId);
+    
+    // سجل العملية
+    await logPersonAction(tribeId, keepPersonId, 'merge', user.uid, { mergedFrom: removePersonId }, null);
+    
+    return true;
+  } catch (err) {
+    console.error("❌ خطأ في دمج الأشخاص:", err);
+    throw err;
+  }
+}
+
+/**
+ * الحصول على إحصائيات الشجرة
+ */
+export async function getTribeStatistics(tribeId) {
+  try {
+    const { count: totalPersons } = await supabase
+      .from('persons')
+      .select('*', { count: 'exact', head: true })
+      .eq('tribe_id', tribeId);
+    
+    const { count: maleCount } = await supabase
+      .from('persons')
+      .select('*', { count: 'exact', head: true })
+      .eq('tribe_id', tribeId)
+      .eq('gender', 'M');
+    
+    const { count: femaleCount } = await supabase
+      .from('persons')
+      .select('*', { count: 'exact', head: true })
+      .eq('tribe_id', tribeId)
+      .eq('gender', 'F');
+    
+    const { count: relationsCount } = await supabase
+      .from('relations')
+      .select('*', { count: 'exact', head: true })
+      .eq('tribe_id', tribeId);
+    
+    const { data: generations } = await supabase
+      .from('persons')
+      .select('generation')
+      .eq('tribe_id', tribeId)
+      .order('generation', { ascending: false })
+      .limit(1);
+    
+    return {
+      totalPersons: totalPersons || 0,
+      maleCount: maleCount || 0,
+      femaleCount: femaleCount || 0,
+      relationsCount: relationsCount || 0,
+      generationsCount: (generations?.[0]?.generation || 0) + 1
+    };
+  } catch (err) {
+    console.error("❌ خطأ في جلب الإحصائيات:", err);
+    return {};
   }
 }

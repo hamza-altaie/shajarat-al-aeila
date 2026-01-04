@@ -6,7 +6,8 @@ import {
   sendOtp as firebaseSendOtp,
   verifyOtp as firebaseVerifyOtp,
   logout as firebaseLogout,
-  getCurrentUser
+  getCurrentUser,
+  onAuthChange
 } from './firebase/auth';
 
 // ✅ استيراد Supabase للبيانات فقط (ليس للمصادقة)
@@ -28,36 +29,28 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // تهيئة الجلسة
+  // تهيئة الجلسة والاستماع لتغييرات المصادقة
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        setError(null);
-        const u = await getCurrentUser();
-        if (!mounted) return;
-        if (u) {
-          setUser(u);
-          setUserData(u);
-          setIsAuthenticated(true);
-          console.log("🔥 مستخدم Firebase:", u);
-        } else {
-          setUser(null);
-          setUserData(null);
-          setIsAuthenticated(false);
-        }
-      } catch (err) {
-        console.error("خطأ في تحميل المستخدم:", err);
-        if (mounted) {
-          setUser(null);
-          setUserData(null);
-          setIsAuthenticated(false);
-        }
-      } finally {
-        mounted && setLoading(false);
+    setLoading(true);
+    
+    // الاستماع المستمر لتغييرات حالة المصادقة
+    const unsubscribe = onAuthChange((u) => {
+      if (u) {
+        console.log("🔥 مستخدم Firebase:", u);
+        setUser(u);
+        setUserData(u);
+        setIsAuthenticated(true);
+      } else {
+        console.log("🔓 لا يوجد مستخدم مسجل");
+        setUser(null);
+        setUserData(null);
+        setIsAuthenticated(false);
       }
-    })();
-    return () => { mounted = false; };
+      setLoading(false);
+    });
+
+    // تنظيف عند إلغاء المكون
+    return () => unsubscribe();
   }, []);
 
   // طلب إرسال رمز OTP

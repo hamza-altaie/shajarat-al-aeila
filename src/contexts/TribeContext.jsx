@@ -13,12 +13,14 @@ export const TribeProvider = ({ children }) => {
   const [membership, setMembership] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // تحميل القبيلة والعضوية
+  // تحميل القبيلة والعضوية - يتم إعادة التحميل عند تغير المستخدم
   useEffect(() => {
-    if (!isAuthenticated || !user) {
+    // إعادة تعيين البيانات عند تغير المستخدم
+    setTribe(null);
+    setMembership(null);
+    
+    if (!isAuthenticated || !user?.uid) {
       console.log('⏳ في انتظار تسجيل الدخول...');
-      setTribe(null);
-      setMembership(null);
       setLoading(false);
       return;
     }
@@ -26,7 +28,7 @@ export const TribeProvider = ({ children }) => {
     const loadTribeData = async () => {
       try {
         setLoading(true);
-        console.log('🔄 تحميل بيانات القبيلة...');
+        console.log('🔄 تحميل بيانات القبيلة للمستخدم:', user.uid);
         
         // جلب القبيلة الافتراضية
         const tribeData = await getDefaultTribe();
@@ -58,7 +60,7 @@ export const TribeProvider = ({ children }) => {
     };
 
     loadTribeData();
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user?.uid]); // الاعتماد على user.uid بدلاً من user
 
   const value = {
     tribe,

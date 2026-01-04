@@ -140,3 +140,24 @@ export async function getCurrentUser() {
     });
   });
 }
+
+// الاستماع لتغييرات حالة المصادقة
+export function onAuthChange(callback) {
+  if (!auth) {
+    console.error("❌ Firebase غير مهيأ");
+    return () => {};
+  }
+
+  return onAuthStateChanged(auth, (user) => {
+    if (user) {
+      callback({
+        uid: user.uid,
+        id: user.uid,
+        phone: user.phoneNumber,
+        phoneNumber: user.phoneNumber
+      });
+    } else {
+      callback(null);
+    }
+  });
+}
