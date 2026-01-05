@@ -178,7 +178,7 @@ export default function Family() {
     }
   };
 
-  // تحميل بيانات العائلة (من القبيلة) - فقط البيانات التي أضافها المستخدم الحالي
+  // تحميل بيانات العائلة (من القبيلة) - الأشخاص المرتبطين بالمستخدم + الذين أضافهم
 const loadFamily = useCallback(async () => {
   if (!tribe?.id) {
     console.log('⏳ في انتظار تحميل القبيلة...');
@@ -197,9 +197,16 @@ const loadFamily = useCallback(async () => {
     console.log('✅ استجابة الخادم:', response);
     const dataArray = Array.isArray(response) ? response : [];
 
-    // ✅ تصفية البيانات - فقط البيانات التي أضافها المستخدم الحالي
+    // ✅ الحصول على person_id المرتبط بالمستخدم من membership
+    const linkedPersonId = membership?.person_id;
+    console.log('🔗 الشخص المرتبط بالمستخدم:', linkedPersonId);
+
+    // ✅ تصفية البيانات - الأشخاص الذين أضافهم المستخدم + الشخص المرتبط به
     const familyData = dataArray
-      .filter((data) => data.created_by === user.uid) // فقط بيانات المستخدم الحالي
+      .filter((data) => 
+        data.created_by === user.uid || // الأشخاص الذين أضافهم
+        data.id === linkedPersonId      // أو الشخص المرتبط به (أنا)
+      )
       .map((data) => ({
         id: String(data.id || ''),
         firstName: data.first_name || '',
@@ -225,7 +232,7 @@ const loadFamily = useCallback(async () => {
   } finally {
     setLoading(false);
   }
-}, [tribe?.id, user?.uid, search, showSnackbar]);
+}, [tribe?.id, user?.uid, search, showSnackbar, membership?.person_id]);
 
   
   // التحقق من صحة البيانات

@@ -7,7 +7,8 @@ import {
   Box, Button, Typography, Alert, Snackbar, CircularProgress, 
   Chip, IconButton, Paper, LinearProgress, 
   Dialog, DialogTitle, DialogContent, DialogActions, 
-  TextField, InputAdornment
+  TextField, InputAdornment, List, ListItem, ListItemText, 
+  ListItemButton, Divider
 } from '@mui/material';
 
 // استيراد الأيقونات بشكل منفصل لتحسين الأداء
@@ -19,9 +20,16 @@ import WarningIcon from '@mui/icons-material/Warning';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import SearchIcon from '@mui/icons-material/Search';
 import BarChartIcon from '@mui/icons-material/BarChart';
-import { getTribeTree } from "../services/tribeService";
+import LinkIcon from '@mui/icons-material/Link';
+import CleaningServicesIcon from '@mui/icons-material/CleaningServices';
+import MergeTypeIcon from '@mui/icons-material/MergeType';
+import { getTribeTree, getUnlinkedRoots, mergeRoots, cleanDuplicateRelations } from "../services/tribeService";
 import { useTribe } from '../contexts/TribeContext';
 import { useAuth } from '../AuthContext';
+
+// استيراد المكونات الذكية الجديدة
+import SmartPersonForm from './SmartPersonForm';
+import DuplicatesManager from './DuplicatesManager';
 
 // استيراد المكونات والأدوات المنفصلة
 import './FamilyTreeAdvanced.css';
@@ -59,6 +67,18 @@ export default function FamilyTreeAdvanced() {
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState(null);
   
+  // حالات ربط الجذور
+  const [rootsDialogOpen, setRootsDialogOpen] = useState(false);
+  const [unlinkedRoots, setUnlinkedRoots] = useState([]);
+  const [selectedChildRoot, setSelectedChildRoot] = useState(null);
+  const [linking, setLinking] = useState(false);
+  
+  // 🔍 حالات الأشخاص المكررين (المكون الجديد)
+  const [duplicatesManagerOpen, setDuplicatesManagerOpen] = useState(false);
+  
+  // 📝 حالات نموذج الإضافة الذكي
+  const [smartFormOpen, setSmartFormOpen] = useState(false);
+  
   // استخدام useAuth بدلاً من localStorage
   const { user, isAuthenticated } = useAuth();
   
@@ -69,12 +89,21 @@ export default function FamilyTreeAdvanced() {
   const svgContainerRef = useRef(null); // حاوية SVG المنفصلة
   const containerRef = useRef(null);
   const reactRootsRef = useRef(new Map());
+  const isMountedRef = useRef(true); // لتتبع حالة التحميل
   
   // مراجع لحل مشكلة الحلقة اللانهائية
   const handleNodeClickRef = useRef(null);
   const searchQueryRef = useRef('');
   const drawTreeRef = useRef(null);
   const loadTreeRef = useRef(null);
+
+  // تتبع حالة تحميل المكون
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // تحديث المراجع عند تغيير القيم
   useEffect(() => {
@@ -241,15 +270,23 @@ export default function FamilyTreeAdvanced() {
     const roots = [];
     const childrenMap = new Map(); // parent_id -> children[]
     const hasParent = new Set(); // مجموعة الأشخاص الذين لديهم والد
+    const addedChildren = new Map(); // parent_id -> Set of child_ids (لمنع التكرار)
 
     persons.forEach(p => {
       if (p.parentId) {
         hasParent.add(p.id);
-        // تجميع الأطفال تحت كل والد
+        
+        // تجميع الأطفال تحت كل والد (مع منع التكرار)
         if (!childrenMap.has(p.parentId)) {
           childrenMap.set(p.parentId, []);
+          addedChildren.set(p.parentId, new Set());
         }
-        childrenMap.get(p.parentId).push(p);
+        
+        // إضافة الطفل فقط إذا لم يُضف من قبل
+        if (!addedChildren.get(p.parentId).has(p.id)) {
+          addedChildren.get(p.parentId).add(p.id);
+          childrenMap.get(p.parentId).push(p);
+        }
       }
     });
 
@@ -270,8 +307,16 @@ export default function FamilyTreeAdvanced() {
     console.log('🌱 الجذور:', roots.map(r => r.firstName));
     console.log('👶 خريطة الأطفال:', Object.fromEntries(childrenMap));
 
-    // دالة تكرارية لبناء الشجرة
+    // دالة تكرارية لبناء الشجرة (مع منع التكرار)
+    const builtNodes = new Set(); // لمنع بناء نفس العقدة مرتين
+    
     const buildNode = (person) => {
+      // منع التكرار
+      if (builtNodes.has(person.id)) {
+        return null;
+      }
+      builtNodes.add(person.id);
+      
       const children = childrenMap.get(person.id) || [];
       
       return {
@@ -287,7 +332,9 @@ export default function FamilyTreeAdvanced() {
           relation: person.relation || (person.is_root ? 'رب العائلة' : (person.gender === 'M' ? 'ابن' : 'بنت')),
           isRoot: person.is_root
         },
-        children: children.map(child => buildNode(child))
+        children: children
+          .map(child => buildNode(child))
+          .filter(node => node !== null) // إزالة العقد الفارغة (المكررة)
       };
     };
 
@@ -362,8 +409,21 @@ export default function FamilyTreeAdvanced() {
           }];
         }));
 
+        // ✅ إزالة العلاقات المكررة - كل طفل له والد واحد فقط
+        const processedChildren = new Set();
+        const uniqueRelations = response.relations.filter(rel => {
+          if (processedChildren.has(rel.child_id)) {
+            console.warn(`⚠️ علاقة مكررة للطفل ${rel.child_id} - تم تجاهلها`);
+            return false;
+          }
+          processedChildren.add(rel.child_id);
+          return true;
+        });
+        
+        console.log(`📊 علاقات فريدة: ${uniqueRelations.length} من ${response.relations.length}`);
+
         // دمج العلاقات: نضع parent_id داخل كائن الابن
-        response.relations.forEach(rel => {
+        uniqueRelations.forEach(rel => {
           const child = personsMap.get(rel.child_id);
           if (child) {
             // إضافة خاصية parent_id التي يعتمد عليها كود بناء الشجرة القديم لديك
@@ -431,6 +491,66 @@ export default function FamilyTreeAdvanced() {
     loadTree();
   }, [loadTree]);
 
+  // تنظيف العلاقات المكررة
+  const handleCleanDuplicates = useCallback(async () => {
+    if (!tribe?.id) return;
+    
+    setLoading(true);
+    try {
+      const result = await cleanDuplicateRelations(tribe.id);
+      if (result.deleted > 0) {
+        showSnackbar(`🧹 تم حذف ${result.deleted} علاقة مكررة!`, 'success');
+        handleRefresh();
+      } else {
+        showSnackbar('✅ لا توجد علاقات مكررة', 'info');
+      }
+    } catch (err) {
+      showSnackbar('❌ خطأ في التنظيف', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [tribe?.id, showSnackbar, handleRefresh]);
+
+  // ===========================================================================
+  // دوال ربط الجذور
+  // ===========================================================================
+  
+  // فتح نافذة ربط الجذور
+  const handleOpenRootsDialog = useCallback(async () => {
+    if (!tribe?.id) return;
+    
+    try {
+      const roots = await getUnlinkedRoots(tribe.id);
+      if (roots.length <= 1) {
+        showSnackbar('✅ الشجرة مرتبطة بشكل صحيح!', 'success');
+        return;
+      }
+      setUnlinkedRoots(roots);
+      setRootsDialogOpen(true);
+    } catch (err) {
+      showSnackbar('❌ خطأ في جلب الجذور', 'error');
+    }
+  }, [tribe?.id, showSnackbar]);
+  
+  // ربط جذر بوالد
+  const handleLinkRoots = useCallback(async (childId, parentId) => {
+    if (!tribe?.id) return;
+    
+    setLinking(true);
+    try {
+      await mergeRoots(tribe.id, childId, parentId);
+      showSnackbar('✅ تم الربط بنجاح!', 'success');
+      setRootsDialogOpen(false);
+      setSelectedChildRoot(null);
+      // إعادة تحميل الشجرة
+      handleRefresh();
+    } catch (err) {
+      showSnackbar('❌ خطأ في الربط', 'error');
+    } finally {
+      setLinking(false);
+    }
+  }, [tribe?.id, showSnackbar, handleRefresh]);
+
   // ===========================================================================
   // دالة رسم الشجرة
   // ===========================================================================
@@ -438,6 +558,12 @@ export default function FamilyTreeAdvanced() {
   // استبدل دالة drawTreeWithD3 بهذا الكود الذي يحافظ على التصميم الأصلي مع أنيميشن بسيط:
 
 const drawTreeWithD3 = useCallback((data) => {
+  // التحقق من حالة التحميل أولاً
+  if (!isMountedRef.current) {
+    console.log('⚠️ المكون غير محمّل، تخطي الرسم');
+    return;
+  }
+  
   if (!data || !svgContainerRef.current || !containerRef.current) {
     return;
   }
@@ -1100,17 +1226,30 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
   // تنظيف عند إلغاء التحميل
   useEffect(() => {
     const currentReactRoots = reactRootsRef.current;
+    const currentSvgContainer = svgContainerRef.current;
+    
     return () => {
-      currentReactRoots.forEach(root => {
+      // 1. إيقاف جميع الأنيميشن
+      if (currentSvgContainer) {
         try {
-          if (!ReactDOM.unstable_isNewReconciler) {
-            root.unmount();
-          }
+          d3.select(currentSvgContainer).selectAll('*').interrupt();
+          d3.select(currentSvgContainer).selectAll('*').remove();
         } catch {
           // Silent cleanup
         }
-      });
-      currentReactRoots.clear();
+      }
+      
+      // 2. تنظيف React roots بعد إزالة DOM
+      setTimeout(() => {
+        currentReactRoots.forEach(root => {
+          try {
+            root.unmount();
+          } catch {
+            // Silent cleanup
+          }
+        });
+        currentReactRoots.clear();
+      }, 0);
     };
   }, []);
 
@@ -1171,80 +1310,95 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
               إعادة المحاولة
             </Button>
           </Box>
-        ) : treeData ? (
-          <div
-            ref={svgContainerRef}
-            style={{ 
-              width: '100%',
-              height: '100%',
-              cursor: 'grab', 
-              userSelect: 'none',
-              background: 'transparent'
-            }}
-            onMouseDown={(e) => e.currentTarget.style.cursor = 'grabbing'}
-            onMouseUp={(e) => e.currentTarget.style.cursor = 'grab'}
-            onMouseLeave={(e) => e.currentTarget.style.cursor = 'grab'}
-          />
         ) : (
-          <Box
-            display="flex"
-            flexDirection="column"
-            justifyContent="center"
-            alignItems="center"
-            height="100%"
-            sx={{ color: '#f8fafc', textAlign: 'center' }}
-          >
-            {loading ? (
-              <Box textAlign="center" maxWidth={600}>
-                <CircularProgress size={80} sx={{ color: '#10b981', mb: 3 }} />
-                <Typography variant="h5" sx={{ mb: 2, fontFamily: 'Cairo, sans-serif' }}>
-                  {loadingStage || `جاري تحميل ${treeTitle}...`}
-                </Typography>
-                <LinearProgress 
-                  variant="determinate" 
-                  value={loadingProgress} 
-                  sx={{ 
-                    width: '100%', 
-                    height: 8, 
-                    borderRadius: 4, 
-                    mb: 2,
-                    backgroundColor: 'rgba(255,255,255,0.1)',
-                    '& .MuiLinearProgress-bar': {
-                      backgroundColor: '#10b981'
-                    }
-                  }}
-                />
-                <Typography variant="body2" sx={{ color: '#10b981', fontFamily: 'Cairo, sans-serif' }}>
-                  {Math.round(loadingProgress)}% مكتمل
-                </Typography>
-              </Box>
-            ) : (
-              <Box textAlign="center">
-                <AccountTreeIcon sx={{ fontSize: 120, color: '#10b981', mb: 2 }} />
-                <Typography variant="h4" sx={{ mb: 1, fontFamily: 'Cairo, sans-serif', color: '#10b981' }}>
-                  🌳 ابنِ شجرة عائلتك
-                </Typography>
-                <Typography variant="body1" sx={{ color: 'text.secondary', mb: 3, maxWidth: 500, fontFamily: 'Cairo, sans-serif' }}>
-                  👨‍👩‍👧‍👦 أضف أفراد عائلتك: الوالد، رب العائلة، الأطفال، الإخوة، والأقارب
-                </Typography>
-                <Box display="flex" gap={2} justifyContent="center">
-                  <Button
-                    variant="contained"
-                    sx={{ 
-                      backgroundColor: '#10b981',
-                      '&:hover': { backgroundColor: '#059669' },
-                      fontFamily: 'Cairo, sans-serif'
-                    }}
-                    size="large"
-                    onClick={() => navigate('/family')}
-                    startIcon={<PersonIcon />}
-                  >
-                    إضافة أفراد العائلة
-                  </Button>
-                </Box>
+          <>
+            {/* SVG Container - دائماً موجود لتجنب مشاكل React/D3 */}
+            <div
+              key="d3-svg-container"
+              ref={svgContainerRef}
+              style={{ 
+                width: '100%',
+                height: '100%',
+                cursor: 'grab', 
+                userSelect: 'none',
+                background: 'transparent',
+                display: treeData ? 'block' : 'none'
+              }}
+              onMouseDown={(e) => e.currentTarget.style.cursor = 'grabbing'}
+              onMouseUp={(e) => e.currentTarget.style.cursor = 'grab'}
+              onMouseLeave={(e) => e.currentTarget.style.cursor = 'grab'}
+            />
+            {/* Loading/Empty state */}
+            {!treeData && (
+              <Box
+                display="flex"
+                flexDirection="column"
+                justifyContent="center"
+                alignItems="center"
+                height="100%"
+                sx={{ 
+                  color: '#f8fafc', 
+                  textAlign: 'center',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0
+                }}
+              >
+                {loading ? (
+                  <Box textAlign="center" maxWidth={600}>
+                    <CircularProgress size={80} sx={{ color: '#10b981', mb: 3 }} />
+                    <Typography variant="h5" sx={{ mb: 2, fontFamily: 'Cairo, sans-serif' }}>
+                      {loadingStage || `جاري تحميل ${treeTitle}...`}
+                    </Typography>
+                    <LinearProgress 
+                      variant="determinate" 
+                      value={loadingProgress} 
+                      sx={{ 
+                        width: '100%', 
+                        height: 8, 
+                        borderRadius: 4, 
+                        mb: 2,
+                        backgroundColor: 'rgba(255,255,255,0.1)',
+                        '& .MuiLinearProgress-bar': {
+                          backgroundColor: '#10b981'
+                        }
+                      }}
+                    />
+                    <Typography variant="body2" sx={{ color: '#10b981', fontFamily: 'Cairo, sans-serif' }}>
+                      {Math.round(loadingProgress)}% مكتمل
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Box textAlign="center">
+                    <AccountTreeIcon sx={{ fontSize: 120, color: '#10b981', mb: 2 }} />
+                    <Typography variant="h4" sx={{ mb: 1, fontFamily: 'Cairo, sans-serif', color: '#10b981' }}>
+                      🌳 ابنِ شجرة عائلتك
+                    </Typography>
+                    <Typography variant="body1" sx={{ color: 'text.secondary', mb: 3, maxWidth: 500, fontFamily: 'Cairo, sans-serif' }}>
+                      👨‍👩‍👧‍👦 أضف أفراد عائلتك: الوالد، رب العائلة، الأطفال، الإخوة، والأقارب
+                    </Typography>
+                    <Box display="flex" gap={2} justifyContent="center">
+                      <Button
+                        variant="contained"
+                        sx={{ 
+                          backgroundColor: '#10b981',
+                          '&:hover': { backgroundColor: '#059669' },
+                          fontFamily: 'Cairo, sans-serif'
+                        }}
+                        size="large"
+                        onClick={() => navigate('/family')}
+                        startIcon={<PersonIcon />}
+                      >
+                        إضافة أفراد العائلة
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
               </Box>
             )}
-          </Box>
+          </>
         )}
       </Box>
     );
@@ -1420,6 +1574,71 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
             الإحصائيات
           </Button>
 
+          {/* زر ربط الجذور */}
+          <IconButton 
+            onClick={handleOpenRootsDialog} 
+            disabled={loading} 
+            size={window.innerWidth < 600 ? "small" : "medium"}
+            sx={{ 
+              ml: 0.5,
+              borderRadius: 1.5,
+              background: 'rgba(245,158,11,0.1)',
+              color: '#f59e0b',
+              '&:hover': {
+                background: 'rgba(245,158,11,0.2)',
+                transform: 'scale(1.05)',
+              },
+              transition: 'all 0.2s ease'
+            }}
+            title="🔗 ربط الجذور المنفصلة"
+          >
+            <LinkIcon />
+          </IconButton>
+
+          {/* زر تنظيف العلاقات المكررة */}
+          <IconButton 
+            onClick={handleCleanDuplicates} 
+            disabled={loading} 
+            size={window.innerWidth < 600 ? "small" : "medium"}
+            sx={{ 
+              ml: 0.5,
+              borderRadius: 1.5,
+              background: 'rgba(239,68,68,0.1)',
+              color: '#ef4444',
+              '&:hover': {
+                background: 'rgba(239,68,68,0.2)',
+                transform: 'scale(1.05)',
+              },
+              transition: 'all 0.2s ease'
+            }}
+            title="🧹 تنظيف العلاقات المكررة"
+          >
+            <CleaningServicesIcon />
+          </IconButton>
+
+          {/* 🔍 زر إدارة الأشخاص المكررين - للمدير فقط */}
+          {membership?.role === 'admin' && (
+            <IconButton 
+              onClick={() => setDuplicatesManagerOpen(true)} 
+              disabled={loading} 
+              size={window.innerWidth < 600 ? "small" : "medium"}
+              sx={{ 
+                ml: 0.5,
+                borderRadius: 1.5,
+                background: 'rgba(168,85,247,0.1)',
+                color: '#a855f7',
+                '&:hover': {
+                  background: 'rgba(168,85,247,0.2)',
+                  transform: 'scale(1.05)',
+                },
+                transition: 'all 0.2s ease'
+              }}
+              title="👥 إدارة الأشخاص المكررين (للمدير)"
+            >
+              <MergeTypeIcon />
+            </IconButton>
+          )}
+
           {/* زر التحديث */}
           <IconButton 
             onClick={handleRefresh} 
@@ -1443,7 +1662,6 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
 
         {/* شريط البحث المحسن - ارتفاع مقلل */}
         <Box sx={{ 
-          display: 'flex', 
           justifyContent: 'center', 
           mb: 1,
           px: { xs: 1, sm: 0 }
@@ -1624,6 +1842,134 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
           <Button onClick={() => setSelectedNode(null)}>إغلاق</Button>
         </DialogActions>
       </Dialog>
+
+      {/* نافذة ربط الجذور المنفصلة */}
+      <Dialog 
+        open={rootsDialogOpen} 
+        onClose={() => {
+          setRootsDialogOpen(false);
+          setSelectedChildRoot(null);
+        }}
+        maxWidth="sm"
+        fullWidth
+        dir="rtl"
+      >
+        <DialogTitle sx={{ fontFamily: 'Cairo, sans-serif', textAlign: 'center' }}>
+          🔗 ربط الأشخاص المنفصلين
+        </DialogTitle>
+        <DialogContent>
+          {unlinkedRoots.length > 1 && (
+            <Box>
+              <Alert severity="warning" sx={{ mb: 2, fontFamily: 'Cairo, sans-serif' }}>
+                يوجد {unlinkedRoots.length} أشخاص بدون والد في الشجرة. اختر الشخص الابن ثم الوالد لربطهم.
+              </Alert>
+              
+              {!selectedChildRoot ? (
+                <>
+                  <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold', fontFamily: 'Cairo, sans-serif' }}>
+                    1️⃣ اختر الشخص (الابن):
+                  </Typography>
+                  <List>
+                    {unlinkedRoots.map((person) => (
+                      <ListItem key={person.id} disablePadding>
+                        <ListItemButton 
+                          onClick={() => setSelectedChildRoot(person)}
+                          sx={{ borderRadius: 2, mb: 0.5 }}
+                        >
+                          <ListItemText 
+                            primary={`${person.first_name || ''} ${person.father_name || ''} ${person.family_name || ''}`}
+                            secondary={person.relation || 'غير محدد'}
+                            primaryTypographyProps={{ fontFamily: 'Cairo, sans-serif' }}
+                            secondaryTypographyProps={{ fontFamily: 'Cairo, sans-serif' }}
+                          />
+                        </ListItemButton>
+                      </ListItem>
+                    ))}
+                  </List>
+                </>
+              ) : (
+                <>
+                  <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold', fontFamily: 'Cairo, sans-serif' }}>
+                    ✅ الابن المختار: {selectedChildRoot.first_name} {selectedChildRoot.father_name}
+                  </Typography>
+                  <Button 
+                    size="small" 
+                    onClick={() => setSelectedChildRoot(null)}
+                    sx={{ mb: 2 }}
+                  >
+                    تغيير
+                  </Button>
+                  
+                  <Divider sx={{ my: 2 }} />
+                  
+                  <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold', fontFamily: 'Cairo, sans-serif' }}>
+                    2️⃣ اختر الوالد:
+                  </Typography>
+                  <List>
+                    {unlinkedRoots
+                      .filter(p => p.id !== selectedChildRoot.id)
+                      .map((person) => (
+                        <ListItem key={person.id} disablePadding>
+                          <ListItemButton 
+                            onClick={() => handleLinkRoots(selectedChildRoot.id, person.id)}
+                            disabled={linking}
+                            sx={{ 
+                              borderRadius: 2, 
+                              mb: 0.5,
+                              bgcolor: 'rgba(16,185,129,0.1)',
+                              '&:hover': { bgcolor: 'rgba(16,185,129,0.2)' }
+                            }}
+                          >
+                            <ListItemText 
+                              primary={`${person.first_name || ''} ${person.father_name || ''} ${person.family_name || ''}`}
+                              secondary={`اضغط لجعله والد ${selectedChildRoot.first_name}`}
+                              primaryTypographyProps={{ fontFamily: 'Cairo, sans-serif' }}
+                              secondaryTypographyProps={{ fontFamily: 'Cairo, sans-serif', color: 'success.main' }}
+                            />
+                            {linking && <CircularProgress size={20} />}
+                          </ListItemButton>
+                        </ListItem>
+                      ))}
+                  </List>
+                </>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => {
+              setRootsDialogOpen(false);
+              setSelectedChildRoot(null);
+            }}
+            sx={{ fontFamily: 'Cairo, sans-serif' }}
+          >
+            إغلاق
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ================================================= */}
+      {/* 🔍 مكون إدارة الأشخاص المكررين (الجديد) */}
+      {/* ================================================= */}
+      <DuplicatesManager
+        open={duplicatesManagerOpen}
+        onClose={() => setDuplicatesManagerOpen(false)}
+        onMergeComplete={handleRefresh}
+      />
+
+      {/* ================================================= */}
+      {/* 📝 نموذج الإضافة الذكي */}
+      {/* ================================================= */}
+      <SmartPersonForm
+        open={smartFormOpen}
+        onClose={() => setSmartFormOpen(false)}
+        tribeId={tribe?.id}
+        onSuccess={(result) => {
+          showSnackbar(result.message, 'success');
+          handleRefresh();
+        }}
+      />
       
       <Snackbar 
         open={snackbarOpen} 
