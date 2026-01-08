@@ -1,5 +1,5 @@
 // src/pages/Family.jsx - إصلاح Grid للإصدار الحالي
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Container, TextField, Button, Typography, Paper, Box, IconButton, 
   Card, CardContent, CardActions, Snackbar, Alert, CircularProgress, 
@@ -96,12 +96,23 @@ export default function Family() {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
 
+  // ✅ ref لتتبع حالة تحميل المكون
+  const isMountedRef = useRef(true);
+
   const navigate = useNavigate();
-  const uid = localStorage.getItem('verifiedUid');
   const phone = localStorage.getItem('verifiedPhone');
+
+  // تتبع حالة تحميل المكون
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // دالة عرض الإشعارات
   const showSnackbar = useCallback((message, severity = 'success') => {
+    if (!isMountedRef.current) return; // تجاهل إذا كان المكون غير محمّل
     setSnackbarMessage(message);
     setSnackbarSeverity(severity);
     setSnackbarOpen(true);
@@ -194,6 +205,13 @@ const loadFamily = useCallback(async () => {
   setLoading(true);
   try {
     const response = await listTribePersons(tribe.id, search);
+    
+    // ✅ التحقق من أن المكون لا يزال محمّلاً قبل تحديث الـ state
+    if (!isMountedRef.current) {
+      console.log('⚠️ المكون غير محمّل، تجاهل التحديث');
+      return;
+    }
+    
     console.log('✅ استجابة الخادم:', response);
     const dataArray = Array.isArray(response) ? response : [];
 
@@ -225,12 +243,20 @@ const loadFamily = useCallback(async () => {
       .filter((member) => member.id && member.firstName);
 
     console.log('✅ تم تحميل', familyData.length, 'من أفرادك');
-    setMembers(familyData);
+    
+    // ✅ التحقق مرة أخرى قبل تحديث الـ state
+    if (isMountedRef.current) {
+      setMembers(familyData);
+    }
   } catch (error) {
     console.error('❌ خطأ في تحميل بيانات العائلة:', error);
-    showSnackbar('حدث خطأ أثناء تحميل بيانات العائلة', 'error');
+    if (isMountedRef.current) {
+      showSnackbar('حدث خطأ أثناء تحميل بيانات العائلة', 'error');
+    }
   } finally {
-    setLoading(false);
+    if (isMountedRef.current) {
+      setLoading(false);
+    }
   }
 }, [tribe?.id, user?.uid, search, showSnackbar, membership?.person_id]);
 

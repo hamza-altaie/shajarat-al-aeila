@@ -47,7 +47,7 @@ export async function sendOtp(phoneNumber) {
     try {
       recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         size: 'invisible',
-        callback: (response) => {
+        callback: () => {
           console.log("✅ تم التحقق من reCAPTCHA بنجاح");
         },
         'expired-callback': () => {

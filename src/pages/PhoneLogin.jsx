@@ -4,11 +4,9 @@ import {
   Alert, CircularProgress, InputAdornment, Link
 } from '@mui/material';
 import { Phone as PhoneIcon, Security as SecurityIcon, Warning as WarningIcon } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext.jsx';
 
 const PhoneLogin = () => {
-  const navigate = useNavigate();
   const [verificationCode, setVerificationCode] = useState('');
   const [confirmationResult, setConfirmationResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -202,7 +200,7 @@ const PhoneLogin = () => {
         if (devUser) {
           console.log("✅ تم حفظ المستخدم في localStorage بنجاح");
         }
-      } catch (e) {
+      } catch {
         console.warn("تحذير: لم يتم حفظ المستخدم");
       }
       

@@ -7,6 +7,7 @@
  * - توحيد الهمزات
  * - توحيد التاء المربوطة والهاء
  * - توحيد الألف المقصورة والياء
+ * - معالجة الأسماء المركبة (عبدالله، عبد الله)
  */
 export function normalizeArabicText(text) {
   if (!text) return '';
@@ -23,6 +24,13 @@ export function normalizeArabicText(text) {
     .replace(/ة/g, 'ه')
     // توحيد الألف المقصورة والياء
     .replace(/ى/g, 'ي')
+    // ✅ توحيد الأسماء المركبة (عبد الله = عبدالله)
+    .replace(/عبد\s+ال/g, 'عبدال')
+    .replace(/عبد\s+الله/g, 'عبدالله')
+    .replace(/عبد\s+الرحمن/g, 'عبدالرحمن')
+    .replace(/عبد\s+القادر/g, 'عبدالقادر')
+    .replace(/عبد\s+الكريم/g, 'عبدالكريم')
+    .replace(/عبد\s+العزيز/g, 'عبدالعزيز')
     // إزالة المسافات الزائدة
     .replace(/\s+/g, ' ')
     .toLowerCase();
@@ -102,7 +110,33 @@ export function matchPersons(person1, person2) {
   
   if (totalWeight === 0) return 0;
   
-  return Math.round((totalScore / totalWeight) * 100);
+  let baseScore = Math.round((totalScore / totalWeight) * 100);
+  
+  // ✅ إصلاح سيناريو 1: فحص فرق تاريخ الميلاد
+  if (person1.birth_date && person2.birth_date) {
+    const birth1 = new Date(person1.birth_date);
+    const birth2 = new Date(person2.birth_date);
+    const ageDiffYears = Math.abs(birth1.getFullYear() - birth2.getFullYear());
+    
+    // إذا فرق العمر أكثر من 3 سنوات، خفض نسبة التشابه
+    if (ageDiffYears > 3) {
+      baseScore = Math.max(0, baseScore - (ageDiffYears * 5));
+      console.log(`⚠️ فرق العمر ${ageDiffYears} سنة - خفض التشابه إلى ${baseScore}%`);
+    }
+  }
+  
+  // ✅ إصلاح سيناريو 5: فحص فرق الأجيال
+  if (person1.generation !== undefined && person2.generation !== undefined) {
+    const genDiff = Math.abs(person1.generation - person2.generation);
+    
+    // إذا فرق الأجيال أكثر من 1، هذا مستحيل أن يكونا نفس الشخص
+    if (genDiff > 1) {
+      baseScore = Math.max(0, baseScore - (genDiff * 20));
+      console.log(`⚠️ فرق الأجيال ${genDiff} - خفض التشابه إلى ${baseScore}%`);
+    }
+  }
+  
+  return baseScore;
 }
 
 /**

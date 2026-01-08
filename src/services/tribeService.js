@@ -5,6 +5,89 @@ import { getCurrentUser } from '../firebase/auth.js';
 // دوال القبيلة (Tribe)
 // =============================================
 
+/**
+ * ✅ إصلاح سيناريو 2: فحص الحلقات المغلقة قبل إنشاء علاقة
+ * يتأكد أن إضافة العلاقة لن تسبب حلقة (A → B → C → A)
+ */
+async function wouldCreateCircle(tribeId, parentId, childId) {
+  try {
+    // إذا كان الوالد هو نفسه الابن - حلقة مباشرة!
+    if (parentId === childId) {
+      console.error('❌ خطأ: محاولة جعل شخص والد نفسه!');
+      return true;
+    }
+    
+    // جلب كل العلاقات
+    const { data: relations } = await supabase
+      .from('relations')
+      .select('parent_id, child_id')
+      .eq('tribe_id', tribeId);
+    
+    if (!relations) return false;
+    
+    // بناء رسم بياني للعلاقات
+    const graph = new Map();
+    for (const rel of relations) {
+      if (!graph.has(rel.parent_id)) graph.set(rel.parent_id, []);
+      graph.get(rel.parent_id).push(rel.child_id);
+    }
+    
+    // إضافة العلاقة الجديدة مؤقتاً
+    if (!graph.has(parentId)) graph.set(parentId, []);
+    graph.get(parentId).push(childId);
+    
+    // بحث عميق للكشف عن الحلقات
+    const visited = new Set();
+    const path = new Set();
+    
+    function hasCircle(node) {
+      if (path.has(node)) return true; // وجدنا حلقة!
+      if (visited.has(node)) return false;
+      
+      visited.add(node);
+      path.add(node);
+      
+      for (const child of (graph.get(node) || [])) {
+        if (hasCircle(child)) return true;
+      }
+      
+      path.delete(node);
+      return false;
+    }
+    
+    // التحقق من وجود حلقة تبدأ من الوالد الجديد
+    const circleExists = hasCircle(parentId);
+    
+    if (circleExists) {
+      console.error('❌ خطأ: إضافة هذه العلاقة ستسبب حلقة مغلقة!');
+    }
+    
+    return circleExists;
+  } catch (err) {
+    console.error('❌ خطأ في فحص الحلقات:', err);
+    return false; // في حالة الخطأ، نسمح بالإضافة
+  }
+}
+
+/**
+ * ✅ إصلاح سيناريو 8: حساب الجيل الصحيح للشخص الجديد
+ */
+async function calculateGeneration(tribeId, parentId) {
+  if (!parentId) return 0;
+  
+  try {
+    const { data: parent } = await supabase
+      .from('persons')
+      .select('generation')
+      .eq('id', parentId)
+      .single();
+    
+    return (parent?.generation || 0) + 1;
+  } catch {
+    return 0;
+  }
+}
+
 // الحصول على القبيلة الافتراضية (سنستخدم قبيلة واحدة حالياً)
 export async function getDefaultTribe() {
   try {
@@ -121,8 +204,15 @@ async function createAutoRelations(tribeId, newPerson, membership, userId) {
       return; // يجب أن يضيف المستخدم نفسه أولاً
     }
 
-    // دالة مساعدة لإضافة علاقة مع التحقق من عدم وجودها
+    // دالة مساعدة لإضافة علاقة مع التحقق من عدم وجودها والحلقات
     const addRelationIfNotExists = async (parentId, childId) => {
+      // ✅ فحص الحلقات المغلقة أولاً
+      const wouldCircle = await wouldCreateCircle(tribeId, parentId, childId);
+      if (wouldCircle) {
+        console.error('❌ رفض إضافة العلاقة: ستسبب حلقة مغلقة!');
+        return false;
+      }
+      
       // التحقق من وجود العلاقة - استخدام maybeSingle بدلاً من single
       const { data: existing } = await supabase
         .from('relations')
@@ -171,14 +261,50 @@ async function createAutoRelations(tribeId, newPerson, membership, userId) {
         .from('relations')
         .select('parent_id')
         .eq('child_id', userPersonId)
-        .limit(1)
-        .single();
+        .maybeSingle(); // ✅ استخدام maybeSingle لتجنب الخطأ
       
-      if (parentRel) {
+      if (parentRel?.parent_id) {
         const added = await addRelationIfNotExists(parentRel.parent_id, newPerson.id);
         if (added) console.log(`✅ تم ربط ${relation}: ${parentRel.parent_id} → ${newPerson.id}`);
       } else {
-        console.log('⚠️ لم يتم العثور على والد المستخدم، يجب إضافة الوالد أولاً');
+        // ✅ إصلاح سيناريو 6: إنشاء والد افتراضي إذا لم يوجد
+        console.log('⚠️ لم يتم العثور على والد، محاولة إنشاء والد افتراضي...');
+        
+        // جلب بيانات المستخدم
+        const { data: userPerson } = await supabase
+          .from('persons')
+          .select('father_name, grandfather_name, family_name')
+          .eq('id', userPersonId)
+          .single();
+        
+        if (userPerson?.father_name) {
+          // إنشاء الوالد الافتراضي
+          const { data: autoParent, error: parentError } = await supabase
+            .from('persons')
+            .insert({
+              tribe_id: tribeId,
+              first_name: userPerson.father_name,
+              father_name: userPerson.grandfather_name || '',
+              family_name: userPerson.family_name || '',
+              relation: 'والد',
+              gender: 'M',
+              generation: await calculateGeneration(tribeId, null),
+              created_by: userId,
+              is_auto_created: true // علامة للتمييز
+            })
+            .select()
+            .single();
+          
+          if (!parentError && autoParent) {
+            console.log(`✅ تم إنشاء والد افتراضي: ${autoParent.first_name}`);
+            
+            // ربط المستخدم بالوالد الافتراضي
+            await addRelationIfNotExists(autoParent.id, userPersonId);
+            
+            // ربط الأخ بالوالد الافتراضي
+            await addRelationIfNotExists(autoParent.id, newPerson.id);
+          }
+        }
       }
     }
     
@@ -189,10 +315,9 @@ async function createAutoRelations(tribeId, newPerson, membership, userId) {
         .from('relations')
         .select('parent_id')
         .eq('child_id', userPersonId)
-        .limit(1)
-        .single();
+        .maybeSingle(); // ✅ استخدام maybeSingle
       
-      if (parentRel) {
+      if (parentRel?.parent_id) {
         const added = await addRelationIfNotExists(newPerson.id, parentRel.parent_id);
         if (added) console.log(`✅ تم ربط ${relation}: ${newPerson.id} → ${parentRel.parent_id}`);
       }
@@ -293,6 +418,31 @@ async function smartAutoLink(tribeId, newPerson, userId) {
       return !!data;
     };
     
+    // ✅ دالة آمنة لإضافة العلاقة مع فحص الحلقات
+    const safeAddRelation = async (parentId, childId) => {
+      // فحص الحلقات أولاً
+      const wouldCircle = await wouldCreateCircle(tribeId, parentId, childId);
+      if (wouldCircle) {
+        console.warn('⚠️ تم رفض الربط: سيسبب حلقة مغلقة');
+        return false;
+      }
+      
+      // التحقق من وجود العلاقة
+      const exists = await relationExists(parentId, childId);
+      if (exists) return false;
+      
+      const { error } = await supabase
+        .from('relations')
+        .insert({
+          tribe_id: tribeId,
+          parent_id: parentId,
+          child_id: childId,
+          created_by: userId
+        });
+      
+      return !error;
+    };
+    
     // ========================================
     // 1️⃣ البحث عن الوالد (father_name → شخص first_name مطابق)
     // ========================================
@@ -309,27 +459,23 @@ async function smartAutoLink(tribeId, newPerson, userId) {
           grandMatch = namesAreSimilar(p.father_name, newPerson.grandfather_name);
         }
         
-        return nameMatch && grandMatch;
+        // ✅ فحص فرق الأجيال
+        let generationValid = true;
+        if (p.generation !== undefined && newPerson.generation !== undefined) {
+          // الوالد يجب أن يكون بجيل أقل (رقم أصغر)
+          generationValid = p.generation < newPerson.generation;
+        }
+        
+        return nameMatch && grandMatch && generationValid;
       });
       
       if (potentialFather) {
-        // التحقق من عدم وجود العلاقة مسبقاً
-        const exists = await relationExists(potentialFather.id, newPerson.id);
-        if (!exists) {
-          const { error } = await supabase
-            .from('relations')
-            .insert({
-              tribe_id: tribeId,
-              parent_id: potentialFather.id,
-              child_id: newPerson.id,
-              created_by: userId
-            });
-          
-          if (!error) {
-            linkedCount++;
-            console.log(`🔗 تم ربط "${newPerson.first_name}" مع والده "${potentialFather.first_name}"`);
-            childToParent.set(newPerson.id, potentialFather.id);
-          }
+        // ✅ استخدام الدالة الآمنة
+        const added = await safeAddRelation(potentialFather.id, newPerson.id);
+        if (added) {
+          linkedCount++;
+          console.log(`🔗 تم ربط "${newPerson.first_name}" مع والده "${potentialFather.first_name}"`);
+          childToParent.set(newPerson.id, potentialFather.id);
         }
       }
     }
@@ -350,27 +496,23 @@ async function smartAutoLink(tribeId, newPerson, userId) {
         grandMatch = namesAreSimilar(p.grandfather_name, newPerson.father_name);
       }
       
-      return nameMatch && grandMatch;
+      // ✅ فحص فرق الأجيال - الابن يجب أن يكون بجيل أعلى
+      let generationValid = true;
+      if (p.generation !== undefined && newPerson.generation !== undefined) {
+        generationValid = p.generation > newPerson.generation;
+      }
+      
+      return nameMatch && grandMatch && generationValid;
     });
     
     for (const child of potentialChildren) {
-      // التحقق من عدم وجود العلاقة مسبقاً
-      const exists = await relationExists(newPerson.id, child.id);
-      if (!exists) {
-        const { error } = await supabase
-          .from('relations')
-          .insert({
-            tribe_id: tribeId,
-            parent_id: newPerson.id,
-            child_id: child.id,
-            created_by: userId
-          });
-        
-        if (!error) {
-          linkedCount++;
-          console.log(`🔗 تم ربط "${child.first_name}" كابن لـ "${newPerson.first_name}"`);
-          childToParent.set(child.id, newPerson.id);
-        }
+      // ✅ استخدام الدالة الآمنة
+      // ✅ استخدام الدالة الآمنة
+      const added = await safeAddRelation(newPerson.id, child.id);
+      if (added) {
+        linkedCount++;
+        console.log(`🔗 تم ربط "${child.first_name}" كابن لـ "${newPerson.first_name}"`);
+        childToParent.set(child.id, newPerson.id);
       }
     }
     
@@ -386,7 +528,13 @@ async function smartAutoLink(tribeId, newPerson, userId) {
         const sameGrandfather = !newPerson.grandfather_name || !p.grandfather_name ||
           namesAreSimilar(p.grandfather_name, newPerson.grandfather_name);
         
-        return sameFather && sameGrandfather;
+        // ✅ فحص أن الجيل متقارب (إخوة = نفس الجيل تقريباً)
+        let sameGeneration = true;
+        if (p.generation !== undefined && newPerson.generation !== undefined) {
+          sameGeneration = Math.abs(p.generation - newPerson.generation) <= 1;
+        }
+        
+        return sameFather && sameGrandfather && sameGeneration;
       });
       
       // إذا وجدنا إخوة، نتحقق هل أحدهم مرتبط بوالد
@@ -396,27 +544,15 @@ async function smartAutoLink(tribeId, newPerson, userId) {
           
           // إذا الشخص الجديد غير مرتبط بوالد، نربطه بنفس والد الأخ
           if (!childToParent.has(newPerson.id)) {
-            // التحقق من عدم وجود العلاقة
-            const exists = await relationExists(siblingParentId, newPerson.id);
-            if (!exists) {
-              const { error } = await supabase
-                .from('relations')
-                .insert({
-                  tribe_id: tribeId,
-                  parent_id: siblingParentId,
-                  child_id: newPerson.id,
-                  created_by: userId
-                });
-            
-              if (!error) {
-                linkedCount++;
-                const parentName = allPersons.find(p => p.id === siblingParentId)?.first_name;
-                console.log(`🔗 تم ربط "${newPerson.first_name}" مع والده "${parentName}" (عبر الأخ "${sibling.first_name}")`);
-                childToParent.set(newPerson.id, siblingParentId);
-              }
+            // ✅ استخدام الدالة الآمنة
+            const added = await safeAddRelation(siblingParentId, newPerson.id);
+            if (added) {
+              linkedCount++;
+              console.log(`🔗 تم ربط "${newPerson.first_name}" مع والد أخيه "${sibling.first_name}"`);
+              childToParent.set(newPerson.id, siblingParentId);
             }
+            break; // نخرج بعد الربط الأول
           }
-          break;
         }
       }
       
@@ -426,22 +562,11 @@ async function smartAutoLink(tribeId, newPerson, userId) {
         
         for (const sibling of potentialSiblings) {
           if (!childToParent.has(sibling.id)) {
-            // التحقق من عدم وجود العلاقة
-            const exists = await relationExists(newPersonParentId, sibling.id);
-            if (!exists) {
-              const { error } = await supabase
-                .from('relations')
-                .insert({
-                  tribe_id: tribeId,
-                  parent_id: newPersonParentId,
-                  child_id: sibling.id,
-                  created_by: userId
-                });
-              
-              if (!error) {
-                linkedCount++;
-                console.log(`🔗 تم ربط الأخ "${sibling.first_name}" مع نفس الوالد`);
-              }
+            // ✅ استخدام الدالة الآمنة
+            const added = await safeAddRelation(newPersonParentId, sibling.id);
+            if (added) {
+              linkedCount++;
+              console.log(`🔗 تم ربط الأخ "${sibling.first_name}" مع نفس الوالد`);
             }
           }
         }

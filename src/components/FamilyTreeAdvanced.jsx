@@ -51,6 +51,7 @@ export default function FamilyTreeAdvanced() {
   });
   
   const [selectedNode, setSelectedNode] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [performanceMetrics, setPerformanceMetrics] = useState({
     loadTime: 0,
     personCount: 0,
@@ -162,10 +163,6 @@ export default function FamilyTreeAdvanced() {
     };
   }, []);
 
-  const sanitizeMemberData = familyTreeBuilder.sanitizeMemberData;
-
-  // const findFamilyHead = familyTreeBuilder.findFamilyHead; // غير مستخدم حالياً
-
   // ===========================================================================
   // دوال أساسية useCallback
   // ===========================================================================
@@ -193,55 +190,12 @@ export default function FamilyTreeAdvanced() {
     handleNodeClickRef.current = handleNodeClick;
   }, [handleNodeClick]);
 
-  const monitorPerformance = useCallback((metrics) => {
-    // دمج الإحصائيات من النافذة العامة إن وجدت
-    const globalMetrics = window.familyTreeMetrics || {};
-    
-    setPerformanceMetrics(prev => ({
-      ...prev,
-      ...metrics,
-      maxDepthReached: Math.max(prev.maxDepthReached || 0, globalMetrics.maxDepthReached || 0, metrics.maxDepthReached || 0)
-    }));
-    
-    // رسائل تحسينية بناءً على الأداء
-    if (metrics.personCount > 100) {
-      showSnackbar(`🚀 أداء استثنائي! تم تحميل ${metrics.personCount} شخص بنجاح`, 'success');
-    } else if (metrics.personCount > 50) {
-      showSnackbar(`✅ تم تحميل ${metrics.personCount} شخص بنجاح`, 'success');
-    }
-    
-    if (metrics.familyCount > 5) {
-      showSnackbar(`🏛️ شجرة كبيرة: تم ربط ${metrics.familyCount} عائلة`, 'info');
-    } else if (metrics.familyCount > 1) {
-      showSnackbar(`🏛️ تم ربط ${metrics.familyCount} عائلة`, 'info');
-    }
-    
-    // تتبع العمق المحقق مع تقييم متقدم للأجيال
-    const actualDepth = globalMetrics.maxDepthReached || metrics.maxDepthReached;
-    if (actualDepth >= 15) {
-      showSnackbar(`🏛️ شجرة قبيلة عظيمة! ${actualDepth} جيل - نظام متقدم جداً`, 'success');
-    } else if (actualDepth >= 10) {
-      showSnackbar(`🌳 شجرة عميقة ممتازة: ${actualDepth} جيل`, 'success');
-    } else if (actualDepth >= 5) {
-      showSnackbar(`🌿 عمق جيد: ${actualDepth} أجيال`, 'info');
-    } else if (actualDepth >= 4) {
-      showSnackbar(`👨‍👩‍👧‍👦 شجرة متعددة الأجيال: ${actualDepth} أجيال (تشمل الأحفاد)`, 'info');
-    } else if (actualDepth >= 2) {
-      showSnackbar(`👨‍👩‍👧‍👦 شجرة عائلية: ${actualDepth} أجيال`, 'info');
-    }
-    
-  }, [showSnackbar]);
-
   // ===========================================================================
   // دوال البناء من الملفات المنفصلة
   // ===========================================================================
 
   const buildTreeStructure = useCallback((familyMembers) => {
     return familyTreeBuilder.buildTreeStructure(familyMembers);
-  }, []);
-
-  const calculateTreeDepth = useCallback((node, currentDepth = 0) => {
-    return familyTreeBuilder.calculateTreeDepth(node, currentDepth);
   }, []);
 
   // ===========================================================================
@@ -310,6 +264,35 @@ export default function FamilyTreeAdvanced() {
     // دالة تكرارية لبناء الشجرة (مع منع التكرار)
     const builtNodes = new Set(); // لمنع بناء نفس العقدة مرتين
     
+    // دالة لتحويل علاقة "أنا" إلى العلاقة الحقيقية في الشجرة العامة
+    const getDisplayRelation = (person) => {
+      let relation = person.relation;
+      
+      // تحويل "أنا" إلى العلاقة الحقيقية بناءً على موقع الشخص في الشجرة
+      if (relation === 'أنا') {
+        if (person.is_root) {
+          relation = 'رب العائلة';
+        } else if (person.parent_id) {
+          // إذا له والد، فهو ابن أو بنت
+          relation = person.gender === 'F' ? 'بنت' : 'ابن';
+        } else {
+          // بدون والد وليس جذر - نحدد بناءً على الجنس
+          relation = person.gender === 'F' ? 'بنت' : 'ابن';
+        }
+      }
+      
+      // إذا لم تكن هناك علاقة محددة
+      if (!relation) {
+        if (person.is_root) {
+          relation = 'رب العائلة';
+        } else {
+          relation = person.gender === 'F' ? 'بنت' : 'ابن';
+        }
+      }
+      
+      return relation;
+    };
+    
     const buildNode = (person) => {
       // منع التكرار
       if (builtNodes.has(person.id)) {
@@ -318,6 +301,7 @@ export default function FamilyTreeAdvanced() {
       builtNodes.add(person.id);
       
       const children = childrenMap.get(person.id) || [];
+      const displayRelation = getDisplayRelation(person);
       
       return {
         name: buildFullName(person),
@@ -329,7 +313,7 @@ export default function FamilyTreeAdvanced() {
           fatherName: person.fatherName,
           surname: person.surname,
           gender: person.gender,
-          relation: person.relation || (person.is_root ? 'رب العائلة' : (person.gender === 'M' ? 'ابن' : 'بنت')),
+          relation: displayRelation,
           isRoot: person.is_root
         },
         children: children
@@ -504,7 +488,7 @@ export default function FamilyTreeAdvanced() {
       } else {
         showSnackbar('✅ لا توجد علاقات مكررة', 'info');
       }
-    } catch (err) {
+    } catch {
       showSnackbar('❌ خطأ في التنظيف', 'error');
     } finally {
       setLoading(false);
@@ -527,7 +511,7 @@ export default function FamilyTreeAdvanced() {
       }
       setUnlinkedRoots(roots);
       setRootsDialogOpen(true);
-    } catch (err) {
+    } catch {
       showSnackbar('❌ خطأ في جلب الجذور', 'error');
     }
   }, [tribe?.id, showSnackbar]);
@@ -544,7 +528,7 @@ export default function FamilyTreeAdvanced() {
       setSelectedChildRoot(null);
       // إعادة تحميل الشجرة
       handleRefresh();
-    } catch (err) {
+    } catch {
       showSnackbar('❌ خطأ في الربط', 'error');
     } finally {
       setLinking(false);
@@ -909,16 +893,19 @@ const drawTreeWithD3 = useCallback((data) => {
       .attr("font-weight", "bold")
       .attr("fill", "#111");
 
-    // العلاقة مع رمز مميز من الملف المنفصل
-    const relationIcon = RelationUtils.getRelationIcon(relation, nodeData.isNephewNiece);
-    const displayRelation = relationIcon ? `${relationIcon} ${relation}` : relation;
-    
-    nodeGroup.append("text")
-      .text(displayRelation)
-      .attr("x", textStartX)
-      .attr("y", relationY)
-      .attr("font-size", 11)
-      .attr("fill", nodeData.isNephewNiece ? "#f59e0b" : "#666");
+    // ✅ إزالة عرض العلاقة - الخطوط توضح العلاقات بشكل طبيعي
+    // فقط نعرض العلاقة لرب العائلة (الجذر)
+    if (nodeData.isRoot || relation === 'رب العائلة' || relation === 'جد') {
+      const relationIcon = RelationUtils.getRelationIcon(relation, nodeData.isNephewNiece);
+      const displayRelation = relationIcon ? `${relationIcon} ${relation}` : relation;
+      
+      nodeGroup.append("text")
+        .text(displayRelation)
+        .attr("x", textStartX)
+        .attr("y", relationY)
+        .attr("font-size", 11)
+        .attr("fill", "#666");
+    }
   }
 
   // العمر (تخطي للعقدة الوهمية والجد الافتراضي)

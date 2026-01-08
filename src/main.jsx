@@ -54,10 +54,26 @@ class ErrorBoundary extends React.Component {
   }
 
   static getDerivedStateFromError(error) {
+    // ✅ تجاهل أخطاء DOM المعروفة التي تحدث عند التنقل
+    if (error?.message?.includes('removeChild') || 
+        error?.message?.includes('insertBefore') ||
+        error?.message?.includes('not a child of this node')) {
+      console.warn('⚠️ خطأ DOM معروف (تم تجاهله):', error.message);
+      return { hasError: false, error: null };
+    }
     return { hasError: true, error };
   }
 
   componentDidCatch(error, errorInfo) {
+    // ✅ تجاهل أخطاء DOM المعروفة
+    if (error?.message?.includes('removeChild') || 
+        error?.message?.includes('insertBefore') ||
+        error?.message?.includes('not a child of this node')) {
+      console.warn('⚠️ خطأ DOM تم التقاطه وتجاهله');
+      this.setState({ hasError: false, error: null });
+      return;
+    }
+    
     console.error('❌ خطأ في التطبيق:', error, errorInfo);
     
     // تجنب إرسال أخطاء Chrome Extensions

@@ -6,14 +6,8 @@ import {
   sendOtp as firebaseSendOtp,
   verifyOtp as firebaseVerifyOtp,
   logout as firebaseLogout,
-  getCurrentUser,
   onAuthChange
 } from './firebase/auth';
-
-// ✅ استيراد Supabase للبيانات فقط (ليس للمصادقة)
-import {
-  getMe as supabaseGetMe,
-} from './services/userService';
 
 // عرّف الـ Context محليًا وصدّر useAuth
 export const AuthContext = createContext(null);
