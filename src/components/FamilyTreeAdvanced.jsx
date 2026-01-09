@@ -20,16 +20,10 @@ import WarningIcon from '@mui/icons-material/Warning';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import SearchIcon from '@mui/icons-material/Search';
 import BarChartIcon from '@mui/icons-material/BarChart';
-import LinkIcon from '@mui/icons-material/Link';
-import CleaningServicesIcon from '@mui/icons-material/CleaningServices';
-import MergeTypeIcon from '@mui/icons-material/MergeType';
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
-import { getTribeTree, getUnlinkedRoots, mergeRoots, cleanDuplicateRelations } from "../services/tribeService";
+import { getTribeTree } from "../services/tribeService";
 import { useTribe } from '../contexts/TribeContext';
 import { useAuth } from '../AuthContext';
-
-// استيراد مكون المكررين
-import DuplicatesManager from './DuplicatesManager';
 
 // استيراد المكونات والأدوات المنفصلة
 import './FamilyTreeAdvanced.css';
@@ -41,7 +35,7 @@ export default function FamilyTreeAdvanced() {
   // الحالات الأساسية
   // ===========================================================================
   
-  const { tribe, membership, loading: tribeLoading } = useTribe();
+  const { tribe, loading: tribeLoading } = useTribe();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
@@ -62,15 +56,6 @@ export default function FamilyTreeAdvanced() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState(null);
-  
-  // حالات ربط الجذور
-  const [rootsDialogOpen, setRootsDialogOpen] = useState(false);
-  const [unlinkedRoots, setUnlinkedRoots] = useState([]);
-  const [selectedChildRoot, setSelectedChildRoot] = useState(null);
-  const [linking, setLinking] = useState(false);
-  
-  // 🔍 حالات الأشخاص المكررين (المكون الجديد)
-  const [duplicatesManagerOpen, setDuplicatesManagerOpen] = useState(false);
   
   // استخدام useAuth بدلاً من localStorage
   const { user, isAuthenticated } = useAuth();
@@ -479,66 +464,6 @@ export default function FamilyTreeAdvanced() {
     setTreeData(null);
     loadTree();
   }, [loadTree]);
-
-  // تنظيف العلاقات المكررة
-  const handleCleanDuplicates = useCallback(async () => {
-    if (!tribe?.id) return;
-    
-    setLoading(true);
-    try {
-      const result = await cleanDuplicateRelations(tribe.id);
-      if (result.deleted > 0) {
-        showSnackbar(`🧹 تم حذف ${result.deleted} علاقة مكررة!`, 'success');
-        handleRefresh();
-      } else {
-        showSnackbar('✅ لا توجد علاقات مكررة', 'info');
-      }
-    } catch {
-      showSnackbar('❌ خطأ في التنظيف', 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [tribe?.id, showSnackbar, handleRefresh]);
-
-  // ===========================================================================
-  // دوال ربط الجذور
-  // ===========================================================================
-  
-  // فتح نافذة ربط الجذور
-  const handleOpenRootsDialog = useCallback(async () => {
-    if (!tribe?.id) return;
-    
-    try {
-      const roots = await getUnlinkedRoots(tribe.id);
-      if (roots.length <= 1) {
-        showSnackbar('✅ الشجرة مرتبطة بشكل صحيح!', 'success');
-        return;
-      }
-      setUnlinkedRoots(roots);
-      setRootsDialogOpen(true);
-    } catch {
-      showSnackbar('❌ خطأ في جلب الجذور', 'error');
-    }
-  }, [tribe?.id, showSnackbar]);
-  
-  // ربط جذر بوالد
-  const handleLinkRoots = useCallback(async (childId, parentId) => {
-    if (!tribe?.id) return;
-    
-    setLinking(true);
-    try {
-      await mergeRoots(tribe.id, childId, parentId);
-      showSnackbar('✅ تم الربط بنجاح!', 'success');
-      setRootsDialogOpen(false);
-      setSelectedChildRoot(null);
-      // إعادة تحميل الشجرة
-      handleRefresh();
-    } catch {
-      showSnackbar('❌ خطأ في الربط', 'error');
-    } finally {
-      setLinking(false);
-    }
-  }, [tribe?.id, showSnackbar, handleRefresh]);
 
   // ===========================================================================
   // دالة رسم الشجرة
@@ -1542,71 +1467,6 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
             الإحصائيات
           </Button>
 
-          {/* زر ربط الجذور */}
-          <IconButton 
-            onClick={handleOpenRootsDialog} 
-            disabled={loading} 
-            size={window.innerWidth < 600 ? "small" : "medium"}
-            sx={{ 
-              ml: 0.5,
-              borderRadius: 1.5,
-              background: 'rgba(245,158,11,0.1)',
-              color: '#f59e0b',
-              '&:hover': {
-                background: 'rgba(245,158,11,0.2)',
-                transform: 'scale(1.05)',
-              },
-              transition: 'all 0.2s ease'
-            }}
-            title="🔗 ربط الجذور المنفصلة"
-          >
-            <LinkIcon />
-          </IconButton>
-
-          {/* زر تنظيف العلاقات المكررة */}
-          <IconButton 
-            onClick={handleCleanDuplicates} 
-            disabled={loading} 
-            size={window.innerWidth < 600 ? "small" : "medium"}
-            sx={{ 
-              ml: 0.5,
-              borderRadius: 1.5,
-              background: 'rgba(239,68,68,0.1)',
-              color: '#ef4444',
-              '&:hover': {
-                background: 'rgba(239,68,68,0.2)',
-                transform: 'scale(1.05)',
-              },
-              transition: 'all 0.2s ease'
-            }}
-            title="🧹 تنظيف العلاقات المكررة"
-          >
-            <CleaningServicesIcon />
-          </IconButton>
-
-          {/* 🔍 زر إدارة الأشخاص المكررين - للمدير فقط */}
-          {membership?.role === 'admin' && (
-            <IconButton 
-              onClick={() => setDuplicatesManagerOpen(true)} 
-              disabled={loading} 
-              size={window.innerWidth < 600 ? "small" : "medium"}
-              sx={{ 
-                ml: 0.5,
-                borderRadius: 1.5,
-                background: 'rgba(168,85,247,0.1)',
-                color: '#a855f7',
-                '&:hover': {
-                  background: 'rgba(168,85,247,0.2)',
-                  transform: 'scale(1.05)',
-                },
-                transition: 'all 0.2s ease'
-              }}
-              title="👥 إدارة الأشخاص المكررين (للمدير)"
-            >
-              <MergeTypeIcon />
-            </IconButton>
-          )}
-
           {/* زر التحديث */}
           <IconButton 
             onClick={handleRefresh} 
@@ -1835,121 +1695,6 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
           <Button onClick={() => setSelectedNode(null)}>إغلاق</Button>
         </DialogActions>
       </Dialog>
-
-      {/* نافذة ربط الجذور المنفصلة */}
-      <Dialog 
-        open={rootsDialogOpen} 
-        onClose={() => {
-          setRootsDialogOpen(false);
-          setSelectedChildRoot(null);
-        }}
-        maxWidth="sm"
-        fullWidth
-        dir="rtl"
-      >
-        <DialogTitle sx={{ fontFamily: 'Cairo, sans-serif', textAlign: 'center' }}>
-          🔗 ربط الأشخاص المنفصلين
-        </DialogTitle>
-        <DialogContent>
-          {unlinkedRoots.length > 1 && (
-            <Box>
-              <Alert severity="warning" sx={{ mb: 2, fontFamily: 'Cairo, sans-serif' }}>
-                يوجد {unlinkedRoots.length} أشخاص بدون والد في الشجرة. اختر الشخص الابن ثم الوالد لربطهم.
-              </Alert>
-              
-              {!selectedChildRoot ? (
-                <>
-                  <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold', fontFamily: 'Cairo, sans-serif' }}>
-                    1️⃣ اختر الشخص (الابن):
-                  </Typography>
-                  <List>
-                    {unlinkedRoots.map((person) => (
-                      <ListItem key={person.id} disablePadding>
-                        <ListItemButton 
-                          onClick={() => setSelectedChildRoot(person)}
-                          sx={{ borderRadius: 2, mb: 0.5 }}
-                        >
-                          <ListItemText 
-                            primary={`${person.first_name || ''} ${person.father_name || ''} ${person.family_name || ''}`}
-                            secondary={person.relation || 'غير محدد'}
-                            primaryTypographyProps={{ fontFamily: 'Cairo, sans-serif' }}
-                            secondaryTypographyProps={{ fontFamily: 'Cairo, sans-serif' }}
-                          />
-                        </ListItemButton>
-                      </ListItem>
-                    ))}
-                  </List>
-                </>
-              ) : (
-                <>
-                  <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold', fontFamily: 'Cairo, sans-serif' }}>
-                    ✅ الابن المختار: {selectedChildRoot.first_name} {selectedChildRoot.father_name}
-                  </Typography>
-                  <Button 
-                    size="small" 
-                    onClick={() => setSelectedChildRoot(null)}
-                    sx={{ mb: 2 }}
-                  >
-                    تغيير
-                  </Button>
-                  
-                  <Divider sx={{ my: 2 }} />
-                  
-                  <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold', fontFamily: 'Cairo, sans-serif' }}>
-                    2️⃣ اختر الوالد:
-                  </Typography>
-                  <List>
-                    {unlinkedRoots
-                      .filter(p => p.id !== selectedChildRoot.id)
-                      .map((person) => (
-                        <ListItem key={person.id} disablePadding>
-                          <ListItemButton 
-                            onClick={() => handleLinkRoots(selectedChildRoot.id, person.id)}
-                            disabled={linking}
-                            sx={{ 
-                              borderRadius: 2, 
-                              mb: 0.5,
-                              bgcolor: 'rgba(16,185,129,0.1)',
-                              '&:hover': { bgcolor: 'rgba(16,185,129,0.2)' }
-                            }}
-                          >
-                            <ListItemText 
-                              primary={`${person.first_name || ''} ${person.father_name || ''} ${person.family_name || ''}`}
-                              secondary={`اضغط لجعله والد ${selectedChildRoot.first_name}`}
-                              primaryTypographyProps={{ fontFamily: 'Cairo, sans-serif' }}
-                              secondaryTypographyProps={{ fontFamily: 'Cairo, sans-serif', color: 'success.main' }}
-                            />
-                            {linking && <CircularProgress size={20} />}
-                          </ListItemButton>
-                        </ListItem>
-                      ))}
-                  </List>
-                </>
-              )}
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => {
-              setRootsDialogOpen(false);
-              setSelectedChildRoot(null);
-            }}
-            sx={{ fontFamily: 'Cairo, sans-serif' }}
-          >
-            إغلاق
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* ================================================= */}
-      {/* 🔍 مكون إدارة الأشخاص المكررين (الجديد) */}
-      {/* ================================================= */}
-      <DuplicatesManager
-        open={duplicatesManagerOpen}
-        onClose={() => setDuplicatesManagerOpen(false)}
-        onMergeComplete={handleRefresh}
-      />
       
       <Snackbar 
         open={snackbarOpen} 

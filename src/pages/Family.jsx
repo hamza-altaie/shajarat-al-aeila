@@ -14,7 +14,7 @@ import {
   Close as CloseIcon, GppGood as GppGoodIcon, Search as SearchIcon,
   Person as PersonIcon, Cake as CakeIcon, PhotoCamera as PhotoCameraIcon,
   Add as AddIcon, Visibility as VisibilityIcon, Group as GroupIcon,
-  People as FamilyIcon
+  People as FamilyIcon, AdminPanelSettings as AdminIcon
 } from '@mui/icons-material';
 
 import { useNavigate } from 'react-router-dom';
@@ -1537,6 +1537,17 @@ const loadFamily = useCallback(async () => {
         open={Boolean(settingsAnchor)}
         onClose={handleSettingsClose}
       >
+        {/* لوحة المدير - تظهر للمدير فقط */}
+        {isAdmin && (
+          <MenuItem onClick={() => {
+            navigate('/admin');
+            handleSettingsClose();
+          }}>
+            <AdminIcon sx={{ mr: 1, color: '#8b5cf6' }} />
+            لوحة تحكم المدير
+          </MenuItem>
+        )}
+        {isAdmin && <Divider />}
         <MenuItem onClick={() => {
           const message = `أنضم إلينا في شجرة العائلة! يمكنك الآن إدارة وعرض شجرة عائلتك بسهولة. الرابط: ${window.location.origin}`;
           const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;

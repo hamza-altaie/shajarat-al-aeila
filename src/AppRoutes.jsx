@@ -11,6 +11,7 @@ import PrivacyPolicy from './pages/PrivacyPolicy.jsx';
 import Statistics from './pages/Statistics.jsx';
 import AddPerson from './pages/AddPerson.jsx';
 import PendingMatches from './pages/PendingMatches.jsx';
+import AdminPanel from './pages/AdminPanel.jsx';
 
 
 export default function AppRoutes() {
@@ -146,6 +147,16 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <PendingMatches />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* صفحة المدير - محمية */}
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <AdminPanel />
           </ProtectedRoute>
         }
       />
