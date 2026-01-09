@@ -5,10 +5,10 @@ import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Button, Typography, Alert, Snackbar, CircularProgress, 
-  Chip, IconButton, Paper, LinearProgress, 
+  Chip, IconButton, Paper, LinearProgress, Fab,
   Dialog, DialogTitle, DialogContent, DialogActions, 
   TextField, InputAdornment, List, ListItem, ListItemText, 
-  ListItemButton, Divider
+  ListItemButton, Divider, useMediaQuery, useTheme
 } from '@mui/material';
 
 // استيراد الأيقونات بشكل منفصل لتحسين الأداء
@@ -23,6 +23,7 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import LinkIcon from '@mui/icons-material/Link';
 import CleaningServicesIcon from '@mui/icons-material/CleaningServices';
 import MergeTypeIcon from '@mui/icons-material/MergeType';
+import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import { getTribeTree, getUnlinkedRoots, mergeRoots, cleanDuplicateRelations } from "../services/tribeService";
 import { useTribe } from '../contexts/TribeContext';
 import { useAuth } from '../AuthContext';
@@ -42,13 +43,8 @@ export default function FamilyTreeAdvanced() {
   // ===========================================================================
   
   const { tribe, membership, loading: tribeLoading } = useTribe();
-  
-  // 🔍 تشخيص فوري
-  console.log('🌳 FamilyTreeAdvanced مُحمّل', { 
-    tribeId: tribe?.id, 
-    tribeName: tribe?.name,
-    tribeLoading 
-  });
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   const [selectedNode, setSelectedNode] = useState(null);
   // eslint-disable-next-line no-unused-vars
@@ -175,6 +171,38 @@ export default function FamilyTreeAdvanced() {
     setSnackbarOpen(true);
   }, []);
 
+  // دالة إعادة التركيز على الشجرة - للزر العائم
+  const resetTreeView = useCallback(() => {
+    if (svgRef.current && treeData) {
+      try {
+        const svg = d3.select(svgRef.current);
+        const g = svg.select('g');
+        
+        if (g.empty()) return;
+        
+        const container = containerRef.current;
+        if (!container) return;
+        
+        const width = container.clientWidth;
+        
+        // إعادة الشجرة للمركز مع تأثير انتقالي سلس
+        svg.transition()
+          .duration(750)
+          .ease(d3.easeCubicInOut)
+          .call(
+            d3.zoom().transform,
+            d3.zoomIdentity
+              .translate(width / 2, 50)
+              .scale(0.8)
+          );
+        
+        showSnackbar('تم إعادة التركيز على الشجرة', 'success');
+      } catch (err) {
+        console.error('خطأ في إعادة التركيز:', err);
+      }
+    }
+  }, [treeData, showSnackbar]);
+
   const handleNodeClick = useCallback((nodeData) => {
     if (nodeData.action === 'edit') {
       // منطق التعديل
@@ -189,14 +217,6 @@ export default function FamilyTreeAdvanced() {
   useEffect(() => {
     handleNodeClickRef.current = handleNodeClick;
   }, [handleNodeClick]);
-
-  // ===========================================================================
-  // دوال البناء من الملفات المنفصلة
-  // ===========================================================================
-
-  const buildTreeStructure = useCallback((familyMembers) => {
-    return familyTreeBuilder.buildTreeStructure(familyMembers);
-  }, []);
 
   // ===========================================================================
   // 🌳 بناء الشجرة من العلاقات (parent_id)
@@ -257,9 +277,6 @@ export default function FamilyTreeAdvanced() {
       if (!a.is_root && b.is_root) return 1;
       return (a.generation || 0) - (b.generation || 0);
     });
-
-    console.log('🌱 الجذور:', roots.map(r => r.firstName));
-    console.log('👶 خريطة الأطفال:', Object.fromEntries(childrenMap));
 
     // دالة تكرارية لبناء الشجرة (مع منع التكرار)
     const builtNodes = new Set(); // لمنع بناء نفس العقدة مرتين
@@ -357,11 +374,9 @@ export default function FamilyTreeAdvanced() {
   // ✅ التعديل الثاني: تحديث دالة التحميل
   const loadTree = useCallback(async () => {
     if (!tribe?.id || tribeLoading) {
-      console.log('⏳ انتظار بيانات القبيلة...', { tribeId: tribe?.id, tribeLoading });
       return;
     }
 
-    console.log('🚀 بدء تحميل الشجرة للقبيلة:', tribe.id);
     setLoading(true);
     setLoadingStage('جاري تحميل سجل القبيلة...');
     setLoadingProgress(10);
@@ -369,14 +384,12 @@ export default function FamilyTreeAdvanced() {
     try {
       // 1. جلب البيانات من Supabase Tribe
       const response = await getTribeTree(tribe.id); 
-      console.log('📦 استجابة getTribeTree:', response);
       setLoadingProgress(50);
       
       let rawData = [];
 
       // 2. معالجة البيانات القادمة (Supabase يعيد persons و relations منفصلين)
       if (response.persons && response.relations) {
-        console.log('✅ تنسيق Supabase:', response.persons.length, 'شخص,', response.relations.length, 'علاقة');
         setLoadingStage('معالجة العلاقات...');
         
         // تحويل مصفوفة الأشخاص إلى Map للوصول السريع
@@ -403,8 +416,6 @@ export default function FamilyTreeAdvanced() {
           processedChildren.add(rel.child_id);
           return true;
         });
-        
-        console.log(`📊 علاقات فريدة: ${uniqueRelations.length} من ${response.relations.length}`);
 
         // دمج العلاقات: نضع parent_id داخل كائن الابن
         uniqueRelations.forEach(rel => {
@@ -439,13 +450,11 @@ export default function FamilyTreeAdvanced() {
          return;
       }
 
-      console.log('📊 البيانات الخام:', rawData);
       setLoadingStage('بناء هيكل العلاقات...');
 
       // 3. بناء الشجرة بناءً على parent_id و is_root
       const builtTreeData = buildTreeFromRelations(rawData);
       
-      console.log('🌳 الشجرة المبنية:', builtTreeData);
       setTreeData(builtTreeData);
       setLoadingProgress(100);
       
@@ -458,7 +467,7 @@ export default function FamilyTreeAdvanced() {
     } finally {
       setLoading(false);
     }
-  }, [tribe?.id, tribeLoading, showSnackbar, buildTreeStructure]);
+  }, [tribe?.id, tribeLoading, showSnackbar, buildTreeFromRelations]);
 
   // تحديث مرجع loadTree
   useEffect(() => {
@@ -544,7 +553,6 @@ export default function FamilyTreeAdvanced() {
 const drawTreeWithD3 = useCallback((data) => {
   // التحقق من حالة التحميل أولاً
   if (!isMountedRef.current) {
-    console.log('⚠️ المكون غير محمّل، تخطي الرسم');
     return;
   }
   
@@ -837,6 +845,7 @@ const drawTreeWithD3 = useCallback((data) => {
     // 🖼️ صورة داخل الدائرة مع تقطيع وتوسيط
     nodeGroup.append("image")
       .attr("href",
+        nodeData.photo_url ||
         nodeData.avatar ||
         (nodeData.gender === "female" || FEMALE_RELATIONS.includes(relation)
           ? "/app/icons/girl.png"
@@ -1191,12 +1200,13 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
         }
       }, 300); // زيادة التأخير قليلاً لضمان استقرار DOM
       
+      const currentContainer = svgContainerRef.current;
       return () => {
         clearTimeout(timer);
         // تنظيف عند تغيير البيانات
-        if (svgContainerRef.current) {
+        if (currentContainer) {
           try {
-            d3.select(svgContainerRef.current).selectAll('*').interrupt();
+            d3.select(currentContainer).selectAll('*').interrupt();
           } catch {
             // تجاهل
           }
@@ -1244,7 +1254,6 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
   useEffect(() => {
     // التحقق من المصادقة مباشرة من useAuth
     if (!isAuthenticated || !user?.uid) {
-      console.log('⚠️ غير مسجل، تحويل لتسجيل الدخول');
       navigate('/login');
       return;
     }
@@ -1765,9 +1774,34 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
   return (
     <Box className="family-tree-advanced-root" sx={{ width: '100vw', height: '100vh', fontFamily: 'Cairo, sans-serif' }}>
       {renderToolbar()}
-      <Box sx={{ position: 'absolute', top: 110, left: 0, right: 0, bottom: 0, minHeight: 400 }}>
+      <Box sx={{ position: 'absolute', top: 110, left: 0, right: 0, bottom: isMobile ? 80 : 0, minHeight: 400 }}>
         {renderTreeView()}
       </Box>
+
+      {/* زر إعادة التركيز العائم - يظهر على الهاتف فقط */}
+      {treeData && (
+        <Fab
+          color="primary"
+          size={isMobile ? "medium" : "small"}
+          onClick={resetTreeView}
+          sx={{
+            position: 'fixed',
+            bottom: isMobile ? 90 : 20,
+            left: 20,
+            zIndex: 1100,
+            background: 'linear-gradient(45deg, #10b981 0%, #059669 100%)',
+            boxShadow: '0 4px 15px rgba(16,185,129,0.4)',
+            '&:hover': {
+              background: 'linear-gradient(45deg, #059669 0%, #047857 100%)',
+              transform: 'scale(1.1)',
+            },
+            transition: 'all 0.3s ease',
+          }}
+          title="إعادة التركيز على الشجرة"
+        >
+          <CenterFocusStrongIcon />
+        </Fab>
+      )}
 
       {/* الحوارات */}
       <Dialog open={!!selectedNode} onClose={() => setSelectedNode(null)} maxWidth="sm" fullWidth>

@@ -608,27 +608,8 @@
 /* الاستجابة للأجهزة المحمولة */
 @media (max-width: 768px) {
   .family-tree-advanced-root {
-    --family-card-width: 280px;
-    --family-card-height: 160px;
-  }
-  
-  .family-name-text {
-    font-size: 14px;
-  }
-  
-  .family-relation-text {
-    font-size: 12px;
-  }
-  
-  .family-info-text {
-    font-size: 10px;
-  }
-}
-
-@media (max-width: 480px) {
-  .family-tree-advanced-root {
-    --family-card-width: 260px;
-    --family-card-height: 140px;
+    --family-card-width: 200px;
+    --family-card-height: 120px;
   }
   
   .family-name-text {
@@ -641,6 +622,41 @@
   
   .family-info-text {
     font-size: 9px;
+  }
+  
+  /* إضافة مسافة سفلية للقائمة السفلية */
+  .family-tree-chart-container {
+    padding-bottom: 80px;
+  }
+}
+
+@media (max-width: 480px) {
+  .family-tree-advanced-root {
+    --family-card-width: 160px;
+    --family-card-height: 100px;
+  }
+  
+  .family-name-text {
+    font-size: 11px;
+  }
+  
+  .family-relation-text {
+    font-size: 10px;
+  }
+  
+  .family-info-text {
+    font-size: 8px;
+  }
+  
+  /* تحسين اللمس على الهاتف */
+  .family-tree-chart-container .node {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .family-tree-chart-container .node rect,
+  .family-tree-chart-container .node foreignObject {
+    min-height: 44px; /* الحد الأدنى للمس */
   }
 }
 

@@ -4,7 +4,8 @@ import {
   Container, TextField, Button, Typography, Paper, Box, IconButton, 
   Card, CardContent, CardActions, Snackbar, Alert, CircularProgress, 
   Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, 
-  Grid, Menu, MenuItem, Divider, Chip, InputAdornment, Fab
+  Grid, Menu, MenuItem, Divider, Chip, InputAdornment, Fab,
+  useMediaQuery, useTheme
 } from '@mui/material';
 
 import {
@@ -26,6 +27,14 @@ import {
   updateTribePerson, 
   deleteTribePerson 
 } from "../services/tribeService";
+
+// 📸 استيراد خدمة الصور
+import { 
+  uploadAndUpdatePersonPhoto, 
+  validateImageFile,
+  compressImage
+} from '../services/imageService';
+import PhotoUploader, { PersonAvatar } from '../components/PhotoUploader';
 
 
 // نموذج البيانات الافتراضي
@@ -71,6 +80,8 @@ export default function Family() {
   // الحصول على بيانات القبيلة والمصادقة
   const { tribe, membership, loading: tribeLoading, canEdit, isAdmin } = useTribe();
   const { logout, user } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   // الحالات الأساسية
   const [form, setForm] = useState(DEFAULT_FORM);
@@ -192,32 +203,26 @@ export default function Family() {
   // تحميل بيانات العائلة (من القبيلة) - الأشخاص المرتبطين بالمستخدم + الذين أضافهم
 const loadFamily = useCallback(async () => {
   if (!tribe?.id) {
-    console.log('⏳ في انتظار تحميل القبيلة...');
     return; // انتظر تحميل القبيلة
   }
 
   if (!user?.uid) {
-    console.log('⏳ في انتظار تسجيل الدخول...');
     return;
   }
 
-  console.log('🔄 تحميل أفراد المستخدم:', user.uid);
   setLoading(true);
   try {
     const response = await listTribePersons(tribe.id, search);
     
     // ✅ التحقق من أن المكون لا يزال محمّلاً قبل تحديث الـ state
     if (!isMountedRef.current) {
-      console.log('⚠️ المكون غير محمّل، تجاهل التحديث');
       return;
     }
     
-    console.log('✅ استجابة الخادم:', response);
     const dataArray = Array.isArray(response) ? response : [];
 
     // ✅ الحصول على person_id المرتبط بالمستخدم من membership
     const linkedPersonId = membership?.person_id;
-    console.log('🔗 الشخص المرتبط بالمستخدم:', linkedPersonId);
 
     // ✅ تصفية البيانات - الأشخاص الذين أضافهم المستخدم + الشخص المرتبط به
     const familyData = dataArray
@@ -241,8 +246,6 @@ const loadFamily = useCallback(async () => {
         generation: data.generation || 0,
       }))
       .filter((member) => member.id && member.firstName);
-
-    console.log('✅ تم تحميل', familyData.length, 'من أفرادك');
     
     // ✅ التحقق مرة أخرى قبل تحديث الـ state
     if (isMountedRef.current) {
@@ -311,43 +314,50 @@ const loadFamily = useCallback(async () => {
     }
   };
 
-  // معالجة رفع الصورة
+  // معالجة رفع الصورة - محسّنة لاستخدام Supabase Storage
   const handleAvatarUpload = async (file) => {
     if (!file) return null;
 
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      showSnackbar('نوع الملف غير مدعوم. استخدم JPEG, PNG, أو WebP', 'error');
-      return null;
-    }
-
-    const maxSize = 5 * 1024 * 1024;
-    if (file.size > maxSize) {
-      showSnackbar('حجم الصورة كبير جداً. الحد الأقصى 5MB', 'error');
+    // التحقق من الملف
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      showSnackbar(validation.errors.join(', '), 'error');
       return null;
     }
 
     setAvatarUploading(true);
 
     try {
-      // تحويل الصورة إلى Data URL (Base64) ليتم حفظها مع بيانات العضو
-      const toDataUrl = (file) =>
+      // إذا كان الشخص موجود، نرفع مباشرة إلى Storage
+      if (form.id && tribe?.id) {
+        const photoUrl = await uploadAndUpdatePersonPhoto(tribe.id, form.id, file);
+        setForm(prev => ({ ...prev, avatar: photoUrl }));
+        setAvatarUploadSuccess(true);
+        showSnackbar('✅ تم رفع الصورة بنجاح', 'success');
+        // تحديث القائمة لعرض الصورة الجديدة
+        loadFamily();
+        return photoUrl;
+      }
+      
+      // إذا كان شخص جديد، نحفظ كـ Data URL مؤقتاً
+      const compressedFile = await compressImage(file);
+      const toDataUrl = (f) =>
         new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(reader.result);
           reader.onerror = reject;
-          reader.readAsDataURL(file);
+          reader.readAsDataURL(f);
         });
 
-      const dataUrl = await toDataUrl(file);
-
+      const dataUrl = await toDataUrl(compressedFile);
       setForm(prev => ({ ...prev, avatar: dataUrl }));
       setAvatarUploadSuccess(true);
-      showSnackbar('تم رفع الصورة بنجاح', 'success');
+      showSnackbar('✅ تم تحميل الصورة (سيتم رفعها عند الحفظ)', 'info');
       return dataUrl;
+      
     } catch (error) {
       console.error('خطأ في رفع الصورة:', error);
-      showSnackbar('فشل رفع الصورة', 'error');
+      showSnackbar('❌ فشل رفع الصورة: ' + (error.message || 'خطأ غير معروف'), 'error');
       return null;
     } finally {
       setAvatarUploading(false);
@@ -1080,10 +1090,7 @@ const loadFamily = useCallback(async () => {
             variant="contained"
             color="success"
             startIcon={<VisibilityIcon />}
-            onClick={() => {
-              console.log('🌳 الانتقال إلى صفحة الشجرة...');
-              navigate('/tree');
-            }}
+            onClick={() => navigate('/tree')}
             sx={{ 
               borderRadius: 2,
               px: { xs: 2, sm: 3 },
@@ -1576,6 +1583,7 @@ const loadFamily = useCallback(async () => {
         autoHideDuration={6000} 
         onClose={() => setSnackbarOpen(false)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        sx={{ mb: isMobile ? 8 : 0 }}
       >
         <Alert 
           onClose={() => setSnackbarOpen(false)} 
@@ -1585,6 +1593,9 @@ const loadFamily = useCallback(async () => {
           {snackbarMessage}
         </Alert>
       </Snackbar>
+      
+      {/* مسافة سفلية للقائمة على الهاتف */}
+      {isMobile && <Box sx={{ height: 80 }} />}
       </>
       )}
     </Container>

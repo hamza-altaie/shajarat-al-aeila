@@ -121,7 +121,6 @@ export function matchPersons(person1, person2) {
     // إذا فرق العمر أكثر من 3 سنوات، خفض نسبة التشابه
     if (ageDiffYears > 3) {
       baseScore = Math.max(0, baseScore - (ageDiffYears * 5));
-      console.log(`⚠️ فرق العمر ${ageDiffYears} سنة - خفض التشابه إلى ${baseScore}%`);
     }
   }
   
@@ -132,7 +131,6 @@ export function matchPersons(person1, person2) {
     // إذا فرق الأجيال أكثر من 1، هذا مستحيل أن يكونا نفس الشخص
     if (genDiff > 1) {
       baseScore = Math.max(0, baseScore - (genDiff * 20));
-      console.log(`⚠️ فرق الأجيال ${genDiff} - خفض التشابه إلى ${baseScore}%`);
     }
   }
   

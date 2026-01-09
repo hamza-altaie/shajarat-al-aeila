@@ -200,7 +200,6 @@ async function createAutoRelations(tribeId, newPerson, membership, userId) {
     // الحصول على person_id الخاص بالمستخدم
     const userPersonId = membership.person_id;
     if (!userPersonId) {
-      console.log('⚠️ المستخدم لم يضف نفسه ("أنا") بعد');
       return; // يجب أن يضيف المستخدم نفسه أولاً
     }
 
@@ -222,7 +221,6 @@ async function createAutoRelations(tribeId, newPerson, membership, userId) {
         .maybeSingle(); // لا يعطي خطأ إذا لم يجد نتائج
       
       if (existing) {
-        console.log('⚠️ العلاقة موجودة مسبقاً');
         return false;
       }
 
@@ -244,14 +242,12 @@ async function createAutoRelations(tribeId, newPerson, membership, userId) {
 
     // 2. إذا كان "ابن" أو "بنت" → المستخدم هو الوالد
     if (relation === 'ابن' || relation === 'بنت') {
-      const added = await addRelationIfNotExists(userPersonId, newPerson.id);
-      if (added) console.log(`✅ تم ربط ${relation}: ${userPersonId} → ${newPerson.id}`);
+      await addRelationIfNotExists(userPersonId, newPerson.id);
     }
     
     // 3. إذا كان "والد" أو "والدة" → المستخدم هو الطفل
     else if (relation === 'والد' || relation === 'والدة') {
-      const added = await addRelationIfNotExists(newPerson.id, userPersonId);
-      if (added) console.log(`✅ تم ربط ${relation}: ${newPerson.id} → ${userPersonId}`);
+      await addRelationIfNotExists(newPerson.id, userPersonId);
     }
     
     // 4. إذا كان "أخ" أو "أخت" → نفس الوالد
@@ -264,11 +260,9 @@ async function createAutoRelations(tribeId, newPerson, membership, userId) {
         .maybeSingle(); // ✅ استخدام maybeSingle لتجنب الخطأ
       
       if (parentRel?.parent_id) {
-        const added = await addRelationIfNotExists(parentRel.parent_id, newPerson.id);
-        if (added) console.log(`✅ تم ربط ${relation}: ${parentRel.parent_id} → ${newPerson.id}`);
+        await addRelationIfNotExists(parentRel.parent_id, newPerson.id);
       } else {
-        // ✅ إصلاح سيناريو 6: إنشاء والد افتراضي إذا لم يوجد
-        console.log('⚠️ لم يتم العثور على والد، محاولة إنشاء والد افتراضي...');
+        // ✅ إصلاح سيناريو 6: إنشاء والد افتراضي إذا لم يوجد;
         
         // جلب بيانات المستخدم
         const { data: userPerson } = await supabase
@@ -296,8 +290,6 @@ async function createAutoRelations(tribeId, newPerson, membership, userId) {
             .single();
           
           if (!parentError && autoParent) {
-            console.log(`✅ تم إنشاء والد افتراضي: ${autoParent.first_name}`);
-            
             // ربط المستخدم بالوالد الافتراضي
             await addRelationIfNotExists(autoParent.id, userPersonId);
             
@@ -318,8 +310,7 @@ async function createAutoRelations(tribeId, newPerson, membership, userId) {
         .maybeSingle(); // ✅ استخدام maybeSingle
       
       if (parentRel?.parent_id) {
-        const added = await addRelationIfNotExists(newPerson.id, parentRel.parent_id);
-        if (added) console.log(`✅ تم ربط ${relation}: ${newPerson.id} → ${parentRel.parent_id}`);
+        await addRelationIfNotExists(newPerson.id, parentRel.parent_id);
       }
     }
   } catch (err) {
@@ -377,7 +368,7 @@ function namesAreSimilar(name1, name2, threshold = 0.85) {
  */
 async function smartAutoLink(tribeId, newPerson, userId) {
   try {
-    console.log('🧠 بدء الربط الذكي الشامل لـ:', newPerson.first_name);
+    // الربط الذكي الشامل
     
     // جلب كل الأشخاص والعلاقات
     const { data: allPersons } = await supabase
@@ -403,8 +394,6 @@ async function smartAutoLink(tribeId, newPerson, userId) {
       }
       parentToChildren.get(rel.parent_id).push(rel.child_id);
     }
-    
-    let linkedCount = 0;
     
     // دالة للتحقق من وجود العلاقة قبل إنشائها
     const relationExists = async (parentId, childId) => {
@@ -473,8 +462,6 @@ async function smartAutoLink(tribeId, newPerson, userId) {
         // ✅ استخدام الدالة الآمنة
         const added = await safeAddRelation(potentialFather.id, newPerson.id);
         if (added) {
-          linkedCount++;
-          console.log(`🔗 تم ربط "${newPerson.first_name}" مع والده "${potentialFather.first_name}"`);
           childToParent.set(newPerson.id, potentialFather.id);
         }
       }
@@ -510,8 +497,6 @@ async function smartAutoLink(tribeId, newPerson, userId) {
       // ✅ استخدام الدالة الآمنة
       const added = await safeAddRelation(newPerson.id, child.id);
       if (added) {
-        linkedCount++;
-        console.log(`🔗 تم ربط "${child.first_name}" كابن لـ "${newPerson.first_name}"`);
         childToParent.set(child.id, newPerson.id);
       }
     }
@@ -547,8 +532,6 @@ async function smartAutoLink(tribeId, newPerson, userId) {
             // ✅ استخدام الدالة الآمنة
             const added = await safeAddRelation(siblingParentId, newPerson.id);
             if (added) {
-              linkedCount++;
-              console.log(`🔗 تم ربط "${newPerson.first_name}" مع والد أخيه "${sibling.first_name}"`);
               childToParent.set(newPerson.id, siblingParentId);
             }
             break; // نخرج بعد الربط الأول
@@ -563,18 +546,10 @@ async function smartAutoLink(tribeId, newPerson, userId) {
         for (const sibling of potentialSiblings) {
           if (!childToParent.has(sibling.id)) {
             // ✅ استخدام الدالة الآمنة
-            const added = await safeAddRelation(newPersonParentId, sibling.id);
-            if (added) {
-              linkedCount++;
-              console.log(`🔗 تم ربط الأخ "${sibling.first_name}" مع نفس الوالد`);
-            }
+            await safeAddRelation(newPersonParentId, sibling.id);
           }
         }
       }
-    }
-    
-    if (linkedCount > 0) {
-      console.log(`✅ الربط الذكي: تم إنشاء ${linkedCount} علاقة جديدة`);
     }
     
   } catch (err) {
@@ -607,8 +582,6 @@ export async function createTribePerson(tribeId, personData) {
         .maybeSingle();
       
       if (existingPerson) {
-        console.log('🔗 تم العثور على شخص موجود بنفس الاسم:', existingPerson.first_name);
-        
         // تحديث الشخص الموجود بدلاً من إنشاء جديد
         const { data: updatedPerson, error: updateError } = await supabase
           .from('persons')
@@ -633,7 +606,6 @@ export async function createTribePerson(tribeId, personData) {
           .update({ person_id: updatedPerson.id })
           .eq('id', membership.id);
         
-        console.log('✅ تم ربط المستخدم بالشخص الموجود:', updatedPerson.id);
         return updatedPerson;
       }
     }
@@ -855,8 +827,6 @@ export async function getTribeTree(tribeId) {
       
       uniqueRelations.push(rel);
     }
-    
-    console.log(`📊 علاقات فريدة: ${uniqueRelations.length} من ${(relations || []).length}`);
 
     return {
       persons: persons || [],
@@ -935,7 +905,6 @@ export async function cleanDuplicateRelations(tribeId) {
         .in('id', toDelete);
       
       if (error) throw error;
-      console.log(`🧹 تم حذف ${toDelete.length} علاقة مكررة`);
     }
     
     return { deleted: toDelete.length };
@@ -987,7 +956,6 @@ export async function findDuplicatePersons(tribeId) {
       }
     }
 
-    console.log(`🔍 تم العثور على ${duplicates.length} مجموعة مكررة`);
     return duplicates;
   } catch (err) {
     console.error("❌ خطأ في البحث عن المكررين:", err);
@@ -1009,8 +977,6 @@ export async function mergePersons(tribeId, keepId, mergeId) {
     if (!membership || membership.role !== 'admin') {
       throw new Error('فقط المدير يمكنه دمج الأشخاص');
     }
-
-    console.log(`🔄 دمج الشخص ${mergeId} في ${keepId}`);
 
     // 1️⃣ نقل علاقات الوالد (حيث mergeId هو الوالد)
     const { error: parentErr } = await supabase
@@ -1069,7 +1035,6 @@ export async function mergePersons(tribeId, keepId, mergeId) {
 
     if (deleteErr) throw deleteErr;
 
-    console.log(`✅ تم دمج الشخص ${mergeId} في ${keepId}`);
     return { success: true, message: 'تم الدمج بنجاح' };
   } catch (err) {
     console.error("❌ خطأ في دمج الأشخاص:", err);
@@ -1137,7 +1102,6 @@ export async function linkPersonToParent(tribeId, childId, parentId) {
       .single();
 
     if (existing) {
-      console.log('⚠️ العلاقة موجودة مسبقاً');
       return existing;
     }
 
@@ -1153,7 +1117,6 @@ export async function linkPersonToParent(tribeId, childId, parentId) {
       .single();
 
     if (error) throw error;
-    console.log(`✅ تم ربط ${childId} بالوالد ${parentId}`);
     return data;
   } catch (err) {
     console.error("❌ خطأ في ربط الشخص:", err);
@@ -1173,7 +1136,6 @@ export async function fixUnlinkedSiblings(tribeId, userPersonId) {
       .single();
 
     if (!parentRel) {
-      console.log('⚠️ لم يتم العثور على والد المستخدم');
       return { fixed: 0 };
     }
 
@@ -1203,7 +1165,6 @@ export async function fixUnlinkedSiblings(tribeId, userPersonId) {
       if (!existingRel) {
         // ربط الأخ بالوالد
         await linkPersonToParent(tribeId, sibling.id, parentId);
-        console.log(`✅ تم ربط الأخ "${sibling.first_name}" بالوالد`);
         fixedCount++;
       }
     }
@@ -1467,8 +1428,6 @@ export async function createSmartPerson(tribeId, personData) {
             parentName: bestParent.first_name,
             confidence: potentialParents.length === 1 ? 95 : 75
           };
-          
-          console.log(`✅ تم الربط التلقائي مع "${bestParent.first_name}"`);
         }
       }
     }

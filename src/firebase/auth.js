@@ -22,8 +22,6 @@ export async function sendOtp(phoneNumber) {
       throw new Error('Firebase غير مهيأ بشكل صحيح. تحقق من متغيرات البيئة');
     }
 
-    console.log("📱 إرسال OTP إلى:", phoneNumber);
-
     // تحقق من وجود عنصر reCAPTCHA
     const recaptchaContainer = document.getElementById('recaptcha-container');
     if (!recaptchaContainer) {
@@ -48,14 +46,12 @@ export async function sendOtp(phoneNumber) {
       recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         size: 'invisible',
         callback: () => {
-          console.log("✅ تم التحقق من reCAPTCHA بنجاح");
+          // reCAPTCHA verified
         },
         'expired-callback': () => {
-          console.warn("⚠️ انتهت صلاحية reCAPTCHA");
           recaptchaVerifier = null;
         }
       });
-      console.log("✅ تم إنشاء RecaptchaVerifier بنجاح");
     } catch (recaptchaError) {
       console.error("❌ خطأ في reCAPTCHA:", recaptchaError);
       throw new Error(`فشل في تهيئة reCAPTCHA: ${recaptchaError.message || recaptchaError}`);
@@ -64,7 +60,6 @@ export async function sendOtp(phoneNumber) {
     // إرسال OTP
     try {
       confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
-      console.log("✅ تم إرسال الكود بنجاح");
       return { success: true };
     } catch (signInError) {
       // إعادة تعيين recaptchaVerifier عند فشل إرسال OTP
@@ -85,10 +80,8 @@ export async function verifyOtp(code) {
       throw new Error('لم يتم إرسال الكود أولاً. يرجى إرسال كود جديد');
     }
 
-    console.log("🔐 التحقق من الكود");
     const result = await confirmationResult.confirm(code);
     
-    console.log("✅ تسجيل دخول ناجح!");
     return {
       success: true,
       user: {
@@ -109,7 +102,6 @@ export async function logout() {
       throw new Error('Firebase غير مهيأ');
     }
     await signOut(auth);
-    console.log("✅ تم تسجيل الخروج");
   } catch (error) {
     console.error("❌ خطأ:", error.message);
     throw error;

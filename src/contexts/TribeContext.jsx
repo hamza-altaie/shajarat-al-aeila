@@ -20,7 +20,6 @@ export const TribeProvider = ({ children }) => {
     setMembership(null);
     
     if (!isAuthenticated || !user?.uid) {
-      console.log('⏳ في انتظار تسجيل الدخول...');
       setLoading(false);
       return;
     }
@@ -28,11 +27,9 @@ export const TribeProvider = ({ children }) => {
     const loadTribeData = async () => {
       try {
         setLoading(true);
-        console.log('🔄 تحميل بيانات القبيلة للمستخدم:', user.uid);
         
         // جلب القبيلة الافتراضية
         const tribeData = await getDefaultTribe();
-        console.log('✅ تم تحميل القبيلة:', tribeData);
         setTribe(tribeData);
 
         // التحقق من العضوية
@@ -40,14 +37,10 @@ export const TribeProvider = ({ children }) => {
         
         // إذا لم يكن عضو، انضم تلقائياً
         if (!membershipData) {
-          console.log('📝 المستخدم ليس عضواً، جاري الانضمام...');
           membershipData = await joinTribe(tribeData.id, {
             phone: user.phoneNumber,
             displayName: user.displayName || user.phoneNumber
           });
-          console.log('✅ تم الانضمام للقبيلة:', membershipData);
-        } else {
-          console.log('✅ المستخدم عضو بالفعل:', membershipData);
         }
         
         setMembership(membershipData);
@@ -55,7 +48,6 @@ export const TribeProvider = ({ children }) => {
         console.error('❌ خطأ في تحميل بيانات القبيلة:', err);
       } finally {
         setLoading(false);
-        console.log('✅ انتهى تحميل بيانات القبيلة');
       }
     };
 

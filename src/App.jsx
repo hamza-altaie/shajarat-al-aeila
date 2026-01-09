@@ -8,6 +8,7 @@ import AppRoutes from './AppRoutes.jsx';
 import { AuthProvider } from './AuthContext.jsx';
 import { TribeProvider } from './contexts/TribeContext.jsx';
 import InstallPrompt from './components/InstallPrompt';
+import MobileNavigation from './components/MobileNavigation';
 
 // ======================================================
 // 🎨 إنشاء المظهر الديناميكي
@@ -357,6 +358,7 @@ function App() {
           <TribeProvider>
             <AuthMonitor>
               <AppRoutes />
+              <MobileNavigation />
               <InstallPrompt />
             </AuthMonitor>
           </TribeProvider>

@@ -63,16 +63,12 @@ const PhoneLogin = () => {
         if (value.length === 10 || value.length === 11) {
           const withoutZero = value.substring(1); // 7xxxxxxxxx أو 7xxxxxxxxxxx
           formattedPhone = '+964' + withoutZero;
-          console.log(`📱 صيغة محلية: ${value} -> ${formattedPhone} (${withoutZero.length} أرقام بعد 964)`);
         }
       } else if (value.startsWith('7')) {
         // 7xxxxxxxxx أو 7xxxxxxxxxxx (9-10 أرقام) -> +964 7xxxxxxxxxx
         if ((value.length === 9 || value.length === 10)) {
           formattedPhone = '+964' + value;
-          console.log(`📱 صيغة مختصرة: ${value} -> ${formattedPhone} (${value.length} أرقام بعد 964)`);
         }
-      } else {
-        console.warn(`⚠️ رقم غير معروف يبدأ بـ: ${value.substring(0, 1)}`);
       }
     }
     
@@ -196,12 +192,9 @@ const PhoneLogin = () => {
       
       // 🧪 تحديث الحالة فوراً في التطوير
       try {
-        const devUser = localStorage.getItem('dev_user');
-        if (devUser) {
-          console.log("✅ تم حفظ المستخدم في localStorage بنجاح");
-        }
+        // لا حاجة لتسجيل هذا
       } catch {
-        console.warn("تحذير: لم يتم حفظ المستخدم");
+        // تجاهل أي أخطاء
       }
       
       // التوجيه مرة واحدة فقط بعد تأخير قصير

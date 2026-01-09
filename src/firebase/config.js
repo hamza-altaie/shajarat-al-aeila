@@ -18,12 +18,7 @@ if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
   console.error("   VITE_FIREBASE_PROJECT_ID:", firebaseConfig.projectId ? '✓' : '✗');
 }
 
-console.log("🔥 Firebase Config:", {
-  projectId: firebaseConfig.projectId,
-  authDomain: firebaseConfig.authDomain,
-  apiKey: firebaseConfig.apiKey ? '✓ (Configured)' : '✗ (Missing)',
-  appId: firebaseConfig.appId ? '✓ (Configured)' : '✗ (Missing)',
-});
+// Firebase Config loaded
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -36,13 +31,13 @@ if (import.meta.env.DEV) {
   // Only set this if we're in development and need to bypass reCAPTCHA
   try {
     authInstance.settings.appVerificationDisabledForTesting = true;
-    console.log("⚠️ App verification disabled for testing (DEV mode)");
-  } catch (e) {
-    console.warn("⚠️ Could not disable app verification for testing", e);
+    // DEV mode: app verification disabled
+  } catch {
+    // Could not disable app verification
   }
 }
 
-console.log("✅ Firebase initialized successfully");
+// Firebase initialized
 
 export const auth = authInstance;
 export default app;

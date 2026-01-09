@@ -30,12 +30,10 @@ export const AuthProvider = ({ children }) => {
     // الاستماع المستمر لتغييرات حالة المصادقة
     const unsubscribe = onAuthChange((u) => {
       if (u) {
-        console.log("🔥 مستخدم Firebase:", u);
         setUser(u);
         setUserData(u);
         setIsAuthenticated(true);
       } else {
-        console.log("🔓 لا يوجد مستخدم مسجل");
         setUser(null);
         setUserData(null);
         setIsAuthenticated(false);

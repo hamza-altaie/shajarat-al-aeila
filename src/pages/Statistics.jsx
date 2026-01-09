@@ -7,7 +7,7 @@ import {
   List, ListItem, ListItemText, ListItemIcon,
   IconButton, Tooltip, Alert, CircularProgress,
   AppBar, Toolbar, Container, Button, Breadcrumbs,
-  Link, Fab
+  Link, Fab, useMediaQuery, useTheme
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 
@@ -25,6 +25,8 @@ import { useTribe } from '../contexts/TribeContext';
 const Statistics = () => {
   const navigate = useNavigate();
   const { tribe, loading: tribeLoading } = useTribe();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   // مرجع لتتبع التحميل الأولي
   const initialLoadRef = useRef(true);
@@ -108,8 +110,8 @@ const Statistics = () => {
   // تم حذف دالة البحث عن العائلات المرتبطة
 
   // تحميل بيانات الشجرة العادية
-  const loadSimpleTreeData = useCallback(async () => {
-    if (!tribe?.id) {
+  const loadSimpleTreeData = useCallback(async (tribeId) => {
+    if (!tribeId) {
       setFamilyMembers([]);
       setError('لم يتم تحميل بيانات القبيلة');
       return;
@@ -118,7 +120,7 @@ const Statistics = () => {
     try {
       // استخدام Tribe Service بدلاً من userService
       const { getTribeTree } = await import('../services/tribeService');
-      const response = await getTribeTree(tribe.id);
+      const response = await getTribeTree(tribeId);
       
       if (!response || !response.persons) {
         setFamilyMembers([]);
@@ -142,13 +144,14 @@ const Statistics = () => {
 
       const cleanMembers = members.map(buildCleanMember);
       setFamilyMembers(cleanMembers);
+      setError(null); // مسح أي خطأ سابق
       
       const tree = buildTreeData(cleanMembers);
       setTreeData(tree);
       
     } catch (err) {
-      console.error('خطأ في تحميل البيانات:', err);
-      setError('فشل في تحميل بيانات العائلة');
+      console.error('❌ خطأ في تحميل البيانات:', err);
+      setError('فشل في تحميل بيانات العائلة: ' + err.message);
     }
   }, [buildCleanMember, buildTreeData]);
 
@@ -157,15 +160,22 @@ const Statistics = () => {
   // تحميل بيانات العائلة من Supabase
   useEffect(() => {
     const loadFamilyData = async () => {
-      if (!tribe?.id || tribeLoading) {
+      if (tribeLoading) {
+        return;
+      }
+      
+      if (!tribe?.id) {
+        setError('لم يتم تحميل بيانات القبيلة');
+        setLoading(false);
         return;
       }
 
       try {
         setLoading(true);
+        setError(null); // مسح الخطأ السابق
 
-        // تحميل بيانات القبيلة
-        await loadSimpleTreeData();
+        // تحميل بيانات القبيلة - نمرر tribe.id مباشرة
+        await loadSimpleTreeData(tribe.id);
 
       } catch (err) {
         console.error('خطأ في تحميل البيانات:', err);
@@ -179,31 +189,6 @@ const Statistics = () => {
 
     loadFamilyData();
   }, [tribe?.id, tribeLoading, loadSimpleTreeData]);
-
-  // تحديث البيانات عند تغيير نوع الشجرة فقط
-  useEffect(() => {
-    // تجنب التشغيل في التحميل الأولي
-    if (initialLoadRef.current || familyMembers.length === 0) return;
-
-    const updateTreeData = async () => {
-      const uid = localStorage.getItem('verifiedUid');
-      if (!uid) return;
-      
-      try {
-        setLoading(true);
-        
-        // يتم عرض الشجرة العادية دائماً
-        await loadSimpleTreeData(uid);
-      } catch (err) {
-        console.error('خطأ في تحديث البيانات:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    updateTreeData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // تم حذف تغيير نوع الشجرة
 
   // تم حذف دالة التبديل بين أنواع الشجرة
 
@@ -1207,13 +1192,16 @@ const Statistics = () => {
         color="primary"
         sx={{
           position: 'fixed',
-          bottom: 16,
+          bottom: isMobile ? 90 : 16,
           left: 16,
         }}
         onClick={() => navigate('/family')}
       >
         <ArrowBackIcon />
       </Fab>
+      
+      {/* مسافة سفلية للقائمة على الهاتف */}
+      {isMobile && <Box sx={{ height: 80 }} />}
     </Box>
   );
 };
