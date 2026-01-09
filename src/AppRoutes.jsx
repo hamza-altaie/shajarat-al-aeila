@@ -11,7 +11,6 @@ import PrivacyPolicy from './pages/PrivacyPolicy.jsx';
 import Statistics from './pages/Statistics.jsx';
 import AddPerson from './pages/AddPerson.jsx';
 import PendingMatches from './pages/PendingMatches.jsx';
-import SmartAddPerson from './pages/SmartAddPerson.jsx';
 
 
 export default function AppRoutes() {
@@ -138,15 +137,6 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <AddPerson />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/smart-add"
-        element={
-          <ProtectedRoute>
-            <SmartAddPerson />
           </ProtectedRoute>
         }
       />

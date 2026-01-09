@@ -32,12 +32,6 @@ const NAV_ITEMS = [
     color: '#3b82f6'
   },
   { 
-    label: 'إضافة', 
-    path: '/smart-add', 
-    icon: <PersonAddIcon />,
-    color: '#8b5cf6'
-  },
-  { 
     label: 'إحصائيات', 
     path: '/statistics', 
     icon: <BarChartIcon />,

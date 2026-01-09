@@ -28,8 +28,7 @@ import { getTribeTree, getUnlinkedRoots, mergeRoots, cleanDuplicateRelations } f
 import { useTribe } from '../contexts/TribeContext';
 import { useAuth } from '../AuthContext';
 
-// استيراد المكونات الذكية الجديدة
-import SmartPersonForm from './SmartPersonForm';
+// استيراد مكون المكررين
 import DuplicatesManager from './DuplicatesManager';
 
 // استيراد المكونات والأدوات المنفصلة
@@ -72,9 +71,6 @@ export default function FamilyTreeAdvanced() {
   
   // 🔍 حالات الأشخاص المكررين (المكون الجديد)
   const [duplicatesManagerOpen, setDuplicatesManagerOpen] = useState(false);
-  
-  // 📝 حالات نموذج الإضافة الذكي
-  const [smartFormOpen, setSmartFormOpen] = useState(false);
   
   // استخدام useAuth بدلاً من localStorage
   const { user, isAuthenticated } = useAuth();
@@ -1525,30 +1521,6 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
           <Button 
             variant="contained" 
             size={window.innerWidth < 600 ? "small" : "medium"}
-            onClick={() => navigate('/smart-add')}
-            disabled={loading} 
-            startIcon={<PersonAddIcon />} 
-            sx={{ 
-              px: { xs: 1, sm: 1.5 },
-              py: { xs: 0.25, sm: 0.5 },
-              fontSize: { xs: '0.7rem', sm: '0.8rem' },
-              borderRadius: 2,
-              background: 'linear-gradient(45deg, #9333ea 0%, #7c3aed 100%)',
-              boxShadow: '0 2px 8px rgba(147,51,234,0.25)',
-              '&:hover': { 
-                background: 'linear-gradient(45deg, #7c3aed 0%, #6d28d9 100%)',
-                transform: 'translateY(-1px)',
-                boxShadow: '0 4px 12px rgba(147,51,234,0.3)'
-              },
-              transition: 'all 0.2s ease'
-            }}
-          >
-            إضافة ذكية
-          </Button>
-
-          <Button 
-            variant="contained" 
-            size={window.innerWidth < 600 ? "small" : "medium"}
             onClick={() => navigate('/statistics')}
             disabled={loading} 
             startIcon={<BarChartIcon />} 
@@ -1977,19 +1949,6 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
         open={duplicatesManagerOpen}
         onClose={() => setDuplicatesManagerOpen(false)}
         onMergeComplete={handleRefresh}
-      />
-
-      {/* ================================================= */}
-      {/* 📝 نموذج الإضافة الذكي */}
-      {/* ================================================= */}
-      <SmartPersonForm
-        open={smartFormOpen}
-        onClose={() => setSmartFormOpen(false)}
-        tribeId={tribe?.id}
-        onSuccess={(result) => {
-          showSnackbar(result.message, 'success');
-          handleRefresh();
-        }}
       />
       
       <Snackbar 

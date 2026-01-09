@@ -1115,18 +1115,6 @@ const loadFamily = useCallback(async () => {
             </Box>
           </Button>
           
-          <Button
-            variant="outlined"
-            color="primary"
-            onClick={() => navigate('/add-person')}
-            sx={{ 
-              borderRadius: 2,
-              display: { xs: 'none', sm: 'flex' }
-            }}
-          >
-            إضافة ذكية
-          </Button>
-          
           <IconButton onClick={handleSettingsClick}>
             <SettingsIcon />
           </IconButton>
