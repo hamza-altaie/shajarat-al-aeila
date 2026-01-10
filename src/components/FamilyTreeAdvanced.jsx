@@ -35,7 +35,7 @@ export default function FamilyTreeAdvanced() {
   // الحالات الأساسية
   // ===========================================================================
   
-  const { tribe, loading: tribeLoading } = useTribe();
+  const { tribe, membership, loading: tribeLoading } = useTribe();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
@@ -1647,7 +1647,16 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
                 {selectedNode.name || buildFullName(selectedNode) || ''}
               </Typography>
               <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <Chip label={selectedNode.relation || ''} color="primary" variant="outlined" />
+                <Chip 
+                  label={
+                    // إذا كان الشخص هو صاحب الحساب
+                    (selectedNode.id === membership?.person_id) 
+                      ? 'أنا (صاحب الحساب)' 
+                      : (selectedNode.relation || '')
+                  } 
+                  color={selectedNode.id === membership?.person_id ? 'success' : 'primary'} 
+                  variant="outlined" 
+                />
                 {selectedNode.isNephewNiece && (
                   <Chip label="👶 ابن/بنت الأخ/الأخت" color="warning" variant="outlined" />
                 )}
