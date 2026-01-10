@@ -1081,22 +1081,18 @@ const loadFamily = useCallback(async () => {
       {!tribeLoading && (
         <>
       {/* الهيدر */}
-      <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" mb={4} gap={2}>
+      <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" mb={3} gap={2}>
         <Box textAlign={{ xs: 'center', sm: 'left' }}>
           <Typography 
-            variant="h3" 
+            variant="h4" 
             fontWeight="bold" 
             gutterBottom 
-            fontSize={{ xs: '2rem', sm: '3rem' }}
-            sx={{ color: '#1976d2' }}
+            sx={{ color: '#166534' }}
           >
-            🌳 {tribe?.name || 'شجرة القبيلة'}
+            🌳 {tribe?.name || 'شجرة العائلة'}
           </Typography>
-          <Typography variant="h6" color="text.secondary">
-            أضف عائلتك المباشرة • النظام يحسب جميع العلاقات تلقائياً
-          </Typography>
-          <Typography variant="caption" color="primary.main" sx={{ display: 'block', mt: 0.5, fontWeight: 'bold' }}>
-            🎯 أنت + أولادك + إخوتك + والديك = الشجرة الكاملة تلقائياً (أعمام، أخوال، أحفاد، إلخ)
+          <Typography variant="body2" color="text.secondary">
+            أضف عائلتك المباشرة • النظام يربط العلاقات تلقائياً
           </Typography>
         </Box>
 
@@ -1108,26 +1104,12 @@ const loadFamily = useCallback(async () => {
             onClick={() => navigate('/tree')}
             sx={{ 
               borderRadius: 2,
-              px: { xs: 2, sm: 3 },
-              py: { xs: 1, sm: 1.5 },
-              fontSize: { xs: '0.875rem', sm: '1rem' },
+              px: 2,
+              py: 1,
               fontWeight: 600,
-              minWidth: { xs: 100, sm: 140 },
-              '& .MuiButton-startIcon': {
-                marginLeft: { xs: '4px', sm: '8px' },
-                marginRight: '0px',
-                '& > svg': {
-                  fontSize: { xs: '18px', sm: '20px' }
-                }
-              }
             }}
           >
-            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
-              عرض الشجرة
-            </Box>
-            <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
-              الشجرة
-            </Box>
+            عرض الشجرة
           </Button>
           
           <IconButton onClick={handleSettingsClick}>
@@ -1141,92 +1123,48 @@ const loadFamily = useCallback(async () => {
         sx={{ 
           display: 'grid', 
           gridTemplateColumns: { 
-            xs: '1fr', 
-            sm: 'repeat(3, 1fr)' 
+            xs: 'repeat(2, 1fr)', 
+            sm: 'repeat(2, 1fr)' 
           }, 
-          gap: 3,
+          gap: 2,
           mb: 4
         }}
       >
-        <Paper elevation={2} sx={{ p: 3, textAlign: 'center', borderRadius: 3 }}>
-          <FamilyIcon sx={{ fontSize: 40, color: '#2196f3', mb: 1 }} />
-          <Typography variant="h4" fontWeight="bold" color="primary">
+        <Paper elevation={2} sx={{ p: 2, textAlign: 'center', borderRadius: 3, bgcolor: '#f0f9ff', border: '1px solid #bae6fd' }}>
+          <FamilyIcon sx={{ fontSize: 36, color: '#0284c7', mb: 0.5 }} />
+          <Typography variant="h4" fontWeight="bold" sx={{ color: '#0284c7' }}>
             {members.length}
           </Typography>
-          <Typography variant="body1" color="text.secondary">
+          <Typography variant="body2" color="text.secondary">
             إجمالي الأفراد
           </Typography>
         </Paper>
         
-        <Paper elevation={2} sx={{ p: 3, textAlign: 'center', borderRadius: 3 }}>
-          <GppGoodIcon sx={{ fontSize: 40, color: '#4caf50', mb: 1 }} />
-          <Typography variant="h4" fontWeight="bold" color="success.main">
-            {members.filter(m => m.relation === 'رب العائلة').length}
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            أرباب العائلات
-          </Typography>
-        </Paper>
-        
-        <Paper elevation={2} sx={{ p: 3, textAlign: 'center', borderRadius: 3 }}>
-          <GroupIcon sx={{ fontSize: 40, color: '#ff9800', mb: 1 }} />
-          <Typography variant="h4" fontWeight="bold" color="warning.main">
+        <Paper elevation={2} sx={{ p: 2, textAlign: 'center', borderRadius: 3, bgcolor: '#fef3c7', border: '1px solid #fcd34d' }}>
+          <GroupIcon sx={{ fontSize: 36, color: '#d97706', mb: 0.5 }} />
+          <Typography variant="h4" fontWeight="bold" sx={{ color: '#d97706' }}>
             {members.filter(m => m.relation === 'ابن' || m.relation === 'بنت').length}
           </Typography>
-          <Typography variant="body1" color="text.secondary">
+          <Typography variant="body2" color="text.secondary">
             الأطفال
           </Typography>
         </Paper>
       </Box>
 
       {/* قسم إضافة عضو جديد */}
-      <Paper elevation={3} sx={{ p: { xs: 2, sm: 4 }, mb: 4, borderRadius: 3 }}>
-        <Typography variant="h5" fontWeight="bold" gutterBottom>
-          ➕ بناء شجرتك العائلية
-        </Typography>
+      <Paper elevation={3} sx={{ p: { xs: 2, sm: 3 }, mb: 4, borderRadius: 3 }}>
         
-        {/* رسالة توضيحية بسيطة */}
+        {/* رسالة توضيحية مختصرة */}
         {members.length === 0 ? (
-          <Alert severity="info" icon="🎯" sx={{ mb: 3 }}>
-            <Typography variant="body1" fontWeight="bold" gutterBottom>
-              أضف فقط 4 أشياء - النظام يحسب الباقي تلقائياً!
-            </Typography>
-            <Typography variant="body2" component="div" sx={{ lineHeight: 2.2 }}>
-              <Box component="span" sx={{ display: 'block', mb: 1 }}>
-                1️⃣ <strong>سجّل نفسك</strong> (أنا) - اسمك الرباعي<br/>
-                2️⃣ <strong>أضف أولادك</strong> (ابني، بنتي)<br/>
-                3️⃣ <strong>أضف إخوتك</strong> (أخي، أختي)<br/>
-                4️⃣ <strong>أضف والديك وأجدادك</strong> (والدي، جدي)
-              </Box>
-              
-              <Divider sx={{ my: 2 }} />
-              
-              <Box sx={{ p: 2, bgcolor: 'success.lighter', borderRadius: 2, border: '2px solid', borderColor: 'success.main' }}>
-                <Typography variant="body2" fontWeight="bold" color="success.dark" gutterBottom>
-                  ✨ النظام الذكي يحسب تلقائياً:
-                </Typography>
-                <Typography variant="caption" component="div" sx={{ lineHeight: 1.8 }}>
-                  ✅ <strong>أولاد أخي</strong> = أبناء إخوتي<br/>
-                  ✅ <strong>أولاد عمي</strong> = أبناء إخوة والدي<br/>
-                  ✅ <strong>أعمامي</strong> = إخوة والدي<br/>
-                  ✅ <strong>أخوالي</strong> = إخوة والدتي<br/>
-                  ✅ <strong>أحفادي</strong> = أبناء أبنائي<br/>
-                  ✅ <strong>أجداد الأجداد</strong> = كل السلسلة للأعلى<br/>
-                  ✅ <strong>وجميع العلاقات الأخرى</strong> - لا نهاية!
-                </Typography>
-              </Box>
-              
-              <Box sx={{ mt: 2, p: 1.5, bgcolor: 'info.lighter', borderRadius: 1 }}>
-                <Typography variant="caption" fontWeight="bold" color="info.dark">
-                  💡 كلما أضاف المزيد من الناس بياناتهم، كلما اكتملت الشجرة أكثر وظهرت علاقات جديدة تلقائياً!
-                </Typography>
-              </Box>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <Typography variant="body2" fontWeight="bold">
+              🎯 ابدأ بإضافة نفسك، ثم والدك، ثم إخوتك وأولادك
             </Typography>
           </Alert>
         ) : (
-          <Alert severity="success" icon="✅" sx={{ mb: 3 }}>
+          <Alert severity="success" sx={{ mb: 2 }}>
             <Typography variant="body2">
-              ممتاز! استمر - فقط أضف: <strong>أولادك، إخوتك، والديك</strong> والنظام يحسب الباقي
+              ✅ ممتاز! أضف: <strong>أولادك، إخوتك، والديك</strong> - النظام يربط الباقي تلقائياً
             </Typography>
           </Alert>
         )}
@@ -1237,10 +1175,10 @@ const loadFamily = useCallback(async () => {
             color="success"
             startIcon={<AddIcon />}
             onClick={() => setShowAddForm(true)}
-            sx={{ fontWeight: 'bold', fontSize: 18, px: 4, py: 2 }}
+            sx={{ fontWeight: 'bold', fontSize: 16, px: 3, py: 1.5 }}
             fullWidth
           >
-            إضافة العضو
+            +إضافة العضو
           </Button>
         )}
         {showAddForm && (
