@@ -1140,9 +1140,9 @@ const loadFamily = useCallback(async () => {
           </Typography>
         </Paper>
         
-        <Paper elevation={2} sx={{ p: 2, textAlign: 'center', borderRadius: 3, bgcolor: '#fef3c7', border: '1px solid #fcd34d' }}>
-          <GroupIcon sx={{ fontSize: 36, color: '#d97706', mb: 0.5 }} />
-          <Typography variant="h4" fontWeight="bold" sx={{ color: '#d97706' }}>
+        <Paper elevation={2} sx={{ p: 2, textAlign: 'center', borderRadius: 3, bgcolor: '#f0fdf4', border: '1px solid #86efac' }}>
+          <GroupIcon sx={{ fontSize: 36, color: '#16a34a', mb: 0.5 }} />
+          <Typography variant="h4" fontWeight="bold" sx={{ color: '#16a34a' }}>
             {members.filter(m => m.relation === 'ابن' || m.relation === 'بنت').length}
           </Typography>
           <Typography variant="body2" color="text.secondary">
