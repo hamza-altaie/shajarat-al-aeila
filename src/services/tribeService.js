@@ -155,6 +155,23 @@ export async function checkUserMembership(tribeId) {
   }
 }
 
+// ✅ التحقق من أن المستخدم له والد مسجل
+export async function checkUserHasParent(tribeId, userPersonId) {
+  if (!userPersonId) return false;
+  
+  try {
+    const { data } = await supabase
+      .from('relations')
+      .select('parent_id')
+      .eq('child_id', userPersonId)
+      .maybeSingle();
+    
+    return !!data?.parent_id;
+  } catch {
+    return false;
+  }
+}
+
 // =============================================
 // دوال الأشخاص (Persons) - نسخة القبيلة
 // =============================================
@@ -257,47 +274,14 @@ async function createAutoRelations(tribeId, newPerson, membership, userId) {
         .from('relations')
         .select('parent_id')
         .eq('child_id', userPersonId)
-        .maybeSingle(); // ✅ استخدام maybeSingle لتجنب الخطأ
+        .maybeSingle();
       
       if (parentRel?.parent_id) {
+        // ربط الأخ بنفس الوالد
         await addRelationIfNotExists(parentRel.parent_id, newPerson.id);
-      } else {
-        // ✅ إصلاح سيناريو 6: إنشاء والد افتراضي إذا لم يوجد;
-        
-        // جلب بيانات المستخدم
-        const { data: userPerson } = await supabase
-          .from('persons')
-          .select('father_name, grandfather_name, family_name')
-          .eq('id', userPersonId)
-          .single();
-        
-        if (userPerson?.father_name) {
-          // إنشاء الوالد الافتراضي
-          const { data: autoParent, error: parentError } = await supabase
-            .from('persons')
-            .insert({
-              tribe_id: tribeId,
-              first_name: userPerson.father_name,
-              father_name: userPerson.grandfather_name || '',
-              family_name: userPerson.family_name || '',
-              relation: 'والد',
-              gender: 'M',
-              generation: await calculateGeneration(tribeId, null),
-              created_by: userId,
-              is_auto_created: true // علامة للتمييز
-            })
-            .select()
-            .single();
-          
-          if (!parentError && autoParent) {
-            // ربط المستخدم بالوالد الافتراضي
-            await addRelationIfNotExists(autoParent.id, userPersonId);
-            
-            // ربط الأخ بالوالد الافتراضي
-            await addRelationIfNotExists(autoParent.id, newPerson.id);
-          }
-        }
       }
+      // ❌ لا ننشئ والد افتراضي - يجب على المستخدم إضافة والده أولاً
+      // التحقق يتم في Family.jsx قبل الإضافة
     }
     
     // 5. إذا كان "جد" أو "جدة" → والد الوالد

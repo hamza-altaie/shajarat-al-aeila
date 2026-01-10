@@ -25,7 +25,8 @@ import {
   listTribePersons, 
   createTribePerson, 
   updateTribePerson, 
-  deleteTribePerson 
+  deleteTribePerson,
+  checkUserHasParent 
 } from "../services/tribeService";
 
 // 📸 استيراد خدمة الصور
@@ -385,6 +386,20 @@ const loadFamily = useCallback(async () => {
   if (Object.keys(errors).length > 0) {
     showSnackbar('يرجى تصحيح الأخطاء أولاً', 'error');
     return false;
+  }
+
+  // ✅ التحقق من وجود والد قبل إضافة أخ/أخت
+  if ((form.relation === 'أخ' || form.relation === 'أخت') && !form.id) {
+    const userPersonId = membership?.person_id;
+    if (!userPersonId) {
+      showSnackbar('يجب إضافة نفسك أولاً (اختر علاقة "أنا")', 'warning');
+      return false;
+    }
+    const hasParent = await checkUserHasParent(tribe.id, userPersonId);
+    if (!hasParent) {
+      showSnackbar('يجب إضافة والدك أولاً قبل إضافة أخ أو أخت', 'warning');
+      return false;
+    }
   }
 
   setLoading(true);
