@@ -596,14 +596,19 @@ export async function createTribePerson(tribeId, personData) {
 
     // 2️⃣ إذا كان "والد" أو "جد" - البحث عن شخص موجود بنفس الاسم
     if (personData.relation === 'والد' || personData.relation === 'جد') {
-      // البحث بالاسم الأول واسم الأب
-      const { data: existingParent } = await supabase
+      // جلب كل الأشخاص للبحث الذكي
+      const { data: allPersons } = await supabase
         .from('persons')
         .select('*')
-        .eq('tribe_id', tribeId)
-        .eq('first_name', personData.first_name)
-        .eq('father_name', personData.father_name || '')
-        .maybeSingle();
+        .eq('tribe_id', tribeId);
+      
+      // البحث الذكي بالاسم (مع تسامح للأخطاء)
+      const existingParent = (allPersons || []).find(p => {
+        const firstNameMatch = namesAreSimilar(p.first_name, personData.first_name);
+        const fatherNameMatch = !personData.father_name || !p.father_name || 
+          namesAreSimilar(p.father_name, personData.father_name);
+        return firstNameMatch && fatherNameMatch;
+      });
       
       if (existingParent) {
         // ✅ الوالد/الجد موجود بالفعل - نربط به فقط بدلاً من إنشاء جديد
@@ -634,6 +639,40 @@ export async function createTribePerson(tribeId, personData) {
           }
         }
         
+        // إذا كان جد - نربطه بوالد المستخدم
+        if (personData.relation === 'جد' && userPersonId) {
+          // البحث عن والد المستخدم
+          const { data: userParentRel } = await supabase
+            .from('relations')
+            .select('parent_id')
+            .eq('child_id', userPersonId)
+            .maybeSingle();
+          
+          if (userParentRel?.parent_id) {
+            // ربط الجد بالوالد
+            const wouldCircle = await wouldCreateCircle(tribeId, existingParent.id, userParentRel.parent_id);
+            if (!wouldCircle) {
+              const { data: existingGrandRel } = await supabase
+                .from('relations')
+                .select('id')
+                .eq('parent_id', existingParent.id)
+                .eq('child_id', userParentRel.parent_id)
+                .maybeSingle();
+              
+              if (!existingGrandRel) {
+                await supabase
+                  .from('relations')
+                  .insert({
+                    tribe_id: tribeId,
+                    parent_id: existingParent.id,
+                    child_id: userParentRel.parent_id,
+                    created_by: user.uid
+                  });
+              }
+            }
+          }
+        }
+        
         // إرجاع الشخص الموجود
         return existingParent;
       }
@@ -641,13 +680,18 @@ export async function createTribePerson(tribeId, personData) {
 
     // 3️⃣ إذا كان "أخ" أو "أخت" - البحث عن شخص موجود بنفس الاسم
     if (personData.relation === 'أخ' || personData.relation === 'أخت') {
-      const { data: existingSibling } = await supabase
+      // جلب كل الأشخاص للبحث الذكي
+      const { data: allPersons } = await supabase
         .from('persons')
         .select('*')
-        .eq('tribe_id', tribeId)
-        .eq('first_name', personData.first_name)
-        .eq('father_name', personData.father_name || '')
-        .maybeSingle();
+        .eq('tribe_id', tribeId);
+      
+      const existingSibling = (allPersons || []).find(p => {
+        const firstNameMatch = namesAreSimilar(p.first_name, personData.first_name);
+        const fatherNameMatch = !personData.father_name || !p.father_name || 
+          namesAreSimilar(p.father_name, personData.father_name);
+        return firstNameMatch && fatherNameMatch;
+      });
       
       if (existingSibling) {
         // الأخ موجود - نربطه بنفس الوالد فقط
