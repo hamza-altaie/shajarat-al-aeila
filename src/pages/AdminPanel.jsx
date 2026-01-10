@@ -6,7 +6,7 @@ import {
   Card, CardContent, CardActions, Divider, Alert,
   CircularProgress, Snackbar, List, ListItem, ListItemText,
   ListItemButton, Dialog, DialogTitle, DialogContent, DialogActions,
-  Chip
+  Chip, LinearProgress
 } from '@mui/material';
 
 // الأيقونات
@@ -17,6 +17,10 @@ import MergeTypeIcon from '@mui/icons-material/MergeType';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import SecurityIcon from '@mui/icons-material/Security';
+import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import WarningIcon from '@mui/icons-material/Warning';
+import InfoIcon from '@mui/icons-material/Info';
 
 import { useTribe } from '../contexts/TribeContext';
 import { 
@@ -24,7 +28,8 @@ import {
   mergeRoots, 
   cleanDuplicateRelations,
   findDuplicatePersons,
-  mergePersons
+  mergePersons,
+  analyzeTreeHealth
 } from '../services/tribeService';
 
 export default function AdminPanel() {
@@ -45,6 +50,10 @@ export default function AdminPanel() {
   const [duplicatesDialogOpen, setDuplicatesDialogOpen] = useState(false);
   const [duplicates, setDuplicates] = useState([]);
   const [merging, setMerging] = useState(false);
+
+  // فحص صحة الشجرة
+  const [healthDialogOpen, setHealthDialogOpen] = useState(false);
+  const [healthReport, setHealthReport] = useState(null);
 
   // التحقق من صلاحية المدير
   if (!isAdmin) {
@@ -170,6 +179,24 @@ export default function AdminPanel() {
       showMessage(`❌ خطأ في الدمج: ${err.message}`, 'error');
     } finally {
       setMerging(false);
+    }
+  };
+
+  // ========================================
+  // 4️⃣ فحص صحة الشجرة
+  // ========================================
+  const handleAnalyzeTree = async () => {
+    if (!tribe?.id) return;
+    
+    setLoading(true);
+    try {
+      const report = await analyzeTreeHealth(tribe.id);
+      setHealthReport(report);
+      setHealthDialogOpen(true);
+    } catch {
+      showMessage('❌ خطأ في تحليل الشجرة', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -317,6 +344,35 @@ export default function AdminPanel() {
               }}
             >
               الذهاب للشجرة
+            </Button>
+          </CardActions>
+        </Card>
+
+        {/* بطاقة فحص صحة الشجرة */}
+        <Card elevation={3} sx={{ borderRadius: 3, border: '2px solid #3b82f6', gridColumn: { md: 'span 2' } }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <HealthAndSafetyIcon sx={{ fontSize: 40, color: '#3b82f6', mr: 2 }} />
+              <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>
+                📊 فحص صحة الشجرة
+              </Typography>
+            </Box>
+            <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: 'text.secondary', mb: 2 }}>
+              تحليل شامل للشجرة: عدد الأشخاص، الجذور، المكررين، العمق، والمشاكل المحتملة.
+            </Typography>
+          </CardContent>
+          <CardActions sx={{ px: 2, pb: 2 }}>
+            <Button 
+              variant="contained"
+              onClick={handleAnalyzeTree}
+              disabled={loading}
+              startIcon={loading ? <CircularProgress size={20} /> : <HealthAndSafetyIcon />}
+              sx={{ 
+                fontFamily: 'Cairo, sans-serif',
+                background: 'linear-gradient(45deg, #3b82f6 0%, #2563eb 100%)',
+              }}
+            >
+              فحص الآن
             </Button>
           </CardActions>
         </Card>
@@ -492,6 +548,135 @@ export default function AdminPanel() {
         <DialogActions>
           <Button 
             onClick={() => setDuplicatesDialogOpen(false)}
+            sx={{ fontFamily: 'Cairo, sans-serif' }}
+          >
+            إغلاق
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ================================================= */}
+      {/* نافذة فحص صحة الشجرة */}
+      {/* ================================================= */}
+      <Dialog 
+        open={healthDialogOpen} 
+        onClose={() => setHealthDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        dir="rtl"
+      >
+        <DialogTitle sx={{ fontFamily: 'Cairo, sans-serif', textAlign: 'center' }}>
+          📊 تقرير صحة الشجرة
+        </DialogTitle>
+        <DialogContent>
+          {healthReport && (
+            <Box>
+              {/* حالة الصحة العامة */}
+              <Alert 
+                severity={healthReport.isHealthy ? 'success' : 'warning'} 
+                icon={healthReport.isHealthy ? <CheckCircleIcon /> : <WarningIcon />}
+                sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}
+              >
+                {healthReport.isHealthy 
+                  ? '✅ الشجرة بحالة جيدة!' 
+                  : '⚠️ توجد بعض المشاكل التي تحتاج معالجة'
+                }
+              </Alert>
+
+              {/* الإحصائيات */}
+              <Paper sx={{ p: 2, mb: 3, bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', mb: 2, fontWeight: 'bold', color: '#1e293b' }}>
+                  📈 الإحصائيات
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 2 }}>
+                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                    <Typography variant="h4" sx={{ color: '#3b82f6', fontWeight: 'bold' }}>{healthReport.stats.totalPersons}</Typography>
+                    <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: '#64748b' }}>إجمالي الأشخاص</Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                    <Typography variant="h4" sx={{ color: '#8b5cf6', fontWeight: 'bold' }}>{healthReport.stats.totalRelations}</Typography>
+                    <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: '#64748b' }}>العلاقات</Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                    <Typography variant="h4" sx={{ color: '#10b981', fontWeight: 'bold' }}>{healthReport.stats.maxDepth}</Typography>
+                    <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: '#64748b' }}>عمق الشجرة (أجيال)</Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                    <Typography variant="h4" sx={{ color: '#f59e0b', fontWeight: 'bold' }}>{healthReport.stats.rootsCount}</Typography>
+                    <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: '#64748b' }}>عدد الجذور</Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                    <Typography variant="h4" sx={{ color: '#06b6d4', fontWeight: 'bold' }}>{healthReport.stats.linkedUsers}/{healthReport.stats.totalUsers}</Typography>
+                    <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: '#64748b' }}>مستخدمين مرتبطين</Typography>
+                  </Box>
+                </Box>
+              </Paper>
+
+              {/* الجذور */}
+              {healthReport.roots.length > 0 && (
+                <Paper sx={{ p: 2, mb: 3, bgcolor: '#fffbeb', border: '1px solid #fde68a' }}>
+                  <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', mb: 2, fontWeight: 'bold', color: '#92400e' }}>
+                    🌳 الجذور (الأشخاص بدون والد)
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {healthReport.roots.map((root, i) => (
+                      <Chip 
+                        key={root.id} 
+                        label={root.name} 
+                        sx={{ 
+                          bgcolor: i === 0 ? '#dcfce7' : '#fef3c7',
+                          color: i === 0 ? '#166534' : '#92400e',
+                          fontWeight: 'bold',
+                          border: i === 0 ? '1px solid #86efac' : '1px solid #fcd34d'
+                        }}
+                      />
+                    ))}
+                  </Box>
+                  {healthReport.roots.length > 1 && (
+                    <Alert severity="info" sx={{ mt: 2, fontFamily: 'Cairo, sans-serif' }}>
+                      💡 يوجد أكثر من جذر واحد. استخدم أداة "ربط الجذور" لتوحيد الشجرة.
+                    </Alert>
+                  )}
+                </Paper>
+              )}
+
+              {/* المشاكل */}
+              {healthReport.problems.length > 0 && (
+                <Paper sx={{ p: 2, mb: 3, bgcolor: '#fef2f2', border: '1px solid #fecaca' }}>
+                  <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', mb: 2, fontWeight: 'bold', color: '#991b1b' }}>
+                    ⚠️ المشاكل المكتشفة
+                  </Typography>
+                  <List dense>
+                    {healthReport.problems.map((problem, i) => (
+                      <ListItem key={i} sx={{ bgcolor: 'white', borderRadius: 1, mb: 1, border: '1px solid #fecaca' }}>
+                        <ListItemText
+                          primary={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              {problem.severity === 'warning' ? <WarningIcon sx={{ color: '#f59e0b' }} /> : <InfoIcon sx={{ color: '#3b82f6' }} />}
+                              <Typography sx={{ fontFamily: 'Cairo, sans-serif', color: '#1e293b' }}>{problem.message}</Typography>
+                            </Box>
+                          }
+                          secondary={problem.details}
+                          secondaryTypographyProps={{ fontFamily: 'Cairo, sans-serif', fontSize: '0.75rem', color: '#64748b' }}
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                </Paper>
+              )}
+
+              {/* لا توجد مشاكل */}
+              {healthReport.problems.length === 0 && (
+                <Alert severity="success" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+                  🎉 لا توجد مشاكل! الشجرة بحالة ممتازة.
+                </Alert>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setHealthDialogOpen(false)}
             sx={{ fontFamily: 'Cairo, sans-serif' }}
           >
             إغلاق

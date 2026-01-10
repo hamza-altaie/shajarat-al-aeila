@@ -555,8 +555,9 @@ export async function createTribePerson(tribeId, personData) {
     // =====================================================
     // 🔍 البحث عن شخص موجود بنفس الاسم (لتجنب التكرار)
     // =====================================================
+    
+    // 1️⃣ إذا كان "أنا" - البحث عن نفس الاسم الثلاثي
     if (personData.relation === 'أنا') {
-      // البحث عن شخص موجود بنفس الاسم الثلاثي
       const { data: existingPerson } = await supabase
         .from('persons')
         .select('*')
@@ -571,7 +572,6 @@ export async function createTribePerson(tribeId, personData) {
           .from('persons')
           .update({
             relation: 'أنا',
-            // تحديث البيانات الإضافية إذا كانت فارغة
             birthdate: existingPerson.birthdate || personData.birthdate,
             gender: existingPerson.gender || personData.gender,
             grandfather_name: existingPerson.grandfather_name || personData.grandfather_name,
@@ -591,6 +591,67 @@ export async function createTribePerson(tribeId, personData) {
           .eq('id', membership.id);
         
         return updatedPerson;
+      }
+    }
+
+    // 2️⃣ إذا كان "والد" أو "جد" - البحث عن شخص موجود بنفس الاسم
+    if (personData.relation === 'والد' || personData.relation === 'جد') {
+      // البحث بالاسم الأول واسم الأب
+      const { data: existingParent } = await supabase
+        .from('persons')
+        .select('*')
+        .eq('tribe_id', tribeId)
+        .eq('first_name', personData.first_name)
+        .eq('father_name', personData.father_name || '')
+        .maybeSingle();
+      
+      if (existingParent) {
+        // ✅ الوالد/الجد موجود بالفعل - نربط به فقط بدلاً من إنشاء جديد
+        const userPersonId = membership.person_id;
+        
+        if (userPersonId && personData.relation === 'والد') {
+          // ربط المستخدم بالوالد الموجود
+          const wouldCircle = await wouldCreateCircle(tribeId, existingParent.id, userPersonId);
+          if (!wouldCircle) {
+            // التحقق من عدم وجود العلاقة
+            const { data: existingRel } = await supabase
+              .from('relations')
+              .select('id')
+              .eq('parent_id', existingParent.id)
+              .eq('child_id', userPersonId)
+              .maybeSingle();
+            
+            if (!existingRel) {
+              await supabase
+                .from('relations')
+                .insert({
+                  tribe_id: tribeId,
+                  parent_id: existingParent.id,
+                  child_id: userPersonId,
+                  created_by: user.uid
+                });
+            }
+          }
+        }
+        
+        // إرجاع الشخص الموجود
+        return existingParent;
+      }
+    }
+
+    // 3️⃣ إذا كان "أخ" أو "أخت" - البحث عن شخص موجود بنفس الاسم
+    if (personData.relation === 'أخ' || personData.relation === 'أخت') {
+      const { data: existingSibling } = await supabase
+        .from('persons')
+        .select('*')
+        .eq('tribe_id', tribeId)
+        .eq('first_name', personData.first_name)
+        .eq('father_name', personData.father_name || '')
+        .maybeSingle();
+      
+      if (existingSibling) {
+        // الأخ موجود - نربطه بنفس الوالد فقط
+        return existingSibling;
       }
     }
 
@@ -899,7 +960,148 @@ export async function cleanDuplicateRelations(tribeId) {
 }
 
 // =============================================
-// 🔍 البحث عن الأشخاص المكررين
+// � فحص صحة الشجرة - تقرير شامل
+// =============================================
+
+/**
+ * فحص صحة الشجرة وإرجاع تقرير شامل
+ */
+export async function analyzeTreeHealth(tribeId) {
+  try {
+    // جلب كل البيانات
+    const { data: persons } = await supabase
+      .from('persons')
+      .select('*')
+      .eq('tribe_id', tribeId);
+    
+    const { data: relations } = await supabase
+      .from('relations')
+      .select('*')
+      .eq('tribe_id', tribeId);
+    
+    const { data: users } = await supabase
+      .from('tribe_users')
+      .select('*')
+      .eq('tribe_id', tribeId);
+    
+    if (!persons) return null;
+
+    // بناء خرائط
+    const childToParent = new Map();
+    const parentToChildren = new Map();
+    
+    for (const rel of (relations || [])) {
+      childToParent.set(rel.child_id, rel.parent_id);
+      if (!parentToChildren.has(rel.parent_id)) {
+        parentToChildren.set(rel.parent_id, []);
+      }
+      parentToChildren.get(rel.parent_id).push(rel.child_id);
+    }
+
+    // 1️⃣ الجذور (أشخاص بدون والد)
+    const roots = persons.filter(p => !childToParent.has(p.id));
+    
+    // 2️⃣ الأشخاص المكررين (نفس الاسم)
+    const nameGroups = {};
+    for (const person of persons) {
+      const key = `${(person.first_name || '').trim().toLowerCase()}_${(person.father_name || '').trim().toLowerCase()}`;
+      if (!nameGroups[key]) nameGroups[key] = [];
+      nameGroups[key].push(person);
+    }
+    const duplicates = Object.entries(nameGroups)
+      .filter(([, group]) => group.length > 1)
+      .map(([key, group]) => ({ key, persons: group }));
+    
+    // 3️⃣ أشخاص بدون علاقات (معزولين)
+    const isolated = persons.filter(p => 
+      !childToParent.has(p.id) && 
+      !parentToChildren.has(p.id) &&
+      roots.length > 1 // فقط إذا كان هناك أكثر من جذر
+    );
+    
+    // 4️⃣ المستخدمين غير المرتبطين
+    const unlinkedUsers = (users || []).filter(u => !u.person_id);
+    
+    // 5️⃣ حساب عمق الشجرة
+    const calculateDepth = (personId, visited = new Set()) => {
+      if (visited.has(personId)) return 0;
+      visited.add(personId);
+      const children = parentToChildren.get(personId) || [];
+      if (children.length === 0) return 1;
+      return 1 + Math.max(...children.map(c => calculateDepth(c, visited)));
+    };
+    
+    const maxDepth = roots.length > 0 
+      ? Math.max(...roots.map(r => calculateDepth(r.id)))
+      : 0;
+    
+    // 6️⃣ إحصائيات عامة
+    const stats = {
+      totalPersons: persons.length,
+      totalRelations: (relations || []).length,
+      totalUsers: (users || []).length,
+      linkedUsers: (users || []).filter(u => u.person_id).length,
+      rootsCount: roots.length,
+      maxDepth: maxDepth,
+      avgChildrenPerPerson: persons.length > 0 
+        ? ((relations || []).length / persons.length).toFixed(1) 
+        : 0
+    };
+
+    // 7️⃣ المشاكل
+    const problems = [];
+    
+    if (roots.length > 1) {
+      problems.push({
+        type: 'multiple_roots',
+        severity: 'warning',
+        message: `يوجد ${roots.length} جذور منفصلة - الشجرة غير موحدة`,
+        details: roots.map(r => `${r.first_name} ${r.father_name}`).join(', ')
+      });
+    }
+    
+    if (duplicates.length > 0) {
+      problems.push({
+        type: 'duplicates',
+        severity: 'warning',
+        message: `يوجد ${duplicates.length} مجموعة من الأشخاص المكررين`,
+        details: duplicates.map(d => d.persons[0].first_name + ' ' + d.persons[0].father_name).join(', ')
+      });
+    }
+    
+    if (unlinkedUsers.length > 0) {
+      problems.push({
+        type: 'unlinked_users',
+        severity: 'info',
+        message: `يوجد ${unlinkedUsers.length} مستخدم لم يضف نفسه للشجرة`,
+        details: ''
+      });
+    }
+    
+    if (isolated.length > 0) {
+      problems.push({
+        type: 'isolated',
+        severity: 'info',
+        message: `يوجد ${isolated.length} شخص معزول (بدون أب وبدون أبناء)`,
+        details: isolated.map(p => p.first_name + ' ' + p.father_name).join(', ')
+      });
+    }
+
+    return {
+      stats,
+      roots: roots.map(r => ({ id: r.id, name: `${r.first_name} ${r.father_name}` })),
+      duplicates,
+      problems,
+      isHealthy: problems.filter(p => p.severity === 'warning' || p.severity === 'error').length === 0
+    };
+  } catch (err) {
+    console.error("❌ خطأ في تحليل الشجرة:", err);
+    throw err;
+  }
+}
+
+// =============================================
+// �🔍 البحث عن الأشخاص المكررين
 // =============================================
 
 /**
