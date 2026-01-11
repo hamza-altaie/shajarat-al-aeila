@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, Link } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute.jsx';
 import { useAuth } from './AuthContext.jsx';
 
@@ -14,24 +14,13 @@ import AdminPanel from './pages/AdminPanel.jsx';
 
 export default function AppRoutes() {
   const { isAuthenticated } = useAuth?.() || { isAuthenticated: false };
-  const location = useLocation();
-  
-  // 🔍 تسجيل للتشخيص
-  console.log('🔍 AppRoutes:', {
-    path: location.pathname,
-    isAuthenticated,
-    timestamp: new Date().toISOString()
-  });
 
   // يقرر الوجهة عند الدخول للجذر /
-  const IndexRoute = () => {
-    console.log('🏠 IndexRoute: isAuthenticated =', isAuthenticated);
-    return isAuthenticated ? <Navigate to="/family" replace /> : <Navigate to="/login" replace />;
-  };
+  const IndexRoute = () =>
+    isAuthenticated ? <Navigate to="/family" replace /> : <Navigate to="/login" replace />;
 
   // صفحة اللوجن: لو المستخدم مسجّل، وديه لإدارة العائلة
   const LoginRoute = () => {
-    console.log('🔐 LoginRoute: isAuthenticated =', isAuthenticated);
     if (isAuthenticated) {
       return <Navigate to="/family" replace />;
     }

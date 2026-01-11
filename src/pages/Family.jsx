@@ -1230,66 +1230,25 @@ const loadFamily = useCallback(async () => {
             {filteredMembers.length > 0 ? (
               filteredMembers.map(renderMemberCard)
             ) : (
-              <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 8 }}>
-                <Typography variant="h1" sx={{ fontSize: '80px', mb: 2 }}>
-                  🌱
-                </Typography>
-                <Typography variant="h4" color="text.primary" gutterBottom fontWeight="bold">
-                  {search ? 'لا توجد نتائج' : 'ابدأ شجرتك الآن'}
-                </Typography>
-                <Typography variant="body1" color="text.secondary" sx={{ mb: 2, maxWidth: 600, mx: 'auto' }}>
-                  {search 
-                    ? 'جرّب البحث بكلمات أخرى' 
-                    : 'فقط أضف: أنت + أولادك + إخوتك + والديك. النظام يحسب باقي العلاقات (أعمام، أخوال، أحفاد، إلخ) تلقائياً!'
-                  }
-                </Typography>
+              <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', py: 6 }}>
+                {/* أيقونة وعنوان */}
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h1" sx={{ fontSize: '64px', mb: 1 }}>
+                    🌳
+                  </Typography>
+                  <Typography variant="h4" color="text.primary" fontWeight="bold">
+                    {search ? 'لا توجد نتائج' : 'أهلاً بك في شجرة العائلة'}
+                  </Typography>
+                </Box>
+                
                 {!search && (
                   <>
-                    <Box sx={{ mb: 4, p: 3, bgcolor: 'background.paper', borderRadius: 3, maxWidth: 700, mx: 'auto', border: '2px solid', borderColor: 'primary.main', boxShadow: 2 }}>
-                      <Typography variant="h6" fontWeight="bold" color="primary.main" gutterBottom textAlign="center">
-                        🎯 النظام الذكي - مثال عملي
-                      </Typography>
-                      
-                      <Grid container spacing={2} sx={{ mt: 1 }}>
-                        <Grid size={{ xs: 12, md: 6 }}>
-                          <Paper sx={{ p: 2, bgcolor: 'info.lighter', height: '100%' }}>
-                            <Typography variant="subtitle2" fontWeight="bold" color="info.dark" gutterBottom>
-                              📝 ما تضيفه أنت (4 أشياء فقط):
-                            </Typography>
-                            <Typography variant="caption" component="div" sx={{ lineHeight: 2 }}>
-                              1. نفسك: "علي محمد أحمد"<br/>
-                              2. أولادك: "حسن"، "فاطمة"<br/>
-                              3. أخوك: "كريم"<br/>
-                              4. والدك: "محمد أحمد"
-                            </Typography>
-                          </Paper>
-                        </Grid>
-                        
-                        <Grid size={{ xs: 12, md: 6 }}>
-                          <Paper sx={{ p: 2, bgcolor: 'success.lighter', height: '100%' }}>
-                            <Typography variant="subtitle2" fontWeight="bold" color="success.dark" gutterBottom>
-                              ✨ النظام يحسب تلقائياً:
-                            </Typography>
-                            <Typography variant="caption" component="div" sx={{ lineHeight: 2 }}>
-                              ✅ كريم = أخوك<br/>
-                              ✅ أبناء كريم = <strong>أولاد أخيك</strong><br/>
-                              ✅ إخوة محمد = أعمامك<br/>
-                              ✅ أبناء إخوة محمد = <strong>أولاد عمك</strong><br/>
-                              ✅ أبناء حسن = أحفادك<br/>
-                              ✅ وجميع العلاقات - لا نهاية!
-                            </Typography>
-                          </Paper>
-                        </Grid>
-                      </Grid>
-                      
-                      <Divider sx={{ my: 2 }} />
-                      
-                      <Box sx={{ p: 2, bgcolor: 'warning.lighter', borderRadius: 2 }}>
-                        <Typography variant="body2" fontWeight="bold" color="warning.dark" textAlign="center">
-                          💡 كلما أضاف المزيد من الناس، كلما اكتشف النظام علاقات جديدة!
-                        </Typography>
-                      </Box>
-                    </Box>
+                    {/* وصف قصير */}
+                    <Typography variant="body1" color="text.secondary" sx={{ mb: 4, maxWidth: 450, mx: 'auto' }}>
+                      ابدأ ببناء شجرة عائلتك وتواصل مع أقاربك
+                    </Typography>
+                    
+                    {/* زر التسجيل */}
                     <Button
                       variant="contained"
                       color="primary"
@@ -1304,15 +1263,21 @@ const loadFamily = useCallback(async () => {
                       sx={{ 
                         borderRadius: 3, 
                         px: 5, 
-                        py: 2, 
+                        py: 1.5, 
                         fontWeight: 'bold',
-                        fontSize: '1.1rem',
-                        boxShadow: 3
+                        fontSize: '1rem',
+                        boxShadow: 2
                       }}
                     >
-                      🙋‍♂️ سجّل نفسك الآن
+                      ابدأ الآن
                     </Button>
                   </>
+                )}
+                
+                {search && (
+                  <Typography variant="body2" color="text.secondary">
+                    جرّب البحث بكلمات أخرى
+                  </Typography>
                 )}
               </Box>
             )}
