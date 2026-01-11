@@ -853,55 +853,62 @@ export async function deleteTribeRelation(tribeId, parentId, childId) {
   }
 }
 
-// الحصول على الشجرة الكاملة
-export async function getTribeTree(tribeId) {
+// الحصول على الشجرة الكاملة - محسّن للأداء
+export async function getTribeTree(tribeId, options = {}) {
+  const { useCache = true, forceRefresh = false } = options;
+  
+  // استخدام cache بسيط في الذاكرة
+  const cacheKey = `tree_${tribeId}`;
+  if (useCache && !forceRefresh && window.__treeCache?.[cacheKey]) {
+    const cached = window.__treeCache[cacheKey];
+    // Cache صالح لمدة 30 ثانية
+    if (Date.now() - cached.timestamp < 30000) {
+      return cached.data;
+    }
+  }
+  
   try {
-    // جلب جميع الأشخاص
-    const { data: persons, error: personsError } = await supabase
-      .from('persons')
-      .select('*')
-      .eq('tribe_id', tribeId)
-      .order('generation', { ascending: true });
+    // جلب الأشخاص والعلاقات بالتوازي لتسريع التحميل
+    const [personsResult, relationsResult] = await Promise.all([
+      supabase
+        .from('persons')
+        .select('id, first_name, father_name, family_name, grandfather_name, gender, birth_date, phone, photo_url, is_root, generation, relation, created_at')
+        .eq('tribe_id', tribeId)
+        .order('generation', { ascending: true }),
+      supabase
+        .from('relations')
+        .select('parent_id, child_id')
+        .eq('tribe_id', tribeId)
+    ]);
 
-    if (personsError) throw personsError;
+    if (personsResult.error) throw personsResult.error;
+    if (relationsResult.error) throw relationsResult.error;
 
-    // جلب جميع العلاقات
-    const { data: relations, error: relationsError } = await supabase
-      .from('relations')
-      .select('*')
-      .eq('tribe_id', tribeId);
+    const persons = personsResult.data || [];
+    const relations = relationsResult.data || [];
 
-    if (relationsError) throw relationsError;
-
-    // ✅ إزالة العلاقات المكررة
-    // القاعدة: كل طفل له والد واحد فقط (نأخذ أول علاقة)
+    // استخدام Map للوصول O(1) بدلاً من filter O(n)
+    const seenChildren = new Map();
     const uniqueRelations = [];
-    const seenChildren = new Set(); // لتتبع الأطفال الذين تمت معالجتهم
-    const seenRelations = new Set(); // لمنع التكرار التام
     
-    for (const rel of (relations || [])) {
-      const relationKey = `${rel.parent_id}-${rel.child_id}`;
-      
-      // تجاهل العلاقات المكررة تماماً
-      if (seenRelations.has(relationKey)) {
-        continue;
+    for (const rel of relations) {
+      // كل طفل له والد واحد فقط - نأخذ أول علاقة
+      if (!seenChildren.has(rel.child_id)) {
+        seenChildren.set(rel.child_id, rel.parent_id);
+        uniqueRelations.push(rel);
       }
-      seenRelations.add(relationKey);
-      
-      // كل طفل له والد واحد فقط
-      if (seenChildren.has(rel.child_id)) {
-        console.warn(`⚠️ تجاهل علاقة مكررة للطفل ${rel.child_id}`);
-        continue;
-      }
-      seenChildren.add(rel.child_id);
-      
-      uniqueRelations.push(rel);
     }
 
-    return {
-      persons: persons || [],
-      relations: uniqueRelations
+    const result = { persons, relations: uniqueRelations };
+    
+    // حفظ في Cache
+    if (!window.__treeCache) window.__treeCache = {};
+    window.__treeCache[cacheKey] = {
+      data: result,
+      timestamp: Date.now()
     };
+
+    return result;
   } catch (err) {
     console.error("❌ خطأ في تحميل الشجرة:", err);
     throw err;

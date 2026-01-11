@@ -200,20 +200,32 @@ export default function FamilyTreeAdvanced() {
   }, [handleNodeClick]);
 
   // ===========================================================================
-  // 🌳 بناء الشجرة من العلاقات (parent_id)
+  // 🌳 بناء الشجرة من العلاقات (parent_id) - محسّن بـ useMemo
   // ===========================================================================
   const buildTreeFromRelations = useCallback((persons) => {
     if (!persons || persons.length === 0) return null;
 
-    // إنشاء map للوصول السريع
+    // استخدام Map للوصول O(1) بدلاً من filter O(n)
     const personsMap = new Map();
-    persons.forEach(p => {
+    const childrenMap = new Map(); // parent_id -> children[]
+    const hasParent = new Set();
+    
+    // معالجة واحدة لكل البيانات
+    for (const p of persons) {
       personsMap.set(p.id, {
         ...p,
         globalId: p.id,
         children: []
       });
-    });
+      
+      if (p.parentId) {
+        hasParent.add(p.id);
+        if (!childrenMap.has(p.parentId)) {
+          childrenMap.set(p.parentId, []);
+        }
+        childrenMap.get(p.parentId).push(p);
+      }
+    }
 
     // بناء الاسم الكامل
     const buildFullName = (p) => {
@@ -221,36 +233,13 @@ export default function FamilyTreeAdvanced() {
       return parts.join(' ') || 'غير معروف';
     };
 
-    // إيجاد الجذور (الأشخاص بدون والد)
-    const roots = [];
-    const childrenMap = new Map(); // parent_id -> children[]
-    const hasParent = new Set(); // مجموعة الأشخاص الذين لديهم والد
-    const addedChildren = new Map(); // parent_id -> Set of child_ids (لمنع التكرار)
-
-    persons.forEach(p => {
-      if (p.parentId) {
-        hasParent.add(p.id);
-        
-        // تجميع الأطفال تحت كل والد (مع منع التكرار)
-        if (!childrenMap.has(p.parentId)) {
-          childrenMap.set(p.parentId, []);
-          addedChildren.set(p.parentId, new Set());
-        }
-        
-        // إضافة الطفل فقط إذا لم يُضف من قبل
-        if (!addedChildren.get(p.parentId).has(p.id)) {
-          addedChildren.get(p.parentId).add(p.id);
-          childrenMap.get(p.parentId).push(p);
-        }
-      }
-    });
-
     // الجذور هم من ليس لديهم والد
-    persons.forEach(p => {
+    const roots = [];
+    for (const p of persons) {
       if (!hasParent.has(p.id) && !p.parentId) {
         roots.push(p);
       }
-    });
+    }
 
     // ترتيب الجذور: الأولوية لـ is_root ثم للجيل الأقدم
     roots.sort((a, b) => {
@@ -460,10 +449,14 @@ export default function FamilyTreeAdvanced() {
   // ===========================================================================
 
   const handleRefresh = useCallback(() => {
+    // مسح الـ cache عند التحديث اليدوي
+    if (window.__treeCache && tribe?.id) {
+      delete window.__treeCache[`tree_${tribe.id}`];
+    }
     // تنظيف البيانات السابقة
     setTreeData(null);
     loadTree();
-  }, [loadTree]);
+  }, [loadTree, tribe?.id]);
 
   // ===========================================================================
   // دالة رسم الشجرة
@@ -554,26 +547,43 @@ const drawTreeWithD3 = useCallback((data) => {
     .style("touch-action", "manipulation")
     .style("will-change", "transform");
 
-  // إعداد الزووم وربطه على g فقط
+  // إعداد الزووم وربطه على g فقط - محسّن للأداء
   const zoom = d3.zoom()
     .scaleExtent([0.1, 3])
+    .filter(event => {
+      // تجاهل أحداث معينة لتحسين الأداء
+      return !event.ctrlKey && !event.button;
+    })
     .on('zoom', (event) => {
-      g.attr('transform', event.transform);
+      // استخدام requestAnimationFrame لأداء أفضل
+      requestAnimationFrame(() => {
+        g.attr('transform', event.transform);
+      });
     });
     svg.call(zoom);
     svg.property('__zoom', d3.zoomIdentity); 
 
   // إعداد بيانات الشجرة
   const root = d3.hierarchy(data);
-  // حساب عمق الشجرة (عدد الأجيال)
-  let maxDepth = 1;
-  let generationCounts = {};
-  let maxBreadth = 1;
+  
+  // حساب إحصائيات الشجرة بحلقة واحدة
+  let maxDepth = 0;
+  let totalNodes = 0;
+  const generationCounts = {};
+  
   root.each(d => {
+    totalNodes++;
     if (d.depth > maxDepth) maxDepth = d.depth;
     generationCounts[d.depth] = (generationCounts[d.depth] || 0) + 1;
-    if (generationCounts[d.depth] > maxBreadth) maxBreadth = generationCounts[d.depth];
   });
+  
+  // eslint-disable-next-line no-unused-vars
+  const maxBreadth = Math.max(...Object.values(generationCounts));
+  
+  // تقليل الأنيميشن للشجرات الكبيرة (أكثر من 100 عقدة)
+  const isLargeTree = totalNodes > 100;
+  const animationDuration = isLargeTree ? 300 : 600;
+  const linkAnimationDelay = isLargeTree ? 100 : 500;
 
   // إعدادات الشجرة المحسنة للهيكل الهرمي
   const treeType = data.attributes?.treeType || 'simple';
@@ -609,51 +619,53 @@ const drawTreeWithD3 = useCallback((data) => {
                 Q${target.x},${midY} ${target.x},${midY + radius}
                 L${target.x},${target.y}`;
       })
-    .style("stroke", "#2196f3")  // لون أزرق أكثر وضوحاً
-    .style("stroke-width", 3)        // خط أسمك للوضوح
+    .style("stroke", "#2196f3")
+    .style("stroke-width", 3)
     .style("stroke-linecap", "round")
     .style("stroke-linejoin", "round")
-    .style("opacity", 0) // بدء مخفي للأنيميشن
-    .style("filter", "drop-shadow(0 2px 4px rgba(33, 150, 243, 0.3))")  // ظل للخطوط
+    .style("opacity", 0)
+    .style("filter", isLargeTree ? "none" : "drop-shadow(0 2px 4px rgba(33, 150, 243, 0.3))")
     .style("stroke-dasharray", "none");
 
-  // أنيميشن بسيط للروابط
+  // أنيميشن للروابط - محسّن
   links.transition()
-    .delay(500)
-    .duration(800)
+    .delay(linkAnimationDelay)
+    .duration(animationDuration)
     .ease(d3.easeQuadOut)
-    .style("opacity", 0.9);  // شفافية أقل للوضوح
+    .style("opacity", 0.9);
 
-  // إضافة تأثيرات تفاعلية للروابط
-  links
-    .on("mouseenter", function() {
-      d3.select(this)
-        .style("stroke-width", 4)
-        .style("opacity", 1)
-        .style("stroke", "#1976d2");
-    })
-    .on("mouseleave", function() {
-      d3.select(this)
-        .style("stroke-width", 3)
-        .style("opacity", 0.9)
-        .style("stroke", "#2196f3");
-    });
+  // تأثيرات تفاعلية للروابط - فقط للشجرات الصغيرة
+  if (!isLargeTree) {
+    links
+      .on("mouseenter", function() {
+        d3.select(this)
+          .style("stroke-width", 4)
+          .style("opacity", 1)
+          .style("stroke", "#1976d2");
+      })
+      .on("mouseleave", function() {
+        d3.select(this)
+          .style("stroke-width", 3)
+          .style("opacity", 0.9)
+          .style("stroke", "#2196f3");
+      });
+  }
 
-  // رسم العقد مع أنيميشن بسيط
+  // رسم العقد - محسّن
   const nodes = g.selectAll(".node")
     .data(root.descendants())
     .enter().append("g")
     .attr("class", "node")
-    .attr("data-depth", d => d.depth) // للأنيميشن CSS
+    .attr("data-depth", d => d.depth)
     .attr("transform", d => `translate(${d.x},${d.y})`)
-    .style("opacity", 0); // بدء مخفي للأنيميشن
+    .style("opacity", 0);
 
-  // أنيميشن بسيط للعقد
+  // أنيميشن للعقد - محسّن للشجرات الكبيرة
   nodes.transition()
-    .delay((d, i) => d.depth * 200 + i * 50)
-    .duration(600)
-    .ease(d3.easeBackOut)
-    .style("opacity", 1); // إظهار جميع العقد
+    .delay((d, i) => isLargeTree ? Math.min(d.depth * 50, 200) : d.depth * 200 + i * 50)
+    .duration(animationDuration)
+    .ease(isLargeTree ? d3.easeQuadOut : d3.easeBackOut)
+    .style("opacity", 1);
 
   // إضافة محتوى العقد - نفس التصميم الأصلي تماماً
   nodes.each(function(d) {
@@ -688,7 +700,7 @@ const drawTreeWithD3 = useCallback((data) => {
     if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
     return age > 0 ? age : '';
   };
-  const age = calculateAge(nodeData.birthdate || nodeData.birthDate);
+  const age = calculateAge(nodeData.birth_date || nodeData.birthdate || nodeData.birthDate);
 
   // الكارت
   // 🟦 تحديد الألوان حسب الجنس أو النوع من الملف المنفصل
