@@ -9,8 +9,6 @@ import Family from './pages/Family.jsx';
 import FamilyTree from './pages/FamilyTree.jsx';
 import PrivacyPolicy from './pages/PrivacyPolicy.jsx';
 import Statistics from './pages/Statistics.jsx';
-import AddPerson from './pages/AddPerson.jsx';
-import PendingMatches from './pages/PendingMatches.jsx';
 import AdminPanel from './pages/AdminPanel.jsx';
 
 
@@ -129,24 +127,6 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <Statistics />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/add-person"
-        element={
-          <ProtectedRoute>
-            <AddPerson />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/pending-matches"
-        element={
-          <ProtectedRoute>
-            <PendingMatches />
           </ProtectedRoute>
         }
       />

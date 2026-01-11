@@ -69,25 +69,6 @@ async function wouldCreateCircle(tribeId, parentId, childId) {
   }
 }
 
-/**
- * ✅ إصلاح سيناريو 8: حساب الجيل الصحيح للشخص الجديد
- */
-async function calculateGeneration(tribeId, parentId) {
-  if (!parentId) return 0;
-  
-  try {
-    const { data: parent } = await supabase
-      .from('persons')
-      .select('generation')
-      .eq('id', parentId)
-      .single();
-    
-    return (parent?.generation || 0) + 1;
-  } catch {
-    return 0;
-  }
-}
-
 // الحصول على القبيلة الافتراضية (سنستخدم قبيلة واحدة حالياً)
 export async function getDefaultTribe() {
   try {
