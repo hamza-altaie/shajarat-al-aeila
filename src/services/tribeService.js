@@ -1448,10 +1448,11 @@ export async function listMarriages(tribeId) {
 // دوال مساعدة
 // =============================================
 
-// سجل التعديلات (Audit Log)
+// سجل التعديلات (Audit Log) - اختياري، لا يوقف العملية الرئيسية
 async function logPersonAction(tribeId, personId, action, changedBy, oldData, newData) {
   try {
-    await supabase
+    // تجاهل الأخطاء لأن السجل اختياري
+    const { error } = await supabase
       .from('person_audit_log')
       .insert({
         tribe_id: tribeId,
@@ -1461,8 +1462,15 @@ async function logPersonAction(tribeId, personId, action, changedBy, oldData, ne
         old_data: oldData,
         new_data: newData,
       });
-  } catch (err) {
-    console.error("⚠️ خطأ في سجل التعديلات:", err);
+    
+    if (error) {
+      // تجاهل أخطاء التعارض (409) - السجل موجود مسبقاً
+      if (error.code !== '23505' && error.code !== 'PGRST409') {
+        console.warn("⚠️ سجل التعديلات:", error.message);
+      }
+    }
+  } catch {
+    // تجاهل جميع الأخطاء - السجل اختياري
   }
 }
 
