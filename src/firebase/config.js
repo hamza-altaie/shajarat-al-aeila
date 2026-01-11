@@ -26,18 +26,19 @@ const app = initializeApp(firebaseConfig);
 // Get Auth instance
 const authInstance = getAuth(app);
 
-// Disable app verification for testing in development (reCAPTCHA bypass)
+// ⚠️ تم تعطيل وضع الاختبار - التسجيل الآن برقم حقيقي فقط
+// لتفعيل وضع الاختبار مرة أخرى، أزل التعليق من الكود أدناه:
+/*
 if (import.meta.env.DEV) {
-  // Only set this if we're in development and need to bypass reCAPTCHA
   try {
     authInstance.settings.appVerificationDisabledForTesting = true;
-    // DEV mode: app verification disabled
   } catch {
     // Could not disable app verification
   }
 }
+*/
 
-// Firebase initialized
+// Firebase initialized - Production Mode (Real Phone Numbers)
 
 export const auth = authInstance;
 export default app;

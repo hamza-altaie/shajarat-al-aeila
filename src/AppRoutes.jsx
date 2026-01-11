@@ -21,7 +21,6 @@ export default function AppRoutes() {
 
   // صفحة اللوجن: لو المستخدم مسجّل، وديه لإدارة العائلة
   const LoginRoute = () => {
-    // تجنب إعادة التوجيه المتكررة
     if (isAuthenticated) {
       return <Navigate to="/family" replace />;
     }

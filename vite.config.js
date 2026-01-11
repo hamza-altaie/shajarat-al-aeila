@@ -131,7 +131,7 @@ export default defineConfig({
 
   logLevel: 'info',
   clearScreen: false,
-  base: '/app/',
+  base: '/',
 
   worker: {
     format: 'es'
