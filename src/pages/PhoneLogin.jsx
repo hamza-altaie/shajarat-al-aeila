@@ -199,7 +199,7 @@ const PhoneLogin = () => {
       
       // التوجيه مرة واحدة فقط بعد تأخير قصير
       setTimeout(() => {
-        window.location.href = '/app/family';
+        window.location.href = '/family';
       }, 1000);
     } catch (error) {
       const message = error.message || '❌ كود التحقق غير صحيح';

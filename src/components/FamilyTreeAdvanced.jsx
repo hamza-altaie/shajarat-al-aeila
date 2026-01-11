@@ -781,8 +781,8 @@ const drawTreeWithD3 = useCallback((data) => {
         nodeData.photo_url ||
         nodeData.avatar ||
         (nodeData.gender === "female" || FEMALE_RELATIONS.includes(relation)
-          ? "/app/icons/girl.png"
-          : "/app/icons/boy.png")
+          ? "/icons/girl.png"
+          : "/icons/boy.png")
       )
       .attr("x", -cardWidth / 2 + padding)
       .attr("y", -cardHeight / 2 + padding)
