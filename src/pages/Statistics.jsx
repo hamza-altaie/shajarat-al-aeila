@@ -455,10 +455,10 @@ const Statistics = () => {
           </Alert>
         ) : !analysis ? (
           <Alert severity="warning" sx={{ mb: 3 }}>
-            <Typography variant="h6" sx={{ mb: 1 }}>
+            <Typography variant="h6" sx={{ mb: 1, color: '#5d4037', fontWeight: 'bold' }}>
               📊 لا توجد بيانات للتحليل
             </Typography>
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ color: '#5d4037' }}>
               تأكد من وجود أعضاء في شجرة العائلة
             </Typography>
             <Button 
