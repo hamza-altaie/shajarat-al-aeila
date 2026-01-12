@@ -534,152 +534,78 @@ export async function createTribePerson(tribeId, personData) {
     if (!membership) throw new Error('يجب الانضمام للقبيلة أولاً');
 
     // =====================================================
-    // 🔍 البحث عن شخص موجود بنفس الاسم (لتجنب التكرار)
+    // 🔍 البحث عن شخص موجود بنفس الاسم الثلاثي (لتجنب التكرار)
     // =====================================================
     
-    // 1️⃣ إذا كان "أنا" - البحث عن نفس الاسم الثلاثي
-    if (personData.relation === 'أنا') {
-      const { data: existingPerson } = await supabase
-        .from('persons')
-        .select('*')
-        .eq('tribe_id', tribeId)
-        .eq('first_name', personData.first_name)
-        .eq('father_name', personData.father_name || '')
-        .maybeSingle();
+    // جلب كل الأشخاص للبحث الذكي
+    const { data: allPersons } = await supabase
+      .from('persons')
+      .select('*')
+      .eq('tribe_id', tribeId);
+    
+    // البحث عن شخص موجود بنفس الاسم الرباعي (الاسم + الأب + الجد + الأم)
+    const existingPerson = (allPersons || []).find(p => {
+      // 1. الاسم الأول - إجباري
+      const firstNameMatch = namesAreSimilar(p.first_name, personData.first_name);
+      if (!firstNameMatch) return false;
       
-      if (existingPerson) {
-        // تحديث الشخص الموجود بدلاً من إنشاء جديد
-        const { data: updatedPerson, error: updateError } = await supabase
+      // 2. اسم الأب - إجباري
+      const fatherNameMatch = namesAreSimilar(p.father_name, personData.father_name);
+      if (!fatherNameMatch) return false;
+      
+      // 3. اسم الجد - إجباري
+      const grandfatherNameMatch = namesAreSimilar(p.grandfather_name, personData.grandfather_name);
+      if (!grandfatherNameMatch) return false;
+      
+      // 4. اسم الأم - إجباري
+      const motherNameMatch = namesAreSimilar(p.mother_name, personData.mother_name);
+      if (!motherNameMatch) return false;
+      
+      // جميع الحقول متطابقة = نفس الشخص
+      return true;
+    });
+    
+    // إذا وُجد شخص مطابق - نستخدمه بدلاً من إنشاء جديد
+    if (existingPerson) {
+      console.log(`🔗 وُجد شخص موجود باسم "${existingPerson.first_name} ${existingPerson.father_name}" - سيتم الربط بدلاً من إنشاء جديد`);
+      
+      // تحديث البيانات الناقصة
+      const updates = {};
+      if (!existingPerson.birthdate && personData.birthdate) {
+        updates.birthdate = personData.birthdate;
+      }
+      if (!existingPerson.gender && personData.gender) {
+        updates.gender = personData.gender;
+      }
+      if (!existingPerson.family_name && personData.family_name) {
+        updates.family_name = personData.family_name;
+      }
+      // تحديث العلاقة إذا كانت "أنا"
+      if (personData.relation === 'أنا') {
+        updates.relation = 'أنا';
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        await supabase
           .from('persons')
-          .update({
-            relation: 'أنا',
-            birthdate: existingPerson.birthdate || personData.birthdate,
-            gender: existingPerson.gender || personData.gender,
-            grandfather_name: existingPerson.grandfather_name || personData.grandfather_name,
-            family_name: existingPerson.family_name || personData.family_name,
-            updated_by: user.uid
-          })
-          .eq('id', existingPerson.id)
-          .select()
-          .single();
-        
-        if (updateError) throw updateError;
-        
-        // ربط المستخدم بهذا الشخص
+          .update({ ...updates, updated_by: user.uid })
+          .eq('id', existingPerson.id);
+      }
+      
+      // إذا كان "أنا" - ربط المستخدم بهذا الشخص
+      if (personData.relation === 'أنا') {
         await supabase
           .from('tribe_users')
-          .update({ person_id: updatedPerson.id })
+          .update({ person_id: existingPerson.id })
           .eq('id', membership.id);
-        
-        return updatedPerson;
       }
+      
+      // إنشاء العلاقات التلقائية للشخص الموجود
+      await createAutoRelations(tribeId, existingPerson, membership, user.uid);
+      
+      return { ...existingPerson, ...updates, merged: true };
     }
-
-    // 2️⃣ إذا كان "والد" أو "جد" - البحث عن شخص موجود بنفس الاسم
-    if (personData.relation === 'والد' || personData.relation === 'جد') {
-      // جلب كل الأشخاص للبحث الذكي
-      const { data: allPersons } = await supabase
-        .from('persons')
-        .select('*')
-        .eq('tribe_id', tribeId);
-      
-      // البحث الذكي بالاسم (مع تسامح للأخطاء)
-      const existingParent = (allPersons || []).find(p => {
-        const firstNameMatch = namesAreSimilar(p.first_name, personData.first_name);
-        const fatherNameMatch = !personData.father_name || !p.father_name || 
-          namesAreSimilar(p.father_name, personData.father_name);
-        return firstNameMatch && fatherNameMatch;
-      });
-      
-      if (existingParent) {
-        // ✅ الوالد/الجد موجود بالفعل - نربط به فقط بدلاً من إنشاء جديد
-        const userPersonId = membership.person_id;
-        
-        if (userPersonId && personData.relation === 'والد') {
-          // ربط المستخدم بالوالد الموجود
-          const wouldCircle = await wouldCreateCircle(tribeId, existingParent.id, userPersonId);
-          if (!wouldCircle) {
-            // التحقق من عدم وجود العلاقة
-            const { data: existingRel } = await supabase
-              .from('relations')
-              .select('id')
-              .eq('parent_id', existingParent.id)
-              .eq('child_id', userPersonId)
-              .maybeSingle();
-            
-            if (!existingRel) {
-              await supabase
-                .from('relations')
-                .insert({
-                  tribe_id: tribeId,
-                  parent_id: existingParent.id,
-                  child_id: userPersonId,
-                  created_by: user.uid
-                });
-            }
-          }
-        }
-        
-        // إذا كان جد - نربطه بوالد المستخدم
-        if (personData.relation === 'جد' && userPersonId) {
-          // البحث عن والد المستخدم
-          const { data: userParentRel } = await supabase
-            .from('relations')
-            .select('parent_id')
-            .eq('child_id', userPersonId)
-            .maybeSingle();
-          
-          if (userParentRel?.parent_id) {
-            // ربط الجد بالوالد
-            const wouldCircle = await wouldCreateCircle(tribeId, existingParent.id, userParentRel.parent_id);
-            if (!wouldCircle) {
-              const { data: existingGrandRel } = await supabase
-                .from('relations')
-                .select('id')
-                .eq('parent_id', existingParent.id)
-                .eq('child_id', userParentRel.parent_id)
-                .maybeSingle();
-              
-              if (!existingGrandRel) {
-                await supabase
-                  .from('relations')
-                  .insert({
-                    tribe_id: tribeId,
-                    parent_id: existingParent.id,
-                    child_id: userParentRel.parent_id,
-                    created_by: user.uid
-                  });
-              }
-            }
-          }
-        }
-        
-        // إرجاع الشخص الموجود
-        return existingParent;
-      }
-    }
-
-    // 3️⃣ إذا كان "أخ" أو "أخت" - البحث عن شخص موجود بنفس الاسم
-    if (personData.relation === 'أخ' || personData.relation === 'أخت') {
-      // جلب كل الأشخاص للبحث الذكي
-      const { data: allPersons } = await supabase
-        .from('persons')
-        .select('*')
-        .eq('tribe_id', tribeId);
-      
-      const existingSibling = (allPersons || []).find(p => {
-        const firstNameMatch = namesAreSimilar(p.first_name, personData.first_name);
-        const fatherNameMatch = !personData.father_name || !p.father_name || 
-          namesAreSimilar(p.father_name, personData.father_name);
-        return firstNameMatch && fatherNameMatch;
-      });
-      
-      if (existingSibling) {
-        // الأخ موجود - نربطه بنفس الوالد فقط
-        return existingSibling;
-      }
-    }
-
+    
     // =====================================================
     // إنشاء شخص جديد (إذا لم يوجد مطابق)
     // =====================================================
@@ -695,10 +621,10 @@ export async function createTribePerson(tribeId, personData) {
 
     if (error) throw error;
 
-    // إنشاء العلاقات التلقائية (القديمة - للعلاقات المباشرة مثل "ابن"، "والد")
+    // إنشاء العلاقات التلقائية (للعلاقات المباشرة مثل "ابن"، "والد")
     await createAutoRelations(tribeId, data, membership, user.uid);
     
-    // 🧠 الربط الذكي الشامل - يعمل تلقائياً
+    // 🧠 الربط الذكي الشامل - يربط الأشخاص المتشابهين في رسم الشجرة
     await smartAutoLink(tribeId, data, user.uid);
 
     // إضافة سجل في Audit Log
@@ -772,20 +698,40 @@ export async function deleteTribePerson(tribeId, personId) {
     const membership = await checkUserMembership(tribeId);
     if (!membership) throw new Error('يجب الانضمام للقبيلة أولاً');
 
-    // جلب البيانات قبل الحذف
-    const { data: oldData } = await supabase
+    // جلب البيانات قبل الحذف - استخدام maybeSingle لتجنب خطأ 406
+    const { data: oldData, error: fetchError } = await supabase
       .from('persons')
       .select('*')
       .eq('id', personId)
       .eq('tribe_id', tribeId)
-      .single();
+      .maybeSingle();
 
-    // ✅ التحقق من الملكية - فقط صاحب البيانات أو Admin يمكنه الحذف
+    if (fetchError) {
+      console.error('خطأ في جلب بيانات الشخص:', fetchError);
+      throw new Error('فشل في جلب بيانات الشخص');
+    }
+
+    if (!oldData) {
+      throw new Error('الشخص غير موجود أو تم حذفه مسبقاً');
+    }
+
+    // ✅ التحقق من الصلاحيات
     const isAdmin = membership.role === 'admin';
-    const isOwner = oldData?.created_by === user.uid;
+    const isOwner = oldData.created_by === user.uid;
+    const isLinkedToMe = membership.person_id === personId; // هذا السجل مرتبط بي (أنا)
     
-    if (!isAdmin && !isOwner) {
+    // Admin يحذف أي شيء
+    // المستخدم العادي يحذف: ما أضافه هو، أو السجل المرتبط به
+    if (!isAdmin && !isOwner && !isLinkedToMe) {
       throw new Error('لا يمكنك حذف بيانات أضافها شخص آخر');
+    }
+
+    // ⚠️ تحذير: إذا حذف المستخدم السجل المرتبط به، نفك الربط
+    if (isLinkedToMe) {
+      await supabase
+        .from('tribe_users')
+        .update({ person_id: null })
+        .eq('id', membership.id);
     }
 
     const { error } = await supabase

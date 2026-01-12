@@ -299,16 +299,6 @@ const PhoneLogin = () => {
           </Typography>
         </Box>
 
-        {/* تحذير حالة Firebase */}
-        <Alert severity="info" sx={{ mb: 3 }}>
-          <Typography variant="body2" fontWeight="bold">
-            🔥 Firebase Phone Authentication
-          </Typography>
-          <Typography variant="body2" sx={{ mt: 1 }}>
-            سيتم إرسال SMS حقيقي إلى رقمك. تأكد من توفر رصيد في حسابك.
-          </Typography>
-        </Alert>
-
         {firebaseStatus && !firebaseStatus.isInitialized && (
           <Alert severity="error" sx={{ mb: 3 }} icon={<WarningIcon />}>
             <Typography variant="body2" fontWeight="bold">
@@ -330,12 +320,6 @@ const PhoneLogin = () => {
           >
             تسجيل الدخول برقم الهاتف
           </Typography>
-
-          {/* 🧪 تنبيه وضع التطوير */}
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            <strong>🧪 وضع التطوير:</strong> لا يتم إرسال SMS فعلي<br/>
-            استخدم أي رقم + كود: <strong>123456</strong>
-          </Alert>
 
           {/* حقل رقم الهاتف */}
           <Box mb={3}>

@@ -43,6 +43,7 @@ const DEFAULT_FORM = {
   firstName: '',
   fatherName: '',
   grandfatherName: '',
+  motherName: '', // اسم الأم للتمييز
   surname: '',
   birthdate: '',
   relation: '',
@@ -236,6 +237,7 @@ const loadFamily = useCallback(async () => {
         firstName: data.first_name || '',
         fatherName: data.father_name || '',
         grandfatherName: data.grandfather_name || '',
+        motherName: data.mother_name || '',
         surname: data.family_name || '',
         relation: data.relation || '',
         birthdate: data.birth_date || '',
@@ -279,6 +281,10 @@ const loadFamily = useCallback(async () => {
     
     if (!validateName(form.grandfatherName)) {
       errors.grandfatherName = 'أدخل اسم الجد (2-40 حرف، عربي أو إنجليزي)';
+    }
+    
+    if (!validateName(form.motherName)) {
+      errors.motherName = 'أدخل اسم الأم (2-40 حرف، عربي أو إنجليزي)';
     }
     
     if (!validateName(form.surname)) {
@@ -424,6 +430,7 @@ const loadFamily = useCallback(async () => {
       first_name: form.firstName || '',
       father_name: form.fatherName || '',
       grandfather_name: form.grandfatherName || '',
+      mother_name: form.motherName || '',
       family_name: form.surname || '',
       gender: gender,
       relation: form.relation,
@@ -435,8 +442,12 @@ const loadFamily = useCallback(async () => {
       await updateTribePerson(tribe.id, form.id, memberData);
       showSnackbar('تم تحديث بيانات العضو بنجاح');
     } else {
-      await createTribePerson(tribe.id, memberData);
-      showSnackbar('تم إضافة العضو بنجاح');
+      const result = await createTribePerson(tribe.id, memberData);
+      if (result?.merged) {
+        showSnackbar(`✅ تم ربط "${result.first_name}" بسجل موجود في الشجرة`, 'success');
+      } else {
+        showSnackbar('تم إضافة العضو بنجاح');
+      }
     }
 
     await loadFamily();
@@ -776,8 +787,21 @@ const loadFamily = useCallback(async () => {
               onChange={handleChange}
               fullWidth
               size="medium"
+              required
               error={!!fieldErrors.grandfatherName}
               helperText={fieldErrors.grandfatherName}
+            />
+            
+            <TextField
+              label="اسم الأم"
+              name="motherName"
+              value={form.motherName}
+              onChange={handleChange}
+              fullWidth
+              size="medium"
+              required
+              error={!!fieldErrors.motherName}
+              helperText={fieldErrors.motherName}
             />
             
             <TextField
@@ -787,6 +811,7 @@ const loadFamily = useCallback(async () => {
               onChange={handleChange}
               fullWidth
               size="medium"
+              required
               error={!!fieldErrors.surname}
               helperText={fieldErrors.surname}
             />
@@ -1237,7 +1262,7 @@ const loadFamily = useCallback(async () => {
                     🌳
                   </Typography>
                   <Typography variant="h4" color="text.primary" fontWeight="bold">
-                    {search ? 'لا توجد نتائج' : 'أهلاً بك في شجرة العائلة'}
+                    {search ? 'لا توجد نتائج' : 'أهلاً بك في شجرة القبيلة'}
                   </Typography>
                 </Box>
                 
@@ -1245,7 +1270,7 @@ const loadFamily = useCallback(async () => {
                   <>
                     {/* وصف قصير */}
                     <Typography variant="body1" color="text.secondary" sx={{ mb: 4, maxWidth: 450, mx: 'auto' }}>
-                      ابدأ ببناء شجرة عائلتك وتواصل مع أقاربك
+                      ابدأ ببناء شجرة قبيلتك وتواصل مع أقاربك
                     </Typography>
                     
                     {/* زر التسجيل */}
@@ -1476,6 +1501,15 @@ const loadFamily = useCallback(async () => {
           مشاركة عبر واتساب
         </MenuItem>
         <Divider />
+        {/* عرض رقم الهاتف المسجل */}
+        <Box sx={{ px: 2, py: 1, bgcolor: 'grey.50', borderRadius: 1, mx: 1, mb: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+            رقم الهاتف المسجل:
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 'bold', direction: 'ltr', textAlign: 'right' }}>
+            {phone || 'غير متوفر'}
+          </Typography>
+        </Box>
         <MenuItem onClick={() => {
           const currentPhone = phone || '';
           const localPhone = currentPhone.startsWith('+964') ? 
