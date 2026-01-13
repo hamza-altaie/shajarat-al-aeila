@@ -1425,7 +1425,7 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'center', 
-          gap: { xs: 0.5, sm: 1 }, 
+          gap: { xs: 1, sm: 1.5 }, 
           flexWrap: 'wrap', 
           mb: 1,
           alignItems: 'center'
@@ -1436,11 +1436,13 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
             size={window.innerWidth < 600 ? "small" : "medium"}
             onClick={() => navigate('/family')} 
             disabled={loading} 
-            startIcon={<PersonAddIcon />} 
+            startIcon={<PersonAddIcon sx={{ fontSize: { xs: '1rem', sm: '1.2rem' } }} />} 
             sx={{ 
-              px: { xs: 1, sm: 1.5 },
-              py: { xs: 0.25, sm: 0.5 },
-              fontSize: { xs: '0.7rem', sm: '0.8rem' },
+              px: { xs: 1.5, sm: 2 },
+              py: { xs: 0.5, sm: 0.75 },
+              fontSize: { xs: '0.75rem', sm: '0.85rem' },
+              minWidth: { xs: 'auto', sm: 120 },
+              gap: 0.5,
               borderRadius: 2,
               background: 'linear-gradient(45deg, #1976d2 0%, #1565c0 100%)',
               boxShadow: '0 2px 8px rgba(25,118,210,0.25)',
@@ -1449,7 +1451,11 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
                 transform: 'translateY(-1px)',
                 boxShadow: '0 4px 12px rgba(25,118,210,0.3)'
               },
-              transition: 'all 0.2s ease'
+              transition: 'all 0.2s ease',
+              '& .MuiButton-startIcon': {
+                marginLeft: { xs: 0.5, sm: 1 },
+                marginRight: { xs: -0.25, sm: 0 }
+              }
             }}
           >
             إدارة العائلة
@@ -1460,11 +1466,13 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
             size={window.innerWidth < 600 ? "small" : "medium"}
             onClick={() => navigate('/statistics')}
             disabled={loading} 
-            startIcon={<BarChartIcon />} 
+            startIcon={<BarChartIcon sx={{ fontSize: { xs: '1rem', sm: '1.2rem' } }} />} 
             sx={{ 
-              px: { xs: 1, sm: 1.5 },
-              py: { xs: 0.25, sm: 0.5 },
-              fontSize: { xs: '0.7rem', sm: '0.8rem' },
+              px: { xs: 1.5, sm: 2 },
+              py: { xs: 0.5, sm: 0.75 },
+              fontSize: { xs: '0.75rem', sm: '0.85rem' },
+              minWidth: { xs: 'auto', sm: 120 },
+              gap: 0.5,
               borderRadius: 2,
               background: 'linear-gradient(45deg, #10b981 0%, #059669 100%)',
               boxShadow: '0 2px 8px rgba(16,185,129,0.25)',
@@ -1473,7 +1481,11 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
                 transform: 'translateY(-1px)',
                 boxShadow: '0 4px 12px rgba(16,185,129,0.3)'
               },
-              transition: 'all 0.2s ease'
+              transition: 'all 0.2s ease',
+              '& .MuiButton-startIcon': {
+                marginLeft: { xs: 0.5, sm: 1 },
+                marginRight: { xs: -0.25, sm: 0 }
+              }
             }}
           >
             الإحصائيات

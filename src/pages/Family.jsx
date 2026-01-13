@@ -1061,13 +1061,18 @@ const loadFamily = useCallback(async () => {
           <Button
             variant="contained"
             color="success"
-            startIcon={<VisibilityIcon />}
+            startIcon={<VisibilityIcon sx={{ fontSize: '1.1rem' }} />}
             onClick={() => navigate('/tree')}
             sx={{ 
               borderRadius: 2,
-              px: 2,
+              px: 2.5,
               py: 1,
               fontWeight: 600,
+              gap: 1,
+              '& .MuiButton-startIcon': {
+                marginLeft: 1,
+                marginRight: 0
+              }
             }}
           >
             عرض الشجرة
