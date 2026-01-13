@@ -52,42 +52,35 @@ export default defineConfig({
   build: {
     outDir: resolve(__dirname, 'dist'),
     assetsDir: 'assets',
-    sourcemap: true,
-    // استعمل esbuild بدلاً من terser (أسهل وأسرع)
-    minify: 'esbuild',
-    target: 'es2019',
+    sourcemap: false, // تعطيل source maps للإنتاج (يقلل الحجم بشكل كبير)
+    minify: 'terser', // terser يضغط أفضل من esbuild
+    target: 'es2020',
+    terserOptions: {
+      compress: {
+        drop_console: true, // حذف console.log
+        drop_debugger: true,
+        pure_funcs: ['console.log', 'console.info']
+      }
+    },
     rollupOptions: {
       output: {
         manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
-          'mui-vendor': [
-            '@mui/material',
-            '@mui/icons-material',
-            '@emotion/react',
-            '@emotion/styled'
-          ],
-          // احذف هذا البلوك إذا لن تستخدم Firebase
-          // 'firebase-vendor': [
-          //   'firebase/app',
-          //   'firebase/auth',
-          //   'firebase/firestore',
-          //   'firebase/storage'
-          // ],
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'mui-core': ['@mui/material', '@emotion/react', '@emotion/styled'],
+          'mui-icons': ['@mui/icons-material'],
+          'firebase-auth': ['firebase/app', 'firebase/auth'],
+          'supabase': ['@supabase/supabase-js'],
           'visualization': ['d3'],
-          'heavy-components': ['html2canvas']
         },
-        chunkFileNames: (chunkInfo) => {
-          const name = chunkInfo.facadeModuleId
-            ? chunkInfo.facadeModuleId.split('/').pop()
-            : 'chunk'
-          return `js/${name}-[hash].js`
-        }
+        chunkFileNames: 'js/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash][extname]',
+        entryFileNames: 'js/[name]-[hash].js'
       }
     },
     assetsInlineLimit: 4096,
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 500,
     cssCodeSplit: true,
-    reportCompressedSize: false
+    reportCompressedSize: true
   },
 
   resolve: {

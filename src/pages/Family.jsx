@@ -43,7 +43,6 @@ const DEFAULT_FORM = {
   firstName: '',
   fatherName: '',
   grandfatherName: '',
-  motherName: '', // اسم الأم للتمييز
   surname: '',
   birthdate: '',
   relation: '',
@@ -234,7 +233,6 @@ const loadFamily = useCallback(async () => {
         firstName: data.first_name || '',
         fatherName: data.father_name || '',
         grandfatherName: data.grandfather_name || '',
-        motherName: data.mother_name || '',
         surname: data.family_name || '',
         relation: data.relation || '',
         birthdate: data.birth_date || '',
@@ -278,10 +276,6 @@ const loadFamily = useCallback(async () => {
     
     if (!validateName(form.grandfatherName)) {
       errors.grandfatherName = 'أدخل اسم الجد (2-40 حرف، عربي أو إنجليزي)';
-    }
-    
-    if (!validateName(form.motherName)) {
-      errors.motherName = 'أدخل اسم الأم (2-40 حرف، عربي أو إنجليزي)';
     }
     
     if (!validateName(form.surname)) {
@@ -414,7 +408,6 @@ const loadFamily = useCallback(async () => {
       first_name: form.firstName || '',
       father_name: form.fatherName || '',
       grandfather_name: form.grandfatherName || '',
-      mother_name: form.motherName || '',
       family_name: form.surname || '',
       gender: gender,
       relation: form.relation,
@@ -774,18 +767,6 @@ const loadFamily = useCallback(async () => {
               required
               error={!!fieldErrors.grandfatherName}
               helperText={fieldErrors.grandfatherName}
-            />
-            
-            <TextField
-              label="اسم الأم"
-              name="motherName"
-              value={form.motherName}
-              onChange={handleChange}
-              fullWidth
-              size="medium"
-              required
-              error={!!fieldErrors.motherName}
-              helperText={fieldErrors.motherName}
             />
             
             <TextField

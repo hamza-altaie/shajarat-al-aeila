@@ -52,7 +52,7 @@ export const TribeProvider = ({ children }) => {
     };
 
     loadTribeData();
-  }, [isAuthenticated, user?.uid]); // الاعتماد على user.uid بدلاً من user
+  }, [isAuthenticated, user?.uid, user?.phoneNumber, user?.displayName]);
 
   const value = {
     tribe,

@@ -543,7 +543,7 @@ export async function createTribePerson(tribeId, personData) {
       .select('*')
       .eq('tribe_id', tribeId);
     
-    // البحث عن شخص موجود بنفس الاسم الرباعي (الاسم + الأب + الجد + الأم)
+    // البحث عن شخص موجود بنفس الاسم الثلاثي (الاسم + الأب + الجد)
     const existingPerson = (allPersons || []).find(p => {
       // 1. الاسم الأول - إجباري
       const firstNameMatch = namesAreSimilar(p.first_name, personData.first_name);
@@ -557,17 +557,13 @@ export async function createTribePerson(tribeId, personData) {
       const grandfatherNameMatch = namesAreSimilar(p.grandfather_name, personData.grandfather_name);
       if (!grandfatherNameMatch) return false;
       
-      // 4. اسم الأم - إجباري
-      const motherNameMatch = namesAreSimilar(p.mother_name, personData.mother_name);
-      if (!motherNameMatch) return false;
-      
       // جميع الحقول متطابقة = نفس الشخص
       return true;
     });
     
     // إذا وُجد شخص مطابق - نستخدمه بدلاً من إنشاء جديد
     if (existingPerson) {
-      console.log(`🔗 وُجد شخص موجود باسم "${existingPerson.first_name} ${existingPerson.father_name}" - سيتم الربط بدلاً من إنشاء جديد`);
+      console.warn(`🔗 وُجد شخص موجود باسم "${existingPerson.first_name} ${existingPerson.father_name}" - سيتم الربط بدلاً من إنشاء جديد`);
       
       // تحديث البيانات الناقصة
       const updates = {};
