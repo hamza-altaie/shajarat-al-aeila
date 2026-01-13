@@ -1,46 +1,83 @@
 # Copilot Instructions for Shajarat Al-Aeila
 
-## Project Overview
-- This is a React.js application for managing and visualizing family trees in Arabic.
-- The app uses Firebase (Authentication + Firestore) for backend services, Material-UI for UI components, and D3.js for tree visualization.
-- Vite is used for fast development and production builds.
+## Architecture Overview
+Arabic family tree app with **dual backend**: Firebase Auth (phone OTP) + Supabase (PostgreSQL data).
 
-## Architecture & Key Components
-- Main entry: `src/main.jsx` and `src/App.jsx`.
-- Routing: `src/AppRoutes.jsx` defines navigation and protected routes.
-- Authentication: `src/firebase/auth.js`, `src/contexts/AuthContext.js`, and `src/hooks/usePhoneAuth.js` handle phone-based login and context.
-- Family tree logic: `src/components/FamilyTreeAdvanced.jsx` (UI), `src/utils/FamilyTreeBuilder.js` (data structure), and `src/services/tribeService.js` (data access).
-- Statistics and analytics: `src/pages/Statistics.jsx`, `src/utils/FamilyAnalytics.js`.
-- Debugging: Use `src/utils/DebugLogger.js` for custom debug output.
+### Data Flow
+1. **Auth**: `AuthContext.jsx` wraps app → Firebase phone auth → stores user state
+2. **Tribe**: `TribeContext.jsx` → auto-joins user to default tribe via `tribeService.js`
+3. **Tree**: `FamilyTreeAdvanced.jsx` fetches via `getTribeTree()` → `FamilyTreeBuilder.js` builds hierarchy → D3.js renders
 
-## Developer Workflows
-- **Install dependencies:** `npm install`
-- **Start development server:** `npm run dev`
-- **Build for production:** `npm run build`
-- **Firebase functions:** See `functions/index.js` for backend logic. Deploy using Firebase CLI if needed.
+### Key Service Boundaries
+- `src/firebase/auth.js` - OTP send/verify with reCAPTCHA (Iraqi numbers must start with `+964`)
+- `src/services/tribeService.js` - All Supabase queries (persons, relations, tribes); includes `wouldCreateCircle()` to prevent cyclic relations
+- `src/supabaseClient.js` - Single Supabase client instance
 
-## Conventions & Patterns
-- All UI and logic are in `src/`, with clear separation by type: `components/`, `pages/`, `services/`, `utils/`, `contexts/`, `hooks/`.
-- Family tree data is managed in Firestore; see `src/services/tribeService.js` for queries and updates.
-- Use React Context for authentication state (`AuthContext`).
-- Prefer D3.js for tree rendering; see `FamilyTreeAdvanced.jsx` for integration patterns.
-- Debug output should use `DebugLogger.js` for consistency.
-- Arabic language and RTL layout are default; ensure UI changes respect this.
+## Developer Commands
+```bash
+npm run dev          # Vite dev server at localhost:5173
+npm run build        # Production build
+npm run lint:fix     # ESLint auto-fix
+npm run deploy       # Firebase hosting deploy
+npm run fresh-install # Clean reinstall (fixes dependency issues)
+```
 
-## Integration Points
-- Firebase config: `src/firebase/config.js`.
-- Service boundaries: UI components call service functions in `services/` and `utils/`.
-- External assets: All icons/images in `public/icons/`.
+## Critical Patterns
 
-## Example Patterns
-- To add a new page, create a component in `src/pages/` and add a route in `AppRoutes.jsx`.
-- For new family tree features, update both `FamilyTreeAdvanced.jsx` (UI) and `FamilyTreeBuilder.js` (logic).
-- For authentication changes, update `auth.js`, `AuthContext.js`, and related hooks.
+### Context Usage (Required Order)
+```jsx
+// App.jsx wraps in this order - don't change
+<AuthProvider>      {/* Must be outermost */}
+  <TribeProvider>   {/* Depends on AuthContext */}
+    <AppRoutes />
+  </TribeProvider>
+</AuthProvider>
+```
 
-## Notes
-- Linked families and extended tree features have been removed (see README for details).
-- Keep code and UI in Arabic and RTL unless explicitly changing.
-- For debugging, use `DebugLogger.js` and avoid `console.log` in production code.
+### Adding Family Members
+Relations stored in `relations` table with `parent_id`/`child_id`. Always check for cycles:
+```js
+// tribeService.js pattern - never skip cycle check
+if (await wouldCreateCircle(tribeId, parentId, childId)) {
+  throw new Error('This would create a circular relationship');
+}
+```
 
----
-If any section is unclear or missing, please provide feedback to improve these instructions.
+### RTL & Arabic UI
+- All text defaults to Arabic; use `direction: 'rtl'` in styles
+- MUI theme in `App.jsx` sets `direction: 'rtl'` globally
+- Font: Cairo (loaded in theme)
+
+### Debug Logging
+```js
+import debugLogger from './utils/DebugLogger.js';
+debugLogger.familyDebug('🔍', 'message', optionalData);
+// Enable in browser: window.familyDebug.enable()
+```
+
+## File Patterns
+| Task | Files to Modify |
+|------|----------------|
+| New page | `src/pages/NewPage.jsx` + route in `AppRoutes.jsx` |
+| Tree feature | `FamilyTreeAdvanced.jsx` (UI) + `FamilyTreeBuilder.js` (logic) |
+| Database query | `tribeService.js` only |
+| Analytics | `FamilyAnalytics.js` (auto-calculates generations from `parentId`) |
+
+## Environment Variables (.env)
+```env
+# Firebase (Auth only)
+VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, VITE_FIREBASE_PROJECT_ID
+# Supabase (Data)
+VITE_SUPABASE_URL, VITE_SUPABASE_KEY
+```
+
+## Database Schema Notes
+- Schema files: `supabase-schema.sql`, `supabase-tribe-schema.sql`
+- Key tables: `tribes`, `persons`, `relations`, `tribe_users`
+- Relations use `parent_id`/`child_id` (not nested objects)
+
+## Don'ts
+- Never use `console.log` in production - use `DebugLogger`
+- Never bypass `ProtectedRoute.jsx` for authenticated pages
+- Never create relations without cycle detection
+- Never hardcode phone country code (always expect `+964` prefix)
