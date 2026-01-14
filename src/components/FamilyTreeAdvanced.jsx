@@ -68,6 +68,7 @@ export default function FamilyTreeAdvanced() {
   const containerRef = useRef(null);
   const reactRootsRef = useRef(new Map());
   const isMountedRef = useRef(true); // لتتبع حالة التحميل
+  const zoomRef = useRef(null); // حفظ zoom behavior لإعادة التركيز
   
   // مراجع لحل مشكلة الحلقة اللانهائية
   const handleNodeClickRef = useRef(null);
@@ -154,7 +155,7 @@ export default function FamilyTreeAdvanced() {
 
   // دالة إعادة التركيز على الشجرة - للزر العائم
   const resetTreeView = useCallback(() => {
-    if (svgRef.current && treeData) {
+    if (svgRef.current && treeData && zoomRef.current) {
       try {
         const svg = d3.select(svgRef.current);
         const g = svg.select('g');
@@ -165,19 +166,41 @@ export default function FamilyTreeAdvanced() {
         if (!container) return;
         
         const width = container.clientWidth;
+        const height = container.clientHeight || 600;
         
-        // إعادة الشجرة للمركز مع تأثير انتقالي سلس
-        svg.transition()
-          .duration(750)
-          .ease(d3.easeCubicInOut)
-          .call(
-            d3.zoom().transform,
-            d3.zoomIdentity
-              .translate(width / 2, 50)
-              .scale(0.8)
+        // حساب حدود الشجرة الفعلية
+        const gNode = g.node();
+        if (!gNode) return;
+        
+        const bounds = gNode.getBBox();
+        const fullWidth = bounds.width;
+        const fullHeight = bounds.height;
+        
+        if (fullWidth > 0 && fullHeight > 0) {
+          // حساب scale للتمركز
+          const scale = Math.min(
+            (width * 0.8) / fullWidth,
+            (height * 0.8) / fullHeight,
+            1.0
           );
-        
-        showSnackbar('تم إعادة التركيز على الشجرة', 'success');
+          
+          // حساب الموقع المركزي
+          const centerX = bounds.x + fullWidth / 2;
+          const centerY = bounds.y + fullHeight / 2;
+          const targetX = width / 2 - centerX * scale;
+          const targetY = height / 2 - centerY * scale;
+          
+          const newTransform = d3.zoomIdentity
+            .translate(targetX, targetY)
+            .scale(scale);
+          
+          svg.transition()
+            .duration(750)
+            .ease(d3.easeCubicInOut)
+            .call(zoomRef.current.transform, newTransform);
+          
+          showSnackbar('تم إعادة التركيز على الشجرة', 'success');
+        }
       } catch (err) {
         console.error('خطأ في إعادة التركيز:', err);
       }
@@ -560,6 +583,10 @@ const drawTreeWithD3 = useCallback((data) => {
         g.attr('transform', event.transform);
       });
     });
+    
+    // حفظ zoom في ref لاستخدامه في إعادة التركيز
+    zoomRef.current = zoom;
+    
     svg.call(zoom);
     svg.property('__zoom', d3.zoomIdentity); 
 
