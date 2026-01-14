@@ -228,13 +228,96 @@ export default function FamilyTreeAdvanced() {
   const buildTreeFromRelations = useCallback((persons) => {
     if (!persons || persons.length === 0) return null;
 
+    // =====================================================
+    // 🔄 دمج الأشخاص المتشابهين (في العرض فقط)
+    // =====================================================
+    const normalizeArabic = (str) => {
+      if (!str) return '';
+      return str.trim()
+        .replace(/أ|إ|آ/g, 'ا')
+        .replace(/ة/g, 'ه')
+        .replace(/ى/g, 'ي')
+        .toLowerCase();
+    };
+    
+    const getPersonKey = (p) => {
+      return `${normalizeArabic(p.firstName)}_${normalizeArabic(p.fatherName)}_${normalizeArabic(p.grandfatherName || '')}`;
+    };
+    
+    // تجميع الأشخاص المتشابهين
+    const personGroups = new Map(); // key -> [persons]
+    for (const p of persons) {
+      const key = getPersonKey(p);
+      if (!personGroups.has(key)) {
+        personGroups.set(key, []);
+      }
+      personGroups.get(key).push(p);
+    }
+    
+    // دمج المجموعات: اختيار شخص رئيسي ودمج بيانات الآخرين
+    const mergedPersons = [];
+    const idMapping = new Map(); // old_id -> merged_id
+    
+    for (const [key, group] of personGroups) {
+      if (group.length === 1) {
+        // شخص واحد فقط - لا دمج
+        mergedPersons.push(group[0]);
+        idMapping.set(group[0].id, group[0].id);
+      } else {
+        // عدة أشخاص متشابهين - دمج
+        // اختيار الشخص الرئيسي: الأقدم أو من له is_root أو من له أكثر بيانات
+        const primary = group.reduce((best, current) => {
+          // أولوية لـ is_root
+          if (current.is_root && !best.is_root) return current;
+          if (best.is_root && !current.is_root) return best;
+          // أولوية للأقدم
+          if (current.generation < best.generation) return current;
+          if (best.generation < current.generation) return best;
+          // أولوية لمن له صورة
+          if (current.photo_url && !best.photo_url) return current;
+          return best;
+        });
+        
+        // دمج البيانات من كل المتشابهين
+        const merged = { ...primary };
+        
+        // جمع كل العلاقات الأبوية
+        const allParentIds = group.map(p => p.parentId).filter(Boolean);
+        if (allParentIds.length > 0 && !merged.parentId) {
+          merged.parentId = allParentIds[0];
+        }
+        
+        // جمع الـ IDs الأصلية للرجوع إليها
+        merged.mergedIds = group.map(p => p.id);
+        merged.mergedCount = group.length;
+        
+        mergedPersons.push(merged);
+        
+        // تعيين كل الـ IDs القديمة للـ ID الجديد
+        for (const p of group) {
+          idMapping.set(p.id, merged.id);
+        }
+      }
+    }
+    
+    // تحديث الـ parentId ليشير للأشخاص المدمجين
+    for (const p of mergedPersons) {
+      if (p.parentId && idMapping.has(p.parentId)) {
+        p.parentId = idMapping.get(p.parentId);
+      }
+    }
+    
+    // استخدام الأشخاص المدمجين بدلاً من الأصليين
+    const processedPersons = mergedPersons;
+    // =====================================================
+
     // استخدام Map للوصول O(1) بدلاً من filter O(n)
     const personsMap = new Map();
     const childrenMap = new Map(); // parent_id -> children[]
     const hasParent = new Set();
     
     // معالجة واحدة لكل البيانات
-    for (const p of persons) {
+    for (const p of processedPersons) {
       personsMap.set(p.id, {
         ...p,
         globalId: p.id,
@@ -258,7 +341,7 @@ export default function FamilyTreeAdvanced() {
 
     // الجذور هم من ليس لديهم والد
     const roots = [];
-    for (const p of persons) {
+    for (const p of processedPersons) {
       if (!hasParent.has(p.id) && !p.parentId) {
         roots.push(p);
       }

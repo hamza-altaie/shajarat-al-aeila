@@ -132,6 +132,8 @@ export default function Family() {
     if (!user?.uid) return false;
     // Admin يمكنه تعديل أي شيء
     if (isAdmin) return true;
+    // المستخدم يمكنه دائماً تعديل سجله الخاص (relation === 'أنا')
+    if (member.relation === 'أنا') return true;
     // المستخدم يمكنه تعديل البيانات التي أضافها فقط
     return member.createdBy === user.uid;
   }, [user?.uid, isAdmin]);

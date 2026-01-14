@@ -210,30 +210,25 @@ async function createAutoRelations(tribeId, newPerson, membership, userId) {
         return false;
       }
       
-      // التحقق من وجود العلاقة - استخدام maybeSingle بدلاً من single
-      const { data: existing } = await supabase
-        .from('relations')
-        .select('id')
-        .eq('parent_id', parentId)
-        .eq('child_id', childId)
-        .maybeSingle(); // لا يعطي خطأ إذا لم يجد نتائج
-      
-      if (existing) {
-        return false;
-      }
-
+      // ✅ استخدام upsert لتجنب خطأ 409 Conflict
       const { error } = await supabase
         .from('relations')
-        .insert({
+        .upsert({
           tribe_id: tribeId,
           parent_id: parentId,
           child_id: childId,
           created_by: userId
+        }, {
+          onConflict: 'parent_id,child_id', // إذا موجودة، لا تفعل شيء
+          ignoreDuplicates: true
         });
       
-      if (error && error.code !== '23505') { // تجاهل خطأ التكرار
-        console.error('❌ خطأ في إضافة العلاقة:', error);
-        return false;
+      if (error) {
+        // تجاهل أخطاء التكرار (23505) و Conflict (409)
+        if (error.code !== '23505' && error.code !== 'PGRST409') {
+          console.error('❌ خطأ في إضافة العلاقة:', error);
+          return false;
+        }
       }
       return true;
     };
@@ -537,74 +532,12 @@ export async function createTribePerson(tribeId, personData) {
     // 🔍 البحث عن شخص موجود بنفس الاسم الثلاثي (لتجنب التكرار)
     // =====================================================
     
-    // جلب كل الأشخاص للبحث الذكي
-    const { data: allPersons } = await supabase
-      .from('persons')
-      .select('*')
-      .eq('tribe_id', tribeId);
-    
-    // البحث عن شخص موجود بنفس الاسم الثلاثي (الاسم + الأب + الجد)
-    const existingPerson = (allPersons || []).find(p => {
-      // 1. الاسم الأول - إجباري
-      const firstNameMatch = namesAreSimilar(p.first_name, personData.first_name);
-      if (!firstNameMatch) return false;
-      
-      // 2. اسم الأب - إجباري
-      const fatherNameMatch = namesAreSimilar(p.father_name, personData.father_name);
-      if (!fatherNameMatch) return false;
-      
-      // 3. اسم الجد - إجباري
-      const grandfatherNameMatch = namesAreSimilar(p.grandfather_name, personData.grandfather_name);
-      if (!grandfatherNameMatch) return false;
-      
-      // جميع الحقول متطابقة = نفس الشخص
-      return true;
-    });
-    
-    // إذا وُجد شخص مطابق - نستخدمه بدلاً من إنشاء جديد
-    if (existingPerson) {
-      console.warn(`🔗 وُجد شخص موجود باسم "${existingPerson.first_name} ${existingPerson.father_name}" - سيتم الربط بدلاً من إنشاء جديد`);
-      
-      // تحديث البيانات الناقصة
-      const updates = {};
-      if (!existingPerson.birthdate && personData.birthdate) {
-        updates.birthdate = personData.birthdate;
-      }
-      if (!existingPerson.gender && personData.gender) {
-        updates.gender = personData.gender;
-      }
-      if (!existingPerson.family_name && personData.family_name) {
-        updates.family_name = personData.family_name;
-      }
-      // تحديث العلاقة إذا كانت "أنا"
-      if (personData.relation === 'أنا') {
-        updates.relation = 'أنا';
-      }
-      
-      if (Object.keys(updates).length > 0) {
-        await supabase
-          .from('persons')
-          .update({ ...updates, updated_by: user.uid })
-          .eq('id', existingPerson.id);
-      }
-      
-      // إذا كان "أنا" - ربط المستخدم بهذا الشخص
-      if (personData.relation === 'أنا') {
-        await supabase
-          .from('tribe_users')
-          .update({ person_id: existingPerson.id })
-          .eq('id', membership.id);
-      }
-      
-      // إنشاء العلاقات التلقائية للشخص الموجود
-      await createAutoRelations(tribeId, existingPerson, membership, user.uid);
-      
-      return { ...existingPerson, ...updates, merged: true };
-    }
-    
     // =====================================================
-    // إنشاء شخص جديد (إذا لم يوجد مطابق)
+    // ❌ تم إلغاء الدمج - كل مستخدم له سجل خاص به
+    // الدمج يكون فقط في العرض (الشجرة) وليس في قاعدة البيانات
     // =====================================================
+    
+    // إنشاء شخص جديد دائماً
     const { data, error } = await supabase
       .from('persons')
       .insert({
