@@ -357,33 +357,10 @@ export default function FamilyTreeAdvanced() {
     // دالة تكرارية لبناء الشجرة (مع منع التكرار)
     const builtNodes = new Set(); // لمنع بناء نفس العقدة مرتين
     
-    // دالة لتحويل علاقة "أنا" إلى العلاقة الحقيقية في الشجرة العامة
+    // دالة لعرض العلاقة كما هي محفوظة
     const getDisplayRelation = (person) => {
-      let relation = person.relation;
-      
-      // تحويل "أنا" إلى العلاقة الحقيقية بناءً على موقع الشخص في الشجرة
-      if (relation === 'أنا') {
-        if (person.is_root) {
-          relation = 'رب العائلة';
-        } else if (person.parent_id) {
-          // إذا له والد، فهو ابن أو بنت
-          relation = person.gender === 'F' ? 'بنت' : 'ابن';
-        } else {
-          // بدون والد وليس جذر - نحدد بناءً على الجنس
-          relation = person.gender === 'F' ? 'بنت' : 'ابن';
-        }
-      }
-      
-      // إذا لم تكن هناك علاقة محددة
-      if (!relation) {
-        if (person.is_root) {
-          relation = 'رب العائلة';
-        } else {
-          relation = person.gender === 'F' ? 'بنت' : 'ابن';
-        }
-      }
-      
-      return relation;
+      // إرجاع العلاقة كما هي، أو فارغ إذا لم تكن موجودة
+      return person.relation || '';
     };
     
     const buildNode = (person) => {
@@ -1781,16 +1758,13 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
                 {selectedNode.name || buildFullName(selectedNode) || ''}
               </Typography>
               <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <Chip 
-                  label={
-                    // إذا كان الشخص هو صاحب الحساب
-                    (selectedNode.id === membership?.person_id) 
-                      ? 'أنا (صاحب الحساب)' 
-                      : (selectedNode.relation || '')
-                  } 
-                  color={selectedNode.id === membership?.person_id ? 'success' : 'primary'} 
-                  variant="outlined" 
-                />
+                {selectedNode.id === membership?.person_id && (
+                  <Chip 
+                    label="أنا (صاحب الحساب)"
+                    color="success" 
+                    variant="outlined" 
+                  />
+                )}
                 {selectedNode.isNephewNiece && (
                   <Chip label="👶 ابن/بنت الأخ/الأخت" color="warning" variant="outlined" />
                 )}

@@ -203,34 +203,51 @@ async function createAutoRelations(tribeId, newPerson, membership, userId) {
 
     // دالة مساعدة لإضافة علاقة مع التحقق من عدم وجودها والحلقات
     const addRelationIfNotExists = async (parentId, childId) => {
-      // ✅ فحص الحلقات المغلقة أولاً
-      const wouldCircle = await wouldCreateCircle(tribeId, parentId, childId);
-      if (wouldCircle) {
-        console.error('❌ رفض إضافة العلاقة: ستسبب حلقة مغلقة!');
-        return false;
-      }
-      
-      // ✅ استخدام upsert لتجنب خطأ 409 Conflict
-      const { error } = await supabase
-        .from('relations')
-        .upsert({
-          tribe_id: tribeId,
-          parent_id: parentId,
-          child_id: childId,
-          created_by: userId
-        }, {
-          onConflict: 'parent_id,child_id', // إذا موجودة، لا تفعل شيء
-          ignoreDuplicates: true
-        });
-      
-      if (error) {
-        // تجاهل أخطاء التكرار (23505) و Conflict (409)
-        if (error.code !== '23505' && error.code !== 'PGRST409') {
-          console.error('❌ خطأ في إضافة العلاقة:', error);
+      try {
+        // ✅ فحص الحلقات المغلقة أولاً
+        const wouldCircle = await wouldCreateCircle(tribeId, parentId, childId);
+        if (wouldCircle) {
+          console.warn('⚠️ رفض إضافة العلاقة: ستسبب حلقة مغلقة!');
           return false;
         }
+        
+        // ✅ فحص وجود العلاقة أولاً
+        const { data: existing } = await supabase
+          .from('relations')
+          .select('id')
+          .eq('parent_id', parentId)
+          .eq('child_id', childId)
+          .maybeSingle();
+        
+        // إذا موجودة، لا نضيف
+        if (existing) {
+          return true; // العلاقة موجودة بالفعل
+        }
+        
+        // إضافة العلاقة الجديدة
+        const { error } = await supabase
+          .from('relations')
+          .insert({
+            tribe_id: tribeId,
+            parent_id: parentId,
+            child_id: childId,
+            created_by: userId
+          });
+        
+        if (error) {
+          // تجاهل أخطاء التكرار فقط
+          if (error.code === '23505') {
+            return true; // العلاقة موجودة بالفعل
+          }
+          console.warn('⚠️ خطأ في إضافة العلاقة:', error.message);
+          return false;
+        }
+        return true;
+      } catch (err) {
+        // تجاهل أي خطأ - العلاقة قد تكون موجودة
+        console.warn('⚠️ تجاهل خطأ العلاقة:', err.message);
+        return true;
       }
-      return true;
     };
 
     // 2. إذا كان "ابن" أو "بنت" → المستخدم هو الوالد
