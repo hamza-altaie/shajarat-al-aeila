@@ -127,16 +127,16 @@ export default function Family() {
     setSnackbarOpen(true);
   }, []);
 
-  // ✅ التحقق من ملكية البيانات - هل المستخدم هو من أضاف هذا الشخص؟
+  // ✅ التحقق من ملكية البيانات - هل المستخدم يمكنه تعديل هذا الشخص؟
   const canEditMember = useCallback((member) => {
     if (!user?.uid) return false;
     // Admin يمكنه تعديل أي شيء
     if (isAdmin) return true;
-    // المستخدم يمكنه دائماً تعديل سجله الخاص (relation === 'أنا')
-    if (member.relation === 'أنا') return true;
+    // المستخدم يمكنه تعديل سجله الخاص (إذا كان مرتبطاً به عبر person_id)
+    if (membership?.person_id && String(member.id) === String(membership.person_id)) return true;
     // المستخدم يمكنه تعديل البيانات التي أضافها فقط
     return member.createdBy === user.uid;
-  }, [user?.uid, isAdmin]);
+  }, [user?.uid, isAdmin, membership?.person_id]);
 
   
   // دالة حذف الصورة القديمة
@@ -961,10 +961,18 @@ const loadFamily = useCallback(async () => {
             {`${member.firstName} ${member.fatherName} ${member.surname}`}
           </Typography>
           
-          {/* القرابة */}
+          {/* القرابة - إظهار "أنا" إذا كان هذا سجل المستخدم الحالي */}
           <Chip 
-            label={member.relation} 
-            color="primary" 
+            label={
+              membership?.person_id && String(member.id) === String(membership.person_id)
+                ? 'أنا'
+                : member.relation
+            } 
+            color={
+              membership?.person_id && String(member.id) === String(membership.person_id)
+                ? 'success'
+                : 'primary'
+            } 
             size="small" 
             sx={{ mb: 2, borderRadius: 2 }}
           />

@@ -546,15 +546,59 @@ export async function createTribePerson(tribeId, personData) {
     if (!membership) throw new Error('يجب الانضمام للقبيلة أولاً');
 
     // =====================================================
-    // 🔍 البحث عن شخص موجود بنفس الاسم الثلاثي (لتجنب التكرار)
+    // � إذا كانت العلاقة "أنا" - نبحث عن سجل موجود بنفس الاسم ونربط به
     // =====================================================
+    if (personData.relation === 'أنا') {
+      // البحث عن شخص موجود بنفس الاسم الأول واسم الأب
+      const { data: existingPersons } = await supabase
+        .from('persons')
+        .select('*')
+        .eq('tribe_id', tribeId)
+        .ilike('first_name', personData.first_name || '')
+        .ilike('father_name', personData.father_name || '');
+
+      if (existingPersons && existingPersons.length > 0) {
+        // وجدنا شخص مطابق - نربط المستخدم به بدلاً من إنشاء سجل جديد
+        const existingPerson = existingPersons[0];
+        
+        // تحديث tribe_users لربط المستخدم بهذا الشخص
+        const { error: linkError } = await supabase
+          .from('tribe_users')
+          .update({ person_id: existingPerson.id })
+          .eq('tribe_id', tribeId)
+          .eq('firebase_uid', user.uid);
+
+        if (linkError) throw linkError;
+        
+        // ⚠️ نحدث فقط المعلومات الناقصة - لا نغير العلاقة!
+        // العلاقة الأصلية (ابن/بنت/إلخ) تبقى كما هي
+        const updates = {};
+        if (personData.phone && !existingPerson.phone) updates.phone = personData.phone;
+        if (personData.birth_date && !existingPerson.birth_date) updates.birth_date = personData.birth_date;
+        if (personData.photo_url && !existingPerson.photo_url) updates.photo_url = personData.photo_url;
+        
+        // تحديث فقط إذا كان هناك معلومات جديدة
+        if (Object.keys(updates).length > 0) {
+          const { data: updatedPerson, error: updateError } = await supabase
+            .from('persons')
+            .update(updates)
+            .eq('id', existingPerson.id)
+            .select()
+            .single();
+
+          if (updateError) throw updateError;
+          console.log('✅ تم ربط المستخدم بسجل موجود وتحديث معلوماته:', existingPerson.id);
+          return updatedPerson;
+        }
+        
+        console.log('✅ تم ربط المستخدم بسجل موجود:', existingPerson.id);
+        return existingPerson;
+      }
+    }
     
     // =====================================================
-    // ❌ تم إلغاء الدمج - كل مستخدم له سجل خاص به
-    // الدمج يكون فقط في العرض (الشجرة) وليس في قاعدة البيانات
+    // إنشاء شخص جديد إذا لم يوجد مطابق
     // =====================================================
-    
-    // إنشاء شخص جديد دائماً
     const { data, error } = await supabase
       .from('persons')
       .insert({
@@ -601,11 +645,15 @@ export async function updateTribePerson(tribeId, personId, personData) {
       .eq('tribe_id', tribeId)
       .single();
 
-    // ✅ التحقق من الملكية - فقط صاحب البيانات أو Admin يمكنه التعديل
+    // ✅ التحقق من الملكية:
+    // 1. Admin يعدّل أي شيء
+    // 2. صاحب السجل (من أنشأه) يعدّله
+    // 3. الشخص المرتبط بالسجل (person_id في tribe_users) يعدّل سجله الخاص
     const isAdmin = membership.role === 'admin';
-    const isOwner = oldData?.created_by === user.uid;
+    const isCreator = oldData?.created_by === user.uid;
+    const isLinkedPerson = membership.person_id === personId; // هذا سجلي الخاص
     
-    if (!isAdmin && !isOwner) {
+    if (!isAdmin && !isCreator && !isLinkedPerson) {
       throw new Error('لا يمكنك تعديل بيانات أضافها شخص آخر');
     }
 
@@ -743,6 +791,21 @@ export async function deleteTribeRelation(tribeId, parentId, childId) {
     console.error("❌ خطأ في حذف العلاقة:", err);
     throw err;
   }
+}
+
+// =============================================
+// 🔧 إيجاد وحذف التكرارات
+// =============================================
+
+/**
+ * البحث عن الأشخاص المكررين (نفس الاسم والجنس)
+ * ⚠️ هذه الدالة للعرض فقط - لا تحذف تلقائياً
+ */
+export async function findAndRemoveDuplicates(tribeId) {
+  // ⚠️ تم تعطيل الحذف التلقائي - خطير جداً
+  // الدالة الآن تعرض التكرارات فقط بدون حذف
+  console.log('⚠️ findAndRemoveDuplicates: الحذف التلقائي معطّل');
+  return { duplicates: [], deleted: 0 };
 }
 
 // الحصول على الشجرة الكاملة - محسّن للأداء

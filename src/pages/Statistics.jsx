@@ -118,9 +118,12 @@ const Statistics = () => {
     }
 
     try {
-      // استخدام Tribe Service بدلاً من userService
+      // استخدام Tribe Service
       const { getTribeTree } = await import('../services/tribeService');
-      const response = await getTribeTree(tribeId);
+      
+      // ⚠️ تم إلغاء التنظيف التلقائي للتكرارات - يتم يدوياً من لوحة الإدارة
+      
+      const response = await getTribeTree(tribeId, { forceRefresh: true });
       
       if (!response || !response.persons) {
         setFamilyMembers([]);
