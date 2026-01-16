@@ -451,7 +451,15 @@ const loadFamily = useCallback(async () => {
       showSnackbar('لا يمكنك تعديل بيانات أضافها شخص آخر', 'warning');
       return;
     }
-    setForm({ ...member });
+    
+    // إذا كان هذا سجل المستخدم الحالي، نعرض "أنا" في حقل القرابة
+    const isMyRecord = membership?.person_id && String(member.id) === String(membership.person_id);
+    const formData = { ...member };
+    if (isMyRecord) {
+      formData.relation = 'أنا';
+    }
+    
+    setForm(formData);
     setAvatarUploadSuccess(false); // ✅ إعادة تعيين حالة رفع الصورة
     setEditModalOpen(true);
   };
