@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as d3 from 'd3';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import html2canvas from 'html2canvas';
 import {
   Box, Button, Typography, Alert, Snackbar, CircularProgress, 
   Chip, IconButton, Paper, LinearProgress, Fab,
@@ -21,6 +22,7 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import SearchIcon from '@mui/icons-material/Search';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
+import DownloadIcon from '@mui/icons-material/Download';
 import { getTribeTree } from "../services/tribeService";
 import { useTribe } from '../contexts/TribeContext';
 import { useAuth } from '../AuthContext';
@@ -206,6 +208,183 @@ export default function FamilyTreeAdvanced() {
       }
     }
   }, [treeData, showSnackbar]);
+
+  // حالة تصدير الصورة
+  const [exporting, setExporting] = useState(false);
+
+  // =============================================
+  // 📸 تصدير الشجرة كصورة
+  // =============================================
+  // دالة تحويل صورة URL إلى base64
+  const imageToBase64 = useCallback(async (url) => {
+    try {
+      const response = await fetch(url, { mode: 'cors' });
+      const blob = await response.blob();
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      // إذا فشل الـ fetch، نرسم دائرة ملونة كبديل
+      return null;
+    }
+  }, []);
+
+  // إنشاء avatar SVG كبديل
+  const createAvatarSVG = useCallback((gender, size = 50) => {
+    const bgColor = gender === 'female' ? '#f8bbd9' : '#bbdefb';
+    const fgColor = gender === 'female' ? '#c2185b' : '#1976d2';
+    
+    return `data:image/svg+xml,${encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+        <circle cx="${size/2}" cy="${size/2}" r="${size/2}" fill="${bgColor}"/>
+        <circle cx="${size/2}" cy="${size*0.35}" r="${size*0.2}" fill="${fgColor}"/>
+        <ellipse cx="${size/2}" cy="${size*0.85}" rx="${size*0.35}" ry="${size*0.25}" fill="${fgColor}"/>
+      </svg>
+    `)}`;
+  }, []);
+
+  const exportTreeAsImage = useCallback(async () => {
+    if (!svgRef.current || !containerRef.current) {
+      showSnackbar('لا توجد شجرة لتصديرها', 'warning');
+      return;
+    }
+
+    setExporting(true);
+    showSnackbar('جاري تجهيز الصورة...', 'info');
+
+    try {
+      // استخدام html2canvas مباشرة على SVG container
+      const svgContainer = svgContainerRef.current || containerRef.current;
+      
+      // إعادة ضبط الزووم مؤقتاً للتصدير
+      const svg = svgRef.current;
+      const g = svg.querySelector('g');
+      const currentTransform = g?.getAttribute('transform') || '';
+      
+      // الحصول على حدود الشجرة
+      const bounds = g?.getBBox();
+      if (!bounds) {
+        throw new Error('لا يمكن تحديد حدود الشجرة');
+      }
+
+      // حساب الأبعاد المطلوبة
+      const padding = 60;
+      const titleHeight = 50;
+      const width = Math.max(bounds.width + padding * 2, 800);
+      const height = Math.max(bounds.height + padding * 2 + titleHeight, 600);
+
+      // إنشاء SVG جديد للتصدير
+      const exportSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      exportSvg.setAttribute('width', width);
+      exportSvg.setAttribute('height', height);
+      exportSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      
+      // إضافة تعريفات CSS داخل SVG
+      const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+      style.textContent = `
+        text { font-family: 'Cairo', 'Segoe UI', Arial, sans-serif; }
+      `;
+      defs.appendChild(style);
+      exportSvg.appendChild(defs);
+      
+      // خلفية
+      const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      bg.setAttribute('width', '100%');
+      bg.setAttribute('height', '100%');
+      bg.setAttribute('fill', '#f8faf8');
+      exportSvg.appendChild(bg);
+      
+      // عنوان
+      const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      title.setAttribute('x', width / 2);
+      title.setAttribute('y', 35);
+      title.setAttribute('text-anchor', 'middle');
+      title.setAttribute('font-size', '24');
+      title.setAttribute('font-weight', 'bold');
+      title.setAttribute('fill', '#2e7d32');
+      title.textContent = '🌳 شجرة العائلة';
+      exportSvg.appendChild(title);
+      
+      // نسخ محتوى الشجرة
+      const gClone = g.cloneNode(true);
+      gClone.setAttribute('transform', `translate(${-bounds.x + padding}, ${-bounds.y + padding + titleHeight})`);
+      exportSvg.appendChild(gClone);
+      
+      // معالجة الصور في النسخة
+      const images = gClone.querySelectorAll('image');
+      showSnackbar(`جاري معالجة ${images.length} صورة...`, 'info');
+      
+      for (const img of images) {
+        let href = img.getAttribute('href') || img.getAttribute('xlink:href');
+        if (href && !href.startsWith('data:')) {
+          if (href.startsWith('/')) {
+            href = window.location.origin + href;
+          }
+          
+          const isGirlIcon = href.includes('girl') || href.includes('female');
+          const parentRect = img.parentElement?.querySelector('rect[fill]');
+          const rectFill = parentRect?.getAttribute('fill') || '';
+          const isFemaleByColor = rectFill.includes('f8bbd') || rectFill.includes('fce4ec');
+          const isFemale = isGirlIcon || isFemaleByColor;
+          
+          try {
+            const base64 = await imageToBase64(href);
+            if (base64) {
+              img.setAttribute('href', base64);
+            } else {
+              img.setAttribute('href', createAvatarSVG(isFemale ? 'female' : 'male', 50));
+            }
+          } catch {
+            img.setAttribute('href', createAvatarSVG(isFemale ? 'female' : 'male', 50));
+          }
+          img.removeAttribute('xlink:href');
+        }
+      }
+      
+      // إنشاء container مؤقت للتصدير
+      const tempContainer = document.createElement('div');
+      tempContainer.style.cssText = 'position: fixed; left: -9999px; top: 0; background: #f8faf8;';
+      tempContainer.appendChild(exportSvg);
+      document.body.appendChild(tempContainer);
+      
+      // استخدام html2canvas
+      const canvas = await html2canvas(tempContainer, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#f8faf8',
+        width: width,
+        height: height,
+        logging: false
+      });
+      
+      // إزالة الـ container المؤقت
+      document.body.removeChild(tempContainer);
+      
+      // تحميل الصورة
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const date = new Date().toLocaleDateString('ar-IQ').replace(/\//g, '-');
+        link.download = `شجرة_العائلة_${date}.png`;
+        link.href = url;
+        link.click();
+        URL.revokeObjectURL(url);
+        
+        setExporting(false);
+        showSnackbar('✅ تم تصدير الشجرة بنجاح!', 'success');
+      }, 'image/png', 1.0);
+
+    } catch (err) {
+      console.error('خطأ في تصدير الشجرة:', err);
+      setExporting(false);
+      showSnackbar('❌ حدث خطأ أثناء التصدير', 'error');
+    }
+  }, [showSnackbar, imageToBase64, createAvatarSVG]);
 
   const handleNodeClick = useCallback((nodeData) => {
     if (nodeData.action === 'edit') {
@@ -1723,27 +1902,55 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
 
       {/* زر إعادة التركيز العائم - يظهر على الهاتف فقط */}
       {treeData && (
-        <Fab
-          color="primary"
-          size={isMobile ? "medium" : "small"}
-          onClick={resetTreeView}
-          sx={{
-            position: 'fixed',
-            bottom: isMobile ? 90 : 20,
-            left: 20,
-            zIndex: 1100,
-            background: 'linear-gradient(45deg, #10b981 0%, #059669 100%)',
-            boxShadow: '0 4px 15px rgba(16,185,129,0.4)',
-            '&:hover': {
-              background: 'linear-gradient(45deg, #059669 0%, #047857 100%)',
-              transform: 'scale(1.1)',
-            },
-            transition: 'all 0.3s ease',
-          }}
-          title="إعادة التركيز على الشجرة"
-        >
-          <CenterFocusStrongIcon />
-        </Fab>
+        <>
+          <Fab
+            color="primary"
+            size={isMobile ? "medium" : "small"}
+            onClick={resetTreeView}
+            sx={{
+              position: 'fixed',
+              bottom: isMobile ? 90 : 20,
+              left: 20,
+              zIndex: 1100,
+              background: 'linear-gradient(45deg, #10b981 0%, #059669 100%)',
+              boxShadow: '0 4px 15px rgba(16,185,129,0.4)',
+              '&:hover': {
+                background: 'linear-gradient(45deg, #059669 0%, #047857 100%)',
+                transform: 'scale(1.1)',
+              },
+              transition: 'all 0.3s ease',
+            }}
+            title="إعادة التركيز على الشجرة"
+          >
+            <CenterFocusStrongIcon />
+          </Fab>
+          
+          {/* زر تصدير الشجرة كصورة */}
+          <Fab
+            color="secondary"
+            size={isMobile ? "medium" : "small"}
+            onClick={exportTreeAsImage}
+            disabled={exporting}
+            sx={{
+              position: 'fixed',
+              bottom: isMobile ? 90 : 20,
+              left: 80,
+              zIndex: 1100,
+              background: exporting 
+                ? '#9e9e9e'
+                : 'linear-gradient(45deg, #1976d2 0%, #1565c0 100%)',
+              boxShadow: '0 4px 15px rgba(25,118,210,0.4)',
+              '&:hover': {
+                background: 'linear-gradient(45deg, #1565c0 0%, #0d47a1 100%)',
+                transform: exporting ? 'none' : 'scale(1.1)',
+              },
+              transition: 'all 0.3s ease',
+            }}
+            title="تصدير الشجرة كصورة"
+          >
+            {exporting ? <CircularProgress size={24} color="inherit" /> : <DownloadIcon />}
+          </Fab>
+        </>
       )}
 
       {/* الحوارات */}
