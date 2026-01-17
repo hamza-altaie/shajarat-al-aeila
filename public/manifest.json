@@ -148,7 +148,7 @@
   
   "protocol_handlers": [
     {
-      "protocol": "family",
+      "protocol": "web+family",
       "url": "/?family=%s"
     }
   ],

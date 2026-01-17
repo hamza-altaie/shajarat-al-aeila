@@ -1124,10 +1124,19 @@ const loadFamily = useCallback(async () => {
           </Typography>
         </Paper>
         
+        {/* عدد الأبناء - مع استثناء صاحب الحساب */}
         <Paper elevation={2} sx={{ p: 2, textAlign: 'center', borderRadius: 3, bgcolor: '#f0fdf4', border: '1px solid #86efac' }}>
           <GroupIcon sx={{ fontSize: 36, color: '#16a34a', mb: 0.5 }} />
           <Typography variant="h4" fontWeight="bold" sx={{ color: '#16a34a' }}>
-            {members.filter(m => m.relation === 'ابن' || m.relation === 'بنت').length}
+            {(() => {
+              // استثناء صاحب الحساب (الذي علاقته "أنا" أو المرتبط بـ membership)
+              const myPersonId = membership?.person_id;
+              return members.filter(m => 
+                (m.relation === 'ابن' || m.relation === 'بنت') &&
+                m.relation !== 'أنا' &&
+                String(m.id) !== String(myPersonId)
+              ).length;
+            })()}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             الأبناء
