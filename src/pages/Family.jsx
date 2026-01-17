@@ -1130,7 +1130,7 @@ const loadFamily = useCallback(async () => {
             {members.filter(m => m.relation === 'ابن' || m.relation === 'بنت').length}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            الأطفال
+            الأبناء
           </Typography>
         </Paper>
       </Box>

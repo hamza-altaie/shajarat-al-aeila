@@ -1141,7 +1141,7 @@ const drawTreeWithD3 = useCallback((data) => {
       .attr("dominant-baseline", "middle");
   }
 
-  // ✅ الخلفية خلف عدد الأطفال (تخطي للعقدة الوهمية والجد الافتراضي)
+  // ✅ الخلفية خلف عدد الأبناء (تخطي للعقدة الوهمية والجد الافتراضي)
   if (d.children && d.children.length > 0 && !nodeData.isVirtualRoot && !nodeData.isVirtualGrandfather) {
     let childText = ` ${d.children.length}`;
     let hasGrandchildren = false;
@@ -1983,11 +1983,11 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
                 )}
               </Box>
               {selectedNode.age && <Typography variant="body2" sx={{ mb: 1 }}>العمر: {selectedNode.age} سنة</Typography>}
-              {/* عدد الأطفال والأحفاد */}
+              {/* عدد الأبناء والأحفاد */}
               {(selectedNode.children && selectedNode.children.length > 0) && (
                 <Box>
                   <Typography variant="body2" sx={{ mb: 1, color: '#4caf50', fontWeight: 'bold' }}>
-                    عدد الأطفال: {selectedNode.children.length}
+                    عدد الأبناء: {selectedNode.children.length}
                   </Typography>
                   {(() => {
                     let grandchildrenCount = 0;
