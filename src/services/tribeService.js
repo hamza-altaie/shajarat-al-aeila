@@ -801,10 +801,10 @@ export async function deleteTribeRelation(tribeId, parentId, childId) {
  * البحث عن الأشخاص المكررين (نفس الاسم والجنس)
  * ⚠️ هذه الدالة للعرض فقط - لا تحذف تلقائياً
  */
+// eslint-disable-next-line no-unused-vars
 export async function findAndRemoveDuplicates(tribeId) {
   // ⚠️ تم تعطيل الحذف التلقائي - خطير جداً
   // الدالة الآن تعرض التكرارات فقط بدون حذف
-  console.log('⚠️ findAndRemoveDuplicates: الحذف التلقائي معطّل');
   return { duplicates: [], deleted: 0 };
 }
 

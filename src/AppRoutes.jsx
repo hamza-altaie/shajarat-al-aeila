@@ -1,15 +1,51 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, Link } from 'react-router-dom';
+import { Box, CircularProgress, Typography } from '@mui/material';
 import ProtectedRoute from './ProtectedRoute.jsx';
 import { useAuth } from './AuthContext.jsx';
 
-// الصفحات
+// ======================================
+// 🚀 Lazy Loading للصفحات الكبيرة
+// ======================================
+// هذا يقلل حجم التحميل الأولي ويحسن الأداء
+
+// صفحة تسجيل الدخول - تحميل فوري (أول صفحة يراها المستخدم)
 import PhoneLogin from './pages/PhoneLogin.jsx';
-import Family from './pages/Family.jsx';
-import FamilyTree from './pages/FamilyTree.jsx';
-import PrivacyPolicy from './pages/PrivacyPolicy.jsx';
-import Statistics from './pages/Statistics.jsx';
-import AdminPanel from './pages/AdminPanel.jsx';
+
+// الصفحات الكبيرة - تحميل عند الحاجة
+const Family = lazy(() => import('./pages/Family.jsx'));
+const FamilyTree = lazy(() => import('./pages/FamilyTree.jsx'));
+const Statistics = lazy(() => import('./pages/Statistics.jsx'));
+const AdminPanel = lazy(() => import('./pages/AdminPanel.jsx'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy.jsx'));
+
+// ======================================
+// مكون التحميل
+// ======================================
+const LoadingFallback = () => (
+  <Box
+    sx={{
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+      minHeight: '100vh',
+      gap: 2,
+      backgroundColor: '#f5f5f5',
+    }}
+  >
+    <CircularProgress size={50} sx={{ color: '#2e7d32' }} />
+    <Typography 
+      variant="h6" 
+      sx={{ 
+        fontFamily: 'Cairo, sans-serif',
+        color: '#666'
+      }}
+    >
+      جاري التحميل...
+    </Typography>
+  </Box>
+);
 
 
 export default function AppRoutes() {
@@ -95,9 +131,10 @@ export default function AppRoutes() {
   );
 
   return (
-    <Routes>
-      {/* الجذر */}
-      <Route path="/" element={<IndexRoute />} />
+    <Suspense fallback={<LoadingFallback />}>
+      <Routes>
+        {/* الجذر */}
+        <Route path="/" element={<IndexRoute />} />
 
       {/* تسجيل الدخول برقم الهاتف (عام، مع تحويل المُسجَّل) */}
       <Route path="/login" element={<LoginRoute />} />
@@ -146,6 +183,7 @@ export default function AppRoutes() {
       {/* 404 */}
       <Route path="/404" element={<NotFound />} />
       <Route path="*" element={<Navigate to="/404" replace />} />
-    </Routes>
+      </Routes>
+    </Suspense>
   );
 }

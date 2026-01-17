@@ -258,7 +258,7 @@ export default function FamilyTreeAdvanced() {
     const mergedPersons = [];
     const idMapping = new Map(); // old_id -> merged_id
     
-    for (const [key, group] of personGroups) {
+    for (const [, group] of personGroups) {
       if (group.length === 1) {
         // شخص واحد فقط - لا دمج
         mergedPersons.push(group[0]);
