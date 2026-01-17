@@ -2,26 +2,82 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-
-  <!-- ✅ السطر الصحيح للـ viewport -->
+  
+  <!-- ===== SEO الأساسي ===== -->
+  <title>شجرة العائلة - أنشئ وأدر شجرة عائلتك | Shajarat Al-Aeila</title>
+  <meta name="description" content="تطبيق شجرة العائلة العربي - أنشئ شجرة عائلتك، أضف أفراد العائلة، واحفظ تاريخ عائلتك للأجيال القادمة. سهل الاستخدام ومجاني." />
+  <meta name="keywords" content="شجرة العائلة, شجرة النسب, العائلة, الأنساب, family tree, شجرة عائلية, توثيق العائلة, نسب, قبيلة, عشيرة" />
+  <meta name="author" content="Shajarat Al-Aeila" />
+  <meta name="robots" content="index, follow" />
+  <meta name="googlebot" content="index, follow" />
+  <link rel="canonical" href="https://shajarat-al-aeila-iraq.web.app/" />
+  
+  <!-- ===== Open Graph (Facebook, LinkedIn) ===== -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://shajarat-al-aeila-iraq.web.app/" />
+  <meta property="og:title" content="شجرة العائلة - أنشئ وأدر شجرة عائلتك" />
+  <meta property="og:description" content="تطبيق شجرة العائلة العربي - أنشئ شجرة عائلتك، أضف أفراد العائلة، واحفظ تاريخ عائلتك للأجيال القادمة." />
+  <meta property="og:image" content="https://shajarat-al-aeila-iraq.web.app/icons/icon-512x512.png" />
+  <meta property="og:image:width" content="512" />
+  <meta property="og:image:height" content="512" />
+  <meta property="og:locale" content="ar_IQ" />
+  <meta property="og:site_name" content="شجرة العائلة" />
+  
+  <!-- ===== Twitter Card ===== -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content="https://shajarat-al-aeila-iraq.web.app/" />
+  <meta name="twitter:title" content="شجرة العائلة - أنشئ وأدر شجرة عائلتك" />
+  <meta name="twitter:description" content="تطبيق شجرة العائلة العربي - أنشئ شجرة عائلتك واحفظ تاريخ عائلتك للأجيال القادمة." />
+  <meta name="twitter:image" content="https://shajarat-al-aeila-iraq.web.app/icons/icon-512x512.png" />
+  
+  <!-- ===== PWA & Mobile ===== -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-
   <meta name="theme-color" content="#2e7d32" />
-  <meta name="description" content="تطبيق شجرة العائلة - أنشئ وأدر شجرة عائلتك بسهولة وأمان" />
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="شجرة العائلة">
+  <meta name="application-name" content="شجرة العائلة">
+  <meta name="msapplication-TileColor" content="#2e7d32">
+  
+  <!-- ===== Favicon & Icons ===== -->
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16x16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192x192.png" />
+  <link rel="manifest" href="/manifest.json" />
 
-  <!-- ✅ سكربت منع الزووم بالإصبع على iPhone -->
+  <!-- ===== Structured Data (JSON-LD) ===== -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "شجرة العائلة",
+    "alternateName": "Shajarat Al-Aeila",
+    "url": "https://shajarat-al-aeila-iraq.web.app/",
+    "description": "تطبيق شجرة العائلة العربي - أنشئ شجرة عائلتك، أضف أفراد العائلة، واحفظ تاريخ عائلتك للأجيال القادمة.",
+    "applicationCategory": "LifestyleApplication",
+    "operatingSystem": "Web",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "inLanguage": "ar",
+    "author": {
+      "@type": "Organization",
+      "name": "Shajarat Al-Aeila"
+    }
+  }
+  </script>
+
+  <!-- ===== سكربت منع الزووم بالإصبع على iPhone ===== -->
   <script>
     document.addEventListener('gesturestart', function (e) {
       e.preventDefault();
     });
   </script>
-
   
-  <!-- إضافة خطوط Cairo -->
+  <!-- ===== الخطوط ===== -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -29,8 +85,6 @@
   <!-- Firebase reCAPTCHA Script -->
   <script src="https://www.gstatic.com/firebasejs/ui/6.0.2/firebase-ui-auth.js"></script>
   <link type="text/css" rel="stylesheet" href="https://www.gstatic.com/firebasejs/ui/6.0.2/firebase-ui-auth.css" />
-  
-  <title>شجرة العائلة</title>
   
   <!-- منع أخطاء Chrome Extensions -->
   <script>

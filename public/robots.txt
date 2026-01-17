@@ -1,0 +1,22 @@
+# robots.txt for Shajarat Al-Aeila
+# https://shajarat-al-aeila-iraq.web.app/
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://shajarat-al-aeila-iraq.web.app/sitemap.xml
+
+# Disallow admin and private pages from indexing
+Disallow: /admin
+Disallow: /api/
+
+# Allow all crawlers
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
