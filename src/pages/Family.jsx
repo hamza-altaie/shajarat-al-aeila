@@ -46,7 +46,7 @@ const DEFAULT_FORM = {
   surname: '',
   birthdate: '',
   relation: '',
-  gender: '', // إضافة حقل الجنس
+  gender: '',
   parentId: '',
   id: null,
   avatar: '',
