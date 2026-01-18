@@ -153,6 +153,14 @@ const Statistics = () => {
         return;
       }
 
+      // بناء خريطة العلاقات: child_id -> parent_id
+      const relationsMap = new Map();
+      if (response.relations) {
+        response.relations.forEach(rel => {
+          relationsMap.set(String(rel.child_id), String(rel.parent_id));
+        });
+      }
+
       // تحويل البيانات من Supabase
       const members = response.persons.map(person => ({
         id: String(person.id),
@@ -163,7 +171,8 @@ const Statistics = () => {
         grandfatherName: person.grandfather_name || '',
         relation: person.relation || (person.is_root ? 'رب العائلة' : (person.gender === 'M' ? 'ابن' : 'بنت')),
         gender: person.gender,
-        birthdate: person.birthdate || '',
+        birthdate: person.birth_date || '',
+        parentId: relationsMap.get(String(person.id)) || null, // تعيين parentId من relations
         createdAt: person.created_at || '',
       }));
 
@@ -557,8 +566,7 @@ const Statistics = () => {
                   <Tab label="📊 نظرة عامة" />
                   <Tab label="👥 الديموغرافيا" />
                   <Tab label="🏛️ الأجيال" />
-                  <Tab label="💼 المهن والتعليم" />
-                  <Tab label="💡 الرؤى الذكية" />
+                  <Tab label=" الرؤى الذكية" />
                 </Tabs>
               </Box>
 
@@ -962,107 +970,6 @@ const Statistics = () => {
                     <Grid size={{ xs: 12 }}>
                       <Typography variant="h5" sx={{ 
                         mb: 3, 
-                        color: 'warning.main', 
-                        fontWeight: 'bold', 
-                        fontFamily: 'Cairo, sans-serif' 
-                      }}>
-                        💼 المهن والتعليم
-                      </Typography>
-                    </Grid>
-
-                    {/* المهن */}
-                    <Grid size={{ xs: 12, md: 6 }}>
-                      <Paper sx={{ p: 3, height: '400px' }}>
-                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
-                          💼 توزيع المهن
-                        </Typography>
-                        <Box sx={{ height: '300px', overflow: 'auto' }}>
-                          <DataList 
-                            data={analysis?.professionalAnalysis?.professions || {}} 
-                            color="warning"
-                            emptyMessage="لا توجد بيانات مهن"
-                          />
-                        </Box>
-                      </Paper>
-                    </Grid>
-
-                    {/* التعليم */}
-                    <Grid size={{ xs: 12, md: 6 }}>
-                      <Paper sx={{ p: 3, height: '400px' }}>
-                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
-                          🎓 المستوى التعليمي
-                        </Typography>
-                        <Box sx={{ height: '300px', overflow: 'auto' }}>
-                          <DataList 
-                            data={analysis?.professionalAnalysis?.education || {}} 
-                            color="info"
-                            emptyMessage="لا توجد بيانات تعليم"
-                          />
-                        </Box>
-                      </Paper>
-                    </Grid>
-
-                    {/* المواقع الجغرافية */}
-                    <Grid size={{ xs: 12, md: 6 }}>
-                      <Paper sx={{ p: 3, height: '400px' }}>
-                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
-                          🌍 التوزيع الجغرافي
-                        </Typography>
-                        <Box sx={{ height: '300px', overflow: 'auto' }}>
-                          <DataList 
-                            data={analysis?.professionalAnalysis?.locations || {}} 
-                            color="success"
-                            emptyMessage="لا توجد بيانات مواقع"
-                          />
-                        </Box>
-                      </Paper>
-                    </Grid>
-
-                    {/* إحصائيات متقدمة */}
-                    <Grid size={{ xs: 12, md: 6 }}>
-                      <Paper sx={{ p: 3, height: '400px' }}>
-                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
-                          📊 إحصائيات متقدمة
-                        </Typography>
-                        <Grid container spacing={2}>
-                          <Grid size={{ xs: 12 }}>
-                            <StatCard
-                              title="معدل التوظيف"
-                              value={`${analysis?.professionalAnalysis?.employmentRate || 0}%`}
-                              subtitle="من سن العمل"
-                              color="success"
-                              progress={analysis?.professionalAnalysis?.employmentRate || 0}
-                            />
-                          </Grid>
-                          <Grid size={{ xs: 12 }}>
-                            <StatCard
-                              title="التغطية الجغرافية"
-                              value={`${analysis?.professionalAnalysis?.geographicDistribution?.coverage || 0}%`}
-                              subtitle="لديهم مواقع محددة"
-                              color="info"
-                              progress={analysis?.professionalAnalysis?.geographicDistribution?.coverage || 0}
-                            />
-                          </Grid>
-                          <Grid size={{ xs: 12 }}>
-                            <StatCard
-                              title="المواقع الفريدة"
-                              value={analysis?.professionalAnalysis?.geographicDistribution?.uniqueLocations || 0}
-                              subtitle="موقع جغرافي"
-                              color="warning"
-                            />
-                          </Grid>
-                        </Grid>
-                      </Paper>
-                    </Grid>
-                  </Grid>
-                </TabPanel>
-
-                <TabPanel value={activeTab} index={4}>
-                  <Grid container spacing={3}>
-                    {/* العنوان */}
-                    <Grid size={{ xs: 12 }}>
-                      <Typography variant="h5" sx={{ 
-                        mb: 3, 
                         color: 'error.main', 
                         fontWeight: 'bold', 
                         fontFamily: 'Cairo, sans-serif' 
@@ -1079,25 +986,58 @@ const Statistics = () => {
                         </Typography>
                         {analysis?.insights?.length > 0 ? (
                           <Grid container spacing={2}>
-                            {analysis.insights.map((insight, index) => (
+                            {analysis.insights.map((insight, index) => {
+                              const getCardStyle = (level) => {
+                                switch(level) {
+                                  case 'positive':
+                                    return { 
+                                      background: 'linear-gradient(135deg, #4caf50 0%, #81c784 100%)',
+                                      color: '#fff',
+                                      borderRadius: 3,
+                                      boxShadow: '0 4px 15px rgba(76, 175, 80, 0.4)'
+                                    };
+                                  case 'warning':
+                                    return { 
+                                      background: 'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)',
+                                      color: '#fff',
+                                      borderRadius: 3,
+                                      boxShadow: '0 4px 15px rgba(255, 152, 0, 0.4)'
+                                    };
+                                  case 'negative':
+                                    return { 
+                                      background: 'linear-gradient(135deg, #f44336 0%, #e57373 100%)',
+                                      color: '#fff',
+                                      borderRadius: 3,
+                                      boxShadow: '0 4px 15px rgba(244, 67, 54, 0.4)'
+                                    };
+                                  default:
+                                    return { 
+                                      background: 'linear-gradient(135deg, #2196f3 0%, #64b5f6 100%)',
+                                      color: '#fff',
+                                      borderRadius: 3,
+                                      boxShadow: '0 4px 15px rgba(33, 150, 243, 0.4)'
+                                    };
+                                }
+                              };
+                              return (
                               <Grid size={{ xs: 12, md: 6 }} key={index}>
-                                <Alert 
-                                  severity={
-                                    insight.level === 'positive' ? 'success' :
-                                    insight.level === 'warning' ? 'warning' :
-                                    insight.level === 'negative' ? 'error' : 'info'
-                                  }
-                                  sx={{ height: '100%' }}
+                                <Paper 
+                                  elevation={3}
+                                  sx={{ 
+                                    p: 2.5,
+                                    height: '100%',
+                                    ...getCardStyle(insight.level)
+                                  }}
                                 >
-                                  <Typography variant="h6" sx={{ mb: 1, fontFamily: 'Cairo, sans-serif' }}>
+                                  <Typography variant="h6" sx={{ mb: 1, fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', color: '#fff' }}>
                                     {insight.icon} {insight.title}
                                   </Typography>
-                                  <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+                                  <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: 'rgba(255,255,255,0.95)' }}>
                                     {insight.description}
                                   </Typography>
-                                </Alert>
+                                </Paper>
                               </Grid>
-                            ))}
+                            )})}
                           </Grid>
                         ) : (
                           <Alert severity="info">
@@ -1106,102 +1046,6 @@ const Statistics = () => {
                             </Typography>
                           </Alert>
                         )}
-                      </Paper>
-                    </Grid>
-
-                    {/* توصيات لتحسين البيانات */}
-                    <Grid size={{ xs: 12, md: 6 }}>
-                      <Paper sx={{ p: 3, height: '400px' }}>
-                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
-                          ✨ توصيات لتحسين البيانات
-                        </Typography>
-                        <List>
-                          {analysis?.basicStats?.dataCompleteness < 80 && (
-                            <ListItem>
-                              <ListItemIcon>
-                                <Chip label="!" color="warning" size="small" />
-                              </ListItemIcon>
-                              <ListItemText
-                                primary="تحسين اكتمال البيانات"
-                                secondary={`جودة البيانات الحالية ${analysis.basicStats.dataCompleteness}%. أضف معلومات مثل الأعمار والمهن والمواقع`}
-                              />
-                            </ListItem>
-                          )}
-                          
-                          {(analysis?.metadata?.treeMetrics?.totalNodes || analysis?.metadata?.totalMembers || 0) < 10 && (
-                            <ListItem>
-                              <ListItemIcon>
-                                <Chip label="+" color="info" size="small" />
-                              </ListItemIcon>
-                              <ListItemText
-                                primary="إضافة المزيد من الأعضاء"
-                                secondary="أضف المزيد من أفراد العائلة للحصول على إحصائيات أكثر دقة"
-                              />
-                            </ListItem>
-                          )}
-
-                          <ListItem>
-                            <ListItemIcon>
-                              <Chip label="📸" color="primary" size="small" />
-                            </ListItemIcon>
-                            <ListItemText
-                              primary="إضافة الصور"
-                              secondary="أضف صور الأعضاء لجعل الشجرة أكثر حيوية"
-                            />
-                          </ListItem>
-
-                          <ListItem>
-                            <ListItemIcon>
-                              <Chip label="📱" color="secondary" size="small" />
-                            </ListItemIcon>
-                            <ListItemText
-                              primary="معلومات الاتصال"
-                              secondary="أضف أرقام الهواتف والعناوين لتسهيل التواصل"
-                            />
-                          </ListItem>
-                        </List>
-                      </Paper>
-                    </Grid>
-
-                    {/* ملخص الأداء */}
-                    <Grid size={{ xs: 12, md: 6 }}>
-                      <Paper sx={{ p: 3, height: '400px' }}>
-                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
-                          ⚡ ملخص الأداء
-                        </Typography>
-                        <Grid container spacing={2}>
-                          <Grid size={{ xs: 12 }}>
-                            <StatCard
-                              title="سرعة التحليل"
-                              value={`${analysis?.metadata?.processingTime || 0}`}
-                              subtitle="ميلي ثانية"
-                              color="success"
-                            />
-                          </Grid>
-                          <Grid size={{ xs: 6 }}>
-                            <StatCard
-                              title="الأعضاء"
-                              value={analysis?.metadata?.treeMetrics?.totalNodes || analysis?.metadata?.totalMembers || 0}
-                              subtitle="تم تحليلهم"
-                              color="primary"
-                            />
-                          </Grid>
-                          <Grid size={{ xs: 6 }}>
-                            <StatCard
-                              title="الأجيال"
-                              value={analysis?.generationAnalysis?.totalGenerations || 0}
-                              subtitle="تم تحليلها"
-                              color="info"
-                            />
-                          </Grid>
-                          <Grid size={{ xs: 12 }}>
-                            <Alert severity="success">
-                              <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif' }}>
-                                🎯 تم إنجاز التحليل بنجاح! جميع البيانات محدثة ودقيقة.
-                              </Typography>
-                            </Alert>
-                          </Grid>
-                        </Grid>
                       </Paper>
                     </Grid>
                   </Grid>

@@ -181,8 +181,10 @@ export class FamilyAnalytics {
   normalizeMemberData(member) {
     // حساب العمر دائماً من birthDate إذا كانت متوفرة
     let age = null;
-    if (member.birthDate || member.birthdate) {
-      const birth = new Date(member.birthDate || member.birthdate);
+    // دعم جميع صيغ تاريخ الميلاد
+    const birthDateValue = member.birthDate || member.birthdate || member.birth_date;
+    if (birthDateValue) {
+      const birth = new Date(birthDateValue);
       const today = new Date();
       if (!isNaN(birth.getTime())) {
         age = today.getFullYear() - birth.getFullYear();
