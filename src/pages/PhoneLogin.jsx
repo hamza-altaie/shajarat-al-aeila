@@ -1,9 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Container, Paper, TextField, Button, Box, Typography, 
-  Alert, CircularProgress, InputAdornment, Link
-} from '@mui/material';
-import { Phone as PhoneIcon, Security as SecurityIcon, Warning as WarningIcon } from '@mui/icons-material';
+import Container from '@mui/material/Container';
+import Paper from '@mui/material/Paper';
+import TextField from '@mui/material/TextField';
+import Button from '@mui/material/Button';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
+import InputAdornment from '@mui/material/InputAdornment';
+import Link from '@mui/material/Link';
+import PhoneIcon from '@mui/icons-material/Phone';
+import SecurityIcon from '@mui/icons-material/Security';
+import WarningIcon from '@mui/icons-material/Warning';
 import { useAuth } from '../AuthContext.jsx';
 
 const PhoneLogin = () => {

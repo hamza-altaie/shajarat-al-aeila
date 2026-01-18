@@ -1,12 +1,15 @@
 // src/components/InstallPrompt.jsx - النسخة المبسطة
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, Typography, Button, Card, CardContent,
-  Fade, IconButton
-} from '@mui/material';
-import { 
-  GetApp, Close, PhoneIphone
-} from '@mui/icons-material';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Fade from '@mui/material/Fade';
+import IconButton from '@mui/material/IconButton';
+import GetAppIcon from '@mui/icons-material/GetApp';
+import CloseIcon from '@mui/icons-material/Close';
+import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
 
 const InstallPrompt = () => {
   const [showInstallScreen, setShowInstallScreen] = useState(false);
@@ -161,7 +164,7 @@ const InstallPrompt = () => {
               color: 'text.secondary'
             }}
           >
-            <Close />
+            <CloseIcon />
           </IconButton>
 
           <CardContent sx={{ p: 4, textAlign: 'center' }}>
@@ -179,7 +182,7 @@ const InstallPrompt = () => {
                 boxShadow: '0 8px 24px rgba(46,125,50,0.3)'
               }}
             >
-              <PhoneIphone sx={{ fontSize: 40, color: 'white' }} />
+              <PhoneIphoneIcon sx={{ fontSize: 40, color: 'white' }} />
             </Box>
 
             {/* العنوان */}
@@ -230,7 +233,7 @@ const InstallPrompt = () => {
                 onClick={handleInstallClick}
                 variant="contained"
                 size="large"
-                startIcon={<GetApp />}
+                startIcon={<GetAppIcon />}
                 sx={{
                   px: 4,
                   py: 1.5,

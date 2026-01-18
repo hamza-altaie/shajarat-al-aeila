@@ -1,16 +1,28 @@
 import React from 'react';
-import {
-  Container, Paper, Typography, Box, Divider, IconButton, 
-  Card, CardContent, List, ListItem, ListItemIcon, ListItemText,
-  Chip, Alert
-} from '@mui/material';
-import {
-  Close as CloseIcon, Security as SecurityIcon, 
-  Shield as ShieldIcon, Lock as LockIcon, 
-  Visibility as VisibilityIcon, Delete as DeleteIcon,
-  Phone as PhoneIcon, Storage as StorageIcon,
-  Share as ShareIcon, Update as UpdateIcon
-} from '@mui/icons-material';
+import Container from '@mui/material/Container';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
+import Divider from '@mui/material/Divider';
+import IconButton from '@mui/material/IconButton';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Chip from '@mui/material/Chip';
+import Alert from '@mui/material/Alert';
+import CloseIcon from '@mui/icons-material/Close';
+import SecurityIcon from '@mui/icons-material/Security';
+import ShieldIcon from '@mui/icons-material/Shield';
+import LockIcon from '@mui/icons-material/Lock';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import DeleteIcon from '@mui/icons-material/Delete';
+import PhoneIcon from '@mui/icons-material/Phone';
+import StorageIcon from '@mui/icons-material/Storage';
+import ShareIcon from '@mui/icons-material/Share';
+import UpdateIcon from '@mui/icons-material/Update';
 
 export default function PrivacyPolicy() {
   const handleClose = () => {

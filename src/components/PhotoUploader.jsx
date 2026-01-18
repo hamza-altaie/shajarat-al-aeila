@@ -2,30 +2,26 @@
 // مكون رفع وعرض صور الأشخاص
 
 import React, { useState, useRef, useCallback } from 'react';
-import {
-  Box,
-  Avatar,
-  IconButton,
-  CircularProgress,
-  Typography,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Tooltip,
-  Badge,
-  Alert
-} from '@mui/material';
-import {
-  PhotoCamera as CameraIcon,
-  Delete as DeleteIcon,
-  Person as PersonIcon,
-  Male as MaleIcon,
-  Female as FemaleIcon,
-  ZoomIn as ZoomIcon,
-  Close as CloseIcon
-} from '@mui/icons-material';
+import Box from '@mui/material/Box';
+import Avatar from '@mui/material/Avatar';
+import IconButton from '@mui/material/IconButton';
+import CircularProgress from '@mui/material/CircularProgress';
+import Typography from '@mui/material/Typography';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Button from '@mui/material/Button';
+import Tooltip from '@mui/material/Tooltip';
+import Badge from '@mui/material/Badge';
+import Alert from '@mui/material/Alert';
+import CameraIcon from '@mui/icons-material/PhotoCamera';
+import DeleteIcon from '@mui/icons-material/Delete';
+import PersonIcon from '@mui/icons-material/Person';
+import MaleIcon from '@mui/icons-material/Male';
+import FemaleIcon from '@mui/icons-material/Female';
+import ZoomIcon from '@mui/icons-material/ZoomIn';
+import CloseIcon from '@mui/icons-material/Close';
 
 import {
   validateImageFile,

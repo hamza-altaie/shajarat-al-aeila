@@ -2,7 +2,9 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthContext.jsx';
-import { CircularProgress, Box, Typography } from '@mui/material';
+import CircularProgress from '@mui/material/CircularProgress';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
 
 export default function ProtectedRoute({ children, requireAuth = true }) {
   const { isAuthenticated, loading } = useAuth();

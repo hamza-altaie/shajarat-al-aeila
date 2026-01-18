@@ -1,12 +1,32 @@
 // src/pages/Family.jsx - إصلاح Grid للإصدار الحالي
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  Container, TextField, Button, Typography, Paper, Box, IconButton, 
-  Card, CardContent, CardActions, Snackbar, Alert, CircularProgress, 
-  Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, 
-  Grid, Menu, MenuItem, Divider, Chip, InputAdornment, Fab,
-  useMediaQuery, useTheme
-} from '@mui/material';
+import Container from '@mui/material/Container';
+import TextField from '@mui/material/TextField';
+import Button from '@mui/material/Button';
+import Typography from '@mui/material/Typography';
+import Paper from '@mui/material/Paper';
+import Box from '@mui/material/Box';
+import IconButton from '@mui/material/IconButton';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import CardActions from '@mui/material/CardActions';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
+import Grid from '@mui/material/Grid';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import Divider from '@mui/material/Divider';
+import Chip from '@mui/material/Chip';
+import InputAdornment from '@mui/material/InputAdornment';
+import Fab from '@mui/material/Fab';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 
 import {
   Delete as DeleteIcon, Edit as EditIcon, Settings as SettingsIcon,
@@ -94,6 +114,7 @@ export default function Family() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteMemberId, setDeleteMemberId] = useState(null);
+  const [deleteAffectedChildren, setDeleteAffectedChildren] = useState([]); // الأبناء المتأثرين
   const [settingsAnchor, setSettingsAnchor] = useState(null);
   const [phoneModalOpen, setPhoneModalOpen] = useState(false);
   const [newPhone, setNewPhone] = useState('');
@@ -478,7 +499,14 @@ const loadFamily = useCallback(async () => {
       return;
     }
     
+    // البحث عن الأبناء المتأثرين (من parentId = id أو fatherName = firstName)
+    const affectedChildren = members.filter(m => 
+      String(m.parentId) === String(id) || 
+      (member && m.fatherName === member.firstName && m.id !== id)
+    );
+    
     setDeleteMemberId(id);
+    setDeleteAffectedChildren(affectedChildren);
     setDeleteDialogOpen(true);
   };
 
@@ -512,13 +540,20 @@ const loadFamily = useCallback(async () => {
       
       await deleteTribePerson(tribe.id, deleteMemberId);
       await loadFamily();
-      showSnackbar('تم حذف العضو بنجاح');
+      
+      const childrenCount = deleteAffectedChildren.length;
+      if (childrenCount > 0) {
+        showSnackbar(`تم حذف العضو. ⚠️ ${childrenCount} من الأبناء قد يحتاجون تحديث بياناتهم`, 'warning');
+      } else {
+        showSnackbar('تم حذف العضو بنجاح');
+      }
     } catch (error) {
       console.error('خطأ في الحذف:', error);
       showSnackbar('حدث خطأ أثناء حذف العضو', 'error');
     } finally {
       setLoading(false);
       setDeleteMemberId(null);
+      setDeleteAffectedChildren([]);
     }
   };
 
@@ -1424,20 +1459,56 @@ const loadFamily = useCallback(async () => {
       {/* نافذة حذف العضو */}
       <Dialog
         open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
+        onClose={() => {
+          setDeleteDialogOpen(false);
+          setDeleteAffectedChildren([]);
+        }}
       >
-        <DialogTitle>تأكيد الحذف</DialogTitle>
+        <DialogTitle sx={{ color: deleteAffectedChildren.length > 0 ? '#d32f2f' : 'inherit' }}>
+          {deleteAffectedChildren.length > 0 ? '⚠️ تحذير - حذف مع أبناء' : 'تأكيد الحذف'}
+        </DialogTitle>
         <DialogContent>
           <DialogContentText>
             هل أنت متأكد من حذف هذا العضو؟ لا يمكن التراجع عن هذا الإجراء.
           </DialogContentText>
+          
+          {/* تحذير الأبناء المتأثرين */}
+          {deleteAffectedChildren.length > 0 && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                ⚠️ هذا الشخص لديه {deleteAffectedChildren.length} من الأبناء/المرتبطين:
+              </Typography>
+              <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                {deleteAffectedChildren.slice(0, 5).map((child, idx) => (
+                  <li key={idx}>
+                    <Typography variant="body2">
+                      {child.firstName} {child.fatherName} ({child.relation})
+                    </Typography>
+                  </li>
+                ))}
+                {deleteAffectedChildren.length > 5 && (
+                  <li>
+                    <Typography variant="body2" color="text.secondary">
+                      ... و {deleteAffectedChildren.length - 5} آخرين
+                    </Typography>
+                  </li>
+                )}
+              </Box>
+              <Typography variant="caption" color="error" sx={{ display: 'block', mt: 1 }}>
+                سيتم فقط حذف هذا الشخص. الأبناء سيبقون لكن قد يحتاجون تحديث.
+              </Typography>
+            </Alert>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>
+          <Button onClick={() => {
+            setDeleteDialogOpen(false);
+            setDeleteAffectedChildren([]);
+          }}>
             إلغاء
           </Button>
           <Button onClick={confirmDelete} color="error" variant="contained">
-            حذف
+            {deleteAffectedChildren.length > 0 ? 'حذف على أي حال' : 'حذف'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,14 +1,12 @@
 // src/components/MobileNavigation.jsx - قائمة تنقل سفلية للهاتف
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import {
-  BottomNavigation,
-  BottomNavigationAction,
-  Paper,
-  useMediaQuery,
-  useTheme,
-  Badge
-} from '@mui/material';
+import BottomNavigation from '@mui/material/BottomNavigation';
+import BottomNavigationAction from '@mui/material/BottomNavigationAction';
+import Paper from '@mui/material/Paper';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
+import Badge from '@mui/material/Badge';
 
 // الأيقونات
 import AccountTreeIcon from '@mui/icons-material/AccountTree';

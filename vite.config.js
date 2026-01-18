@@ -65,11 +65,15 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
+          // React (يجب أن يكون معاً)
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'mui-core': ['@mui/material', '@emotion/react', '@emotion/styled'],
-          'mui-icons': ['@mui/icons-material'],
-          'firebase-auth': ['firebase/app', 'firebase/auth'],
+          // MUI + Emotion
+          'mui': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
+          // Firebase
+          'firebase': ['firebase/app', 'firebase/auth'],
+          // Supabase
           'supabase': ['@supabase/supabase-js'],
+          // D3
           'visualization': ['d3'],
         },
         chunkFileNames: 'js/[name]-[hash].js',
@@ -105,7 +109,15 @@ export default defineConfig({
       'react',
       'react-dom',
       'react-router-dom',
-      '@mui/material/colors',
+      '@mui/material/styles',
+      '@mui/material/Button',
+      '@mui/material/Box',
+      '@mui/material/Typography',
+      '@mui/material/Container',
+      '@mui/material/Paper',
+      '@mui/material/TextField',
+      '@mui/material/Dialog',
+      '@mui/material/CircularProgress',
       '@emotion/react',
       '@emotion/styled',
       'd3'

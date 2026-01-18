@@ -4,13 +4,30 @@ import * as d3 from 'd3';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import html2canvas from 'html2canvas';
-import {
-  Box, Button, Typography, Alert, Snackbar, CircularProgress, 
-  Chip, IconButton, Paper, LinearProgress, Fab,
-  Dialog, DialogTitle, DialogContent, DialogActions, 
-  TextField, InputAdornment, List, ListItem, ListItemText, 
-  ListItemButton, Divider, useMediaQuery, useTheme
-} from '@mui/material';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Typography from '@mui/material/Typography';
+import Alert from '@mui/material/Alert';
+import Snackbar from '@mui/material/Snackbar';
+import CircularProgress from '@mui/material/CircularProgress';
+import Chip from '@mui/material/Chip';
+import IconButton from '@mui/material/IconButton';
+import Paper from '@mui/material/Paper';
+import LinearProgress from '@mui/material/LinearProgress';
+import Fab from '@mui/material/Fab';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import TextField from '@mui/material/TextField';
+import InputAdornment from '@mui/material/InputAdornment';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import ListItemButton from '@mui/material/ListItemButton';
+import Divider from '@mui/material/Divider';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 
 // استيراد الأيقونات بشكل منفصل لتحسين الأداء
 import AccountTreeIcon from '@mui/icons-material/AccountTree';

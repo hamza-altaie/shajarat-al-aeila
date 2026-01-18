@@ -1,13 +1,29 @@
 // src/pages/AdminPanel.jsx - لوحة تحكم المدير
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Container, Typography, Box, Paper, Button, IconButton,
-  Card, CardContent, CardActions, Divider, Alert,
-  CircularProgress, Snackbar, List, ListItem, ListItemText,
-  ListItemButton, Dialog, DialogTitle, DialogContent, DialogActions,
-  Chip, LinearProgress
-} from '@mui/material';
+import Container from '@mui/material/Container';
+import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
+import Paper from '@mui/material/Paper';
+import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import CardActions from '@mui/material/CardActions';
+import Divider from '@mui/material/Divider';
+import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
+import Snackbar from '@mui/material/Snackbar';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import ListItemButton from '@mui/material/ListItemButton';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Chip from '@mui/material/Chip';
+import LinearProgress from '@mui/material/LinearProgress';
 
 // الأيقونات
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
