@@ -24,6 +24,8 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Chip from '@mui/material/Chip';
 import LinearProgress from '@mui/material/LinearProgress';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 
 // الأيقونات
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -51,6 +53,8 @@ import {
 export default function AdminPanel() {
   const navigate = useNavigate();
   const { tribe, isAdmin } = useTribe();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   // الحالات
   const [loading, setLoading] = useState(false);
@@ -217,48 +221,62 @@ export default function AdminPanel() {
   };
 
   return (
-    <Container maxWidth="md" sx={{ py: 4, pb: 12 }}>
+    <Container maxWidth="md" sx={{ py: { xs: 2, sm: 4 }, pb: 12, px: { xs: 2, sm: 3 } }}>
       {/* الهيدر */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-        <IconButton onClick={() => navigate(-1)} sx={{ mr: 2 }}>
-          <ArrowBackIcon />
-        </IconButton>
-        <AdminPanelSettingsIcon sx={{ fontSize: 40, color: '#8b5cf6', mr: 2 }} />
-        <Box>
-          <Typography variant="h4" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', color: '#8b5cf6' }}>
-            لوحة تحكم المدير
-          </Typography>
-          <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: 'text.secondary' }}>
-            أدوات إدارة الشجرة والبيانات
-          </Typography>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' },
+        alignItems: { xs: 'flex-start', sm: 'center' }, 
+        gap: { xs: 2, sm: 0 },
+        mb: { xs: 3, sm: 4 } 
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', width: { xs: '100%', sm: 'auto' } }}>
+          <IconButton onClick={() => navigate(-1)} sx={{ mr: 1 }}>
+            <ArrowBackIcon />
+          </IconButton>
+          <AdminPanelSettingsIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: '#8b5cf6', mr: 1 }} />
+          <Box flex={1}>
+            <Typography variant="h4" sx={{ 
+              fontFamily: 'Cairo, sans-serif', 
+              fontWeight: 'bold', 
+              color: '#8b5cf6',
+              fontSize: { xs: '1.5rem', sm: '2rem' }
+            }}>
+              لوحة تحكم المدير
+            </Typography>
+            <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>
+              أدوات إدارة الشجرة والبيانات
+            </Typography>
+          </Box>
+          {!isMobile && <Box sx={{ flexGrow: 1 }} />}
+          <Chip 
+            icon={<SecurityIcon />} 
+            label="مدير" 
+            color="secondary" 
+            size={isMobile ? 'small' : 'medium'}
+            sx={{ fontFamily: 'Cairo, sans-serif', ml: { xs: 'auto', sm: 0 } }}
+          />
         </Box>
-        <Box sx={{ flexGrow: 1 }} />
-        <Chip 
-          icon={<SecurityIcon />} 
-          label="مدير" 
-          color="secondary" 
-          sx={{ fontFamily: 'Cairo, sans-serif' }}
-        />
       </Box>
 
       {/* التنبيه */}
-      <Alert severity="warning" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+      <Alert severity="warning" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif', fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
         ⚠️ هذه الصفحة تحتوي على أدوات متقدمة. استخدمها بحذر!
       </Alert>
 
       {/* البطاقات */}
-      <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+      <Box sx={{ display: 'grid', gap: { xs: 2, sm: 3 }, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
         
         {/* بطاقة ربط الجذور */}
         <Card elevation={3} sx={{ borderRadius: 3, border: '2px solid #f59e0b' }}>
-          <CardContent>
+          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <LinkIcon sx={{ fontSize: 40, color: '#f59e0b', mr: 2 }} />
-              <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>
+              <LinkIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: '#f59e0b', mr: { xs: 1, sm: 2 } }} />
+              <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                 ربط الجذور المنفصلة
               </Typography>
             </Box>
-            <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: 'text.secondary', mb: 2 }}>
+            <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: 'text.secondary', mb: 2, fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
               إذا كان هناك أشخاص في الشجرة بدون والد، يمكنك ربطهم بوالد موجود لتوحيد الشجرة.
             </Typography>
           </CardContent>
