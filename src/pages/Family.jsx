@@ -96,7 +96,7 @@ const FAMILY_RELATIONS = [
 
 export default function Family() {
   // الحصول على بيانات القبيلة والمصادقة
-  const { tribe, membership, loading: tribeLoading, canEdit, isAdmin } = useTribe();
+  const { tribe, membership, loading: tribeLoading, canEdit, isAdmin, refreshMembership } = useTribe();
   const { logout, user } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -447,6 +447,11 @@ const loadFamily = useCallback(async () => {
         showSnackbar(`✅ تم ربط "${result.first_name}" بسجل موجود في الشجرة`, 'success');
       } else {
         showSnackbar('تم إضافة العضو بنجاح');
+      }
+      
+      // ✅ إذا كانت العلاقة "أنا"، أعد تحميل العضوية لتحديث person_id
+      if (form.relation === 'أنا' && refreshMembership) {
+        await refreshMembership();
       }
     }
 
@@ -1182,6 +1187,18 @@ const loadFamily = useCallback(async () => {
       {/* قسم إضافة عضو جديد */}
       <Paper elevation={3} sx={{ p: { xs: 2, sm: 3 }, mb: 4, borderRadius: 3 }}>
         
+        {/* ⚠️ تنبيه مهم إذا لم يضف المستخدم نفسه */}
+        {!membership?.person_id && members.length > 0 && (
+          <Alert severity="warning" sx={{ mb: 2, border: '2px solid #f59e0b' }}>
+            <Typography variant="body2" fontWeight="bold">
+              ⚠️ مهم جداً: لم تضف نفسك بعد!
+            </Typography>
+            <Typography variant="body2">
+              يجب أن تضيف نفسك أولاً باختيار علاقة <strong>&quot;أنا&quot;</strong> لكي تظهر في الشجرة وتُربط بأولادك.
+            </Typography>
+          </Alert>
+        )}
+        
         {/* رسالة توضيحية مختصرة */}
         {members.length === 0 ? (
           <Alert severity="info" sx={{ mb: 2 }}>
@@ -1189,13 +1206,13 @@ const loadFamily = useCallback(async () => {
               🎯 ابدأ بإضافة نفسك، ثم والدك، ثم إخوتك وأولادك
             </Typography>
           </Alert>
-        ) : (
+        ) : membership?.person_id ? (
           <Alert severity="success" sx={{ mb: 2 }}>
             <Typography variant="body2">
               ✅ ممتاز! أضف: <strong>أولادك، إخوتك، والديك</strong> - النظام يربط الباقي تلقائياً
             </Typography>
           </Alert>
-        )}
+        ) : null}
         
         {!showAddForm && (
           <Button

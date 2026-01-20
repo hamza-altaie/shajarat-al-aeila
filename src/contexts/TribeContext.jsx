@@ -54,6 +54,19 @@ export const TribeProvider = ({ children }) => {
     loadTribeData();
   }, [isAuthenticated, user?.uid, user?.phoneNumber, user?.displayName]);
 
+  // ✅ دالة لإعادة تحميل العضوية (تُستخدم بعد إضافة "أنا")
+  const refreshMembership = async () => {
+    if (!tribe?.id) return;
+    try {
+      const membershipData = await checkUserMembership(tribe.id);
+      setMembership(membershipData);
+      return membershipData;
+    } catch (err) {
+      console.error('❌ خطأ في إعادة تحميل العضوية:', err);
+      return null;
+    }
+  };
+
   const value = {
     tribe,
     membership,
@@ -61,6 +74,7 @@ export const TribeProvider = ({ children }) => {
     isAdmin: membership?.role === 'admin',
     isModerator: membership?.role === 'moderator' || membership?.role === 'admin',
     canEdit: membership?.role !== 'viewer',
+    refreshMembership, // ✅ إضافة الدالة
   };
 
   return (

@@ -32,9 +32,6 @@ export class FamilyAnalytics {
     // تحليل العلاقات
     const relationshipAnalysis = this.analyzeRelationships(allMembers);
     
-    // التحليل الجغرافي والمهني
-    const professionalAnalysis = this.analyzeProfessionalData(allMembers);
-    
     // الرؤى الذكية
     const insights = this.generateSmartInsights(allMembers, basicStats);
     
@@ -53,7 +50,6 @@ export class FamilyAnalytics {
       generationAnalysis,
       demographicAnalysis,
       relationshipAnalysis,
-      professionalAnalysis,
       insights,
       rawData: allMembers
     };
@@ -163,8 +159,6 @@ export class FamilyAnalytics {
       birthDate: birthDate,
       relation: attrs.relation || 'عضو',
       isMarried: this.parseBoolean(attrs.isMarried),
-      education: attrs.education,
-      profession: attrs.profession,
       location: attrs.location,
       phone: attrs.phone,
       email: attrs.email,
@@ -383,19 +377,6 @@ export class FamilyAnalytics {
   }
 
   /**
-   * التحليل المهني والجغرافي
-   */
-  analyzeProfessionalData(members) {
-    return {
-      professions: this.groupBy(members, 'profession'),
-      education: this.groupBy(members, 'education'),
-      locations: this.groupBy(members, 'location'),
-      employmentRate: this.calculateEmploymentRate(members),
-      educationLevel: this.analyzeEducationLevel(members),
-      geographicDistribution: this.analyzeGeographicDistribution(members)
-    };
-  }
-
   /**
    * توليد رؤى ذكية
    */
@@ -680,43 +661,6 @@ export class FamilyAnalytics {
       : 0;
   }
 
-  calculateEmploymentRate(members) {
-    const workingAge = members.filter(m => m.age !== null && m.age >= 18 && m.age <= 65);
-    const employed = workingAge.filter(m => m.profession && m.profession.trim() !== '');
-    
-    return workingAge.length > 0 
-      ? Math.round((employed.length / workingAge.length) * 100)
-      : 0;
-  }
-
-  analyzeEducationLevel(members) {
-    const education = this.groupBy(members, 'education');
-    const levels = {
-      'ابتدائي': 0,
-      'متوسط': 0,
-      'ثانوي': 0,
-      'جامعي': 0,
-      'دراسات عليا': 0
-    };
-    
-    Object.entries(education).forEach(([edu, count]) => {
-      const eduLower = edu.toLowerCase();
-      if (eduLower.includes('ابتدائي') || eduLower.includes('primary')) {
-        levels['ابتدائي'] += count;
-      } else if (eduLower.includes('متوسط') || eduLower.includes('middle')) {
-        levels['متوسط'] += count;
-      } else if (eduLower.includes('ثانوي') || eduLower.includes('high')) {
-        levels['ثانوي'] += count;
-      } else if (eduLower.includes('جامعي') || eduLower.includes('bachelor')) {
-        levels['جامعي'] += count;
-      } else if (eduLower.includes('ماجستير') || eduLower.includes('دكتوراه') || eduLower.includes('master') || eduLower.includes('phd')) {
-        levels['دراسات عليا'] += count;
-      }
-    });
-    
-    return levels;
-  }
-
   analyzeGeographicDistribution(members) {
     const locations = this.groupBy(members, 'location');
     const totalWithLocation = Object.values(locations).reduce((sum, count) => sum + count, 0);
@@ -755,7 +699,7 @@ export class FamilyAnalytics {
   exportToCSV(members) {
     const headers = [
       'الاسم', 'الجنس', 'العمر', 'العلاقة',
-      'التعليم', 'المهنة', 'الموقع', 'الجيل', 'رقم الهاتف'
+      'الموقع', 'الجيل', 'رقم الهاتف'
     ];
     
     const rows = members.map(member => [
@@ -763,9 +707,6 @@ export class FamilyAnalytics {
       `"${member.gender || ''}"`,
       `"${member.age || ''}"`,
       `"${member.relation || ''}"`,
-      // حذف الحالة الاجتماعية
-      `"${member.education || ''}"`,
-      `"${member.profession || ''}"`,
       `"${member.location || ''}"`,
       `"${(member.generation || 0) + 1}"`,
       `"${member.phone || ''}"`
