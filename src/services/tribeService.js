@@ -546,16 +546,17 @@ export async function createTribePerson(tribeId, personData) {
     if (!membership) throw new Error('يجب الانضمام للقبيلة أولاً');
 
     // =====================================================
-    // � إذا كانت العلاقة "أنا" - نبحث عن سجل موجود بنفس الاسم ونربط به
+    // 🔗 إذا كانت العلاقة "أنا" - نبحث عن سجل موجود بنفس الاسم الثلاثي ونربط به
     // =====================================================
     if (personData.relation === 'أنا') {
-      // البحث عن شخص موجود بنفس الاسم الأول واسم الأب
+      // البحث عن شخص موجود بنفس الاسم الثلاثي (الاسم + الأب + الجد)
       const { data: existingPersons } = await supabase
         .from('persons')
         .select('*')
         .eq('tribe_id', tribeId)
         .ilike('first_name', personData.first_name || '')
-        .ilike('father_name', personData.father_name || '');
+        .ilike('father_name', personData.father_name || '')
+        .ilike('grandfather_name', personData.grandfather_name || '');
 
       if (existingPersons && existingPersons.length > 0) {
         // وجدنا شخص مطابق - نربط المستخدم به بدلاً من إنشاء سجل جديد
@@ -651,7 +652,7 @@ export async function updateTribePerson(tribeId, personId, personData) {
     // 3. الشخص المرتبط بالسجل (person_id في tribe_users) يعدّل سجله الخاص
     const isAdmin = membership.role === 'admin';
     const isCreator = oldData?.created_by === user.uid;
-    const isLinkedPerson = membership.person_id === personId; // هذا سجلي الخاص
+    const isLinkedPerson = membership.person_id && String(membership.person_id) === String(personId); // ✅ مقارنة كنصوص
     
     if (!isAdmin && !isCreator && !isLinkedPerson) {
       throw new Error('لا يمكنك تعديل بيانات أضافها شخص آخر');
@@ -712,7 +713,7 @@ export async function deleteTribePerson(tribeId, personId) {
     // ✅ التحقق من الصلاحيات
     const isAdmin = membership.role === 'admin';
     const isOwner = oldData.created_by === user.uid;
-    const isLinkedToMe = membership.person_id === personId; // هذا السجل مرتبط بي (أنا)
+    const isLinkedToMe = membership.person_id && String(membership.person_id) === String(personId); // ✅ مقارنة كنصوص
     
     // Admin يحذف أي شيء
     // المستخدم العادي يحذف: ما أضافه هو، أو السجل المرتبط به
@@ -1092,7 +1093,7 @@ export async function analyzeTreeHealth(tribeId) {
 // =============================================
 
 /**
- * البحث عن الأشخاص المكررين (نفس الاسم الأول واسم الأب)
+ * البحث عن الأشخاص المكررين (نفس الاسم الثلاثي: الأول + الأب + الجد)
  */
 export async function findDuplicatePersons(tribeId) {
   try {
@@ -1107,10 +1108,10 @@ export async function findDuplicatePersons(tribeId) {
 
     if (error) throw error;
 
-    // تجميع الأشخاص حسب الاسم الأول + اسم الأب
+    // تجميع الأشخاص حسب الاسم الثلاثي (الأول + الأب + الجد)
     const nameGroups = {};
     for (const person of (persons || [])) {
-      const key = `${normalizeNameForMatch(person.first_name || '')}_${normalizeNameForMatch(person.father_name || '')}`;
+      const key = `${normalizeNameForMatch(person.first_name || '')}_${normalizeNameForMatch(person.father_name || '')}_${normalizeNameForMatch(person.grandfather_name || '')}`;
       if (!nameGroups[key]) {
         nameGroups[key] = [];
       }
@@ -1123,7 +1124,7 @@ export async function findDuplicatePersons(tribeId) {
       if (group.length > 1) {
         duplicates.push({
           key,
-          name: `${group[0].first_name} ${group[0].father_name}`,
+          name: `${group[0].first_name} ${group[0].father_name} ${group[0].grandfather_name || ''}`.trim(),
           persons: group
         });
       }

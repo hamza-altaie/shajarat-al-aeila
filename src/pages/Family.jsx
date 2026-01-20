@@ -153,10 +153,11 @@ export default function Family() {
     if (!user?.uid) return false;
     // Admin يمكنه تعديل أي شيء
     if (isAdmin) return true;
-    // المستخدم يمكنه تعديل سجله الخاص (إذا كان مرتبطاً به عبر person_id)
+    // ✅ المستخدم يمكنه تعديل سجله الخاص (المرتبط به عبر person_id) - هذا هو الأهم!
     if (membership?.person_id && String(member.id) === String(membership.person_id)) return true;
-    // المستخدم يمكنه تعديل البيانات التي أضافها فقط
-    return member.createdBy === user.uid;
+    // المستخدم يمكنه تعديل البيانات التي أضافها
+    if (member.createdBy && member.createdBy === user.uid) return true;
+    return false;
   }, [user?.uid, isAdmin, membership?.person_id]);
 
   
