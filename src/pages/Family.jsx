@@ -479,11 +479,11 @@ const loadFamily = useCallback(async () => {
       return;
     }
     
-    // إذا كان هذا سجل المستخدم الحالي، نعرض "أنا" في حقل القرابة
+    // ✅ إذا كان هذا سجل المستخدم الحالي، نعرض "أنا" في حقل القرابة للعرض فقط
     const isMyRecord = membership?.person_id && String(member.id) === String(membership.person_id);
     const formData = { ...member };
     if (isMyRecord) {
-      formData.relation = 'أنا';
+      formData.relation = 'أنا'; // للعرض في النموذج فقط
     }
     
     setForm(formData);
@@ -1010,13 +1010,23 @@ const loadFamily = useCallback(async () => {
             {`${member.firstName} ${member.fatherName} ${member.surname}`}
           </Typography>
           
-          {/* القرابة - إظهار "أنا" إذا كان هذا سجل المستخدم الحالي */}
+          {/* القرابة - إظهار "أنا" فقط للمستخدم الحالي */}
           <Chip 
-            label={
-              membership?.person_id && String(member.id) === String(membership.person_id)
-                ? 'أنا'
-                : member.relation
-            } 
+            label={(() => {
+              // التحقق إذا كان هذا سجل المستخدم الحالي
+              const isMyRecord = membership?.person_id && String(member.id) === String(membership.person_id);
+              
+              if (isMyRecord) {
+                return 'أنا'; // سجلي الخاص
+              }
+              
+              // للآخرين: إذا كانت العلاقة "أنا" أو "رب العائلة"، نعرض العلاقة حسب الجنس
+              if (member.relation === 'أنا' || member.relation === 'رب العائلة') {
+                return member.gender === 'F' ? 'بنت' : 'ابن';
+              }
+              
+              return member.relation;
+            })()}
             color={
               membership?.person_id && String(member.id) === String(membership.person_id)
                 ? 'success'

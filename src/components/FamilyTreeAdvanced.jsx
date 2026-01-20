@@ -553,9 +553,18 @@ export default function FamilyTreeAdvanced() {
     // دالة تكرارية لبناء الشجرة (مع منع التكرار)
     const builtNodes = new Set(); // لمنع بناء نفس العقدة مرتين
     
-    // دالة لعرض العلاقة كما هي محفوظة
+    // دالة لعرض العلاقة المناسبة
     const getDisplayRelation = (person) => {
-      // إرجاع العلاقة كما هي، أو فارغ إذا لم تكن موجودة
+      // إذا كانت العلاقة "أنا" أو "رب العائلة" ولكن ليس سجل المستخدم الحالي
+      // نعرض العلاقة المناسبة حسب الجنس
+      if (person.relation === 'أنا' || person.relation === 'رب العائلة') {
+        // إذا كان هذا سجل المستخدم الحالي، نعرض "أنا"
+        if (membership?.person_id && String(person.id) === String(membership.person_id)) {
+          return 'أنا';
+        }
+        // وإلا نعرض العلاقة حسب الجنس
+        return person.gender === 'F' ? 'بنت' : 'ابن';
+      }
       return person.relation || '';
     };
     

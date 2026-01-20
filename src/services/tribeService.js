@@ -600,17 +600,40 @@ export async function createTribePerson(tribeId, personData) {
     // =====================================================
     // إنشاء شخص جديد إذا لم يوجد مطابق
     // =====================================================
+    
+    // ⚠️ إذا كانت العلاقة "أنا"، نغيرها إلى "رب العائلة" لأن "أنا" ليست علاقة حقيقية
+    // هي فقط طريقة لتحديد أن المستخدم يسجل نفسه
+    const finalPersonData = { ...personData };
+    if (finalPersonData.relation === 'أنا') {
+      finalPersonData.relation = 'رب العائلة';
+    }
+    
     const { data, error } = await supabase
       .from('persons')
       .insert({
         tribe_id: tribeId,
-        ...personData,
+        ...finalPersonData,
         created_by: user.uid,
       })
       .select()
       .single();
 
     if (error) throw error;
+
+    // ✅ إذا كان المستخدم يسجل نفسه ("أنا")، نربطه بالسجل الجديد
+    if (personData.relation === 'أنا') {
+      const { error: linkError } = await supabase
+        .from('tribe_users')
+        .update({ person_id: data.id })
+        .eq('tribe_id', tribeId)
+        .eq('firebase_uid', user.uid);
+      
+      if (linkError) {
+        console.warn('⚠️ فشل ربط المستخدم بالسجل الجديد:', linkError);
+      } else {
+        console.log('✅ تم ربط المستخدم بسجله الجديد:', data.id);
+      }
+    }
 
     // إنشاء العلاقات التلقائية (للعلاقات المباشرة مثل "ابن"، "والد")
     await createAutoRelations(tribeId, data, membership, user.uid);
@@ -658,10 +681,25 @@ export async function updateTribePerson(tribeId, personId, personData) {
       throw new Error('لا يمكنك تعديل بيانات أضافها شخص آخر');
     }
 
+    // ⚠️ إذا كان المستخدم هو الشخص المرتبط (وليس صاحب السجل)، لا نسمح بتغيير العلاقة
+    // العلاقة يحددها من أنشأ السجل (مثلاً الأب يحدد أن ابنه "ابن")
+    const finalPersonData = { ...personData };
+    if (isLinkedPerson && !isCreator && !isAdmin) {
+      // حذف العلاقة من البيانات المُرسلة - لا يمكن للشخص المرتبط تغيير علاقته
+      delete finalPersonData.relation;
+      console.log('⚠️ تم تجاهل تغيير العلاقة - المستخدم مرتبط بالسجل وليس صاحبه');
+    }
+    
+    // إذا كانت العلاقة "أنا"، نحولها للعلاقة المناسبة
+    if (finalPersonData.relation === 'أنا') {
+      finalPersonData.relation = oldData?.relation || 'رب العائلة';
+      console.log('⚠️ تم تحويل العلاقة "أنا" إلى:', finalPersonData.relation);
+    }
+
     const { data, error } = await supabase
       .from('persons')
       .update({
-        ...personData,
+        ...finalPersonData,
         updated_by: user.uid,
       })
       .eq('id', personId)
