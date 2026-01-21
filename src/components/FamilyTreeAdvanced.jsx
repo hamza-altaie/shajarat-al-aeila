@@ -880,24 +880,25 @@ const drawTreeWithD3 = useCallback((data) => {
 
   // إعدادات الشجرة المحسنة للهيكل الهرمي
   const treeType = data.attributes?.treeType || 'simple';
-  const verticalGap = isMobile ? 90 : (treeType === 'hierarchical' ? 140 : 120);
+  const verticalGap = isMobile ? 95 : (treeType === 'hierarchical' ? 150 : 130);
   const dynamicHeight = Math.max(verticalGap * maxDepth, 250);
   
   // حساب العرض المطلوب بناءً على عدد العقد في كل مستوى
+  // ✅ زيادة المسافة لمنع التداخل في المستقبل
   const maxNodesInLevel = Math.max(...Object.values(generationCounts));
-  const minWidthPerNode = isMobile ? cardWidth + 20 : cardWidth + 40;
+  const minWidthPerNode = isMobile ? cardWidth + 35 : cardWidth + 60;
   const calculatedWidth = maxNodesInLevel * minWidthPerNode;
-  const dynamicWidth = Math.max(calculatedWidth, width * (isMobile ? 2 : 1));
+  const dynamicWidth = Math.max(calculatedWidth, width * (isMobile ? 2.5 : 1.2));
 
   // إعداد تخطيط الشجرة مع توزيع أفقي أوسع
   const treeLayout = d3.tree()
     .size([dynamicWidth, dynamicHeight])
     .separation((a, b) => {
-      // مسافة أكبر بين العقد
+      // ✅ مسافة أكبر بين العقد لمنع التداخل
       if (isMobile) {
-        return a.parent === b.parent ? 1.2 : 1.5;
+        return a.parent === b.parent ? 1.4 : 1.8;
       }
-      return a.parent === b.parent ? 2.5 : 3;
+      return a.parent === b.parent ? 2.8 : 3.5;
     }); 
 
   treeLayout(root);
