@@ -2017,7 +2017,7 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
               <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 {selectedNode.id === membership?.person_id && (
                   <Chip 
-                    label="أنا (صاحب الحساب)"
+                    label="أنا (رب العائلة)"
                     color="success" 
                     variant="outlined" 
                   />
