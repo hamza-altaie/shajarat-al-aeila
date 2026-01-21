@@ -24,7 +24,6 @@ import MenuItem from '@mui/material/MenuItem';
 import Divider from '@mui/material/Divider';
 import Chip from '@mui/material/Chip';
 import InputAdornment from '@mui/material/InputAdornment';
-import Fab from '@mui/material/Fab';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 
@@ -1340,26 +1339,6 @@ const loadFamily = useCallback(async () => {
           </Box>
         )}
       </Paper>
-
-      {/* زر عائم */}
-      <Fab
-        color="primary"
-        aria-label="إضافة"
-        sx={{
-          position: 'fixed',
-          bottom: 24,
-          left: 24,
-          zIndex: 1000,
-          display: { xs: 'flex', sm: 'none' }
-        }}
-        onClick={() => {
-          setForm(DEFAULT_FORM);
-          setAvatarUploadSuccess(false); // ✅ إعادة تعيين حالة رفع الصورة
-          document.querySelector('input[name="firstName"]')?.focus();
-        }}
-      >
-        <AddIcon />
-      </Fab>
 
       {/* نافذة التعديل */}
       <Dialog

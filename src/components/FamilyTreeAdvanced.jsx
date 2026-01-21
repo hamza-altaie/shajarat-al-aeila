@@ -805,22 +805,23 @@ const drawTreeWithD3 = useCallback((data) => {
   }
 
   const screenWidth = window.innerWidth;
+  const isMobile = screenWidth < 480;
+  const isTablet = screenWidth >= 480 && screenWidth < 768;
 
   let cardWidth = 200;  // عرض أقل قليلاً لمزيد من المساحة
   let cardHeight = 100;
 
-  if (screenWidth < 480) {
-    cardWidth = 150;    // تقليل للشاشات الصغيرة
+  if (isMobile) {
+    cardWidth = 120;    // تصغير أكثر للموبايل
+    cardHeight = 70;
+  } else if (isTablet) {
+    cardWidth = 160;
     cardHeight = 85;
-  } else if (screenWidth < 768) {
-    cardWidth = 175;
-    cardHeight = 92;
-    cardHeight = 100;
   }
 
-  const avatarSize = cardHeight * 0.45;
-  const padding = 10;
-  const textStartX = padding + avatarSize + 16;
+  const avatarSize = isMobile ? cardHeight * 0.4 : cardHeight * 0.45;
+  const padding = isMobile ? 6 : 10;
+  const textStartX = padding + avatarSize + (isMobile ? 8 : 16);
 
   const svg = d3.select(svgRef.current);
   
@@ -879,15 +880,23 @@ const drawTreeWithD3 = useCallback((data) => {
 
   // إعدادات الشجرة المحسنة للهيكل الهرمي
   const treeType = data.attributes?.treeType || 'simple';
-  const verticalGap = treeType === 'hierarchical' ? 140 : 120; // زيادة المسافة العمودية
+  const verticalGap = isMobile ? 90 : (treeType === 'hierarchical' ? 140 : 120);
   const dynamicHeight = Math.max(verticalGap * maxDepth, 250);
-  const dynamicWidth = width - 80; // تقليل الهوامش لمزيد من المساحة
+  
+  // حساب العرض المطلوب بناءً على عدد العقد في كل مستوى
+  const maxNodesInLevel = Math.max(...Object.values(generationCounts));
+  const minWidthPerNode = isMobile ? cardWidth + 20 : cardWidth + 40;
+  const calculatedWidth = maxNodesInLevel * minWidthPerNode;
+  const dynamicWidth = Math.max(calculatedWidth, width * (isMobile ? 2 : 1));
 
   // إعداد تخطيط الشجرة مع توزيع أفقي أوسع
   const treeLayout = d3.tree()
     .size([dynamicWidth, dynamicHeight])
     .separation((a, b) => {
-      // مسافة أكبر بين العقد لإظهار الخطوط بوضوح
+      // مسافة أكبر بين العقد
+      if (isMobile) {
+        return a.parent === b.parent ? 1.2 : 1.5;
+      }
       return a.parent === b.parent ? 2.5 : 3;
     }); 
 
@@ -967,16 +976,23 @@ const drawTreeWithD3 = useCallback((data) => {
   const uniqueId = nodeData.id || nodeData.globalId || Math.random().toString(36).substring(7);
   const name = nodeData.name || `${nodeData.firstName || ''} ${nodeData.fatherName || ''}`.trim() || '';
   const relation = nodeData.relation || 'عضو';
-  const nameY = -cardHeight / 2 + padding + 14;
-  const relationY = nameY + 18;
-  const childBoxWidth = 40;
-  const childBoxHeight = 16;
+  
+  // تعديل حجم النص للموبايل
+  const nameFontSize = isMobile ? 10 : 13;
+  const relationFontSize = isMobile ? 9 : 11;
+  const ageFontSize = isMobile ? 8 : 10;
+  const maxNameLength = isMobile ? 12 : 18;
+  
+  const nameY = -cardHeight / 2 + padding + (isMobile ? 10 : 14);
+  const relationY = nameY + (isMobile ? 14 : 18);
+  const childBoxWidth = isMobile ? 30 : 40;
+  const childBoxHeight = isMobile ? 14 : 16;
   const childBoxX = -cardWidth / 2 + padding;
   const childBoxY = cardHeight / 2 - childBoxHeight - 4;
   const childTextX = childBoxX + childBoxWidth / 2;
   const childTextY = childBoxY + childBoxHeight / 2 + 1.5;
-  const ageBoxWidth = 40;
-  const ageBoxHeight = 16;
+  const ageBoxWidth = isMobile ? 32 : 40;
+  const ageBoxHeight = isMobile ? 14 : 16;
   const ageBoxX = cardWidth / 2 - padding - ageBoxWidth;
   const ageBoxY = cardHeight / 2 - ageBoxHeight - 4;
   const ageTextX = ageBoxX + ageBoxWidth / 2;
@@ -1105,10 +1121,10 @@ const drawTreeWithD3 = useCallback((data) => {
       .attr("fill", "#d97706");
     
     nodeGroup.append("text")
-      .text(name.length > 18 ? name.slice(0, 16) + '…' : name)
+      .text(name.length > maxNameLength ? name.slice(0, maxNameLength - 2) + '…' : name)
       .attr("x", textStartX)
       .attr("y", nameY)
-      .attr("font-size", 13)
+      .attr("font-size", nameFontSize)
       .attr("font-weight", "bold")
       .attr("fill", "#92400e");
 
@@ -1116,14 +1132,14 @@ const drawTreeWithD3 = useCallback((data) => {
       .text("👑 " + relation)
       .attr("x", textStartX)
       .attr("y", relationY)
-      .attr("font-size", 11)
+      .attr("font-size", relationFontSize)
       .attr("fill", "#d97706");
   } else {
     nodeGroup.append("text")
-      .text(name.length > 22 ? name.slice(0, 20) + '…' : name)
+      .text(name.length > maxNameLength + 4 ? name.slice(0, maxNameLength + 2) + '…' : name)
       .attr("x", textStartX)
       .attr("y", nameY)
-      .attr("font-size", 13)
+      .attr("font-size", nameFontSize)
       .attr("font-weight", "bold")
       .attr("fill", "#111");
 
@@ -1137,7 +1153,7 @@ const drawTreeWithD3 = useCallback((data) => {
         .text(displayRelation)
         .attr("x", textStartX)
         .attr("y", relationY)
-        .attr("font-size", 11)
+        .attr("font-size", relationFontSize)
         .attr("fill", "#666");
     }
   }
@@ -1157,10 +1173,10 @@ const drawTreeWithD3 = useCallback((data) => {
 
     // النص في المنتصف تمامًا
     nodeGroup.append("text")
-      .text(age + " سنة") // إضافة كلمة سنة بجانب العمر
+      .text(isMobile ? age : age + " سنة") // فقط الرقم للموبايل
       .attr("x", ageTextX)
       .attr("y", ageTextY)
-      .attr("font-size", 10)
+      .attr("font-size", ageFontSize)
       .attr("fill", "#1976d2")
       .attr("font-weight", "600")
       .attr("text-anchor", "middle")
@@ -1183,7 +1199,7 @@ const drawTreeWithD3 = useCallback((data) => {
 
     // إذا كان هناك أحفاد، اعرض الرقمين مع لون مميز
     if (hasGrandchildren) {
-      childText = ` ${d.children.length}/${grandchildrenCount}`;
+      childText = isMobile ? `${d.children.length}` : ` ${d.children.length}/${grandchildrenCount}`;
       
       nodeGroup.append("rect")
         .attr("x", childBoxX)
@@ -1199,7 +1215,7 @@ const drawTreeWithD3 = useCallback((data) => {
         .text(childText)
         .attr("x", childTextX)
         .attr("y", childTextY)
-        .attr("font-size", 10)
+        .attr("font-size", ageFontSize)
         .attr("fill", "#2196f3")
         .attr("font-weight", "600")
         .attr("text-anchor", "middle")
@@ -1220,7 +1236,7 @@ const drawTreeWithD3 = useCallback((data) => {
         .text(childText)
         .attr("x", childTextX)
         .attr("y", childTextY)
-        .attr("font-size", 10)
+        .attr("font-size", ageFontSize)
         .attr("fill", "#4caf50")
         .attr("font-weight", "600")
         .attr("text-anchor", "middle")
@@ -1326,10 +1342,18 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
         const fullHeight = bounds.height;
         
         if (fullWidth > 0 && fullHeight > 0) {
+          // تحديد الـ scale بناءً على حجم الشاشة
+          let maxScale = 1.0;
+          if (isMobile) {
+            maxScale = 0.6; // تصغير أكثر للموبايل لعرض الشجرة كاملة
+          } else if (isTablet) {
+            maxScale = 0.8;
+          }
+          
           const scale = Math.min(
-            (width * 0.8) / fullWidth,   // مساحة أقل للتمركز لإظهار المسافات
-            (height * 0.8) / fullHeight,
-            1.0   // حد أقصى أصغر للحفاظ على الوضوح
+            (width * 0.85) / fullWidth,
+            (height * 0.85) / fullHeight,
+            maxScale
           );
           
           const centerX = bounds.x + fullWidth / 2;
