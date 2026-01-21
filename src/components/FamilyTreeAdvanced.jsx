@@ -807,6 +807,8 @@ const drawTreeWithD3 = useCallback((data) => {
   const screenWidth = window.innerWidth;
   const isMobile = screenWidth < 480;
   const isTablet = screenWidth >= 480 && screenWidth < 768;
+  const isFoldOrSmallTablet = screenWidth >= 768 && screenWidth < 1024; // فولد وأجهزة لوحية صغيرة
+  const isLargeTablet = screenWidth >= 1024 && screenWidth < 1280; // أجهزة لوحية كبيرة
 
   let cardWidth = 200;  // عرض أقل قليلاً لمزيد من المساحة
   let cardHeight = 100;
@@ -815,8 +817,14 @@ const drawTreeWithD3 = useCallback((data) => {
     cardWidth = 120;    // تصغير أكثر للموبايل
     cardHeight = 70;
   } else if (isTablet) {
-    cardWidth = 160;
-    cardHeight = 85;
+    cardWidth = 150;
+    cardHeight = 80;
+  } else if (isFoldOrSmallTablet) {
+    cardWidth = 170;    // أجهزة فولد والتابلت الصغير
+    cardHeight = 90;
+  } else if (isLargeTablet) {
+    cardWidth = 185;    // تابلت كبير
+    cardHeight = 95;
   }
 
   const avatarSize = isMobile ? cardHeight * 0.4 : cardHeight * 0.45;
@@ -880,23 +888,66 @@ const drawTreeWithD3 = useCallback((data) => {
 
   // إعدادات الشجرة المحسنة للهيكل الهرمي
   const treeType = data.attributes?.treeType || 'simple';
-  const verticalGap = isMobile ? 95 : (treeType === 'hierarchical' ? 150 : 130);
+  
+  // ✅ المسافة العمودية حسب نوع الجهاز
+  let verticalGap;
+  if (isMobile) {
+    verticalGap = 95;
+  } else if (isTablet) {
+    verticalGap = 105;
+  } else if (isFoldOrSmallTablet) {
+    verticalGap = 120;
+  } else if (isLargeTablet) {
+    verticalGap = 135;
+  } else {
+    verticalGap = treeType === 'hierarchical' ? 150 : 130;
+  }
   const dynamicHeight = Math.max(verticalGap * maxDepth, 250);
   
   // حساب العرض المطلوب بناءً على عدد العقد في كل مستوى
-  // ✅ زيادة المسافة لمنع التداخل في المستقبل
+  // ✅ زيادة المسافة لمنع التداخل حسب نوع الجهاز
   const maxNodesInLevel = Math.max(...Object.values(generationCounts));
-  const minWidthPerNode = isMobile ? cardWidth + 35 : cardWidth + 60;
+  
+  let minWidthPerNode;
+  if (isMobile) {
+    minWidthPerNode = cardWidth + 35;
+  } else if (isTablet) {
+    minWidthPerNode = cardWidth + 45;
+  } else if (isFoldOrSmallTablet) {
+    minWidthPerNode = cardWidth + 55;
+  } else if (isLargeTablet) {
+    minWidthPerNode = cardWidth + 60;
+  } else {
+    minWidthPerNode = cardWidth + 70;
+  }
+  
   const calculatedWidth = maxNodesInLevel * minWidthPerNode;
-  const dynamicWidth = Math.max(calculatedWidth, width * (isMobile ? 2.5 : 1.2));
+  
+  let widthMultiplier;
+  if (isMobile) {
+    widthMultiplier = 2.5;
+  } else if (isTablet) {
+    widthMultiplier = 2.0;
+  } else if (isFoldOrSmallTablet) {
+    widthMultiplier = 1.8;
+  } else if (isLargeTablet) {
+    widthMultiplier = 1.5;
+  } else {
+    widthMultiplier = 1.2;
+  }
+  const dynamicWidth = Math.max(calculatedWidth, width * widthMultiplier);
 
   // إعداد تخطيط الشجرة مع توزيع أفقي أوسع
   const treeLayout = d3.tree()
     .size([dynamicWidth, dynamicHeight])
     .separation((a, b) => {
-      // ✅ مسافة أكبر بين العقد لمنع التداخل
+      // ✅ مسافة أكبر بين العقد لمنع التداخل حسب نوع الجهاز
       if (isMobile) {
         return a.parent === b.parent ? 1.4 : 1.8;
+      } else if (isTablet || isFoldOrSmallTablet) {
+        return a.parent === b.parent ? 1.8 : 2.2;
+      } else if (isLargeTablet) {
+        return a.parent === b.parent ? 2.2 : 2.8;
       }
       return a.parent === b.parent ? 2.8 : 3.5;
     }); 
