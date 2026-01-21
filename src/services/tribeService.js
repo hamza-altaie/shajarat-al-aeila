@@ -65,7 +65,7 @@ async function wouldCreateCircle(tribeId, parentId, childId) {
     return circleExists;
   } catch (err) {
     console.error('❌ خطأ في فحص الحلقات:', err);
-    return false; // في حالة الخطأ، نسمح بالإضافة
+    return true; // ✅ في حالة الخطأ، نمنع الإضافة للحماية (fail-safe)
   }
 }
 
@@ -372,16 +372,14 @@ async function smartAutoLink(tribeId, newPerson, userId) {
       parentToChildren.get(rel.parent_id).push(rel.child_id);
     }
     
-    // دالة للتحقق من وجود العلاقة قبل إنشائها
-    const relationExists = async (parentId, childId) => {
-      const { data } = await supabase
-        .from('relations')
-        .select('id')
-        .eq('tribe_id', tribeId)
-        .eq('parent_id', parentId)
-        .eq('child_id', childId)
-        .maybeSingle();
-      return !!data;
+    // ✅ بناء Set للعلاقات الموجودة للتحقق السريع (بدلاً من استعلام لكل علاقة)
+    const existingRelationsSet = new Set(
+      (allRelations || []).map(rel => `${rel.parent_id}_${rel.child_id}`)
+    );
+    
+    // ✅ دالة للتحقق من وجود العلاقة (في الذاكرة بدلاً من الاستعلام)
+    const relationExists = (parentId, childId) => {
+      return existingRelationsSet.has(`${parentId}_${childId}`);
     };
     
     // ✅ دالة آمنة لإضافة العلاقة مع فحص الحلقات
@@ -393,9 +391,8 @@ async function smartAutoLink(tribeId, newPerson, userId) {
         return false;
       }
       
-      // التحقق من وجود العلاقة
-      const exists = await relationExists(parentId, childId);
-      if (exists) return false;
+      // ✅ التحقق من وجود العلاقة (في الذاكرة - سريع جداً)
+      if (relationExists(parentId, childId)) return false;
       
       const { error } = await supabase
         .from('relations')
@@ -405,6 +402,11 @@ async function smartAutoLink(tribeId, newPerson, userId) {
           child_id: childId,
           created_by: userId
         });
+      
+      // ✅ إضافة العلاقة للـ Set لمنع التكرار في نفس الدورة
+      if (!error) {
+        existingRelationsSet.add(`${parentId}_${childId}`);
+      }
       
       return !error;
     };

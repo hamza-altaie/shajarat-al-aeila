@@ -1,9 +1,9 @@
 // src/components/FamilyTreeAdvanced.jsx - شجرة العائلة البسيطة
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import * as d3 from 'd3';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import html2canvas from 'html2canvas';
+// ✅ html2canvas يتم تحميله ديناميكياً عند الحاجة فقط (توفير ~500KB)
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
@@ -94,6 +94,9 @@ export default function FamilyTreeAdvanced() {
   const searchQueryRef = useRef('');
   const drawTreeRef = useRef(null);
   const loadTreeRef = useRef(null);
+  
+  // ✅ مرجع لـ debounce البحث
+  const searchDebounceRef = useRef(null);
 
   // تتبع حالة تحميل المكون
   useEffect(() => {
@@ -273,6 +276,9 @@ export default function FamilyTreeAdvanced() {
     showSnackbar('جاري تجهيز الصورة...', 'info');
 
     try {
+      // ✅ تحميل html2canvas ديناميكياً عند الحاجة فقط (توفير ~500KB في التحميل الأولي)
+      const { default: html2canvas } = await import('html2canvas');
+      
       // استخدام html2canvas مباشرة على SVG container
       const svgContainer = svgContainerRef.current || containerRef.current;
       
@@ -1892,7 +1898,13 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
             onChange={(e) => {
               const value = e.target.value;
               setSearchQuery(value);
-              performSearch(value);
+              // ✅ استخدام debounce لتحسين الأداء (300ms)
+              if (searchDebounceRef.current) {
+                clearTimeout(searchDebounceRef.current);
+              }
+              searchDebounceRef.current = setTimeout(() => {
+                performSearch(value);
+              }, 300);
             }}
             placeholder="🔍 ابحث عن أي شخص في الشجرة للتركيز عليه..."
             variant="outlined"
