@@ -316,7 +316,7 @@ function AuthMonitor({ children }) {
           gutterBottom
           className="fade-in-up"
         >
-          جاري تحميل شجرة العائلة...
+          جاري تحميل شجرة القبيلة...
         </Typography>
         
         <Typography 

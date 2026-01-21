@@ -1514,7 +1514,7 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
   // ===========================================================================
 
   const renderTreeView = () => {
-    const treeTitle = 'شجرة عائلتك';
+    const treeTitle = 'شجرة قبيلتك';
     
     return (
       <Box
@@ -1619,7 +1619,7 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
                   <Box textAlign="center">
                     <AccountTreeIcon sx={{ fontSize: 120, color: '#10b981', mb: 2 }} />
                     <Typography variant="h4" sx={{ mb: 1, fontFamily: 'Cairo, sans-serif', color: '#10b981' }}>
-                      🌳 ابنِ شجرة عائلتك
+                      🌳 ابنِ شجرة قبيلتك
                     </Typography>
                     <Typography variant="body1" sx={{ color: 'text.secondary', mb: 3, maxWidth: 500, fontFamily: 'Cairo, sans-serif' }}>
                       👨‍👩‍👧‍👦 أضف أفراد عائلتك: الوالد، رب العائلة، الأطفال، الإخوة، والأقارب
@@ -1700,7 +1700,7 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
               WebkitTextFillColor: 'transparent'
             }}
           >
-             شجرة عائلتك
+             شجرة قبيلتك
           </Typography>
           
           <Typography 
@@ -1774,7 +1774,7 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
               }
             }}
           >
-            إدارة العائلة
+            إدارة القبيلة
           </Button>
 
           <Button 

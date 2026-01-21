@@ -1118,7 +1118,7 @@ const loadFamily = useCallback(async () => {
             gutterBottom 
             sx={{ color: '#166534' }}
           >
-            🌳 {tribe?.name || 'شجرة العائلة'}
+            🌳 {tribe?.name || 'شجرة القبيلة'}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             أضف عائلتك المباشرة • النظام يربط العلاقات تلقائياً
@@ -1538,7 +1538,7 @@ const loadFamily = useCallback(async () => {
         )}
         {isAdmin && <Divider />}
         <MenuItem onClick={() => {
-          const message = `أنضم إلينا في شجرة العائلة! يمكنك الآن إدارة وعرض شجرة عائلتك بسهولة. الرابط: ${window.location.origin}`;
+          const message = `أنضم إلينا في شجرة القبيلة! يمكنك الآن إدارة وعرض شجرة قبيلتك بسهولة. الرابط: ${window.location.origin}`;
           const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
           window.open(whatsappUrl, '_blank');
           handleSettingsClose();

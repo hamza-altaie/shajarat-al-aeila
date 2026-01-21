@@ -295,7 +295,7 @@ const PhoneLogin = () => {
               fontSize: { xs: '1.5rem', sm: '2rem' }
             }}
           >
-            شجرة العائلة
+            شجرة القبيلة
           </Typography>
           
           <Typography 
@@ -303,7 +303,7 @@ const PhoneLogin = () => {
             color="text.secondary"
             sx={{ mb: 3, lineHeight: 1.6 }}
           >
-            ابنِ شجرة عائلتك بسهولة وأمان. تطبيق شامل لإدارة وعرض أفراد العائلة
+            ابنِ شجرة قبيلتك بسهولة وأمان. تطبيق شامل لإدارة وعرض أفراد القبيلة
           </Typography>
         </Box>
 

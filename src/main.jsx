@@ -271,7 +271,7 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
 
 // تسجيل معلومات التطبيق
 const appInfo = {
-  name: import.meta.env.VITE_APP_NAME || 'شجرة العائلة',
+  name: import.meta.env.VITE_APP_NAME || 'شجرة القبيلة',
   version: import.meta.env.VITE_APP_VERSION || '1.0.0',
   mode: import.meta.env.MODE,
   timestamp: new Date().toISOString()

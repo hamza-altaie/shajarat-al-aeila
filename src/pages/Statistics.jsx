@@ -464,7 +464,7 @@ const Statistics = () => {
           }}>
             <CircularProgress size={60} sx={{ mb: 2 }} />
             <Typography variant="h6" color="text.secondary" sx={{ fontFamily: 'Cairo, sans-serif' }}>
-              🔍 جاري تحليل بيانات شجرة العائلة...
+              🔍 جاري تحليل بيانات شجرة القبيلة...
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'Cairo, sans-serif' }}>
               يتم معالجة البيانات واستخراج الإحصائيات
@@ -493,7 +493,7 @@ const Statistics = () => {
               📊 لا توجد بيانات للتحليل
             </Typography>
             <Typography variant="body2" sx={{ color: '#5d4037' }}>
-              تأكد من وجود أعضاء في شجرة العائلة
+              تأكد من وجود أعضاء في شجرة القبيلة
             </Typography>
             <Button 
               variant="contained" 
