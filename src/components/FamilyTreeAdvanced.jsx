@@ -1,5 +1,5 @@
 // src/components/FamilyTreeAdvanced.jsx - شجرة العائلة البسيطة
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as d3 from 'd3';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
@@ -48,6 +48,23 @@ import { useAuth } from '../AuthContext';
 import './FamilyTreeAdvanced.css';
 import { MALE_RELATIONS, FEMALE_RELATIONS, RelationUtils, RELATION_COLORS } from '../utils/FamilyRelations.js';
 import familyTreeBuilder from '../utils/FamilyTreeBuilder.js';
+
+// =============================================
+// ✅ ثوابت أبعاد البطاقات حسب حجم الشاشة
+// =============================================
+const CARD_DIMENSIONS = {
+  mobile: { width: 120, height: 70 },     // الموبايل
+  tablet: { width: 150, height: 80 },     // التابلت
+  fold: { width: 170, height: 85 },       // أجهزة فولد
+  desktop: { width: 200, height: 100 },   // سطح المكتب
+};
+
+const TREE_CONFIG = {
+  searchDebounceMs: 300,      // تأخير البحث
+  animationDuration: 300,     // مدة الأنيميشن
+  zoomExtent: [0.1, 3],       // حدود التكبير/التصغير
+  exportScale: 2,             // جودة التصدير
+};
 
 export default function FamilyTreeAdvanced() {
   // ===========================================================================
@@ -279,13 +296,9 @@ export default function FamilyTreeAdvanced() {
       // ✅ تحميل html2canvas ديناميكياً عند الحاجة فقط (توفير ~500KB في التحميل الأولي)
       const { default: html2canvas } = await import('html2canvas');
       
-      // استخدام html2canvas مباشرة على SVG container
-      const svgContainer = svgContainerRef.current || containerRef.current;
-      
       // إعادة ضبط الزووم مؤقتاً للتصدير
       const svg = svgRef.current;
       const g = svg.querySelector('g');
-      const currentTransform = g?.getAttribute('transform') || '';
       
       // الحصول على حدود الشجرة
       const bounds = g?.getBBox();
@@ -816,21 +829,22 @@ const drawTreeWithD3 = useCallback((data) => {
   const isFoldOrSmallTablet = screenWidth >= 768 && screenWidth < 1024; // فولد وأجهزة لوحية صغيرة
   const isLargeTablet = screenWidth >= 1024 && screenWidth < 1280; // أجهزة لوحية كبيرة
 
-  let cardWidth = 200;  // عرض أقل قليلاً لمزيد من المساحة
-  let cardHeight = 100;
+  // ✅ استخدام الثوابت بدلاً من الأرقام السحرية
+  let cardWidth = CARD_DIMENSIONS.desktop.width;
+  let cardHeight = CARD_DIMENSIONS.desktop.height;
 
   if (isMobile) {
-    cardWidth = 120;    // تصغير أكثر للموبايل
-    cardHeight = 70;
+    cardWidth = CARD_DIMENSIONS.mobile.width;
+    cardHeight = CARD_DIMENSIONS.mobile.height;
   } else if (isTablet) {
-    cardWidth = 150;
-    cardHeight = 80;
+    cardWidth = CARD_DIMENSIONS.tablet.width;
+    cardHeight = CARD_DIMENSIONS.tablet.height;
   } else if (isFoldOrSmallTablet) {
-    cardWidth = 170;    // أجهزة فولد والتابلت الصغير
-    cardHeight = 90;
+    cardWidth = CARD_DIMENSIONS.fold.width;
+    cardHeight = CARD_DIMENSIONS.fold.height + 5;
   } else if (isLargeTablet) {
-    cardWidth = 185;    // تابلت كبير
-    cardHeight = 95;
+    cardWidth = CARD_DIMENSIONS.desktop.width - 15;
+    cardHeight = CARD_DIMENSIONS.desktop.height - 5;
   }
 
   const avatarSize = isMobile ? cardHeight * 0.4 : cardHeight * 0.45;
