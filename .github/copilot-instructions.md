@@ -3,81 +3,86 @@
 ## Architecture Overview
 Arabic family tree app with **dual backend**: Firebase Auth (phone OTP) + Supabase (PostgreSQL data).
 
-### Data Flow
-1. **Auth**: `AuthContext.jsx` wraps app → Firebase phone auth → stores user state
-2. **Tribe**: `TribeContext.jsx` → auto-joins user to default tribe via `tribeService.js`
-3. **Tree**: `FamilyTreeAdvanced.jsx` fetches via `getTribeTree()` → `FamilyTreeBuilder.js` builds hierarchy → D3.js renders
+```
+User → PhoneLogin.jsx → Firebase Auth (OTP) → AuthContext.jsx
+                                                    ↓
+                                           TribeContext.jsx → auto-joins default tribe
+                                                    ↓
+                                           tribeService.js → Supabase (persons, relations)
+                                                    ↓
+                                           FamilyTreeBuilder.js → D3.js renders tree
+```
 
-### Key Service Boundaries
-- `src/firebase/auth.js` - OTP send/verify with reCAPTCHA (Iraqi numbers must start with `+964`)
-- `src/services/tribeService.js` - All Supabase queries (persons, relations, tribes); includes `wouldCreateCircle()` to prevent cyclic relations
-- `src/supabaseClient.js` - Single Supabase client instance
+### Service Boundaries
+| Layer | File | Responsibility |
+|-------|------|----------------|
+| Auth | `src/firebase/auth.js` | OTP send/verify, reCAPTCHA (Iraqi `+964` only) |
+| Data | `src/services/tribeService.js` | ALL Supabase queries, `wouldCreateCircle()` cycle detection |
+| Tree Logic | `src/utils/FamilyTreeBuilder.js` | Hierarchy building, name matching (`namesAreSimilar`) |
+| Tree UI | `src/components/FamilyTreeAdvanced.jsx` | D3.js rendering, export, search |
 
-## Developer Commands
+## Commands
 ```bash
-npm run dev          # Vite dev server at localhost:5173
+npm run dev          # localhost:5173
 npm run build        # Production build
 npm run lint:fix     # ESLint auto-fix
-npm run deploy       # Firebase hosting deploy
-npm run fresh-install # Clean reinstall (fixes dependency issues)
+npm run deploy       # Firebase hosting
+npm run fresh-install # Clean reinstall (node_modules + lock file)
 ```
 
 ## Critical Patterns
 
-### Context Usage (Required Order)
+### Context Provider Order (App.jsx)
 ```jsx
-// App.jsx wraps in this order - don't change
-<AuthProvider>      {/* Must be outermost */}
-  <TribeProvider>   {/* Depends on AuthContext */}
+<AuthProvider>      {/* Outermost - Firebase auth state */}
+  <TribeProvider>   {/* Depends on useAuth() */}
     <AppRoutes />
   </TribeProvider>
 </AuthProvider>
 ```
 
-### Adding Family Members
-Relations stored in `relations` table with `parent_id`/`child_id`. Always check for cycles:
+### Relation Cycle Prevention
 ```js
-// tribeService.js pattern - never skip cycle check
+// tribeService.js - ALWAYS check before creating relations
 if (await wouldCreateCircle(tribeId, parentId, childId)) {
   throw new Error('This would create a circular relationship');
 }
+// Uses graph traversal to detect A→B→C→A cycles
 ```
 
-### RTL & Arabic UI
-- All text defaults to Arabic; use `direction: 'rtl'` in styles
-- MUI theme in `App.jsx` sets `direction: 'rtl'` globally
-- Font: Cairo (loaded in theme)
+### Smart Auto-Linking (tribeService.js)
+When adding a person, `smartAutoLink()` automatically:
+- Links children to parents via `fatherName` matching
+- Uses `namesAreSimilar()` with Arabic normalization (أ/إ/آ→ا, ة→ه, ى→ي)
+
+### RTL & Arabic
+- MUI theme: `direction: 'rtl'` set globally in `App.jsx`
+- Font: Cairo (configured in theme typography)
+- All UI text in Arabic
 
 ### Debug Logging
 ```js
 import debugLogger from './utils/DebugLogger.js';
-debugLogger.familyDebug('🔍', 'message', optionalData);
-// Enable in browser: window.familyDebug.enable()
+debugLogger.familyDebug('🔍', 'message', data);
+// Browser console: window.familyDebug.enable()
 ```
 
-## File Patterns
-| Task | Files to Modify |
-|------|----------------|
-| New page | `src/pages/NewPage.jsx` + route in `AppRoutes.jsx` |
-| Tree feature | `FamilyTreeAdvanced.jsx` (UI) + `FamilyTreeBuilder.js` (logic) |
-| Database query | `tribeService.js` only |
-| Analytics | `FamilyAnalytics.js` (auto-calculates generations from `parentId`) |
+## File Modification Guide
+| Task | Files |
+|------|-------|
+| New page | `src/pages/X.jsx` + `AppRoutes.jsx` + protect with `ProtectedRoute` |
+| Tree visualization | `FamilyTreeAdvanced.jsx` (UI) + `FamilyTreeBuilder.js` (logic) |
+| Database queries | `tribeService.js` ONLY |
+| Relation types | `FamilyRelations.js` (MALE_RELATIONS, FEMALE_RELATIONS arrays) |
 
-## Environment Variables (.env)
-```env
-# Firebase (Auth only)
-VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, VITE_FIREBASE_PROJECT_ID
-# Supabase (Data)
-VITE_SUPABASE_URL, VITE_SUPABASE_KEY
-```
-
-## Database Schema Notes
-- Schema files: `supabase-schema.sql`, `supabase-tribe-schema.sql`
-- Key tables: `tribes`, `persons`, `relations`, `tribe_users`
-- Relations use `parent_id`/`child_id` (not nested objects)
+## Database (Supabase)
+- Schema: `supabase-schema.sql`, `supabase-tribe-schema.sql`
+- Tables: `tribes`, `persons`, `relations` (parent_id/child_id), `tribe_users`
+- RLS policies in `supabase-rls-policies.sql`
 
 ## Don'ts
-- Never use `console.log` in production - use `DebugLogger`
-- Never bypass `ProtectedRoute.jsx` for authenticated pages
-- Never create relations without cycle detection
-- Never hardcode phone country code (always expect `+964` prefix)
+- ❌ `console.log` in production → use `DebugLogger`
+- ❌ Skip `wouldCreateCircle()` when creating relations
+- ❌ Hardcode phone format → always validate `+964` prefix
+- ❌ Bypass `ProtectedRoute.jsx` for authenticated pages
+- ❌ Query Supabase outside `tribeService.js`
