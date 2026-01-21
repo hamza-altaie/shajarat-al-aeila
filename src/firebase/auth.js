@@ -2,13 +2,17 @@ import {
   signInWithPhoneNumber,
   RecaptchaVerifier,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  PhoneAuthProvider,
+  updatePhoneNumber,
+  linkWithCredential
 } from 'firebase/auth';
 import { auth } from './config.js';
 
 
 let confirmationResult = null;
 let recaptchaVerifier = null;
+let phoneUpdateVerificationId = null; // ✅ لتحديث رقم الهاتف
 
 // إرسال كود OTP
 export async function sendOtp(phoneNumber) {
@@ -152,4 +156,113 @@ export function onAuthChange(callback) {
       callback(null);
     }
   });
+}
+
+// =============================================
+// ✅ دوال تحديث رقم الهاتف
+// =============================================
+
+/**
+ * إرسال OTP للرقم الجديد لتحديث رقم الهاتف
+ * @param {string} newPhoneNumber - رقم الهاتف الجديد (مثال: +9647701234567)
+ * @returns {Promise<{success: boolean}>}
+ */
+export async function sendOtpForPhoneUpdate(newPhoneNumber) {
+  try {
+    if (!newPhoneNumber.startsWith('+964')) {
+      throw new Error('صيغة الرقم غير صحيحة. يجب أن يبدأ بـ +964');
+    }
+
+    if (!auth || !auth.currentUser) {
+      throw new Error('يجب تسجيل الدخول أولاً');
+    }
+
+    // تحقق من وجود عنصر reCAPTCHA
+    const recaptchaContainer = document.getElementById('recaptcha-container-update');
+    if (!recaptchaContainer) {
+      throw new Error('عنصر reCAPTCHA غير موجود');
+    }
+
+    // إعادة تعيين RecaptchaVerifier
+    if (recaptchaVerifier) {
+      try {
+        if (typeof recaptchaVerifier.clear === 'function') {
+          recaptchaVerifier.clear();
+        }
+      } catch {
+        // تجاهل
+      }
+      recaptchaVerifier = null;
+    }
+
+    // إنشاء RecaptchaVerifier جديد
+    recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container-update', {
+      size: 'invisible',
+      callback: () => {},
+      'expired-callback': () => {
+        recaptchaVerifier = null;
+      }
+    });
+
+    // إرسال OTP باستخدام PhoneAuthProvider
+    const provider = new PhoneAuthProvider(auth);
+    phoneUpdateVerificationId = await provider.verifyPhoneNumber(
+      newPhoneNumber,
+      recaptchaVerifier
+    );
+
+    return { success: true };
+  } catch (error) {
+    console.error("❌ خطأ في إرسال OTP لتحديث الرقم:", error);
+    recaptchaVerifier = null;
+    throw new Error(error.message || 'فشل في إرسال كود التحقق');
+  }
+}
+
+/**
+ * التحقق من الكود وتحديث رقم الهاتف
+ * @param {string} verificationCode - كود التحقق المُرسل
+ * @returns {Promise<{success: boolean, newPhone: string}>}
+ */
+export async function verifyAndUpdatePhone(verificationCode) {
+  try {
+    if (!phoneUpdateVerificationId) {
+      throw new Error('لم يتم إرسال كود التحقق. يرجى إعادة المحاولة');
+    }
+
+    if (!auth.currentUser) {
+      throw new Error('يجب تسجيل الدخول أولاً');
+    }
+
+    // إنشاء credential من الكود
+    const credential = PhoneAuthProvider.credential(
+      phoneUpdateVerificationId,
+      verificationCode
+    );
+
+    // تحديث رقم الهاتف
+    await updatePhoneNumber(auth.currentUser, credential);
+
+    // إعادة تعيين
+    phoneUpdateVerificationId = null;
+
+    return {
+      success: true,
+      newPhone: auth.currentUser.phoneNumber
+    };
+  } catch (error) {
+    console.error("❌ خطأ في تحديث رقم الهاتف:", error);
+    
+    // رسائل خطأ مفهومة
+    let errorMessage = 'فشل في تحديث رقم الهاتف';
+    if (error.code === 'auth/invalid-verification-code') {
+      errorMessage = 'كود التحقق غير صحيح';
+    } else if (error.code === 'auth/code-expired') {
+      errorMessage = 'انتهت صلاحية كود التحقق. أعد المحاولة';
+    } else if (error.code === 'auth/credential-already-in-use') {
+      errorMessage = 'هذا الرقم مستخدم بحساب آخر';
+    }
+    
+    throw new Error(errorMessage);
+  }
 }

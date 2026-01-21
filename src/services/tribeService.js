@@ -157,6 +157,55 @@ export async function checkUserMembership(tribeId) {
 }
 
 /**
+ * تحديث رقم هاتف المستخدم في قاعدة البيانات
+ * @param {string} tribeId - معرف القبيلة
+ * @param {string} firebaseUid - معرف المستخدم في Firebase
+ * @param {string} newPhone - رقم الهاتف الجديد
+ * @returns {Promise<boolean>} true إذا نجح التحديث
+ */
+export async function updateUserPhone(tribeId, firebaseUid, newPhone) {
+  try {
+    // 1. تحديث في جدول tribe_users
+    const { error: userError } = await supabase
+      .from('tribe_users')
+      .update({ phone: newPhone })
+      .eq('tribe_id', tribeId)
+      .eq('firebase_uid', firebaseUid);
+
+    if (userError) {
+      debugLogger.error("❌ خطأ في تحديث tribe_users:", userError);
+      throw userError;
+    }
+
+    // 2. البحث عن الشخص المرتبط بهذا المستخدم وتحديث رقمه
+    const { data: membership } = await supabase
+      .from('tribe_users')
+      .select('person_id')
+      .eq('tribe_id', tribeId)
+      .eq('firebase_uid', firebaseUid)
+      .maybeSingle();
+
+    if (membership?.person_id) {
+      const { error: personError } = await supabase
+        .from('persons')
+        .update({ phone: newPhone })
+        .eq('id', membership.person_id);
+
+      if (personError) {
+        debugLogger.warn("⚠️ تحديث رقم الشخص فشل:", personError);
+        // لا نفشل العملية بالكامل بسبب هذا
+      }
+    }
+
+    debugLogger.familyDebug('✅', 'تم تحديث رقم الهاتف بنجاح');
+    return true;
+  } catch (err) {
+    debugLogger.error("❌ خطأ في تحديث رقم الهاتف:", err);
+    throw err;
+  }
+}
+
+/**
  * التحقق من أن المستخدم له والد مسجل في الشجرة
  * @param {string} tribeId - معرف القبيلة
  * @param {string} userPersonId - معرف الشخص المرتبط بالمستخدم

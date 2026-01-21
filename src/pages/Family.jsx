@@ -45,7 +45,8 @@ import {
   createTribePerson, 
   updateTribePerson, 
   deleteTribePerson,
-  checkUserHasParent 
+  checkUserHasParent,
+  updateUserPhone  // ✅ سنضيفها لاحقاً
 } from "../services/tribeService";
 
 // 📸 استيراد خدمة الصور
@@ -96,7 +97,7 @@ const FAMILY_RELATIONS = [
 export default function Family() {
   // الحصول على بيانات القبيلة والمصادقة
   const { tribe, membership, loading: tribeLoading, canEdit, isAdmin, refreshMembership } = useTribe();
-  const { logout, user } = useAuth();
+  const { logout, user, sendPhoneUpdateOtp, verifyAndUpdatePhone } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
@@ -117,6 +118,11 @@ export default function Family() {
   const [settingsAnchor, setSettingsAnchor] = useState(null);
   const [phoneModalOpen, setPhoneModalOpen] = useState(false);
   const [newPhone, setNewPhone] = useState('');
+  
+  // ✅ حالات تحديث رقم الهاتف
+  const [phoneUpdateStep, setPhoneUpdateStep] = useState('input'); // 'input' | 'otp' | 'success'
+  const [phoneOtpCode, setPhoneOtpCode] = useState('');
+  const [phoneUpdateLoading, setPhoneUpdateLoading] = useState(false);
   
   // حالات الإشعارات والصور
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -566,14 +572,14 @@ const loadFamily = useCallback(async () => {
   const handleSettingsClick = (event) => setSettingsAnchor(event.currentTarget);
   const handleSettingsClose = () => setSettingsAnchor(null);
 
-  // تغيير رقم الهاتف
-  const handlePhoneChange = async () => {
+  // ✅ إرسال رمز التحقق للرقم الجديد
+  const handleSendPhoneOtp = async () => {
     if (!newPhone.trim()) {
       showSnackbar('يرجى إدخال رقم الهاتف', 'error');
       return;
     }
 
-    const cleanPhone = newPhone.replace(/[\s\-()]/g, ''); // Fixed unnecessary escape characters
+    const cleanPhone = newPhone.replace(/[\s\-()]/g, '');
     const phoneRegex = /^07[0-9]{8,9}$/;
     
     if (!phoneRegex.test(cleanPhone)) {
@@ -583,16 +589,98 @@ const loadFamily = useCallback(async () => {
 
     const fullPhone = `+964${cleanPhone.substring(1)}`;
 
+    // تأكد من أن الرقم الجديد مختلف عن الحالي
+    if (fullPhone === user?.phoneNumber) {
+      showSnackbar('الرقم الجديد يجب أن يكون مختلفاً عن الرقم الحالي', 'error');
+      return;
+    }
+
+    setPhoneUpdateLoading(true);
     try {
+      await sendPhoneUpdateOtp(fullPhone);
+      setPhoneUpdateStep('otp');
+      showSnackbar('تم إرسال رمز التحقق إلى الرقم الجديد');
+    } catch (error) {
+      console.error('خطأ في إرسال رمز التحقق:', error);
+      if (error.code === 'auth/invalid-phone-number') {
+        showSnackbar('رقم الهاتف غير صالح', 'error');
+      } else if (error.code === 'auth/too-many-requests') {
+        showSnackbar('محاولات كثيرة. يرجى الانتظار قليلاً', 'error');
+      } else if (error.code === 'auth/phone-number-already-exists') {
+        showSnackbar('هذا الرقم مستخدم بالفعل', 'error');
+      } else {
+        showSnackbar('فشل في إرسال رمز التحقق: ' + (error.message || 'خطأ غير معروف'), 'error');
+      }
+    } finally {
+      setPhoneUpdateLoading(false);
+    }
+  };
+
+  // ✅ التحقق من الرمز وتحديث الرقم
+  const handleVerifyPhoneOtp = async () => {
+    if (!phoneOtpCode || phoneOtpCode.length < 6) {
+      showSnackbar('يرجى إدخال رمز التحقق المكون من 6 أرقام', 'error');
+      return;
+    }
+
+    setPhoneUpdateLoading(true);
+    try {
+      const cleanPhone = newPhone.replace(/[\s\-()]/g, '');
+      const fullPhone = `+964${cleanPhone.substring(1)}`;
+      
+      // ✅ التحقق من نتيجة الدالة
+      const result = await verifyAndUpdatePhone(phoneOtpCode);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'فشل في تحديث رقم الهاتف');
+      }
+      
+      // تحديث في localStorage
       localStorage.setItem('verifiedPhone', fullPhone);
-      setPhoneModalOpen(false);
-      setNewPhone('');
-      showSnackbar('تم تحديث رقم الهاتف بنجاح');
-      window.location.reload();
+      
+      // تحديث في Supabase
+      if (tribe?.id && user?.uid) {
+        try {
+          await updateUserPhone(tribe.id, user.uid, fullPhone);
+        } catch (dbError) {
+          console.error('تحديث قاعدة البيانات:', dbError);
+          // لا نفشل العملية بسبب هذا الخطأ
+        }
+      }
+      
+      setPhoneUpdateStep('success');
+      showSnackbar('تم تحديث رقم الهاتف بنجاح! ✅');
+      
+      // إغلاق النافذة بعد ثانيتين
+      setTimeout(() => {
+        handleClosePhoneModal();
+        window.location.reload();
+      }, 2000);
+      
     } catch (error) {
       console.error('خطأ في تحديث رقم الهاتف:', error);
-      showSnackbar('حدث خطأ أثناء تحديث رقم الهاتف', 'error');
+      const errorMsg = error.message || '';
+      if (errorMsg.includes('غير صحيح') || error.code === 'auth/invalid-verification-code') {
+        showSnackbar('رمز التحقق غير صحيح', 'error');
+      } else if (errorMsg.includes('صلاحية') || error.code === 'auth/code-expired') {
+        showSnackbar('انتهت صلاحية الرمز. يرجى طلب رمز جديد', 'error');
+        setPhoneUpdateStep('input');
+        setPhoneOtpCode('');
+      } else {
+        showSnackbar('فشل في تحديث رقم الهاتف: ' + (errorMsg || 'خطأ غير معروف'), 'error');
+      }
+    } finally {
+      setPhoneUpdateLoading(false);
     }
+  };
+
+  // ✅ إغلاق نافذة تغيير الهاتف وإعادة الضبط
+  const handleClosePhoneModal = () => {
+    setPhoneModalOpen(false);
+    setNewPhone('');
+    setPhoneOtpCode('');
+    setPhoneUpdateStep('input');
+    setPhoneUpdateLoading(false);
   };
 
   // تسجيل الخروج
@@ -1369,13 +1457,10 @@ const loadFamily = useCallback(async () => {
         </DialogContent>
       </Dialog>
 
-      {/* نافذة تغيير رقم الهاتف */}
+      {/* نافذة تغيير رقم الهاتف - مع التحقق بخطوتين */}
       <Dialog
         open={phoneModalOpen}
-        onClose={() => {
-          setPhoneModalOpen(false);
-          setNewPhone('');
-        }}
+        onClose={handleClosePhoneModal}
         maxWidth="sm"
         fullWidth
       >
@@ -1383,83 +1468,175 @@ const loadFamily = useCallback(async () => {
           <Box display="flex" alignItems="center" gap={2}>
             <PhoneIphoneIcon sx={{ color: '#2196f3' }} />
             <Typography variant="h6" fontWeight="bold">
-              تغيير رقم الهاتف
+              {phoneUpdateStep === 'success' ? 'تم بنجاح! ✅' : 'تغيير رقم الهاتف'}
             </Typography>
           </Box>
         </DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            أدخل رقم الهاتف الجديد (مثال: 07xxxxxxxx)
-          </Typography>
-          
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', direction: 'ltr' }}>
-            <TextField
-              label="كود الدولة"
-              value="+964"
-              disabled
-              sx={{ 
-                width: 100,
-                order: 1,
-                '& .MuiInputBase-input': {
-                  textAlign: 'center',
-                  fontWeight: 'bold'
-                }
-              }}
-            />
-            
-            <TextField
-              autoFocus
-              label="رقم الهاتف"
-              value={newPhone}
-              onChange={(e) => setNewPhone(e.target.value)}
-              fullWidth
-              placeholder="7xxxxxxxx"
-              inputProps={{
-                maxLength: 11,
-                style: { direction: 'ltr', textAlign: 'left' }
-              }}
-              helperText="مثال: 7701234567 أو 07701234567"
-              sx={{ 
-                order: 2,
-                '& .MuiInputBase-input': {
-                  direction: 'ltr',
-                  textAlign: 'left'
-                }
-              }}
-            />
-          </Box>
-          <Box 
-            sx={{ 
-              p: 2, 
-              mt: 2,
-              backgroundColor: '#e3f2fd', 
-              borderRadius: 2,
-              border: '1px solid #bbdefb'
-            }}
-          >
-            <Typography variant="body2" color="primary" sx={{ fontWeight: 'bold' }}>
-              📱 الرقم الحالي: {phone || 'غير محدد'}
-            </Typography>
-          </Box>
+          {/* الخطوة 1: إدخال الرقم الجديد */}
+          {phoneUpdateStep === 'input' && (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                أدخل رقم الهاتف الجديد (مثال: 07xxxxxxxx)
+              </Typography>
+              
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', direction: 'ltr' }}>
+                <TextField
+                  label="كود الدولة"
+                  value="+964"
+                  disabled
+                  sx={{ 
+                    width: 100,
+                    order: 1,
+                    '& .MuiInputBase-input': {
+                      textAlign: 'center',
+                      fontWeight: 'bold'
+                    }
+                  }}
+                />
+                
+                <TextField
+                  autoFocus
+                  label="رقم الهاتف"
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  fullWidth
+                  placeholder="7xxxxxxxx"
+                  disabled={phoneUpdateLoading}
+                  inputProps={{
+                    maxLength: 11,
+                    style: { direction: 'ltr', textAlign: 'left' }
+                  }}
+                  helperText="مثال: 7701234567 أو 07701234567"
+                  sx={{ 
+                    order: 2,
+                    '& .MuiInputBase-input': {
+                      direction: 'ltr',
+                      textAlign: 'left'
+                    }
+                  }}
+                />
+              </Box>
+              
+              {/* حاوية reCAPTCHA */}
+              <Box id="recaptcha-container-update" sx={{ mt: 2, display: 'flex', justifyContent: 'center' }} />
+              
+              <Box 
+                sx={{ 
+                  p: 2, 
+                  mt: 2,
+                  backgroundColor: '#e3f2fd', 
+                  borderRadius: 2,
+                  border: '1px solid #bbdefb'
+                }}
+              >
+                <Typography variant="body2" color="primary" sx={{ fontWeight: 'bold' }}>
+                  📱 الرقم الحالي: {phone || 'غير محدد'}
+                </Typography>
+              </Box>
+            </>
+          )}
+
+          {/* الخطوة 2: إدخال رمز التحقق */}
+          {phoneUpdateStep === 'otp' && (
+            <>
+              <Alert severity="info" sx={{ mb: 3 }}>
+                تم إرسال رمز التحقق إلى الرقم الجديد
+              </Alert>
+              
+              <TextField
+                autoFocus
+                label="رمز التحقق"
+                value={phoneOtpCode}
+                onChange={(e) => setPhoneOtpCode(e.target.value.replace(/\D/g, ''))}
+                fullWidth
+                placeholder="123456"
+                disabled={phoneUpdateLoading}
+                inputProps={{
+                  maxLength: 6,
+                  style: { 
+                    direction: 'ltr', 
+                    textAlign: 'center',
+                    fontSize: '24px',
+                    letterSpacing: '8px',
+                    fontWeight: 'bold'
+                  }
+                }}
+                helperText="أدخل الرمز المكون من 6 أرقام"
+                sx={{
+                  '& .MuiInputBase-input': {
+                    direction: 'ltr',
+                    textAlign: 'center'
+                  }
+                }}
+              />
+              
+              <Button
+                variant="text"
+                size="small"
+                onClick={() => {
+                  setPhoneUpdateStep('input');
+                  setPhoneOtpCode('');
+                }}
+                disabled={phoneUpdateLoading}
+                sx={{ mt: 2 }}
+              >
+                ← العودة لتغيير الرقم
+              </Button>
+            </>
+          )}
+
+          {/* الخطوة 3: النجاح */}
+          {phoneUpdateStep === 'success' && (
+            <Alert severity="success" sx={{ mt: 2 }}>
+              تم تحديث رقم الهاتف بنجاح! سيتم إعادة تحميل الصفحة...
+            </Alert>
+          )}
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', gap: 2 }}>
-          <Button 
-            onClick={handlePhoneChange}
-            variant="contained"
-            sx={{ borderRadius: 2 }}
-          >
-            تحديث الرقم
-          </Button>
-          <Button 
-            onClick={() => {
-              setPhoneModalOpen(false);
-              setNewPhone('');
-            }}
-            variant="outlined"
-            sx={{ borderRadius: 2 }}
-          >
-            إلغاء
-          </Button>
+        
+        <DialogActions sx={{ justifyContent: 'center', gap: 2, pb: 3 }}>
+          {phoneUpdateStep === 'input' && (
+            <>
+              <Button 
+                onClick={handleSendPhoneOtp}
+                variant="contained"
+                disabled={phoneUpdateLoading || !newPhone.trim()}
+                sx={{ borderRadius: 2, minWidth: 150 }}
+              >
+                {phoneUpdateLoading ? <CircularProgress size={24} /> : 'إرسال رمز التحقق'}
+              </Button>
+              <Button 
+                onClick={handleClosePhoneModal}
+                variant="outlined"
+                disabled={phoneUpdateLoading}
+                sx={{ borderRadius: 2 }}
+              >
+                إلغاء
+              </Button>
+            </>
+          )}
+          
+          {phoneUpdateStep === 'otp' && (
+            <>
+              <Button 
+                onClick={handleVerifyPhoneOtp}
+                variant="contained"
+                color="success"
+                disabled={phoneUpdateLoading || phoneOtpCode.length < 6}
+                sx={{ borderRadius: 2, minWidth: 150 }}
+              >
+                {phoneUpdateLoading ? <CircularProgress size={24} /> : 'تأكيد وتحديث'}
+              </Button>
+              <Button 
+                onClick={handleClosePhoneModal}
+                variant="outlined"
+                disabled={phoneUpdateLoading}
+                sx={{ borderRadius: 2 }}
+              >
+                إلغاء
+              </Button>
+            </>
+          )}
         </DialogActions>
       </Dialog>
 

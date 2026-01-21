@@ -6,7 +6,9 @@ import {
   sendOtp as firebaseSendOtp,
   verifyOtp as firebaseVerifyOtp,
   logout as firebaseLogout,
-  onAuthChange
+  onAuthChange,
+  sendOtpForPhoneUpdate as firebaseSendOtpForPhoneUpdate,
+  verifyAndUpdatePhone as firebaseVerifyAndUpdatePhone
 } from './firebase/auth';
 
 // عرّف الـ Context محليًا وصدّر useAuth
@@ -101,6 +103,39 @@ export const AuthProvider = ({ children }) => {
 
   const hasPermission = useCallback(() => !!isAuthenticated, [isAuthenticated]);
 
+  // ✅ إرسال OTP لتحديث رقم الهاتف
+  const sendPhoneUpdateOtp = useCallback(async (newPhone) => {
+    try {
+      setError(null);
+      await firebaseSendOtpForPhoneUpdate(newPhone);
+      return { success: true };
+    } catch (err) {
+      setError(err.message || 'فشل في إرسال كود التحقق');
+      return { success: false, error: err.message };
+    }
+  }, []);
+
+  // ✅ التحقق من الكود وتحديث رقم الهاتف
+  const verifyAndUpdatePhone = useCallback(async (code) => {
+    try {
+      setError(null);
+      setLoading(true);
+      const result = await firebaseVerifyAndUpdatePhone(code);
+      if (result.success) {
+        // تحديث بيانات المستخدم محلياً
+        setUser(prev => prev ? { ...prev, phone: result.newPhone, phoneNumber: result.newPhone } : prev);
+        setUserData(prev => prev ? { ...prev, phone: result.newPhone, phoneNumber: result.newPhone } : prev);
+        return { success: true, newPhone: result.newPhone };
+      }
+      throw new Error('فشل في تحديث رقم الهاتف');
+    } catch (err) {
+      setError(err.message || 'فشل في تحديث رقم الهاتف');
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const value = {
     user,
     userData,
@@ -112,6 +147,8 @@ export const AuthProvider = ({ children }) => {
     logout,
     clearError,
     hasPermission,
+    sendPhoneUpdateOtp,      // ✅ جديد
+    verifyAndUpdatePhone,    // ✅ جديد
     isLoading: loading,
     isLoggedIn: isAuthenticated,
     userPhone: userData?.phone,
