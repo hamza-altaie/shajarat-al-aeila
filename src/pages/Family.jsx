@@ -449,7 +449,9 @@ const loadFamily = useCallback(async () => {
       showSnackbar('تم تحديث بيانات العضو بنجاح');
     } else {
       const result = await createTribePerson(tribe.id, memberData);
-      if (result?.merged) {
+      if (result?.alreadyExists) {
+        showSnackbar(`⚠️ "${result.first_name} ${result.father_name}" موجود بالفعل في الشجرة`, 'warning');
+      } else if (result?.merged) {
         showSnackbar(`✅ تم ربط "${result.first_name}" بسجل موجود في الشجرة`, 'success');
       } else {
         showSnackbar('تم إضافة العضو بنجاح');

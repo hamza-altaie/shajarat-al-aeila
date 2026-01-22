@@ -638,54 +638,80 @@ export async function createTribePerson(tribeId, personData) {
     if (!membership) throw new Error('يجب الانضمام للقبيلة أولاً');
 
     // =====================================================
-    // 🔗 إذا كانت العلاقة "أنا" - نبحث عن سجل موجود بنفس الاسم الثلاثي ونربط به
+    // 🔍 التحقق من التكرار أولاً - لجميع العلاقات
     // =====================================================
-    if (personData.relation === 'أنا') {
-      // البحث عن شخص موجود بنفس الاسم الثلاثي (الاسم + الأب + الجد)
-      const { data: existingPersons } = await supabase
+    
+    // دالة تطبيع النص العربي للمقارنة المرنة
+    const normalizeArabicText = (str) => {
+      if (!str) return '';
+      return str.trim()
+        .replace(/\s+/g, ' ')           // توحيد المسافات
+        .replace(/[أإآ]/g, 'ا')          // توحيد الهمزات
+        .replace(/ة/g, 'ه')              // تاء مربوطة → هاء
+        .replace(/ى/g, 'ي')              // ألف مقصورة → ياء
+        .replace(/ؤ/g, 'و')              // واو بهمزة → واو
+        .replace(/ئ/g, 'ي');             // ياء بهمزة → ياء
+    };
+    
+    // هل المستخدم يسجل نفسه؟ (سواء اختار "أنا" أو "رب العائلة")
+    const isRegisteringSelf = personData.relation === 'أنا' || personData.relation === 'رب العائلة';
+    
+    if (personData.first_name && personData.father_name) {
+      // جلب كل الأشخاص في القبيلة للبحث المرن
+      const { data: allPersons } = await supabase
         .from('persons')
         .select('*')
-        .eq('tribe_id', tribeId)
-        .ilike('first_name', personData.first_name || '')
-        .ilike('father_name', personData.father_name || '')
-        .ilike('grandfather_name', personData.grandfather_name || '');
+        .eq('tribe_id', tribeId);
+      
+      // البحث بمقارنة النص المطبّع
+      const normalizedFirstName = normalizeArabicText(personData.first_name);
+      const normalizedFatherName = normalizeArabicText(personData.father_name);
+      
+      const existingPerson = allPersons?.find(p => 
+        normalizeArabicText(p.first_name) === normalizedFirstName &&
+        normalizeArabicText(p.father_name) === normalizedFatherName
+      );
 
-      if (existingPersons && existingPersons.length > 0) {
-        // وجدنا شخص مطابق - نربط المستخدم به بدلاً من إنشاء سجل جديد
-        const existingPerson = existingPersons[0];
+      if (existingPerson) {
+        // ✅ إذا وجدنا شخص بنفس الاسم واسم الأب، نرجعه ولا نكرره
+        debugLogger.log('⚠️ وجدنا شخص مطابق موجود:', existingPerson.first_name, existingPerson.father_name);
         
-        // تحديث tribe_users لربط المستخدم بهذا الشخص
-        const { error: linkError } = await supabase
-          .from('tribe_users')
-          .update({ person_id: existingPerson.id })
-          .eq('tribe_id', tribeId)
-          .eq('firebase_uid', user.uid);
+        // إذا كان المستخدم يسجل نفسه، نربطه بالسجل الموجود
+        if (isRegisteringSelf) {
+          const { error: linkError } = await supabase
+            .from('tribe_users')
+            .update({ person_id: existingPerson.id })
+            .eq('tribe_id', tribeId)
+            .eq('firebase_uid', user.uid);
 
-        if (linkError) throw linkError;
-        
-        // ⚠️ نحدث فقط المعلومات الناقصة - لا نغير العلاقة!
-        // العلاقة الأصلية (ابن/بنت/إلخ) تبقى كما هي
-        const updates = {};
-        if (personData.phone && !existingPerson.phone) updates.phone = personData.phone;
-        if (personData.birth_date && !existingPerson.birth_date) updates.birth_date = personData.birth_date;
-        if (personData.photo_url && !existingPerson.photo_url) updates.photo_url = personData.photo_url;
-        
-        // تحديث فقط إذا كان هناك معلومات جديدة
-        if (Object.keys(updates).length > 0) {
-          const { data: updatedPerson, error: updateError } = await supabase
-            .from('persons')
-            .update(updates)
-            .eq('id', existingPerson.id)
-            .select()
-            .single();
+          if (linkError) throw linkError;
+          
+          // تحديث المعلومات الناقصة فقط
+          const updates = {};
+          if (personData.phone && !existingPerson.phone) updates.phone = personData.phone;
+          if (personData.birth_date && !existingPerson.birth_date) updates.birth_date = personData.birth_date;
+          if (personData.photo_url && !existingPerson.photo_url) updates.photo_url = personData.photo_url;
+          
+          if (Object.keys(updates).length > 0) {
+            const { data: updatedPerson, error: updateError } = await supabase
+              .from('persons')
+              .update(updates)
+              .eq('id', existingPerson.id)
+              .select()
+              .single();
 
-          if (updateError) throw updateError;
-          debugLogger.log('✅ تم ربط المستخدم بسجل موجود وتحديث معلوماته:', existingPerson.id);
-          return updatedPerson;
+            if (updateError) throw updateError;
+            debugLogger.log('✅ تم ربط المستخدم بسجل موجود وتحديث معلوماته:', existingPerson.id);
+            return { ...updatedPerson, merged: true };
+          }
+          
+          debugLogger.log('✅ تم ربط المستخدم بسجل موجود:', existingPerson.id);
+          return { ...existingPerson, merged: true };
         }
         
-        debugLogger.log('✅ تم ربط المستخدم بسجل موجود:', existingPerson.id);
-        return existingPerson;
+        // ✅ لغير "أنا" - نرجع الشخص الموجود مع علامة merged
+        debugLogger.log('✅ الشخص موجود بالفعل - لن يتم التكرار:', existingPerson.id);
+        return { ...existingPerson, merged: true, alreadyExists: true };
       }
     }
     
@@ -693,8 +719,7 @@ export async function createTribePerson(tribeId, personData) {
     // إنشاء شخص جديد إذا لم يوجد مطابق
     // =====================================================
     
-    // ⚠️ إذا كانت العلاقة "أنا"، نغيرها إلى "رب العائلة" لأن "أنا" ليست علاقة حقيقية
-    // هي فقط طريقة لتحديد أن المستخدم يسجل نفسه
+    // ⚠️ إذا كانت العلاقة "أنا" أو "رب العائلة"، نحافظ على "رب العائلة"
     const finalPersonData = { ...personData };
     if (finalPersonData.relation === 'أنا') {
       finalPersonData.relation = 'رب العائلة';
@@ -712,8 +737,8 @@ export async function createTribePerson(tribeId, personData) {
 
     if (error) throw error;
 
-    // ✅ إذا كان المستخدم يسجل نفسه ("أنا")، نربطه بالسجل الجديد
-    if (personData.relation === 'أنا') {
+    // ✅ إذا كان المستخدم يسجل نفسه ("أنا" أو "رب العائلة")، نربطه بالسجل الجديد
+    if (isRegisteringSelf) {
       const { error: linkError } = await supabase
         .from('tribe_users')
         .update({ person_id: data.id })
