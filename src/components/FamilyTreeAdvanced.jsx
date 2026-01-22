@@ -966,18 +966,18 @@ const drawTreeWithD3 = useCallback((data) => {
   // إعدادات الشجرة المحسنة للهيكل الهرمي
   const treeType = data.attributes?.treeType || 'simple';
   
-  // ✅ المسافة العمودية حسب نوع الجهاز
+  // ✅ المسافة العمودية حسب نوع الجهاز - زيادة المسافة بين الأجيال
   let verticalGap;
   if (isMobile) {
-    verticalGap = 95;
+    verticalGap = 130;
   } else if (isTablet) {
-    verticalGap = 105;
+    verticalGap = 150;
   } else if (isFoldOrSmallTablet) {
-    verticalGap = 120;
+    verticalGap = 170;
   } else if (isLargeTablet) {
-    verticalGap = 135;
+    verticalGap = 190;
   } else {
-    verticalGap = treeType === 'hierarchical' ? 150 : 130;
+    verticalGap = treeType === 'hierarchical' ? 210 : 200;
   }
   const dynamicHeight = Math.max(verticalGap * maxDepth, 250);
   
@@ -1531,17 +1531,18 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
     const spouseAttrs = spouseData.attributes;
     const spouseOffset = cardWidth + (isMobile ? 15 : 25); // المسافة بين الزوج والزوجة
     
-    // رسم خط الزواج (رابط أفقي بين الزوج والزوجة)
-    nodeGroup.append("path")
+    // رسم خط الزواج (رابط أفقي بين الزوج والزوجة) - يُرسم أولاً ليكون خلف الكاردات
+    nodeGroup.insert("path", ":first-child")
       .attr("class", "marriage-link")
       .attr("d", `M${cardWidth / 2},0 L${spouseOffset - cardWidth / 2},0`)
       .style("stroke", "#9c27b0")
       .style("stroke-width", 2)
       .style("fill", "none");
     
-    // ✅ رمز الزواج الرسمي (حلقتين متشابكتين)
+    // ✅ رمز الزواج الرسمي (حلقتين متشابكتين) - يظهر فوق الخط
     const linkCenterX = (cardWidth / 2 + spouseOffset - cardWidth / 2) / 2;
     nodeGroup.append("text")
+      .attr("class", "marriage-symbol")
       .text("⚭")
       .attr("x", linkCenterX)
       .attr("y", 5)
