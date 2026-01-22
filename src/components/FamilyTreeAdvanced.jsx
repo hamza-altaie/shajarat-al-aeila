@@ -1565,18 +1565,23 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
     // رسم بطاقة الزوجة داخل المجموعة
     drawPersonCard(spouseGroup, spouseAttrs, spouseOffset, true);
     
-    // ✅ إضافة تأثير تفاعلي على المجموعة كاملة (مثل باقي الكاردات)
-    spouseGroup
+    // ✅ نفس إعدادات hover الكاردات الأخرى بالضبط
+    spouseGroup.select(".family-spouse-card")
+      .style("cursor", "pointer")
+      .style("transform-origin", `${spouseOffset}px 0px`)
       .on("mouseenter", function(event) {
         event.stopPropagation();
-        d3.select(this).select(".family-spouse-card")
-          .style("transform", `scale(1.05)`)
-          .style("transform-origin", `${spouseOffset}px 0px`)
+        d3.select(this)
+          .transition()
+          .duration(200)
+          .style("transform", "scale(1.05)")
           .style("filter", "drop-shadow(0 6px 12px rgba(0,0,0,0.2))");
       })
       .on("mouseleave", function(event) {
         event.stopPropagation();
-        d3.select(this).select(".family-spouse-card")
+        d3.select(this)
+          .transition()
+          .duration(200)
           .style("transform", "scale(1)")
           .style("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.1))");
       })
