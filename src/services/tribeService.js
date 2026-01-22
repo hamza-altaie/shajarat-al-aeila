@@ -369,6 +369,17 @@ async function createAutoRelations(tribeId, newPerson, membership, userId) {
         await addRelationIfNotExists(newPerson.id, parentRel.parent_id);
       }
     }
+    
+    // ✅ 6. إذا كان "زوجة" → ربط بالزوج (userPersonId)
+    // الزوجة تُربط كـ "طفل" للزوج في جدول العلاقات للعرض بجانبه
+    else if (relation === 'زوجة' || relation === 'زوجة ثانية' || relation === 'زوجة ثالثة' || relation === 'زوجة رابعة') {
+      // ربط الزوجة بالمستخدم (الزوج)
+      await addRelationIfNotExists(userPersonId, newPerson.id);
+      debugLogger.log('✅ تم ربط الزوجة بالزوج:', userPersonId, '->', newPerson.id);
+    }
+    
+    // ✅ 7. إذا كان "زوجة الابن" → ربط بالابن (نحتاج معرفة أي ابن)
+    // هذا سيُعالج لاحقاً بواسطة smartAutoLink
   } catch (err) {
     debugLogger.error('❌ خطأ في إنشاء العلاقات التلقائية:', err);
     // لا نرمي الخطأ لأن إضافة الشخص نجحت

@@ -530,6 +530,7 @@ export default function FamilyTreeAdvanced() {
     const personsMap = new Map();
     const childrenMap = new Map(); // parent_id -> children[]
     const hasParent = new Set();
+    const personByCreator = new Map(); // created_by (firebase_uid) -> person
     
     // معالجة واحدة لكل البيانات
     for (const p of processedPersons) {
@@ -546,6 +547,16 @@ export default function FamilyTreeAdvanced() {
         }
         childrenMap.get(p.parentId).push(p);
       }
+      
+      // ✅ تتبع الشخص حسب من أنشأه (للربط لاحقاً)
+      if (p.created_by) {
+        // نحفظ الشخص الذي أنشأه هذا المستخدم (ليس الزوجة)
+        if (p.relation !== 'زوجة' && !p.relation?.includes('زوجة')) {
+          if (!personByCreator.has(p.created_by)) {
+            personByCreator.set(p.created_by, p);
+          }
+        }
+      }
     }
 
     // بناء الاسم الكامل
@@ -554,9 +565,31 @@ export default function FamilyTreeAdvanced() {
       return parts.join(' ') || 'غير معروف';
     };
 
-    // الجذور هم من ليس لديهم والد
-    const roots = [];
+    // ✅ فصل الزوجات عن باقي الأشخاص (لربطها بأزواجها لاحقاً)
+    const wifeRelations = ['زوجة', 'زوجة ثانية', 'زوجة ثالثة', 'زوجة رابعة'];
+    const wives = new Map(); // husband_id -> [wives]
+    const nonWives = [];
+    
     for (const p of processedPersons) {
+      if (wifeRelations.includes(p.relation)) {
+        // الزوجة - نبحث عن زوجها عبر parentId فقط
+        const husbandId = p.parentId || p.parent_id;
+        
+        if (husbandId) {
+          if (!wives.has(husbandId)) {
+            wives.set(husbandId, []);
+          }
+          wives.get(husbandId).push(p);
+        }
+        // إذا لم يكن لها parentId، لا نضيفها (ستُضاف يدوياً من قاعدة البيانات)
+      } else {
+        nonWives.push(p);
+      }
+    }
+
+    // الجذور هم من ليس لديهم والد (باستثناء الزوجات)
+    const roots = [];
+    for (const p of nonWives) {
       if (!hasParent.has(p.id) && !p.parentId) {
         roots.push(p);
       }
@@ -597,6 +630,15 @@ export default function FamilyTreeAdvanced() {
       const children = childrenMap.get(person.id) || [];
       const displayRelation = getDisplayRelation(person);
       
+      // ✅ البحث عن زوجة هذا الشخص
+      const personWives = wives.get(person.id) || [];
+      const spouseData = personWives.length > 0 ? personWives[0] : null;
+      
+      // إضافة الزوجة للـ builtNodes لمنع إضافتها مرة أخرى
+      if (spouseData) {
+        builtNodes.add(spouseData.id);
+      }
+      
       return {
         name: buildFullName(person),
         id: person.id,
@@ -610,6 +652,21 @@ export default function FamilyTreeAdvanced() {
           relation: displayRelation,
           isRoot: person.is_root
         },
+        // ✅ إضافة الزوجة كخاصية منفصلة
+        spouse: spouseData ? {
+          name: buildFullName(spouseData),
+          id: spouseData.id,
+          avatar: spouseData.photo_url || spouseData.avatar || null,
+          attributes: {
+            ...spouseData,
+            firstName: spouseData.firstName,
+            fatherName: spouseData.fatherName,
+            surname: spouseData.surname,
+            gender: spouseData.gender,
+            relation: spouseData.relation,
+            isSpouse: true
+          }
+        } : null,
         children: children
           .map(child => buildNode(child))
           .filter(node => node !== null) // إزالة العقد الفارغة (المكررة)
@@ -930,15 +987,15 @@ const drawTreeWithD3 = useCallback((data) => {
   
   let minWidthPerNode;
   if (isMobile) {
-    minWidthPerNode = cardWidth + 35;
+    minWidthPerNode = cardWidth * 2 + 50; // ✅ مضاعفة لاستيعاب الزوجة
   } else if (isTablet) {
-    minWidthPerNode = cardWidth + 45;
+    minWidthPerNode = cardWidth * 2 + 70;
   } else if (isFoldOrSmallTablet) {
-    minWidthPerNode = cardWidth + 55;
+    minWidthPerNode = cardWidth * 2 + 80;
   } else if (isLargeTablet) {
-    minWidthPerNode = cardWidth + 60;
+    minWidthPerNode = cardWidth * 2 + 90;
   } else {
-    minWidthPerNode = cardWidth + 70;
+    minWidthPerNode = cardWidth * 2 + 100;
   }
   
   const calculatedWidth = maxNodesInLevel * minWidthPerNode;
@@ -961,15 +1018,18 @@ const drawTreeWithD3 = useCallback((data) => {
   const treeLayout = d3.tree()
     .size([dynamicWidth, dynamicHeight])
     .separation((a, b) => {
-      // ✅ مسافة أكبر بين العقد لمنع التداخل حسب نوع الجهاز
+      // ✅ مسافة أكبر بين العقد لاستيعاب الزوجات بجانب الأزواج
+      const hasSpouse = a.data.spouse || b.data.spouse;
+      const spouseMultiplier = hasSpouse ? 1.5 : 1;
+      
       if (isMobile) {
-        return a.parent === b.parent ? 1.4 : 1.8;
+        return (a.parent === b.parent ? 1.8 : 2.2) * spouseMultiplier;
       } else if (isTablet || isFoldOrSmallTablet) {
-        return a.parent === b.parent ? 1.8 : 2.2;
+        return (a.parent === b.parent ? 2.2 : 2.6) * spouseMultiplier;
       } else if (isLargeTablet) {
-        return a.parent === b.parent ? 2.2 : 2.8;
+        return (a.parent === b.parent ? 2.6 : 3.2) * spouseMultiplier;
       }
-      return a.parent === b.parent ? 2.8 : 3.5;
+      return (a.parent === b.parent ? 3.2 : 4.0) * spouseMultiplier;
     }); 
 
   treeLayout(root);
@@ -1040,10 +1100,152 @@ const drawTreeWithD3 = useCallback((data) => {
     .ease(isLargeTree ? d3.easeQuadOut : d3.easeBackOut)
     .style("opacity", 1);
 
+  // ✅ دالة مساعدة لرسم بطاقة شخص (زوج أو زوجة)
+  const drawPersonCard = (nodeGroup, nodeData, offsetX = 0, isSpouseCard = false) => {
+    const uniqueId = nodeData.id || nodeData.globalId || Math.random().toString(36).substring(7);
+    const name = nodeData.name || `${nodeData.firstName || ''} ${nodeData.fatherName || ''}`.trim() || '';
+    const relation = nodeData.relation || 'عضو';
+    
+    // تعديل حجم النص للموبايل
+    const nameFontSize = isMobile ? 10 : 13;
+    const relationFontSize = isMobile ? 9 : 11;
+    const ageFontSize = isMobile ? 8 : 10;
+    const maxNameLength = isMobile ? 10 : 14; // ✅ تقليل الحد الأقصى للاسم
+    
+    // ✅ حساب موقع الكارت بشكل صحيح
+    const cardStartX = offsetX - cardWidth / 2; // بداية الكارت من اليسار
+    const nameY = -cardHeight / 2 + padding + (isMobile ? 10 : 14);
+    const relationY = nameY + (isMobile ? 14 : 18);
+    
+    // حساب العمر
+    const calculateAge = (birthdate) => {
+      if (!birthdate) return '';
+      const birth = new Date(birthdate);
+      const today = new Date();
+      if (isNaN(birth.getTime())) return '';
+      let age = today.getFullYear() - birth.getFullYear();
+      const m = today.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+      return age > 0 ? age : '';
+    };
+    const age = calculateAge(nodeData.birth_date || nodeData.birthdate || nodeData.birthDate);
+    
+    // تحديد الألوان
+    let colors = RELATION_COLORS.DEFAULT;
+    if (isSpouseCard || relation === 'زوجة' || RelationUtils.isAdditionalWife(relation)) {
+      colors = RELATION_COLORS.FEMALE;
+    } else if (RelationUtils.isMaleRelation(relation) || nodeData.gender === "male") {
+      colors = RELATION_COLORS.MALE;
+    } else if (RelationUtils.isFemaleRelation(relation) || nodeData.gender === "female") {
+      colors = RELATION_COLORS.FEMALE;
+    }
+    
+    // الكارت
+    nodeGroup.append("rect")
+      .attr("width", cardWidth)
+      .attr("height", cardHeight)
+      .attr("x", cardStartX)
+      .attr("y", -cardHeight / 2)
+      .attr("rx", 14)
+      .attr("fill", colors.fill)
+      .attr("stroke", colors.stroke)
+      .attr("stroke-width", isSpouseCard ? 2 : 2.5)
+      .attr("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.1))")
+      .attr("class", isSpouseCard ? "family-spouse-card" : "family-node-card");
+    
+    // صورة أو أفاتار
+    nodeGroup.append("circle")
+      .attr("cx", cardStartX + padding + avatarSize / 2)
+      .attr("cy", -cardHeight / 2 + padding + avatarSize / 2)
+      .attr("r", avatarSize / 2)
+      .attr("fill", "#fff")
+      .attr("stroke", "#ddd")
+      .attr("stroke-width", 1.5);
+
+    nodeGroup.append("clipPath")
+      .attr("id", `avatar-circle-${uniqueId}`)
+      .append("circle")
+      .attr("cx", cardStartX + padding + avatarSize / 2)
+      .attr("cy", -cardHeight / 2 + padding + avatarSize / 2)
+      .attr("r", avatarSize / 2);
+
+    nodeGroup.append("image")
+      .attr("href",
+        nodeData.photo_url ||
+        nodeData.avatar ||
+        (nodeData.gender === "female" || FEMALE_RELATIONS.includes(relation) || isSpouseCard
+          ? "/icons/girl.png"
+          : "/icons/boy.png")
+      )
+      .attr("x", cardStartX + padding)
+      .attr("y", -cardHeight / 2 + padding)
+      .attr("width", avatarSize)
+      .attr("height", avatarSize)
+      .attr("clip-path", `url(#avatar-circle-${uniqueId})`)
+      .attr("preserveAspectRatio", "xMidYMid slice");
+    
+    // الاسم - ✅ وضع النص في منتصف المساحة المتاحة
+    const textCenterX = cardStartX + padding + avatarSize + (cardWidth - padding - avatarSize) / 2;
+    
+    // ✅ قص الاسم ليناسب عرض الكارت
+    const truncatedName = name.length > maxNameLength ? name.slice(0, maxNameLength) + '…' : name;
+    
+    nodeGroup.append("text")
+      .text(truncatedName)
+      .attr("x", textCenterX)
+      .attr("y", nameY)
+      .attr("font-size", nameFontSize)
+      .attr("font-weight", "bold")
+      .attr("fill", "#111")
+      .attr("text-anchor", "middle");
+    
+    // العلاقة (للزوجة فقط)
+    if (isSpouseCard) {
+      nodeGroup.append("text")
+        .text("💍 زوجة")
+        .attr("x", textCenterX)
+        .attr("y", relationY)
+        .attr("font-size", relationFontSize)
+        .attr("fill", "#e91e63")
+        .attr("text-anchor", "middle");
+    }
+    
+    // العمر
+    if (age) {
+      const ageBoxWidth = isMobile ? 32 : 40;
+      const ageBoxHeight = isMobile ? 14 : 16;
+      const ageBoxX = cardStartX + cardWidth - padding - ageBoxWidth;
+      const ageBoxY = cardHeight / 2 - ageBoxHeight - 4;
+      
+      nodeGroup.append("rect")
+        .attr("x", ageBoxX)
+        .attr("y", ageBoxY)
+        .attr("width", ageBoxWidth)
+        .attr("height", ageBoxHeight)
+        .attr("rx", 8)
+        .attr("fill", "rgba(25, 118, 210, 0.08)")
+        .attr("stroke", "#1976d2")
+        .attr("stroke-width", 0.8);
+
+      nodeGroup.append("text")
+        .text(isMobile ? age : age + " سنة")
+        .attr("x", ageBoxX + ageBoxWidth / 2)
+        .attr("y", ageBoxY + ageBoxHeight / 2 + 1.5)
+        .attr("font-size", ageFontSize)
+        .attr("fill", "#1976d2")
+        .attr("font-weight", "600")
+        .attr("text-anchor", "middle")
+        .attr("dominant-baseline", "middle");
+    }
+    
+    return { name, age, relation };
+  };
+
   // إضافة محتوى العقد - نفس التصميم الأصلي تماماً
   nodes.each(function(d) {
   const nodeGroup = d3.select(this);
   const nodeData = d.data.attributes || d.data;
+  const spouseData = d.data.spouse; // ✅ بيانات الزوجة إن وجدت
   
   const uniqueId = nodeData.id || nodeData.globalId || Math.random().toString(36).substring(7);
   const name = nodeData.name || `${nodeData.firstName || ''} ${nodeData.fatherName || ''}`.trim() || '';
@@ -1324,14 +1526,85 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
     .attr("stroke-width", 3);
 }
 
-  // إضافة تأثيرات تفاعلية للعقد
-  nodeGroup
-    .on("mouseenter", function() {
-      d3.select(this).select("rect.family-node-card")
-        .style("transform", "scale(1.05)")
-        .style("filter", "drop-shadow(0 6px 12px rgba(0,0,0,0.2))")
+  // ✅ رسم بطاقة الزوجة بجانب الزوج (إن وجدت)
+  if (spouseData && spouseData.attributes) {
+    const spouseAttrs = spouseData.attributes;
+    const spouseOffset = cardWidth + (isMobile ? 15 : 25); // المسافة بين الزوج والزوجة
+    
+    // رسم خط الزواج (رابط أفقي بين الزوج والزوجة)
+    nodeGroup.append("path")
+      .attr("class", "marriage-link")
+      .attr("d", `M${cardWidth / 2},0 L${spouseOffset - cardWidth / 2},0`)
+      .style("stroke", "#9c27b0")
+      .style("stroke-width", 2)
+      .style("fill", "none");
+    
+    // ✅ رمز الزواج الرسمي (حلقتين متشابكتين)
+    const linkCenterX = (cardWidth / 2 + spouseOffset - cardWidth / 2) / 2;
+    nodeGroup.append("text")
+      .text("⚭")
+      .attr("x", linkCenterX)
+      .attr("y", 5)
+      .attr("font-size", isMobile ? 14 : 18)
+      .attr("text-anchor", "middle")
+      .attr("fill", "#9c27b0");
+    
+    // رسم بطاقة الزوجة مع انميشن الظهور
+    const spouseGroup = nodeGroup.append("g")
+      .attr("class", "spouse-group")
+      .style("opacity", 0);
+    
+    // انميشن ظهور كارت الزوجة
+    spouseGroup.transition()
+      .delay(300)
+      .duration(500)
+      .ease(d3.easeBackOut)
+      .style("opacity", 1);
+    
+    // رسم بطاقة الزوجة داخل المجموعة
+    drawPersonCard(spouseGroup, spouseAttrs, spouseOffset, true);
+    
+    // إضافة تأثير تفاعلي لبطاقة الزوجة - منفصل تماماً
+    spouseGroup.select(".family-spouse-card")
+      .style("cursor", "pointer")
+      .style("transform-origin", `${spouseOffset}px 0px`) // ✅ التكبير من مركز كارت الزوجة
+      .on("mouseenter", function(event) {
+        event.stopPropagation();
+        d3.select(this)
+          .transition()
+          .duration(200)
+          .style("transform", "scale(1.05)")
+          .style("filter", "drop-shadow(0 6px 12px rgba(0,0,0,0.2))");
+      })
+      .on("mouseleave", function(event) {
+        event.stopPropagation();
+        d3.select(this)
+          .transition()
+          .duration(200)
+          .style("transform", "scale(1)")
+          .style("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.1))");
+      })
+      .on("click", (event) => {
+        event.stopPropagation();
+        handleNodeClickRef.current?.({
+          ...spouseAttrs,
+          name: spouseData.name,
+          children: []
+        });
+      });
+  }
+
+  // إضافة تأثيرات تفاعلية للعقد - فقط لكارت الزوج
+  nodeGroup.select("rect.family-node-card")
+    .style("cursor", "pointer")
+    .style("transform-origin", "0px 0px") // ✅ التكبير من المركز
+    .on("mouseenter", function(event) {
+      event.stopPropagation();
+      d3.select(this)
         .transition()
-        .duration(200);
+        .duration(200)
+        .style("transform", "scale(1.05)")
+        .style("filter", "drop-shadow(0 6px 12px rgba(0,0,0,0.2))");
       
       // تمييز الروابط المتصلة
       d3.selectAll(".link")
@@ -1343,12 +1616,13 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
         .style("stroke-width", 4)
         .style("opacity", 1);
     })
-    .on("mouseleave", function() {
-      d3.select(this).select("rect.family-node-card")
-        .style("transform", "scale(1)")
-        .style("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.1))")
+    .on("mouseleave", function(event) {
+      event.stopPropagation();
+      d3.select(this)
         .transition()
-        .duration(200);
+        .duration(200)
+        .style("transform", "scale(1)")
+        .style("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.1))");
       
       // إعادة الروابط لحالتها الطبيعية
       d3.selectAll(".link")
@@ -1356,7 +1630,8 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
         .style("stroke-width", 3)
         .style("opacity", 0.9);
     })
-    .on("click", () => {
+    .on("click", (event) => {
+      event.stopPropagation();
       // تجنب عرض تفاصيل الجد الافتراضي إذا لم يكن له معلومات كافية
       if (nodeData.isVirtualGrandfather && !nodeData.avatar && !nodeData.phone) {
         return; // لا تفعل شيئاً للجد الافتراضي
