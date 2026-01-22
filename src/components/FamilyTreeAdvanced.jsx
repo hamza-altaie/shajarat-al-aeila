@@ -1566,15 +1566,15 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
     drawPersonCard(spouseGroup, spouseAttrs, spouseOffset, true);
     
     // ✅ نفس إعدادات hover الكاردات الأخرى بالضبط
-    spouseGroup.select(".family-spouse-card")
+    // تطبيق التأثير على المجموعة كاملة وليس الـ rect فقط
+    spouseGroup
       .style("cursor", "pointer")
-      .style("transform-origin", `${spouseOffset}px 0px`)
       .on("mouseenter", function(event) {
         event.stopPropagation();
         d3.select(this)
           .transition()
           .duration(200)
-          .style("transform", "scale(1.05)")
+          .style("transform", `translate(${spouseOffset}px, 0) scale(1.05) translate(${-spouseOffset}px, 0)`)
           .style("filter", "drop-shadow(0 6px 12px rgba(0,0,0,0.2))");
       })
       .on("mouseleave", function(event) {
@@ -1598,7 +1598,6 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
   // إضافة تأثيرات تفاعلية للعقد - فقط لكارت الزوج
   nodeGroup.select("rect.family-node-card")
     .style("cursor", "pointer")
-    .style("transform-origin", "0px 0px") // ✅ التكبير من المركز
     .on("mouseenter", function(event) {
       event.stopPropagation();
       d3.select(this)
