@@ -265,13 +265,13 @@ async function createAutoRelations(tribeId, newPerson, membership, userId) {
   try {
     const relation = newPerson.relation;
     
-    // 1. إذا كان "أنا" → ربط person_id في tribe_users
-    if (relation === 'أنا') {
+    // 1. إذا كان "أنا" أو "رب العائلة" → ربط person_id في tribe_users
+    if (relation === 'أنا' || relation === 'رب العائلة') {
       await supabase
         .from('tribe_users')
         .update({ person_id: newPerson.id })
         .eq('id', membership.id);
-      return; // "أنا" ليس له علاقة parent/child
+      return; // "أنا" و"رب العائلة" ليس لهم علاقة parent/child تلقائية
     }
 
     // الحصول على person_id الخاص بالمستخدم
@@ -653,7 +653,9 @@ export async function createTribePerson(tribeId, personData) {
         .replace(/ئ/g, 'ي');             // ياء بهمزة → ياء
     };
     
-    // هل المستخدم يسجل نفسه؟ (سواء اختار "أنا" أو "رب العائلة")
+    // هل المستخدم يسجل نفسه؟ 
+    // - القيمة من الواجهة = 'أنا' (من خيار "أنا رب العائلة")
+    // - القيمة في قاعدة البيانات = 'رب العائلة' (بعد التحويل)
     const isRegisteringSelf = personData.relation === 'أنا' || personData.relation === 'رب العائلة';
     
     if (personData.first_name && personData.father_name) {
@@ -811,6 +813,42 @@ export async function updateTribePerson(tribeId, personId, personData) {
     if (finalPersonData.relation === 'أنا') {
       finalPersonData.relation = oldData?.relation || 'رب العائلة';
       debugLogger.log('⚠️ تم تحويل العلاقة "أنا" إلى:', finalPersonData.relation);
+    }
+
+    // =====================================================
+    // 🔍 فحص التكرار عند التحديث - هل الاسم الجديد موجود؟
+    // =====================================================
+    const newFirstName = finalPersonData.first_name || oldData.first_name;
+    const newFatherName = finalPersonData.father_name || oldData.father_name;
+    
+    // التحقق فقط إذا تغير الاسم أو اسم الأب
+    if (newFirstName !== oldData.first_name || newFatherName !== oldData.father_name) {
+      // دالة تطبيع النص العربي
+      const normalizeArabicText = (str) => {
+        if (!str) return '';
+        return str.trim()
+          .replace(/\s+/g, ' ')
+          .replace(/[أإآ]/g, 'ا')
+          .replace(/ة/g, 'ه')
+          .replace(/ى/g, 'ي')
+          .replace(/ؤ/g, 'و')
+          .replace(/ئ/g, 'ي');
+      };
+      
+      const { data: allPersons } = await supabase
+        .from('persons')
+        .select('id, first_name, father_name')
+        .eq('tribe_id', tribeId)
+        .neq('id', personId); // استثناء السجل الحالي
+      
+      const normalizedNew = normalizeArabicText(newFirstName) + '_' + normalizeArabicText(newFatherName);
+      const duplicate = allPersons?.find(p => 
+        normalizeArabicText(p.first_name) + '_' + normalizeArabicText(p.father_name) === normalizedNew
+      );
+      
+      if (duplicate) {
+        throw new Error(`⚠️ يوجد شخص آخر بنفس الاسم: ${duplicate.first_name} ${duplicate.father_name}`);
+      }
     }
 
     const { data, error } = await supabase

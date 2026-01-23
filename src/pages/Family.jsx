@@ -457,8 +457,8 @@ const loadFamily = useCallback(async () => {
         showSnackbar('تم إضافة العضو بنجاح');
       }
       
-      // ✅ إذا كانت العلاقة "أنا"، أعد تحميل العضوية لتحديث person_id
-      if (form.relation === 'أنا' && refreshMembership) {
+      // ✅ إذا كان المستخدم يسجل نفسه، أعد تحميل العضوية لتحديث person_id
+      if ((form.relation === 'أنا' || form.relation === 'رب العائلة') && refreshMembership) {
         await refreshMembership();
       }
     }
