@@ -46,7 +46,9 @@ import {
   updateTribePerson, 
   deleteTribePerson,
   checkUserHasParent,
-  updateUserPhone  // ✅ سنضيفها لاحقاً
+  updateUserPhone,
+  confirmLinkToExistingPerson,
+  createNewPersonForSelf
 } from "../services/tribeService";
 
 // 📸 استيراد خدمة الصور
@@ -91,7 +93,10 @@ const FAMILY_RELATIONS = [
   { value: 'جد', label: '👴 جدي', category: 'أصولي', info: 'جدك' },
   
   // === الزواج ===
-  { value: 'زوجة', label: '💍 زوجتي', category: 'زواج', info: 'زوجتك' },
+  { value: 'زوجة', label: '💍 زوجتي', category: 'زواج', info: 'زوجتك الأولى' },
+  { value: 'زوجة ثانية', label: '💍 زوجتي الثانية', category: 'زواج', info: 'زوجتك الثانية' },
+  { value: 'زوجة ثالثة', label: '💍 زوجتي الثالثة', category: 'زواج', info: 'زوجتك الثالثة' },
+  { value: 'زوجة رابعة', label: '💍 زوجتي الرابعة', category: 'زواج', info: 'زوجتك الرابعة' },
 ];
 
 export default function Family() {
@@ -123,6 +128,13 @@ export default function Family() {
   const [phoneUpdateStep, setPhoneUpdateStep] = useState('input'); // 'input' | 'otp' | 'success'
   const [phoneOtpCode, setPhoneOtpCode] = useState('');
   const [phoneUpdateLoading, setPhoneUpdateLoading] = useState(false);
+  
+  // ✅ حالات تأكيد الربط بشخص موجود
+  const [confirmLinkDialogOpen, setConfirmLinkDialogOpen] = useState(false);
+  const [pendingExistingPerson, setPendingExistingPerson] = useState(null);
+  const [pendingNewPersonData, setPendingNewPersonData] = useState(null);
+  const [pendingAllMatches, setPendingAllMatches] = useState([]); // كل المطابقات المحتملة
+  const [selectedMatchIndex, setSelectedMatchIndex] = useState(0); // الشخص المختار حالياً
   
   // حالات الإشعارات والصور
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -449,6 +461,18 @@ const loadFamily = useCallback(async () => {
       showSnackbar('تم تحديث بيانات العضو بنجاح');
     } else {
       const result = await createTribePerson(tribe.id, memberData);
+      
+      // ✅ التحقق من طلب التأكيد (شخص موجود بنفس الاسم)
+      if (result?.needsConfirmation) {
+        setPendingExistingPerson(result.existingPerson);
+        setPendingNewPersonData(memberData);
+        setPendingAllMatches(result.allMatches || [result.existingPerson]);
+        setSelectedMatchIndex(0);
+        setConfirmLinkDialogOpen(true);
+        setLoading(false);
+        return false; // لا نغلق النموذج - ننتظر التأكيد
+      }
+      
       if (result?.alreadyExists) {
         showSnackbar(`⚠️ "${result.first_name} ${result.father_name}" موجود بالفعل في الشجرة`, 'warning');
       } else if (result?.merged) {
@@ -477,6 +501,91 @@ const loadFamily = useCallback(async () => {
   }
 };
 
+  // =====================================================
+  // ✅ معالجة تأكيد/رفض الربط بشخص موجود
+  // =====================================================
+  
+  // تأكيد الربط - نعم، أنا هذا الشخص
+  const handleConfirmLink = async () => {
+    if (!pendingExistingPerson || !tribe?.id) return;
+    
+    setLoading(true);
+    try {
+      // استخدام الشخص المختار من القائمة
+      const selectedPerson = pendingAllMatches.length > 1 
+        ? pendingAllMatches[selectedMatchIndex] 
+        : pendingExistingPerson;
+      
+      const result = await confirmLinkToExistingPerson(
+        tribe.id, 
+        selectedPerson.id, 
+        pendingNewPersonData
+      );
+      
+      showSnackbar(`✅ تم ربطك بسجل "${result.first_name} ${result.father_name}" بنجاح!`, 'success');
+      
+      // إعادة تحميل العضوية والبيانات
+      if (refreshMembership) {
+        await refreshMembership();
+      }
+      await loadFamily();
+      
+      // إغلاق كل شيء
+      setConfirmLinkDialogOpen(false);
+      setPendingExistingPerson(null);
+      setPendingNewPersonData(null);
+      setPendingAllMatches([]);
+      setSelectedMatchIndex(0);
+      setForm(DEFAULT_FORM);
+      setShowAddForm(false);
+    } catch (error) {
+      console.error('خطأ في تأكيد الربط:', error);
+      showSnackbar(error.message || 'حدث خطأ أثناء الربط', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // رفض الربط - لا، أنا شخص مختلف
+  const handleRejectLink = async () => {
+    if (!pendingNewPersonData || !tribe?.id) return;
+    
+    setLoading(true);
+    try {
+      const result = await createNewPersonForSelf(tribe.id, pendingNewPersonData);
+      
+      showSnackbar(`✅ تم إنشاء سجل جديد لـ "${result.first_name}" بنجاح!`, 'success');
+      
+      // إعادة تحميل العضوية والبيانات
+      if (refreshMembership) {
+        await refreshMembership();
+      }
+      await loadFamily();
+      
+      // إغلاق كل شيء
+      setConfirmLinkDialogOpen(false);
+      setPendingExistingPerson(null);
+      setPendingNewPersonData(null);
+      setPendingAllMatches([]);
+      setSelectedMatchIndex(0);
+      setForm(DEFAULT_FORM);
+      setShowAddForm(false);
+    } catch (error) {
+      console.error('خطأ في إنشاء سجل جديد:', error);
+      showSnackbar(error.message || 'حدث خطأ أثناء الإنشاء', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // إلغاء - العودة للنموذج
+  const handleCancelLink = () => {
+    setConfirmLinkDialogOpen(false);
+    setPendingExistingPerson(null);
+    setPendingNewPersonData(null);
+    setPendingAllMatches([]);
+    setSelectedMatchIndex(0);
+  };
 
   // معالجة تعديل العضو
   const handleEdit = (member) => {
@@ -1695,6 +1804,159 @@ const loadFamily = useCallback(async () => {
           </Button>
           <Button onClick={confirmDelete} color="error" variant="contained">
             {deleteAffectedChildren.length > 0 ? 'حذف على أي حال' : 'حذف'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ✅ نافذة تأكيد الربط بشخص موجود */}
+      <Dialog
+        open={confirmLinkDialogOpen}
+        onClose={handleCancelLink}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ 
+          bgcolor: '#e3f2fd', 
+          color: '#1565c0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1
+        }}>
+          🔗 وجدنا {pendingAllMatches.length > 1 ? `${pendingAllMatches.length} أشخاص` : 'شخصاً'} مطابقاً في الشجرة!
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          {pendingExistingPerson && (
+            <>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                <Typography variant="body1" fontWeight="bold">
+                  هل أنت نفس هذا الشخص؟
+                </Typography>
+                {pendingAllMatches.length > 1 && (
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    ⚠️ يوجد {pendingAllMatches.length} أشخاص بنفس الاسم - تصفح للتأكد
+                  </Typography>
+                )}
+              </Alert>
+              
+              {/* أزرار التنقل إذا كان هناك عدة مطابقات */}
+              {pendingAllMatches.length > 1 && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 2, mb: 2 }}>
+                  <Button 
+                    size="small" 
+                    variant="outlined"
+                    disabled={selectedMatchIndex === 0}
+                    onClick={() => setSelectedMatchIndex(prev => prev - 1)}
+                  >
+                    ◀ السابق
+                  </Button>
+                  <Chip 
+                    label={`${selectedMatchIndex + 1} من ${pendingAllMatches.length}`} 
+                    color="primary" 
+                    variant="outlined"
+                  />
+                  <Button 
+                    size="small" 
+                    variant="outlined"
+                    disabled={selectedMatchIndex === pendingAllMatches.length - 1}
+                    onClick={() => setSelectedMatchIndex(prev => prev + 1)}
+                  >
+                    التالي ▶
+                  </Button>
+                </Box>
+              )}
+              
+              {/* بطاقة الشخص المختار */}
+              {(() => {
+                const displayPerson = pendingAllMatches.length > 1 
+                  ? pendingAllMatches[selectedMatchIndex] 
+                  : pendingExistingPerson;
+                return (
+                  <Paper 
+                    elevation={2} 
+                    sx={{ 
+                      p: 2, 
+                      bgcolor: '#f5f5f5',
+                      border: '2px solid #1976d2',
+                      borderRadius: 2
+                    }}
+                  >
+                    <Typography variant="h6" color="primary" gutterBottom>
+                      👤 {displayPerson.first_name} {displayPerson.father_name}
+                    </Typography>
+                    
+                    {displayPerson.grandfather_name && (
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>🧓 الجد:</strong> {displayPerson.grandfather_name}
+                      </Typography>
+                    )}
+                    
+                    {displayPerson.family_name && (
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>🏠 العائلة:</strong> {displayPerson.family_name}
+                      </Typography>
+                    )}
+                    
+                    {displayPerson.relation && (
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>👥 العلاقة:</strong> {displayPerson.relation}
+                      </Typography>
+                    )}
+                    
+                    {displayPerson.birth_date && (
+                      <Typography variant="body2" sx={{ 
+                        color: '#1976d2', 
+                        fontWeight: 'bold',
+                        bgcolor: '#e3f2fd',
+                        p: 0.5,
+                        borderRadius: 1,
+                        mt: 1
+                      }}>
+                        🎂 تاريخ الميلاد: {displayPerson.birth_date}
+                      </Typography>
+                    )}
+                    
+                    {!displayPerson.birth_date && !displayPerson.grandfather_name && (
+                      <Alert severity="warning" sx={{ mt: 1 }}>
+                        <Typography variant="caption">
+                          ⚠️ لا توجد معلومات إضافية للتمييز (الجد/تاريخ الميلاد)
+                        </Typography>
+                      </Alert>
+                    )}
+                  </Paper>
+                );
+              })()}
+
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
+                إذا كنت أنت هذا الشخص، اضغط <strong>"نعم"</strong> لربط حسابك به.
+                <br />
+                إذا كنت شخصاً مختلفاً بنفس الاسم، اضغط <strong>"لا"</strong> لإنشاء سجل جديد.
+              </Typography>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button 
+            onClick={handleCancelLink} 
+            color="inherit"
+            disabled={loading}
+          >
+            إلغاء
+          </Button>
+          <Button 
+            onClick={handleRejectLink} 
+            color="warning" 
+            variant="outlined"
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={20} /> : '❌ لا، أنا شخص مختلف'}
+          </Button>
+          <Button 
+            onClick={handleConfirmLink} 
+            color="primary" 
+            variant="contained"
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={20} /> : '✅ نعم، أنا هذا الشخص'}
           </Button>
         </DialogActions>
       </Dialog>

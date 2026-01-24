@@ -668,50 +668,69 @@ export async function createTribePerson(tribeId, personData) {
       // البحث بمقارنة النص المطبّع
       const normalizedFirstName = normalizeArabicText(personData.first_name);
       const normalizedFatherName = normalizeArabicText(personData.father_name);
+      const normalizedGrandfatherName = personData.grandfather_name ? normalizeArabicText(personData.grandfather_name) : null;
       
-      const existingPerson = allPersons?.find(p => 
+      // ✅ البحث المحسّن: الاسم + اسم الأب + (اسم الجد إن وجد)
+      const potentialMatches = allPersons?.filter(p => 
         normalizeArabicText(p.first_name) === normalizedFirstName &&
         normalizeArabicText(p.father_name) === normalizedFatherName
-      );
-
-      if (existingPerson) {
-        // ✅ إذا وجدنا شخص بنفس الاسم واسم الأب، نرجعه ولا نكرره
-        debugLogger.log('⚠️ وجدنا شخص مطابق موجود:', existingPerson.first_name, existingPerson.father_name);
+      ) || [];
+      
+      // ✅ تصفية إضافية باسم الجد وتاريخ الميلاد
+      let existingPerson = null;
+      
+      if (potentialMatches.length === 1) {
+        // شخص واحد مطابق - نستخدمه
+        existingPerson = potentialMatches[0];
+      } else if (potentialMatches.length > 1) {
+        // عدة أشخاص بنفس الاسم - نحاول التمييز
         
-        // إذا كان المستخدم يسجل نفسه، نربطه بالسجل الموجود
-        if (isRegisteringSelf) {
-          const { error: linkError } = await supabase
-            .from('tribe_users')
-            .update({ person_id: existingPerson.id })
-            .eq('tribe_id', tribeId)
-            .eq('firebase_uid', user.uid);
-
-          if (linkError) throw linkError;
-          
-          // تحديث المعلومات الناقصة فقط
-          const updates = {};
-          if (personData.phone && !existingPerson.phone) updates.phone = personData.phone;
-          if (personData.birth_date && !existingPerson.birth_date) updates.birth_date = personData.birth_date;
-          if (personData.photo_url && !existingPerson.photo_url) updates.photo_url = personData.photo_url;
-          
-          if (Object.keys(updates).length > 0) {
-            const { data: updatedPerson, error: updateError } = await supabase
-              .from('persons')
-              .update(updates)
-              .eq('id', existingPerson.id)
-              .select()
-              .single();
-
-            if (updateError) throw updateError;
-            debugLogger.log('✅ تم ربط المستخدم بسجل موجود وتحديث معلوماته:', existingPerson.id);
-            return { ...updatedPerson, merged: true };
+        // 1. أولاً: مطابقة اسم الجد
+        if (normalizedGrandfatherName) {
+          const grandMatch = potentialMatches.find(p => 
+            normalizeArabicText(p.grandfather_name) === normalizedGrandfatherName
+          );
+          if (grandMatch) {
+            existingPerson = grandMatch;
           }
-          
-          debugLogger.log('✅ تم ربط المستخدم بسجل موجود:', existingPerson.id);
-          return { ...existingPerson, merged: true };
         }
         
-        // ✅ لغير "أنا" - نرجع الشخص الموجود مع علامة merged
+        // 2. ثانياً: مطابقة تاريخ الميلاد
+        if (!existingPerson && personData.birth_date) {
+          const birthMatch = potentialMatches.find(p => 
+            p.birth_date === personData.birth_date
+          );
+          if (birthMatch) {
+            existingPerson = birthMatch;
+          }
+        }
+        
+        // 3. إذا لم نستطع التمييز، نأخذ الأول ونطلب التأكيد
+        if (!existingPerson) {
+          existingPerson = potentialMatches[0];
+          // نضيف علامة أن هناك أشخاص متعددين
+          existingPerson._multipleMatches = potentialMatches.length;
+          existingPerson._allMatches = potentialMatches;
+        }
+      }
+
+      if (existingPerson) {
+        // ✅ إذا وجدنا شخص بنفس الاسم واسم الأب
+        debugLogger.log('⚠️ وجدنا شخص مطابق موجود:', existingPerson.first_name, existingPerson.father_name);
+        
+        // إذا كان المستخدم يسجل نفسه، نطلب التأكيد أولاً (لا نربط مباشرة)
+        if (isRegisteringSelf) {
+          // ✅ نرجع طلب تأكيد بدلاً من الربط المباشر
+          return { 
+            needsConfirmation: true, 
+            existingPerson: existingPerson,
+            newPersonData: personData,
+            multipleMatches: existingPerson._multipleMatches || 1,
+            allMatches: existingPerson._allMatches || [existingPerson]
+          };
+        }
+        
+        // ✅ لغير "أنا" - نرجع الشخص الموجود مع علامة alreadyExists
         debugLogger.log('✅ الشخص موجود بالفعل - لن يتم التكرار:', existingPerson.id);
         return { ...existingPerson, merged: true, alreadyExists: true };
       }
@@ -766,6 +785,121 @@ export async function createTribePerson(tribeId, personData) {
     return data;
   } catch (err) {
     debugLogger.error("❌ خطأ في إضافة الشخص:", err);
+    throw err;
+  }
+}
+
+// =====================================================
+// ✅ تأكيد ربط المستخدم بسجل موجود
+// =====================================================
+export async function confirmLinkToExistingPerson(tribeId, existingPersonId, newPersonData) {
+  try {
+    const user = await getCurrentUser();
+    if (!user?.uid) throw new Error('المستخدم غير مسجل');
+
+    const membership = await checkUserMembership(tribeId);
+    if (!membership) throw new Error('يجب الانضمام للقبيلة أولاً');
+
+    // جلب الشخص الموجود
+    const { data: existingPerson, error: fetchError } = await supabase
+      .from('persons')
+      .select('*')
+      .eq('id', existingPersonId)
+      .eq('tribe_id', tribeId)
+      .single();
+
+    if (fetchError || !existingPerson) {
+      throw new Error('الشخص غير موجود');
+    }
+
+    // ربط المستخدم بالسجل الموجود
+    const { error: linkError } = await supabase
+      .from('tribe_users')
+      .update({ person_id: existingPerson.id })
+      .eq('tribe_id', tribeId)
+      .eq('firebase_uid', user.uid);
+
+    if (linkError) throw linkError;
+
+    // تحديث المعلومات الناقصة فقط
+    const updates = {};
+    if (newPersonData?.phone && !existingPerson.phone) updates.phone = newPersonData.phone;
+    if (newPersonData?.birth_date && !existingPerson.birth_date) updates.birth_date = newPersonData.birth_date;
+    if (newPersonData?.photo_url && !existingPerson.photo_url) updates.photo_url = newPersonData.photo_url;
+
+    if (Object.keys(updates).length > 0) {
+      const { data: updatedPerson, error: updateError } = await supabase
+        .from('persons')
+        .update(updates)
+        .eq('id', existingPerson.id)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+      debugLogger.log('✅ تم تأكيد الربط وتحديث المعلومات:', existingPerson.id);
+      return { ...updatedPerson, merged: true, confirmed: true };
+    }
+
+    debugLogger.log('✅ تم تأكيد ربط المستخدم بسجل موجود:', existingPerson.id);
+    return { ...existingPerson, merged: true, confirmed: true };
+  } catch (err) {
+    debugLogger.error("❌ خطأ في تأكيد الربط:", err);
+    throw err;
+  }
+}
+
+// =====================================================
+// ✅ إنشاء شخص جديد (عند رفض الربط بسجل موجود)
+// =====================================================
+export async function createNewPersonForSelf(tribeId, personData) {
+  try {
+    const user = await getCurrentUser();
+    if (!user?.uid) throw new Error('المستخدم غير مسجل');
+
+    const membership = await checkUserMembership(tribeId);
+    if (!membership) throw new Error('يجب الانضمام للقبيلة أولاً');
+
+    // تحويل العلاقة
+    const finalPersonData = { ...personData };
+    if (finalPersonData.relation === 'أنا') {
+      finalPersonData.relation = 'رب العائلة';
+    }
+
+    // إنشاء سجل جديد
+    const { data, error } = await supabase
+      .from('persons')
+      .insert({
+        tribe_id: tribeId,
+        ...finalPersonData,
+        created_by: user.uid,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // ربط المستخدم بالسجل الجديد
+    const { error: linkError } = await supabase
+      .from('tribe_users')
+      .update({ person_id: data.id })
+      .eq('tribe_id', tribeId)
+      .eq('firebase_uid', user.uid);
+
+    if (linkError) {
+      debugLogger.warn('⚠️ فشل ربط المستخدم بالسجل الجديد:', linkError);
+    } else {
+      debugLogger.log('✅ تم إنشاء سجل جديد وربط المستخدم:', data.id);
+    }
+
+    // الربط الذكي
+    await smartAutoLink(tribeId, data, user.uid);
+
+    // سجل الإضافة
+    await logPersonAction(tribeId, data.id, 'create', user.uid, null, data);
+
+    return { ...data, isNew: true };
+  } catch (err) {
+    debugLogger.error("❌ خطأ في إنشاء شخص جديد:", err);
     throw err;
   }
 }
