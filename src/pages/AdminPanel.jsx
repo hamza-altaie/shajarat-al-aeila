@@ -1,5 +1,5 @@
 // src/pages/AdminPanel.jsx - لوحة تحكم المدير
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
@@ -18,6 +18,8 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemButton from '@mui/material/ListItemButton';
+import ListItemAvatar from '@mui/material/ListItemAvatar';
+import Avatar from '@mui/material/Avatar';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -26,6 +28,18 @@ import Chip from '@mui/material/Chip';
 import LinearProgress from '@mui/material/LinearProgress';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import Tooltip from '@mui/material/Tooltip';
 
 // الأيقونات
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -39,6 +53,12 @@ import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningIcon from '@mui/icons-material/Warning';
 import InfoIcon from '@mui/icons-material/Info';
+import PeopleIcon from '@mui/icons-material/People';
+import BuildIcon from '@mui/icons-material/Build';
+import BlockIcon from '@mui/icons-material/Block';
+import CheckIcon from '@mui/icons-material/Check';
+import PersonOffIcon from '@mui/icons-material/PersonOff';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 import { useTribe } from '../contexts/TribeContext';
 import { 
@@ -47,7 +67,11 @@ import {
   cleanDuplicateRelations,
   findDuplicatePersons,
   mergePersons,
-  analyzeTreeHealth
+  analyzeTreeHealth,
+  getTribeUsers,
+  updateUserRole,
+  updateUserStatus,
+  removeUserFromTribe
 } from '../services/tribeService';
 
 export default function AdminPanel() {
@@ -55,6 +79,9 @@ export default function AdminPanel() {
   const { tribe, isAdmin } = useTribe();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
+  // التبويب الحالي
+  const [activeTab, setActiveTab] = useState(0);
   
   // الحالات
   const [loading, setLoading] = useState(false);
@@ -71,6 +98,10 @@ export default function AdminPanel() {
   const [duplicates, setDuplicates] = useState([]);
   const [merging, setMerging] = useState(false);
 
+  // إدارة المستخدمين
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, type: '', user: null });
   // فحص صحة الشجرة
   const [healthDialogOpen, setHealthDialogOpen] = useState(false);
   const [healthReport, setHealthReport] = useState(null);
@@ -220,6 +251,94 @@ export default function AdminPanel() {
     }
   };
 
+  // ========================================
+  // 5️⃣ إدارة المستخدمين
+  // ========================================
+  
+  // جلب المستخدمين عند فتح التبويب
+  useEffect(() => {
+    if (activeTab === 1 && tribe?.id) {
+      loadUsers();
+    }
+  }, [activeTab, tribe?.id]);
+
+  const loadUsers = async () => {
+    if (!tribe?.id) return;
+    setUsersLoading(true);
+    try {
+      const data = await getTribeUsers(tribe.id);
+      setUsers(data);
+    } catch {
+      showMessage('❌ خطأ في جلب المستخدمين', 'error');
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const handleRoleChange = async (userId, newRole) => {
+    try {
+      await updateUserRole(tribe.id, userId, newRole);
+      showMessage('✅ تم تغيير الصلاحية', 'success');
+      loadUsers(); // تحديث القائمة
+    } catch (err) {
+      showMessage(`❌ ${err.message}`, 'error');
+    }
+  };
+
+  const handleStatusToggle = async (user) => {
+    const newStatus = user.status === 'active' ? 'blocked' : 'active';
+    try {
+      await updateUserStatus(tribe.id, user.id, newStatus);
+      showMessage(newStatus === 'blocked' ? '🚫 تم حظر المستخدم' : '✅ تم تفعيل المستخدم', 'success');
+      loadUsers();
+    } catch (err) {
+      showMessage(`❌ ${err.message}`, 'error');
+    }
+  };
+
+  const handleRemoveUser = async () => {
+    if (!confirmDialog.user) return;
+    try {
+      await removeUserFromTribe(tribe.id, confirmDialog.user.id);
+      showMessage('✅ تم حذف المستخدم', 'success');
+      setConfirmDialog({ open: false, type: '', user: null });
+      loadUsers();
+    } catch (err) {
+      showMessage(`❌ ${err.message}`, 'error');
+    }
+  };
+
+  // الحصول على اسم المستخدم
+  const getUserDisplayName = (user) => {
+    if (user.persons) {
+      const p = user.persons;
+      return `${p.first_name || ''} ${p.father_name || ''} ${p.family_name || ''}`.trim() || 'غير معروف';
+    }
+    return user.phone || 'مستخدم';
+  };
+
+  // الحصول على لون الصلاحية
+  const getRoleColor = (role) => {
+    switch (role) {
+      case 'admin': return 'error';
+      case 'moderator': return 'warning';
+      case 'contributor': return 'primary';
+      case 'viewer': return 'default';
+      default: return 'default';
+    }
+  };
+
+  // ترجمة الصلاحية
+  const getRoleLabel = (role) => {
+    switch (role) {
+      case 'admin': return 'مدير';
+      case 'moderator': return 'مشرف';
+      case 'contributor': return 'مساهم';
+      case 'viewer': return 'مشاهد';
+      default: return role;
+    }
+  };
+
   return (
     <Container maxWidth="md" sx={{ py: { xs: 2, sm: 4 }, pb: 12, px: { xs: 2, sm: 3 } }}>
       {/* الهيدر */}
@@ -259,36 +378,58 @@ export default function AdminPanel() {
         </Box>
       </Box>
 
-      {/* التنبيه */}
-      <Alert severity="warning" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif', fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
-        ⚠️ هذه الصفحة تحتوي على أدوات متقدمة. استخدمها بحذر!
-      </Alert>
+      {/* التبويبات */}
+      <Paper sx={{ mb: 3, borderRadius: 2 }}>
+        <Tabs
+          value={activeTab}
+          onChange={(e, newValue) => setActiveTab(newValue)}
+          variant="fullWidth"
+          sx={{
+            '& .MuiTab-root': {
+              fontFamily: 'Cairo, sans-serif',
+              fontWeight: 'bold',
+              fontSize: { xs: '0.8rem', sm: '1rem' }
+            }
+          }}
+        >
+          <Tab icon={<BuildIcon />} label="الأدوات" iconPosition="start" />
+          <Tab icon={<PeopleIcon />} label="المستخدمين" iconPosition="start" />
+        </Tabs>
+      </Paper>
 
-      {/* البطاقات */}
-      <Box sx={{ display: 'grid', gap: { xs: 2, sm: 3 }, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
-        
-        {/* بطاقة ربط الجذور */}
-        <Card elevation={3} sx={{ borderRadius: 3, border: '2px solid #f59e0b' }}>
-          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <LinkIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: '#f59e0b', mr: { xs: 1, sm: 2 } }} />
-              <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-                ربط الجذور المنفصلة
-              </Typography>
-            </Box>
-            <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: 'text.secondary', mb: 2, fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
-              إذا كان هناك أشخاص في الشجرة بدون والد، يمكنك ربطهم بوالد موجود لتوحيد الشجرة.
-            </Typography>
-          </CardContent>
-          <CardActions sx={{ px: 2, pb: 2 }}>
-            <Button 
-              variant="contained"
-              onClick={handleOpenRootsDialog}
-              disabled={loading}
-              startIcon={loading ? <CircularProgress size={20} /> : <LinkIcon />}
-              sx={{ 
-                fontFamily: 'Cairo, sans-serif',
-                background: 'linear-gradient(45deg, #f59e0b 0%, #d97706 100%)',
+      {/* ====== تبويب الأدوات ====== */}
+      {activeTab === 0 && (
+        <>
+          {/* التنبيه */}
+          <Alert severity="warning" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif', fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
+            ⚠️ هذه الصفحة تحتوي على أدوات متقدمة. استخدمها بحذر!
+          </Alert>
+
+          {/* البطاقات */}
+          <Box sx={{ display: 'grid', gap: { xs: 2, sm: 3 }, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+            
+            {/* بطاقة ربط الجذور */}
+            <Card elevation={3} sx={{ borderRadius: 3, border: '2px solid #f59e0b' }}>
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <LinkIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: '#f59e0b', mr: { xs: 1, sm: 2 } }} />
+                  <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+                    ربط الجذور المنفصلة
+                  </Typography>
+                </Box>
+                <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: 'text.secondary', mb: 2, fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
+                  إذا كان هناك أشخاص في الشجرة بدون والد، يمكنك ربطهم بوالد موجود لتوحيد الشجرة.
+                </Typography>
+              </CardContent>
+              <CardActions sx={{ px: 2, pb: 2 }}>
+                <Button 
+                  variant="contained"
+                  onClick={handleOpenRootsDialog}
+                  disabled={loading}
+                  startIcon={loading ? <CircularProgress size={20} /> : <LinkIcon />}
+                  sx={{ 
+                    fontFamily: 'Cairo, sans-serif',
+                    background: 'linear-gradient(45deg, #f59e0b 0%, #d97706 100%)',
               }}
             >
               فتح أداة الربط
@@ -410,7 +551,164 @@ export default function AdminPanel() {
             </Button>
           </CardActions>
         </Card>
-      </Box>
+          </Box>
+        </>
+      )}
+
+      {/* ====== تبويب المستخدمين ====== */}
+      {activeTab === 1 && (
+        <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+            <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1 }}>
+              <PeopleIcon color="primary" />
+              مستخدمي القبيلة ({users.length})
+            </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<RefreshIcon />}
+              onClick={loadUsers}
+              disabled={usersLoading}
+              sx={{ fontFamily: 'Cairo, sans-serif' }}
+            >
+              تحديث
+            </Button>
+          </Box>
+
+          {usersLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : users.length === 0 ? (
+            <Alert severity="info" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+              لا يوجد مستخدمين مسجلين
+            </Alert>
+          ) : (
+            <TableContainer>
+              <Table size={isMobile ? 'small' : 'medium'}>
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>المستخدم</TableCell>
+                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>الصلاحية</TableCell>
+                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>الحالة</TableCell>
+                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>الإجراءات</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.id} hover>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Avatar 
+                            src={user.persons?.photo_url} 
+                            sx={{ width: 36, height: 36, bgcolor: user.persons?.gender === 'F' ? '#ec4899' : '#3b82f6' }}
+                          >
+                            {getUserDisplayName(user).charAt(0)}
+                          </Avatar>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>
+                              {getUserDisplayName(user)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+                              {user.phone || 'بدون رقم'}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <FormControl size="small" sx={{ minWidth: 100 }}>
+                          <Select
+                            value={user.role}
+                            onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                            sx={{ fontFamily: 'Cairo, sans-serif', fontSize: '0.85rem' }}
+                          >
+                            <MenuItem value="admin" sx={{ fontFamily: 'Cairo, sans-serif' }}>🔴 مدير</MenuItem>
+                            <MenuItem value="moderator" sx={{ fontFamily: 'Cairo, sans-serif' }}>🟡 مشرف</MenuItem>
+                            <MenuItem value="contributor" sx={{ fontFamily: 'Cairo, sans-serif' }}>🔵 مساهم</MenuItem>
+                            <MenuItem value="viewer" sx={{ fontFamily: 'Cairo, sans-serif' }}>⚪ مشاهد</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={user.status === 'active' ? 'نشط' : user.status === 'blocked' ? 'محظور' : 'معلق'}
+                          color={user.status === 'active' ? 'success' : user.status === 'blocked' ? 'error' : 'warning'}
+                          sx={{ fontFamily: 'Cairo, sans-serif' }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                          <Tooltip title={user.status === 'active' ? 'حظر' : 'تفعيل'}>
+                            <IconButton
+                              size="small"
+                              color={user.status === 'active' ? 'error' : 'success'}
+                              onClick={() => handleStatusToggle(user)}
+                            >
+                              {user.status === 'active' ? <BlockIcon /> : <CheckIcon />}
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="حذف من القبيلة">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => setConfirmDialog({ open: true, type: 'delete', user })}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+
+          {/* دليل الصلاحيات */}
+          <Box sx={{ mt: 3, p: 2, bgcolor: '#f9fafb', borderRadius: 2 }}>
+            <Typography variant="subtitle2" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', mb: 1 }}>
+              📋 دليل الصلاحيات:
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+              <Typography variant="caption" sx={{ fontFamily: 'Cairo, sans-serif' }}>🔴 <strong>مدير:</strong> كل الصلاحيات</Typography>
+              <Typography variant="caption" sx={{ fontFamily: 'Cairo, sans-serif' }}>🟡 <strong>مشرف:</strong> إضافة وتعديل</Typography>
+              <Typography variant="caption" sx={{ fontFamily: 'Cairo, sans-serif' }}>🔵 <strong>مساهم:</strong> إضافة فقط</Typography>
+              <Typography variant="caption" sx={{ fontFamily: 'Cairo, sans-serif' }}>⚪ <strong>مشاهد:</strong> عرض فقط</Typography>
+            </Box>
+          </Box>
+        </Paper>
+      )}
+
+      {/* ================================================= */}
+      {/* نافذة تأكيد الحذف */}
+      {/* ================================================= */}
+      <Dialog
+        open={confirmDialog.open}
+        onClose={() => setConfirmDialog({ open: false, type: '', user: null })}
+        dir="rtl"
+      >
+        <DialogTitle sx={{ fontFamily: 'Cairo, sans-serif' }}>
+          ⚠️ تأكيد الحذف
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontFamily: 'Cairo, sans-serif' }}>
+            هل أنت متأكد من حذف المستخدم "{confirmDialog.user ? getUserDisplayName(confirmDialog.user) : ''}" من القبيلة؟
+          </Typography>
+          <Alert severity="warning" sx={{ mt: 2, fontFamily: 'Cairo, sans-serif' }}>
+            سيتم حذف المستخدم نهائياً ولن يتمكن من الوصول للقبيلة.
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDialog({ open: false, type: '', user: null })} sx={{ fontFamily: 'Cairo, sans-serif' }}>
+            إلغاء
+          </Button>
+          <Button onClick={handleRemoveUser} color="error" variant="contained" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+            حذف
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* ================================================= */}
       {/* نافذة ربط الجذور */}

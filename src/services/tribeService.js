@@ -2214,3 +2214,192 @@ export async function getTribeStatistics(tribeId) {
     return {};
   }
 }
+
+// =============================================
+// 👥 دوال إدارة المستخدمين (للأدمن)
+// =============================================
+
+/**
+ * جلب قائمة مستخدمي القبيلة مع بياناتهم
+ * @param {string} tribeId - معرف القبيلة
+ * @returns {Promise<Array>} قائمة المستخدمين
+ */
+export async function getTribeUsers(tribeId) {
+  try {
+    // جلب المستخدمين أولاً
+    const { data: users, error: usersError } = await supabase
+      .from('tribe_users')
+      .select('id, firebase_uid, phone, role, status, joined_at, person_id, display_name')
+      .eq('tribe_id', tribeId)
+      .order('joined_at', { ascending: false });
+
+    if (usersError) throw usersError;
+    
+    if (!users || users.length === 0) return [];
+
+    // جلب بيانات الأشخاص المرتبطين
+    const personIds = users.filter(u => u.person_id).map(u => u.person_id);
+    let personsMap = {};
+    
+    if (personIds.length > 0) {
+      const { data: persons, error: personsError } = await supabase
+        .from('persons')
+        .select('id, first_name, father_name, family_name, photo_url, gender')
+        .in('id', personIds);
+      
+      if (!personsError && persons) {
+        personsMap = persons.reduce((acc, p) => {
+          acc[p.id] = p;
+          return acc;
+        }, {});
+      }
+    }
+
+    // دمج البيانات
+    return users.map(user => ({
+      ...user,
+      persons: user.person_id ? personsMap[user.person_id] : null
+    }));
+  } catch (err) {
+    debugLogger.error("❌ خطأ في جلب المستخدمين:", err);
+    throw err;
+  }
+}
+
+/**
+ * تغيير صلاحية مستخدم
+ * @param {string} tribeId - معرف القبيلة
+ * @param {string} userId - معرف المستخدم (tribe_users.id)
+ * @param {string} newRole - الصلاحية الجديدة (admin, moderator, contributor, viewer)
+ */
+export async function updateUserRole(tribeId, userId, newRole) {
+  try {
+    const validRoles = ['admin', 'moderator', 'contributor', 'viewer'];
+    if (!validRoles.includes(newRole)) {
+      throw new Error('صلاحية غير صالحة');
+    }
+
+    // التأكد من أن المستخدم الحالي هو أدمن
+    const currentUser = await getCurrentUser();
+    if (!currentUser?.uid) throw new Error('غير مسجل الدخول');
+
+    const { data: currentMembership } = await supabase
+      .from('tribe_users')
+      .select('role')
+      .eq('tribe_id', tribeId)
+      .eq('firebase_uid', currentUser.uid)
+      .single();
+
+    if (currentMembership?.role !== 'admin') {
+      throw new Error('فقط المدير يمكنه تغيير الصلاحيات');
+    }
+
+    // تحديث الصلاحية
+    const { data, error } = await supabase
+      .from('tribe_users')
+      .update({ role: newRole })
+      .eq('id', userId)
+      .eq('tribe_id', tribeId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    debugLogger.log('✅ تم تغيير صلاحية المستخدم:', userId, '→', newRole);
+    return data;
+  } catch (err) {
+    debugLogger.error("❌ خطأ في تغيير الصلاحية:", err);
+    throw err;
+  }
+}
+
+/**
+ * تغيير حالة مستخدم (تفعيل/حظر)
+ * @param {string} tribeId - معرف القبيلة
+ * @param {string} userId - معرف المستخدم (tribe_users.id)
+ * @param {string} newStatus - الحالة الجديدة (active, blocked)
+ */
+export async function updateUserStatus(tribeId, userId, newStatus) {
+  try {
+    const validStatuses = ['active', 'pending', 'blocked'];
+    if (!validStatuses.includes(newStatus)) {
+      throw new Error('حالة غير صالحة');
+    }
+
+    // التأكد من أن المستخدم الحالي هو أدمن
+    const currentUser = await getCurrentUser();
+    if (!currentUser?.uid) throw new Error('غير مسجل الدخول');
+
+    const { data: currentMembership } = await supabase
+      .from('tribe_users')
+      .select('role')
+      .eq('tribe_id', tribeId)
+      .eq('firebase_uid', currentUser.uid)
+      .single();
+
+    if (currentMembership?.role !== 'admin') {
+      throw new Error('فقط المدير يمكنه تغيير حالة المستخدمين');
+    }
+
+    // تحديث الحالة
+    const { data, error } = await supabase
+      .from('tribe_users')
+      .update({ status: newStatus })
+      .eq('id', userId)
+      .eq('tribe_id', tribeId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    debugLogger.log('✅ تم تغيير حالة المستخدم:', userId, '→', newStatus);
+    return data;
+  } catch (err) {
+    debugLogger.error("❌ خطأ في تغيير حالة المستخدم:", err);
+    throw err;
+  }
+}
+
+/**
+ * حذف مستخدم من القبيلة
+ * @param {string} tribeId - معرف القبيلة
+ * @param {string} userId - معرف المستخدم (tribe_users.id)
+ */
+export async function removeUserFromTribe(tribeId, userId) {
+  try {
+    // التأكد من أن المستخدم الحالي هو أدمن
+    const currentUser = await getCurrentUser();
+    if (!currentUser?.uid) throw new Error('غير مسجل الدخول');
+
+    const { data: currentMembership } = await supabase
+      .from('tribe_users')
+      .select('role, id')
+      .eq('tribe_id', tribeId)
+      .eq('firebase_uid', currentUser.uid)
+      .single();
+
+    if (currentMembership?.role !== 'admin') {
+      throw new Error('فقط المدير يمكنه حذف المستخدمين');
+    }
+
+    // منع حذف نفسه
+    if (currentMembership.id === userId) {
+      throw new Error('لا يمكنك حذف نفسك');
+    }
+
+    const { error } = await supabase
+      .from('tribe_users')
+      .delete()
+      .eq('id', userId)
+      .eq('tribe_id', tribeId);
+
+    if (error) throw error;
+    
+    debugLogger.log('✅ تم حذف المستخدم:', userId);
+    return true;
+  } catch (err) {
+    debugLogger.error("❌ خطأ في حذف المستخدم:", err);
+    throw err;
+  }
+}
+
