@@ -40,6 +40,8 @@ import SearchIcon from '@mui/icons-material/Search';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import DownloadIcon from '@mui/icons-material/Download';
+import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
+import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
 import { getTribeTree } from "../services/tribeService";
 import { useTribe } from '../contexts/TribeContext';
 import { useAuth } from '../AuthContext';
@@ -93,6 +95,9 @@ export default function FamilyTreeAdvanced() {
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState(null);
   
+  // ✅ حالة العقد المطوية (Collapsed nodes)
+  const [collapsedNodes, setCollapsedNodes] = useState(new Set());
+  
   // استخدام useAuth بدلاً من localStorage
   const { user, isAuthenticated } = useAuth();
   
@@ -114,6 +119,12 @@ export default function FamilyTreeAdvanced() {
   
   // ✅ مرجع لـ debounce البحث
   const searchDebounceRef = useRef(null);
+  
+  // ✅ مرجع للعقد المطوية
+  const collapsedNodesRef = useRef(collapsedNodes);
+  useEffect(() => {
+    collapsedNodesRef.current = collapsedNodes;
+  }, [collapsedNodes]);
 
   // تتبع حالة تحميل المكون
   useEffect(() => {
@@ -190,6 +201,19 @@ export default function FamilyTreeAdvanced() {
     setSnackbarMessage(message);
     setSnackbarSeverity(severity);
     setSnackbarOpen(true);
+  }, []);
+
+  // ✅ دالة طي/فتح العقدة
+  const toggleNodeCollapse = useCallback((nodeId) => {
+    setCollapsedNodes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(nodeId)) {
+        newSet.delete(nodeId);
+      } else {
+        newSet.add(nodeId);
+      }
+      return newSet;
+    });
   }, []);
 
   // دالة إعادة التركيز على الشجرة - للزر العائم
@@ -1670,6 +1694,167 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
         children: d.children || []
       });
     });
+
+  // ✅ زر طي/فتح الفروع (لمن لديه أبناء)
+  const hasChildren = d.children && d.children.length > 0;
+  
+  if (hasChildren && !nodeData.isVirtualRoot && !nodeData.isVirtualGrandfather) {
+    const collapseButtonSize = isMobile ? 20 : 24;
+    const buttonY = cardHeight / 2 + 8;
+    
+    // مجموعة الزر
+    const collapseGroup = nodeGroup.append("g")
+      .attr("class", "collapse-button")
+      .attr("transform", `translate(0, ${buttonY})`)
+      .style("cursor", "pointer");
+    
+    // خلفية الزر - أخضر دائماً في البداية
+    collapseGroup.append("circle")
+      .attr("r", collapseButtonSize / 2)
+      .attr("fill", "#4caf50")
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 2)
+      .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.2))");
+    
+    // الرمز - للفتح دائماً في البداية
+    collapseGroup.append("text")
+      .text("−")
+      .attr("text-anchor", "middle")
+      .attr("dominant-baseline", "central")
+      .attr("font-size", isMobile ? 16 : 18)
+      .attr("font-weight", "bold")
+      .attr("fill", "#fff");
+    
+    // حدث النقر - إخفاء/إظهار الفرع مباشرة بدون إعادة رسم
+    collapseGroup.on("click", (event) => {
+      event.stopPropagation();
+      const nodeId = nodeData.id || nodeData.globalId;
+      if (!nodeId) return;
+      
+      // جمع كل العقد الأبناء (descendants)
+      const descendantIds = new Set();
+      const collectDescendants = (node) => {
+        if (node.children) {
+          node.children.forEach(child => {
+            const childId = child.data?.attributes?.id || child.data?.id;
+            if (childId) descendantIds.add(childId);
+            collectDescendants(child);
+          });
+        }
+      };
+      collectDescendants(d);
+      
+      // تحقق من الحالة الحالية
+      const isCurrentlyCollapsed = collapsedNodesRef.current.has(nodeId);
+      
+      if (isCurrentlyCollapsed) {
+        // ✅ فتح الفرع - إظهار العناصر
+        descendantIds.forEach(descId => {
+          // إظهار العقد
+          g.selectAll(".node")
+            .filter(function() {
+              const nodeData = d3.select(this).datum()?.data;
+              const id = nodeData?.attributes?.id || nodeData?.id;
+              return id === descId;
+            })
+            .transition()
+            .duration(300)
+            .style("opacity", 1)
+            .style("pointer-events", "auto");
+          
+          // إظهار الروابط
+          g.selectAll(".link")
+            .filter(linkData => {
+              const sourceId = linkData.source?.data?.attributes?.id || linkData.source?.data?.id;
+              const targetId = linkData.target?.data?.attributes?.id || linkData.target?.data?.id;
+              return descId === sourceId || descId === targetId;
+            })
+            .transition()
+            .duration(300)
+            .style("opacity", 0.9);
+        });
+        
+        // تغيير مظهر الزر
+        collapseGroup.select("circle")
+          .transition()
+          .duration(200)
+          .attr("fill", "#4caf50");
+        collapseGroup.select("text")
+          .text("−");
+        collapseGroup.selectAll("text").filter((_, i) => i === 1).remove();
+        
+      } else {
+        // ✅ طي الفرع - إخفاء العناصر
+        descendantIds.forEach(descId => {
+          // إخفاء العقد
+          g.selectAll(".node")
+            .filter(function() {
+              const nodeData = d3.select(this).datum()?.data;
+              const id = nodeData?.attributes?.id || nodeData?.id;
+              return id === descId;
+            })
+            .transition()
+            .duration(300)
+            .style("opacity", 0)
+            .style("pointer-events", "none");
+          
+          // إخفاء الروابط
+          g.selectAll(".link")
+            .filter(linkData => {
+              const sourceId = linkData.source?.data?.attributes?.id || linkData.source?.data?.id;
+              const targetId = linkData.target?.data?.attributes?.id || linkData.target?.data?.id;
+              return descId === sourceId || descId === targetId;
+            })
+            .transition()
+            .duration(300)
+            .style("opacity", 0);
+        });
+        
+        // تغيير مظهر الزر
+        collapseGroup.select("circle")
+          .transition()
+          .duration(200)
+          .attr("fill", "#ff9800");
+        collapseGroup.select("text")
+          .text("+");
+        
+        // إضافة عدد الأبناء المخفيين
+        if (d.children && d.children.length > 0) {
+          collapseGroup.append("text")
+            .text(d.children.length)
+            .attr("x", collapseButtonSize / 2 + 4)
+            .attr("y", 0)
+            .attr("text-anchor", "start")
+            .attr("dominant-baseline", "central")
+            .attr("font-size", isMobile ? 10 : 12)
+            .attr("font-weight", "bold")
+            .attr("fill", "#ff9800")
+            .style("opacity", 0)
+            .transition()
+            .duration(200)
+            .style("opacity", 1);
+        }
+      }
+      
+      // تحديث الحالة
+      toggleNodeCollapse(nodeId);
+    });
+    
+    // تأثيرات hover
+    collapseGroup
+      .on("mouseenter", function() {
+        d3.select(this).select("circle")
+          .transition()
+          .duration(150)
+          .attr("r", collapseButtonSize / 2 + 3);
+      })
+      .on("mouseleave", function() {
+        d3.select(this).select("circle")
+          .transition()
+          .duration(150)
+          .attr("r", collapseButtonSize / 2);
+      });
+  }
   });
 
   // معالجة تداخل العقد المحسنة للهيكل الهرمي
@@ -2352,6 +2537,134 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
             title="إعادة التركيز على الشجرة"
           >
             <CenterFocusStrongIcon />
+          </Fab>
+          
+          {/* ✅ زر طي/فتح كل الفروع */}
+          <Fab
+            color="warning"
+            size={isMobile ? "medium" : "small"}
+            onClick={() => {
+              const svg = d3.select(svgRef.current);
+              const g = svg.select('g');
+              
+              if (collapsedNodes.size > 0) {
+                // ✅ فتح الكل - إظهار جميع العناصر
+                g.selectAll(".node")
+                  .transition()
+                  .duration(400)
+                  .style("opacity", 1)
+                  .style("pointer-events", "auto");
+                
+                g.selectAll(".link")
+                  .transition()
+                  .duration(400)
+                  .style("opacity", 0.9);
+                
+                // إعادة تعيين أزرار الطي
+                g.selectAll(".collapse-button circle")
+                  .transition()
+                  .duration(200)
+                  .attr("fill", "#4caf50");
+                g.selectAll(".collapse-button text")
+                  .filter((_, i, nodes) => i === 0)
+                  .text("−");
+                
+                setCollapsedNodes(new Set());
+                showSnackbar('✅ تم فتح جميع الفروع', 'success');
+              } else {
+                // ✅ طي المستوى الثاني وما بعده
+                if (treeData) {
+                  const nodesToCollapse = new Set();
+                  const nodesToHide = new Set();
+                  
+                  // جمع العقد للطي (المستوى الأول الذي له أبناء)
+                  const collectNodes = (node, depth) => {
+                    const nodeId = node.attributes?.id || node.id;
+                    if (depth === 1 && node.children && node.children.length > 0 && nodeId) {
+                      nodesToCollapse.add(nodeId);
+                      // جمع كل الأحفاد للإخفاء
+                      const collectDescendants = (n) => {
+                        if (n.children) {
+                          n.children.forEach(child => {
+                            const childId = child.attributes?.id || child.id;
+                            if (childId) nodesToHide.add(childId);
+                            collectDescendants(child);
+                          });
+                        }
+                      };
+                      collectDescendants(node);
+                    }
+                    if (node.children) {
+                      node.children.forEach(child => collectNodes(child, depth + 1));
+                    }
+                  };
+                  collectNodes(treeData, 0);
+                  
+                  // إخفاء العقد
+                  nodesToHide.forEach(hideId => {
+                    g.selectAll(".node")
+                      .filter(function() {
+                        const nodeData = d3.select(this).datum()?.data;
+                        const id = nodeData?.attributes?.id || nodeData?.id;
+                        return id === hideId;
+                      })
+                      .transition()
+                      .duration(400)
+                      .style("opacity", 0)
+                      .style("pointer-events", "none");
+                    
+                    g.selectAll(".link")
+                      .filter(linkData => {
+                        const sourceId = linkData.source?.data?.attributes?.id || linkData.source?.data?.id;
+                        const targetId = linkData.target?.data?.attributes?.id || linkData.target?.data?.id;
+                        return hideId === sourceId || hideId === targetId;
+                      })
+                      .transition()
+                      .duration(400)
+                      .style("opacity", 0);
+                  });
+                  
+                  // تحديث أزرار الطي للعقد المطوية
+                  nodesToCollapse.forEach(collapseId => {
+                    g.selectAll(".node")
+                      .filter(function() {
+                        const nodeData = d3.select(this).datum()?.data;
+                        const id = nodeData?.attributes?.id || nodeData?.id;
+                        return id === collapseId;
+                      })
+                      .select(".collapse-button circle")
+                      .transition()
+                      .duration(200)
+                      .attr("fill", "#ff9800");
+                  });
+                  
+                  setCollapsedNodes(nodesToCollapse);
+                  showSnackbar(`📂 تم طي ${nodesToCollapse.size} فرع`, 'info');
+                }
+              }
+            }}
+            sx={{
+              position: 'fixed',
+              bottom: isMobile ? 90 : 20,
+              left: 140,
+              zIndex: 1100,
+              background: collapsedNodes.size > 0
+                ? 'linear-gradient(45deg, #ff9800 0%, #f57c00 100%)'
+                : 'linear-gradient(45deg, #9c27b0 0%, #7b1fa2 100%)',
+              boxShadow: collapsedNodes.size > 0
+                ? '0 4px 15px rgba(255,152,0,0.4)'
+                : '0 4px 15px rgba(156,39,176,0.4)',
+              '&:hover': {
+                background: collapsedNodes.size > 0
+                  ? 'linear-gradient(45deg, #f57c00 0%, #e65100 100%)'
+                  : 'linear-gradient(45deg, #7b1fa2 0%, #6a1b9a 100%)',
+                transform: 'scale(1.1)',
+              },
+              transition: 'all 0.3s ease',
+            }}
+            title={collapsedNodes.size > 0 ? "فتح كل الفروع" : "طي الفروع"}
+          >
+            {collapsedNodes.size > 0 ? <UnfoldMoreIcon /> : <UnfoldLessIcon />}
           </Fab>
           
           {/* زر تصدير الشجرة كصورة */}
