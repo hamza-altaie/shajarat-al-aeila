@@ -430,6 +430,7 @@ export default function AdminPanel() {
                   sx={{ 
                     fontFamily: 'Cairo, sans-serif',
                     background: 'linear-gradient(45deg, #f59e0b 0%, #d97706 100%)',
+                    '& .MuiButton-startIcon': { ml: 1 },
               }}
             >
               فتح أداة الربط
@@ -459,6 +460,7 @@ export default function AdminPanel() {
               sx={{ 
                 fontFamily: 'Cairo, sans-serif',
                 background: 'linear-gradient(45deg, #ef4444 0%, #dc2626 100%)',
+                '& .MuiButton-startIcon': { ml: 1 },
               }}
             >
               تنظيف الآن
@@ -488,6 +490,7 @@ export default function AdminPanel() {
               sx={{ 
                 fontFamily: 'Cairo, sans-serif',
                 background: 'linear-gradient(45deg, #8b5cf6 0%, #7c3aed 100%)',
+                '& .MuiButton-startIcon': { ml: 1 },
               }}
             >
               البحث عن المكررين
@@ -516,6 +519,7 @@ export default function AdminPanel() {
               sx={{ 
                 fontFamily: 'Cairo, sans-serif',
                 background: 'linear-gradient(45deg, #10b981 0%, #059669 100%)',
+                '& .MuiButton-startIcon': { ml: 1 },
               }}
             >
               الذهاب للشجرة
@@ -545,6 +549,7 @@ export default function AdminPanel() {
               sx={{ 
                 fontFamily: 'Cairo, sans-serif',
                 background: 'linear-gradient(45deg, #3b82f6 0%, #2563eb 100%)',
+                '& .MuiButton-startIcon': { ml: 1 },
               }}
             >
               فحص الآن
@@ -569,7 +574,7 @@ export default function AdminPanel() {
               startIcon={<RefreshIcon />}
               onClick={loadUsers}
               disabled={usersLoading}
-              sx={{ fontFamily: 'Cairo, sans-serif' }}
+              sx={{ fontFamily: 'Cairo, sans-serif', '& .MuiButton-startIcon': { ml: 1 } }}
             >
               تحديث
             </Button>
