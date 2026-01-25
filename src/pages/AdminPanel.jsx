@@ -59,6 +59,13 @@ import BlockIcon from '@mui/icons-material/Block';
 import CheckIcon from '@mui/icons-material/Check';
 import PersonOffIcon from '@mui/icons-material/PersonOff';
 import DeleteIcon from '@mui/icons-material/Delete';
+import HistoryIcon from '@mui/icons-material/History';
+import SettingsIcon from '@mui/icons-material/Settings';
+import EditIcon from '@mui/icons-material/Edit';
+import AddIcon from '@mui/icons-material/Add';
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
+import SaveIcon from '@mui/icons-material/Save';
+import TextField from '@mui/material/TextField';
 
 import { useTribe } from '../contexts/TribeContext';
 import { 
@@ -71,7 +78,11 @@ import {
   getTribeUsers,
   updateUserRole,
   updateUserStatus,
-  removeUserFromTribe
+  removeUserFromTribe,
+  getAuditLogs,
+  getTribeSettings,
+  updateTribeSettings,
+  uploadTribeLogo
 } from '../services/tribeService';
 
 export default function AdminPanel() {
@@ -102,6 +113,18 @@ export default function AdminPanel() {
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ open: false, type: '', user: null });
+  
+  // سجل التعديلات
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  
+  // إعدادات القبيلة
+  const [tribeSettings, setTribeSettings] = useState(null);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [editingSettings, setEditingSettings] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({});
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  
   // فحص صحة الشجرة
   const [healthDialogOpen, setHealthDialogOpen] = useState(false);
   const [healthReport, setHealthReport] = useState(null);
@@ -339,6 +362,111 @@ export default function AdminPanel() {
     }
   };
 
+  // ========================================
+  // 6️⃣ سجل التعديلات
+  // ========================================
+  
+  useEffect(() => {
+    if (activeTab === 2 && tribe?.id) {
+      loadAuditLogs();
+    }
+  }, [activeTab, tribe?.id]);
+
+  const loadAuditLogs = async () => {
+    if (!tribe?.id) return;
+    setAuditLoading(true);
+    try {
+      const data = await getAuditLogs(tribe.id, { limit: 100 });
+      setAuditLogs(data);
+    } catch {
+      showMessage('❌ خطأ في جلب سجل التعديلات', 'error');
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  const getActionLabel = (action) => {
+    switch (action) {
+      case 'create': return { label: 'إضافة', color: 'success', icon: <AddIcon fontSize="small" /> };
+      case 'update': return { label: 'تعديل', color: 'warning', icon: <EditIcon fontSize="small" /> };
+      case 'delete': return { label: 'حذف', color: 'error', icon: <DeleteIcon fontSize="small" /> };
+      default: return { label: action, color: 'default', icon: null };
+    }
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('ar-IQ', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // ========================================
+  // 7️⃣ إعدادات القبيلة
+  // ========================================
+  
+  useEffect(() => {
+    if (activeTab === 3 && tribe?.id) {
+      loadTribeSettings();
+    }
+  }, [activeTab, tribe?.id]);
+
+  const loadTribeSettings = async () => {
+    if (!tribe?.id) return;
+    setSettingsLoading(true);
+    try {
+      const data = await getTribeSettings(tribe.id);
+      setTribeSettings(data);
+      setSettingsForm({
+        name: data.name || '',
+        name_en: data.name_en || '',
+        description: data.description || '',
+        location: data.location || '',
+        established_year: data.established_year || ''
+      });
+    } catch {
+      showMessage('❌ خطأ في جلب الإعدادات', 'error');
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    if (!tribe?.id) return;
+    setSettingsLoading(true);
+    try {
+      await updateTribeSettings(tribe.id, settingsForm);
+      showMessage('✅ تم حفظ الإعدادات', 'success');
+      setEditingSettings(false);
+      loadTribeSettings();
+    } catch (err) {
+      showMessage(`❌ ${err.message}`, 'error');
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  const handleLogoUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file || !tribe?.id) return;
+    
+    setUploadingLogo(true);
+    try {
+      await uploadTribeLogo(tribe.id, file);
+      showMessage('✅ تم رفع الشعار', 'success');
+      loadTribeSettings();
+    } catch (err) {
+      showMessage(`❌ ${err.message}`, 'error');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   return (
     <Container maxWidth="md" sx={{ py: { xs: 2, sm: 4 }, pb: 12, px: { xs: 2, sm: 3 } }}>
       {/* الهيدر */}
@@ -394,6 +522,8 @@ export default function AdminPanel() {
         >
           <Tab icon={<BuildIcon />} label="الأدوات" iconPosition="start" />
           <Tab icon={<PeopleIcon />} label="المستخدمين" iconPosition="start" />
+          <Tab icon={<HistoryIcon />} label="السجل" iconPosition="start" />
+          <Tab icon={<SettingsIcon />} label="الإعدادات" iconPosition="start" />
         </Tabs>
       </Paper>
 
@@ -683,6 +813,251 @@ export default function AdminPanel() {
               <Typography variant="caption" sx={{ fontFamily: 'Cairo, sans-serif' }}>⚪ <strong>مشاهد:</strong> عرض فقط</Typography>
             </Box>
           </Box>
+        </Paper>
+      )}
+
+      {/* ====== تبويب سجل التعديلات ====== */}
+      {activeTab === 2 && (
+        <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+            <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1 }}>
+              <HistoryIcon color="primary" />
+              سجل التعديلات ({auditLogs.length})
+            </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<RefreshIcon />}
+              onClick={loadAuditLogs}
+              disabled={auditLoading}
+              sx={{ fontFamily: 'Cairo, sans-serif', '& .MuiButton-startIcon': { ml: 1 } }}
+            >
+              تحديث
+            </Button>
+          </Box>
+
+          {auditLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : auditLogs.length === 0 ? (
+            <Alert severity="info" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+              لا توجد تعديلات مسجلة بعد
+            </Alert>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: '#f3f4f6' }}>
+                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>التاريخ</TableCell>
+                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>النوع</TableCell>
+                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>التفاصيل</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {auditLogs.map((log) => {
+                    const actionInfo = getActionLabel(log.action);
+                    const personName = log.new_data?.first_name || log.old_data?.first_name || 'غير معروف';
+                    return (
+                      <TableRow key={log.id} hover>
+                        <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                          {formatDate(log.changed_at)}
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            icon={actionInfo.icon}
+                            label={actionInfo.label}
+                            color={actionInfo.color}
+                            size="small"
+                            sx={{ fontFamily: 'Cairo, sans-serif' }}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontSize: '0.85rem' }}>
+                          {log.action === 'create' && `تمت إضافة "${personName}"`}
+                          {log.action === 'update' && `تم تعديل "${personName}"`}
+                          {log.action === 'delete' && `تم حذف "${personName}"`}
+                          {log.notes && <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{log.notes}</Typography>}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Paper>
+      )}
+
+      {/* ====== تبويب إعدادات القبيلة ====== */}
+      {activeTab === 3 && (
+        <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+            <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1, color: '#1f2937' }}>
+              <SettingsIcon color="primary" />
+              إعدادات القبيلة
+            </Typography>
+            {!editingSettings && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<EditIcon />}
+                onClick={() => setEditingSettings(true)}
+                sx={{ fontFamily: 'Cairo, sans-serif', '& .MuiButton-startIcon': { ml: 1 } }}
+              >
+                تعديل
+              </Button>
+            )}
+          </Box>
+
+          {settingsLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : tribeSettings ? (
+            <Box>
+              {/* الشعار */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 4, p: 2, bgcolor: '#f9fafb', borderRadius: 2 }}>
+                <Avatar
+                  src={tribeSettings.logo_url}
+                  sx={{ width: 100, height: 100, fontSize: '2rem', bgcolor: '#8b5cf6' }}
+                >
+                  {tribeSettings.name?.[0] || '🏠'}
+                </Avatar>
+                <Box>
+                  <Typography variant="h5" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', color: '#1f2937' }}>
+                    {tribeSettings.name}
+                  </Typography>
+                  {tribeSettings.name_en && (
+                    <Typography variant="body2" color="text.secondary">
+                      {tribeSettings.name_en}
+                    </Typography>
+                  )}
+                  <input
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    id="logo-upload"
+                    type="file"
+                    onChange={handleLogoUpload}
+                  />
+                  <label htmlFor="logo-upload">
+                    <Button
+                      component="span"
+                      size="small"
+                      startIcon={uploadingLogo ? <CircularProgress size={16} /> : <PhotoCameraIcon />}
+                      disabled={uploadingLogo}
+                      sx={{ mt: 1, fontFamily: 'Cairo, sans-serif', '& .MuiButton-startIcon': { ml: 1 } }}
+                    >
+                      تغيير الشعار
+                    </Button>
+                  </label>
+                </Box>
+              </Box>
+
+              {/* النموذج */}
+              <Box sx={{ display: 'grid', gap: 2 }}>
+                <TextField
+                  label="اسم القبيلة"
+                  value={settingsForm.name}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, name: e.target.value })}
+                  disabled={!editingSettings}
+                  fullWidth
+                  InputProps={{ sx: { fontFamily: 'Cairo, sans-serif' } }}
+                  InputLabelProps={{ sx: { fontFamily: 'Cairo, sans-serif' } }}
+                />
+                <TextField
+                  label="الاسم بالإنجليزية"
+                  value={settingsForm.name_en}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, name_en: e.target.value })}
+                  disabled={!editingSettings}
+                  fullWidth
+                  InputProps={{ sx: { fontFamily: 'Cairo, sans-serif' } }}
+                  InputLabelProps={{ sx: { fontFamily: 'Cairo, sans-serif' } }}
+                />
+                <TextField
+                  label="الوصف"
+                  value={settingsForm.description}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, description: e.target.value })}
+                  disabled={!editingSettings}
+                  fullWidth
+                  multiline
+                  rows={3}
+                  InputProps={{ sx: { fontFamily: 'Cairo, sans-serif' } }}
+                  InputLabelProps={{ sx: { fontFamily: 'Cairo, sans-serif' } }}
+                />
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                  <TextField
+                    label="الموقع"
+                    value={settingsForm.location}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, location: e.target.value })}
+                    disabled={!editingSettings}
+                    fullWidth
+                    InputProps={{ sx: { fontFamily: 'Cairo, sans-serif' } }}
+                    InputLabelProps={{ sx: { fontFamily: 'Cairo, sans-serif' } }}
+                  />
+                  <TextField
+                    label="سنة التأسيس"
+                    value={settingsForm.established_year}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, established_year: e.target.value })}
+                    disabled={!editingSettings}
+                    type="number"
+                    fullWidth
+                    InputProps={{ sx: { fontFamily: 'Cairo, sans-serif' } }}
+                    InputLabelProps={{ sx: { fontFamily: 'Cairo, sans-serif' } }}
+                  />
+                </Box>
+              </Box>
+
+              {/* أزرار الحفظ */}
+              {editingSettings && (
+                <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+                  <Button
+                    variant="contained"
+                    startIcon={<SaveIcon />}
+                    onClick={handleSaveSettings}
+                    disabled={settingsLoading}
+                    sx={{ fontFamily: 'Cairo, sans-serif', '& .MuiButton-startIcon': { ml: 1 } }}
+                  >
+                    حفظ التغييرات
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => {
+                      setEditingSettings(false);
+                      loadTribeSettings(); // إعادة تحميل القيم الأصلية
+                    }}
+                    sx={{ fontFamily: 'Cairo, sans-serif' }}
+                  >
+                    إلغاء
+                  </Button>
+                </Box>
+              )}
+
+              {/* معلومات إضافية */}
+              <Divider sx={{ my: 3 }} />
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+                    تاريخ الإنشاء
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+                    {formatDate(tribeSettings.created_at)}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+                    آخر تحديث
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+                    {formatDate(tribeSettings.updated_at)}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          ) : (
+            <Alert severity="error" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+              لم يتم العثور على بيانات القبيلة
+            </Alert>
+          )}
         </Paper>
       )}
 

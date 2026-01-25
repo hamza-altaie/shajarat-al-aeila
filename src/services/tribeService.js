@@ -2403,3 +2403,194 @@ export async function removeUserFromTribe(tribeId, userId) {
   }
 }
 
+// =============================================
+// 📜 دوال سجل التعديلات (Audit Log)
+// =============================================
+
+/**
+ * جلب سجل التعديلات للقبيلة
+ * @param {string} tribeId - معرف القبيلة
+ * @param {object} options - خيارات الفلترة
+ * @returns {Promise<Array>} قائمة السجلات
+ */
+export async function getAuditLogs(tribeId, options = {}) {
+  try {
+    const { limit = 50, action = null, personId = null } = options;
+    
+    let query = supabase
+      .from('person_audit_log')
+      .select('*')
+      .eq('tribe_id', tribeId)
+      .order('changed_at', { ascending: false })
+      .limit(limit);
+    
+    if (action) {
+      query = query.eq('action', action);
+    }
+    
+    if (personId) {
+      query = query.eq('person_id', personId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    
+    return data || [];
+  } catch (err) {
+    debugLogger.error("❌ خطأ في جلب سجل التعديلات:", err);
+    throw err;
+  }
+}
+
+/**
+ * تسجيل حدث في سجل التعديلات
+ * @param {string} tribeId - معرف القبيلة
+ * @param {object} logData - بيانات السجل
+ */
+export async function logAuditEvent(tribeId, logData) {
+  try {
+    const currentUser = await getCurrentUser();
+    
+    const { error } = await supabase
+      .from('person_audit_log')
+      .insert({
+        tribe_id: tribeId,
+        person_id: logData.personId || null,
+        action: logData.action, // create, update, delete
+        changed_by: currentUser?.uid || 'unknown',
+        old_data: logData.oldData || null,
+        new_data: logData.newData || null,
+        notes: logData.notes || null
+      });
+
+    if (error) {
+      debugLogger.error("❌ خطأ في تسجيل الحدث:", error);
+    }
+  } catch (err) {
+    // لا نرمي الخطأ هنا - التسجيل ثانوي
+    debugLogger.error("❌ خطأ في تسجيل الحدث:", err);
+  }
+}
+
+// =============================================
+// ⚙️ دوال إعدادات القبيلة
+// =============================================
+
+/**
+ * جلب إعدادات القبيلة
+ * @param {string} tribeId - معرف القبيلة
+ * @returns {Promise<object>} إعدادات القبيلة
+ */
+export async function getTribeSettings(tribeId) {
+  try {
+    const { data, error } = await supabase
+      .from('tribes')
+      .select('*')
+      .eq('id', tribeId)
+      .single();
+
+    if (error) throw error;
+    
+    return data;
+  } catch (err) {
+    debugLogger.error("❌ خطأ في جلب إعدادات القبيلة:", err);
+    throw err;
+  }
+}
+
+/**
+ * تحديث إعدادات القبيلة
+ * @param {string} tribeId - معرف القبيلة
+ * @param {object} settings - الإعدادات الجديدة
+ */
+export async function updateTribeSettings(tribeId, settings) {
+  try {
+    // التأكد من أن المستخدم الحالي هو أدمن
+    const currentUser = await getCurrentUser();
+    if (!currentUser?.uid) throw new Error('غير مسجل الدخول');
+
+    const { data: membership } = await supabase
+      .from('tribe_users')
+      .select('role')
+      .eq('tribe_id', tribeId)
+      .eq('firebase_uid', currentUser.uid)
+      .single();
+
+    if (membership?.role !== 'admin') {
+      throw new Error('فقط المدير يمكنه تعديل الإعدادات');
+    }
+
+    // تحديد الحقول المسموح تعديلها
+    const allowedFields = ['name', 'name_en', 'description', 'logo_url', 'location', 'established_year'];
+    const filteredSettings = {};
+    
+    for (const key of allowedFields) {
+      if (settings[key] !== undefined) {
+        filteredSettings[key] = settings[key];
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('tribes')
+      .update(filteredSettings)
+      .eq('id', tribeId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    debugLogger.log('✅ تم تحديث إعدادات القبيلة');
+    return data;
+  } catch (err) {
+    debugLogger.error("❌ خطأ في تحديث الإعدادات:", err);
+    throw err;
+  }
+}
+
+/**
+ * رفع شعار القبيلة
+ * @param {string} tribeId - معرف القبيلة
+ * @param {File} file - ملف الصورة
+ */
+export async function uploadTribeLogo(tribeId, file) {
+  try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser?.uid) throw new Error('غير مسجل الدخول');
+
+    // التحقق من نوع الملف
+    if (!file.type.startsWith('image/')) {
+      throw new Error('يجب أن يكون الملف صورة');
+    }
+
+    // التحقق من حجم الملف (2MB max)
+    if (file.size > 2 * 1024 * 1024) {
+      throw new Error('حجم الصورة يجب أن يكون أقل من 2 ميجابايت');
+    }
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `tribe_${tribeId}_logo.${fileExt}`;
+    const filePath = `tribe-logos/${fileName}`;
+
+    // رفع الصورة
+    const { error: uploadError } = await supabase.storage
+      .from('photos')
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) throw uploadError;
+
+    // الحصول على الرابط العام
+    const { data: { publicUrl } } = supabase.storage
+      .from('photos')
+      .getPublicUrl(filePath);
+
+    // تحديث القبيلة
+    await updateTribeSettings(tribeId, { logo_url: publicUrl });
+
+    return publicUrl;
+  } catch (err) {
+    debugLogger.error("❌ خطأ في رفع الشعار:", err);
+    throw err;
+  }
+}
+
