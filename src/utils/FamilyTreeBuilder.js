@@ -207,8 +207,8 @@ export class FamilyTreeBuilder {
       // تسجيل الطفل كمُضاف لتجنب التكرار
       this.addedChildrenIds.add(child.globalId);
       
-      // ✅ البحث عن زوجة هذا الطفل (الابن/الأخ) - عبر parentId أو parent_id
-      const childSpouse = familyMembers?.find(m => {
+      // ✅ البحث عن زوجات هذا الطفل (الابن/الأخ) - عبر parentId أو parent_id
+      const childSpouses = familyMembers?.filter(m => {
         if (this.addedChildrenIds.has(m.globalId)) return false;
         const isWife = m.relation === 'زوجة' || RelationUtils.isAdditionalWife(m.relation);
         if (!isWife) return false;
@@ -218,7 +218,7 @@ export class FamilyTreeBuilder {
                            String(m.parentId) === String(child.id) ||
                            String(m.parent_id) === String(child.id);
         return parentMatch;
-      });
+      }) || [];
       
       const childNode = {
         name: this.buildFullName(child),
@@ -230,23 +230,34 @@ export class FamilyTreeBuilder {
           isNephewNiece: RelationUtils.isSiblingChild(child.relation)
         },
         children: [],
-        // ✅ إضافة الزوجة بجانب الابن/الأخ
-        spouse: childSpouse ? {
-          name: this.buildFullName(childSpouse),
-          id: childSpouse.globalId,
-          avatar: childSpouse.avatar || null,
+        // ✅ دعم الزوجات المتعددة - مصفوفة
+        spouses: childSpouses.map(spouse => ({
+          name: this.buildFullName(spouse),
+          id: spouse.globalId,
+          avatar: spouse.avatar || null,
           attributes: {
-            ...childSpouse,
+            ...spouse,
+            isSpouse: true,
+            treeType
+          }
+        })),
+        // للتوافق مع الكود القديم
+        spouse: childSpouses[0] ? {
+          name: this.buildFullName(childSpouses[0]),
+          id: childSpouses[0].globalId,
+          avatar: childSpouses[0].avatar || null,
+          attributes: {
+            ...childSpouses[0],
             isSpouse: true,
             treeType
           }
         } : null
       };
       
-      // تسجيل الزوجة كمُضافة لتجنب إضافتها مرة أخرى
-      if (childSpouse) {
-        this.addedChildrenIds.add(childSpouse.globalId);
-      }
+      // تسجيل كل الزوجات كمُضافة لتجنب إضافتها مرة أخرى
+      childSpouses.forEach(spouse => {
+        this.addedChildrenIds.add(spouse.globalId);
+      });
 
       // إذا كان هذا الطفل يمكن أن يكون له أحفاد، أضف أحفاده
       if (familyMembers && accountOwner && 
@@ -337,20 +348,25 @@ export class FamilyTreeBuilder {
 
   // دالة مساعدة لإضافة الأطفال للوالد
   addChildrenToFather = (fatherNode, familyMembers, father, accountOwner) => {
-    // ✅ البحث عن زوجة رب العائلة (المرتبطة به عبر parentId أو parent_id)
-    const ownerSpouse = familyMembers.find(m => {
+    // ✅ البحث عن زوجات رب العائلة
+    const ownerSpouses = familyMembers.filter(m => {
       if (this.addedChildrenIds.has(m.globalId)) return false;
       const isWife = m.relation === 'زوجة' || RelationUtils.isAdditionalWife(m.relation);
       if (!isWife) return false;
-      // التحقق من الربط عبر parentId أو parent_id (مقارنة كنصوص)
+      
+      // الطريقة الأولى: التحقق من الربط عبر parentId أو parent_id
       const parentMatch = String(m.parentId) === String(accountOwner.globalId) || 
                          String(m.parent_id) === String(accountOwner.globalId) ||
                          String(m.parentId) === String(accountOwner.id) ||
                          String(m.parent_id) === String(accountOwner.id);
-      return parentMatch;
+      
+      // الطريقة الثانية: إذا كانت الزوجة بدون parentId، نعتبرها زوجة رب العائلة
+      const isUnlinkedWife = !m.parentId && !m.parent_id;
+      
+      return parentMatch || isUnlinkedWife;
     });
 
-    // إضافة رب العائلة كطفل للوالد (مع الزوجة بجانبه)
+    // إضافة رب العائلة كطفل للوالد (مع الزوجات بجانبه)
     const ownerNode = {
       name: this.buildFullName(accountOwner),
       id: accountOwner.globalId,
@@ -361,29 +377,44 @@ export class FamilyTreeBuilder {
         treeType: 'hierarchical'
       },
       children: [],
-      // ✅ إضافة الزوجة كخاصية منفصلة لعرضها بجانب الزوج
-      spouse: ownerSpouse ? {
-        name: this.buildFullName(ownerSpouse),
-        id: ownerSpouse.globalId,
-        avatar: ownerSpouse.avatar || null,
+      // ✅ دعم الزوجات المتعددة - مصفوفة
+      spouses: ownerSpouses.map(spouse => ({
+        name: this.buildFullName(spouse),
+        id: spouse.globalId,
+        avatar: spouse.avatar || null,
         attributes: {
-          ...ownerSpouse,
+          ...spouse,
+          isSpouse: true,
+          treeType: 'hierarchical'
+        }
+      })),
+      // للتوافق مع الكود القديم
+      spouse: ownerSpouses[0] ? {
+        name: this.buildFullName(ownerSpouses[0]),
+        id: ownerSpouses[0].globalId,
+        avatar: ownerSpouses[0].avatar || null,
+        attributes: {
+          ...ownerSpouses[0],
           isSpouse: true,
           treeType: 'hierarchical'
         }
       } : null
     };
     
-    // تسجيل الزوجة كمُضافة
-    if (ownerSpouse) {
-      this.addedChildrenIds.add(ownerSpouse.globalId);
-    }
+    // تسجيل كل الزوجات كمُضافة
+    ownerSpouses.forEach(spouse => {
+      this.addedChildrenIds.add(spouse.globalId);
+    });
 
-    // إضافة أطفال رب العائلة مع الأحفاد
-    const ownerChildren = familyMembers.filter(m => 
-      (m.relation === 'ابن' || m.relation === 'بنت') && 
-      this.isChildOfParent(m, accountOwner)
-    );
+    // إضافة أطفال رب العائلة مع الأحفاد (مع استبعاد الزوجات)
+    const ownerChildren = familyMembers.filter(m => {
+      // استبعاد الزوجات
+      const isWife = m.relation === 'زوجة' || RelationUtils.isAdditionalWife(m.relation);
+      if (isWife) return false;
+      
+      return (m.relation === 'ابن' || m.relation === 'بنت') && 
+             this.isChildOfParent(m, accountOwner);
+    });
 
     this.addChildrenToNode(ownerNode, ownerChildren, 'hierarchical', familyMembers, accountOwner);
     fatherNode.children.push(ownerNode);
@@ -578,16 +609,21 @@ export class FamilyTreeBuilder {
       return null;
     }
 
-    // ✅ البحث عن زوجة رب العائلة (المرتبطة به عبر parentId أو parent_id)
-    const headSpouse = familyMembers.find(m => {
+    // ✅ البحث عن زوجات رب العائلة
+    const headSpouses = familyMembers.filter(m => {
       const isWife = m.relation === 'زوجة' || RelationUtils.isAdditionalWife(m.relation);
       if (!isWife) return false;
-      // التحقق من الربط عبر parentId أو parent_id (مقارنة كنصوص)
+      
+      // الطريقة الأولى: التحقق من الربط عبر parentId أو parent_id
       const parentMatch = String(m.parentId) === String(head.globalId) || 
                          String(m.parent_id) === String(head.globalId) ||
                          String(m.parentId) === String(head.id) ||
                          String(m.parent_id) === String(head.id);
-      return parentMatch;
+      
+      // الطريقة الثانية: إذا كانت الزوجة بدون parentId، نعتبرها زوجة رب العائلة
+      const isUnlinkedWife = !m.parentId && !m.parent_id;
+      
+      return parentMatch || isUnlinkedWife;
     });
 
     const rootNode = {
@@ -600,24 +636,44 @@ export class FamilyTreeBuilder {
         treeType: 'simple'
       },
       children: [],
-      // ✅ إضافة الزوجة كخاصية منفصلة لعرضها بجانب الزوج
-      spouse: headSpouse ? {
-        name: this.buildFullName(headSpouse),
-        id: headSpouse.globalId,
-        avatar: headSpouse.avatar || null,
+      // ✅ دعم الزوجات المتعددة - مصفوفة
+      spouses: headSpouses.map(spouse => ({
+        name: this.buildFullName(spouse),
+        id: spouse.globalId,
+        avatar: spouse.avatar || null,
         attributes: {
-          ...headSpouse,
+          ...spouse,
+          isSpouse: true,
+          treeType: 'simple'
+        }
+      })),
+      // للتوافق مع الكود القديم
+      spouse: headSpouses[0] ? {
+        name: this.buildFullName(headSpouses[0]),
+        id: headSpouses[0].globalId,
+        avatar: headSpouses[0].avatar || null,
+        attributes: {
+          ...headSpouses[0],
           isSpouse: true,
           treeType: 'simple'
         }
       } : null
     };
+    
+    // تسجيل كل الزوجات كمُضافة
+    headSpouses.forEach(spouse => {
+      this.addedChildrenIds.add(spouse.globalId);
+    });
 
-    // إضافة الأطفال مع الأحفاد
-    const children = familyMembers.filter(m => 
-      (m.relation === 'ابن' || m.relation === 'بنت') && 
-      this.isChildOfParent(m, head)
-    );
+    // إضافة الأطفال مع الأحفاد (مع استبعاد الزوجات)
+    const children = familyMembers.filter(m => {
+      // استبعاد الزوجات
+      const isWife = m.relation === 'زوجة' || RelationUtils.isAdditionalWife(m.relation);
+      if (isWife) return false;
+      
+      return (m.relation === 'ابن' || m.relation === 'بنت') && 
+             this.isChildOfParent(m, head);
+    });
 
     this.addChildrenToNode(rootNode, children, 'simple', familyMembers, head);
 

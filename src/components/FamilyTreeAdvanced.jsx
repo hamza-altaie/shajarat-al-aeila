@@ -630,14 +630,13 @@ export default function FamilyTreeAdvanced() {
       const children = childrenMap.get(person.id) || [];
       const displayRelation = getDisplayRelation(person);
       
-      // ✅ البحث عن زوجة هذا الشخص
+      // ✅ البحث عن كل زوجات هذا الشخص
       const personWives = wives.get(person.id) || [];
-      const spouseData = personWives.length > 0 ? personWives[0] : null;
       
-      // إضافة الزوجة للـ builtNodes لمنع إضافتها مرة أخرى
-      if (spouseData) {
-        builtNodes.add(spouseData.id);
-      }
+      // إضافة كل الزوجات للـ builtNodes لمنع إضافتها مرة أخرى
+      personWives.forEach(wife => {
+        builtNodes.add(wife.id);
+      });
       
       return {
         name: buildFullName(person),
@@ -652,18 +651,33 @@ export default function FamilyTreeAdvanced() {
           relation: displayRelation,
           isRoot: person.is_root
         },
-        // ✅ إضافة الزوجة كخاصية منفصلة
-        spouse: spouseData ? {
-          name: buildFullName(spouseData),
-          id: spouseData.id,
-          avatar: spouseData.photo_url || spouseData.avatar || null,
+        // ✅ دعم الزوجات المتعددة - مصفوفة
+        spouses: personWives.map(wife => ({
+          name: buildFullName(wife),
+          id: wife.id,
+          avatar: wife.photo_url || wife.avatar || null,
           attributes: {
-            ...spouseData,
-            firstName: spouseData.firstName,
-            fatherName: spouseData.fatherName,
-            surname: spouseData.surname,
-            gender: spouseData.gender,
-            relation: spouseData.relation,
+            ...wife,
+            firstName: wife.firstName,
+            fatherName: wife.fatherName,
+            surname: wife.surname,
+            gender: wife.gender,
+            relation: wife.relation,
+            isSpouse: true
+          }
+        })),
+        // للتوافق مع الكود القديم
+        spouse: personWives[0] ? {
+          name: buildFullName(personWives[0]),
+          id: personWives[0].id,
+          avatar: personWives[0].photo_url || personWives[0].avatar || null,
+          attributes: {
+            ...personWives[0],
+            firstName: personWives[0].firstName,
+            fatherName: personWives[0].fatherName,
+            surname: personWives[0].surname,
+            gender: personWives[0].gender,
+            relation: personWives[0].relation,
             isSpouse: true
           }
         } : null,
@@ -1018,9 +1032,13 @@ const drawTreeWithD3 = useCallback((data) => {
   const treeLayout = d3.tree()
     .size([dynamicWidth, dynamicHeight])
     .separation((a, b) => {
-      // ✅ مسافة أكبر بين العقد لاستيعاب الزوجات بجانب الأزواج
-      const hasSpouse = a.data.spouse || b.data.spouse;
-      const spouseMultiplier = hasSpouse ? 1.5 : 1;
+      // ✅ مسافة أكبر بين العقد لاستيعاب الزوجات المتعددة
+      const aSpousesCount = a.data.spouses?.length || (a.data.spouse ? 1 : 0);
+      const bSpousesCount = b.data.spouses?.length || (b.data.spouse ? 1 : 0);
+      const maxSpouses = Math.max(aSpousesCount, bSpousesCount);
+      
+      // زيادة المسافة بناءً على عدد الزوجات
+      const spouseMultiplier = 1 + (maxSpouses * 0.8);
       
       if (isMobile) {
         return (a.parent === b.parent ? 1.8 : 2.2) * spouseMultiplier;
@@ -1245,7 +1263,8 @@ const drawTreeWithD3 = useCallback((data) => {
   nodes.each(function(d) {
   const nodeGroup = d3.select(this);
   const nodeData = d.data.attributes || d.data;
-  const spouseData = d.data.spouse; // ✅ بيانات الزوجة إن وجدت
+  // ✅ دعم الزوجات المتعددة - تحويل للمصفوفة للتوافق
+  const spousesData = d.data.spouses || (d.data.spouse ? [d.data.spouse] : []);
   
   const uniqueId = nodeData.id || nodeData.globalId || Math.random().toString(36).substring(7);
   const name = nodeData.name || `${nodeData.firstName || ''} ${nodeData.fatherName || ''}`.trim() || '';
@@ -1526,74 +1545,80 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
     .attr("stroke-width", 3);
 }
 
-  // ✅ رسم بطاقة الزوجة بجانب الزوج (إن وجدت)
-  if (spouseData && spouseData.attributes) {
-    const spouseAttrs = spouseData.attributes;
-    const spouseOffset = cardWidth + (isMobile ? 15 : 25); // المسافة بين الزوج والزوجة
+  // ✅ رسم بطاقات الزوجات بجانب الزوج (دعم تعدد الزوجات)
+  if (spousesData && spousesData.length > 0) {
+    const baseSpouseOffset = cardWidth + (isMobile ? 15 : 25); // المسافة بين الزوج والزوجة الأولى
     
-    // رسم خط الزواج (رابط أفقي بين الزوج والزوجة) - يُرسم أولاً ليكون خلف الكاردات
-    nodeGroup.insert("path", ":first-child")
-      .attr("class", "marriage-link")
-      .attr("d", `M${cardWidth / 2},0 L${spouseOffset - cardWidth / 2},0`)
-      .style("stroke", "#9c27b0")
-      .style("stroke-width", 2)
-      .style("fill", "none");
-    
-    // ✅ رمز الزواج الرسمي (حلقتين متشابكتين) - يظهر فوق الخط
-    const linkCenterX = (cardWidth / 2 + spouseOffset - cardWidth / 2) / 2;
-    nodeGroup.append("text")
-      .attr("class", "marriage-symbol")
-      .text("⚭")
-      .attr("x", linkCenterX)
-      .attr("y", 5)
-      .attr("font-size", isMobile ? 14 : 18)
-      .attr("text-anchor", "middle")
-      .attr("fill", "#9c27b0");
-    
-    // رسم بطاقة الزوجة مع انميشن الظهور
-    const spouseGroup = nodeGroup.append("g")
-      .attr("class", "spouse-group")
-      .style("opacity", 0)
-      .style("cursor", "pointer");
-    
-    // انميشن ظهور كارت الزوجة
-    spouseGroup.transition()
-      .delay(300)
-      .duration(500)
-      .ease(d3.easeBackOut)
-      .style("opacity", 1);
-    
-    // رسم بطاقة الزوجة داخل المجموعة
-    drawPersonCard(spouseGroup, spouseAttrs, spouseOffset, true);
-    
-    // ✅ نفس إعدادات hover الكاردات الأخرى بالضبط
-    // تطبيق التأثير على المجموعة كاملة وليس الـ rect فقط
-    spouseGroup
-      .style("cursor", "pointer")
-      .on("mouseenter", function(event) {
-        event.stopPropagation();
-        d3.select(this)
-          .transition()
-          .duration(200)
-          .style("transform", `translate(${spouseOffset}px, 0) scale(1.05) translate(${-spouseOffset}px, 0)`)
-          .style("filter", "drop-shadow(0 6px 12px rgba(0,0,0,0.2))");
-      })
-      .on("mouseleave", function(event) {
-        event.stopPropagation();
-        d3.select(this)
-          .transition()
-          .duration(200)
-          .style("transform", "scale(1)")
-          .style("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.1))");
-      })
-      .on("click", (event) => {
-        event.stopPropagation();
-        handleNodeClickRef.current?.({
-          ...spouseAttrs,
-          name: spouseData.name,
-          children: []
+    spousesData.forEach((spouseData, spouseIndex) => {
+      if (!spouseData || !spouseData.attributes) return;
+      
+      const spouseAttrs = spouseData.attributes;
+      const spouseOffset = baseSpouseOffset + (spouseIndex * (cardWidth + (isMobile ? 10 : 15))); // كل زوجة بعد الأخرى
+      
+      // رسم خط الزواج (رابط أفقي بين الزوج والزوجة)
+      const linkStartX = spouseIndex === 0 ? cardWidth / 2 : baseSpouseOffset + ((spouseIndex - 1) * (cardWidth + (isMobile ? 10 : 15))) + cardWidth / 2;
+      nodeGroup.insert("path", ":first-child")
+        .attr("class", "marriage-link")
+        .attr("d", `M${linkStartX},0 L${spouseOffset - cardWidth / 2},0`)
+        .style("stroke", "#9c27b0")
+        .style("stroke-width", 2)
+        .style("fill", "none");
+      
+      // ✅ رمز الزواج الرسمي (حلقتين متشابكتين) - يظهر فوق الخط
+      const linkCenterX = (linkStartX + spouseOffset - cardWidth / 2) / 2;
+      nodeGroup.append("text")
+        .attr("class", "marriage-symbol")
+        .text("⚭")
+        .attr("x", linkCenterX)
+        .attr("y", 5)
+        .attr("font-size", isMobile ? 14 : 18)
+        .attr("text-anchor", "middle")
+        .attr("fill", "#9c27b0");
+      
+      // رسم بطاقة الزوجة مع انميشن الظهور
+      const spouseGroup = nodeGroup.append("g")
+        .attr("class", "spouse-group")
+        .style("opacity", 0)
+        .style("cursor", "pointer");
+      
+      // انميشن ظهور كارت الزوجة
+      spouseGroup.transition()
+        .delay(300 + (spouseIndex * 150)) // تأخير متدرج لكل زوجة
+        .duration(500)
+        .ease(d3.easeBackOut)
+        .style("opacity", 1);
+      
+      // رسم بطاقة الزوجة داخل المجموعة
+      drawPersonCard(spouseGroup, spouseAttrs, spouseOffset, true);
+      
+      // ✅ نفس إعدادات hover الكاردات الأخرى بالضبط
+      spouseGroup
+        .style("cursor", "pointer")
+        .on("mouseenter", function(event) {
+          event.stopPropagation();
+          d3.select(this)
+            .transition()
+            .duration(200)
+            .style("transform", `translate(${spouseOffset}px, 0) scale(1.05) translate(${-spouseOffset}px, 0)`)
+            .style("filter", "drop-shadow(0 6px 12px rgba(0,0,0,0.2))");
+        })
+        .on("mouseleave", function(event) {
+          event.stopPropagation();
+          d3.select(this)
+            .transition()
+            .duration(200)
+            .style("transform", "scale(1)")
+            .style("filter", "drop-shadow(0 4px 8px rgba(0,0,0,0.1))");
+        })
+        .on("click", (event) => {
+          event.stopPropagation();
+          handleNodeClickRef.current?.({
+            ...spouseAttrs,
+            name: spouseData.name,
+            children: []
+          });
         });
-      });
+    });
   }
 
   // إضافة تأثيرات تفاعلية للعقد - فقط لكارت الزوج
