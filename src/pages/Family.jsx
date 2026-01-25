@@ -1300,7 +1300,7 @@ const loadFamily = useCallback(async () => {
       {(tribeLoading || (loading && members.length === 0)) && (
         <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="50vh">
           <CircularProgress size={60} />
-          <Typography variant="h6" sx={{ mt: 3 }}>
+          <Typography variant="h6" sx={{ mt: 3, color: '#166534' }}>
             {tribeLoading ? 'جاري تحميل بيانات القبيلة...' : 'جاري تحميل الأفراد...'}
           </Typography>
         </Box>
