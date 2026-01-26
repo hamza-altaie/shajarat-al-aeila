@@ -1942,45 +1942,99 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
     drawTreeRef.current = drawTreeWithD3;
   }, [drawTreeWithD3]);
 
-  // دالة البحث المحلية - مبسطة
+  // دالة البحث المحلية - مع ميزة الزوم على النتيجة
   const performSearch = useCallback((query) => {
     if (!query || query.trim().length < 2) {
       // إزالة التميز إذا كان البحث فارغ
       if (svgRef.current) {
         const svg = d3.select(svgRef.current);
-        svg.selectAll('.node rect')
-          .style('stroke', '#ddd')
-          .style('stroke-width', '2px');
-        svg.selectAll('.node text')
-          .style('font-weight', 'normal');
+        svg.selectAll('.node rect.family-node-card')
+          .transition()
+          .duration(300)
+          .style('stroke', null)
+          .style('stroke-width', null);
       }
       return;
     }
     
     const queryLower = query.trim().toLowerCase();
     
-    if (svgRef.current) {
+    if (svgRef.current && zoomRef.current) {
       const svg = d3.select(svgRef.current);
+      const g = svg.select('g');
       
       // إعادة تعيين كل العقد لحالتها الطبيعية أولاً
-      svg.selectAll('.node rect')
-        .style('stroke', '#ddd')
-        .style('stroke-width', '2px');
-      svg.selectAll('.node text')
-        .style('font-weight', 'normal');
+      svg.selectAll('.node rect.family-node-card')
+        .transition()
+        .duration(200)
+        .style('stroke', null)
+        .style('stroke-width', null);
       
       // البحث وتميز العقد المطابقة
+      let foundNode = null;
+      let foundX = 0;
+      let foundY = 0;
+      
       svg.selectAll('.node').each(function(d) {
-        const name = d.data?.name?.toLowerCase() || '';
+        const nodeData = d.data?.attributes || d.data;
+        const name = nodeData?.name?.toLowerCase() || 
+                     `${nodeData?.firstName || ''} ${nodeData?.fatherName || ''}`.toLowerCase();
+        
         if (name.includes(queryLower)) {
-          // تميز العقدة المطابقة
-          d3.select(this).select('rect')
-            .style('stroke', '#ffeb3b')
+          // تميز العقدة المطابقة بلون ذهبي مميز
+          d3.select(this).select('rect.family-node-card')
+            .transition()
+            .duration(300)
+            .style('stroke', '#f59e0b')
             .style('stroke-width', '4px');
-          d3.select(this).select('text')
-            .style('font-weight', 'bold');
+          
+          // حفظ أول نتيجة للزوم عليها
+          if (!foundNode) {
+            foundNode = this;
+            foundX = d.x;
+            foundY = d.y;
+          }
         }
       });
+      
+      // ✅ زوم على أول نتيجة بحث (مثل الكاميرا)
+      if (foundNode && containerRef.current) {
+        const container = containerRef.current;
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        
+        // حساب الـ transform للتركيز على العقدة
+        const scale = 1.2; // تكبير قليل للتركيز
+        const targetX = width / 2 - foundX * scale;
+        const targetY = height / 2 - foundY * scale;
+        
+        // أنيميشن الزوم للعقدة
+        svg.transition()
+          .duration(750)
+          .ease(d3.easeCubicInOut)
+          .call(
+            zoomRef.current.transform,
+            d3.zoomIdentity
+              .translate(targetX, targetY)
+              .scale(scale)
+          );
+        
+        // تأثير نبض على العقدة المستهدفة
+        d3.select(foundNode).select('rect.family-node-card')
+          .transition()
+          .delay(750)
+          .duration(200)
+          .style('transform', 'scale(1.1)')
+          .transition()
+          .duration(200)
+          .style('transform', 'scale(1)')
+          .transition()
+          .duration(200)
+          .style('transform', 'scale(1.05)')
+          .transition()
+          .duration(200)
+          .style('transform', 'scale(1)');
+      }
     }
   }, []);
 
