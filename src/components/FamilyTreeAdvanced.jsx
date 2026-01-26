@@ -1997,8 +1997,8 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
         }
       });
       
-      // ✅ زوم على أول نتيجة بحث (مثل الكاميرا)
-      if (foundNode && containerRef.current) {
+      // ✅ زوم على أول نتيجة بحث (مثل الكاميرا) - فقط عند 3 أحرف أو أكثر
+      if (foundNode && containerRef.current && query.trim().length >= 3) {
         const container = containerRef.current;
         const width = container.clientWidth;
         const height = container.clientHeight;
@@ -2008,7 +2008,7 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
         const targetX = width / 2 - foundX * scale;
         const targetY = height / 2 - foundY * scale;
         
-        // أنيميشن الزوم للعقدة
+        // أنيميشن الزوم للعقدة - سلس بدون تقطيع
         svg.transition()
           .duration(750)
           .ease(d3.easeCubicInOut)
@@ -2452,13 +2452,13 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
             onChange={(e) => {
               const value = e.target.value;
               setSearchQuery(value);
-              // ✅ استخدام debounce لتحسين الأداء (300ms)
+              // ✅ استخدام debounce لتحسين الأداء - انتظار 600ms بعد توقف الكتابة
               if (searchDebounceRef.current) {
                 clearTimeout(searchDebounceRef.current);
               }
               searchDebounceRef.current = setTimeout(() => {
                 performSearch(value);
-              }, 300);
+              }, 600);
             }}
             placeholder="🔍 ابحث عن أي شخص في الشجرة للتركيز عليه..."
             variant="outlined"
