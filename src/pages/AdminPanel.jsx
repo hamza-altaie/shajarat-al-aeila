@@ -468,7 +468,7 @@ export default function AdminPanel() {
   };
 
   return (
-    <Container maxWidth="md" sx={{ py: { xs: 2, sm: 4 }, pb: 12, px: { xs: 2, sm: 3 } }}>
+    <Container maxWidth="md" sx={{ py: { xs: 2, sm: 4 }, pb: { xs: 16, sm: 12 }, px: { xs: 2, sm: 3 } }}>
       {/* الهيدر */}
       <Box sx={{ 
         display: 'flex', 
@@ -1411,6 +1411,9 @@ export default function AdminPanel() {
           {snackbar.message}
         </Alert>
       </Snackbar>
+      
+      {/* مسافة سفلية للقائمة على الهاتف */}
+      {isMobile && <Box sx={{ height: 100 }} />}
     </Container>
   );
 }
