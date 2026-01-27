@@ -42,6 +42,8 @@ import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import DownloadIcon from '@mui/icons-material/Download';
 import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import { getTribeTree } from "../services/tribeService";
 import { useTribe } from '../contexts/TribeContext';
 import { useAuth } from '../AuthContext';
@@ -272,6 +274,50 @@ export default function FamilyTreeAdvanced() {
 
   // حالة تصدير الصورة
   const [exporting, setExporting] = useState(false);
+  
+  // ✅ حالة ملء الشاشة
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  
+  // معالج تغيير حالة ملء الشاشة
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+  
+  // دالة تبديل ملء الشاشة
+  const toggleFullscreen = useCallback(async () => {
+    try {
+      if (!document.fullscreenElement) {
+        // الدخول لوضع ملء الشاشة
+        const element = containerRef.current;
+        if (element) {
+          if (element.requestFullscreen) {
+            await element.requestFullscreen();
+          } else if (element.webkitRequestFullscreen) {
+            await element.webkitRequestFullscreen();
+          }
+        }
+      } else {
+        // الخروج من ملء الشاشة
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          await document.webkitExitFullscreen();
+        }
+      }
+    } catch (err) {
+      console.error('خطأ في ملء الشاشة:', err);
+    }
+  }, []);
 
   // =============================================
   // 📸 تصدير الشجرة كصورة
@@ -2161,8 +2207,19 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
           right: 0,
           bottom: 0,
           overflow: 'hidden',
-          background: '#fff', 
-          fontFamily: 'Cairo, sans-serif'
+          background: isFullscreen ? '#1a1a2e' : '#fff', 
+          fontFamily: 'Cairo, sans-serif',
+          // ✅ دعم ملء الشاشة
+          '&:fullscreen': {
+            width: '100vw',
+            height: '100vh',
+            background: '#1a1a2e',
+          },
+          '&:-webkit-full-screen': {
+            width: '100vw',
+            height: '100vh',
+            background: '#1a1a2e',
+          },
         }}
       >
         {error ? (
@@ -2768,6 +2825,35 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
             title="تصدير الشجرة كصورة"
           >
             {exporting ? <CircularProgress size={24} color="inherit" /> : <DownloadIcon />}
+          </Fab>
+          
+          {/* ✅ زر ملء الشاشة */}
+          <Fab
+            color="primary"
+            size={isMobile ? "medium" : "small"}
+            onClick={toggleFullscreen}
+            sx={{
+              position: 'fixed',
+              bottom: isMobile ? 90 : 20,
+              right: 20,
+              zIndex: 1100,
+              background: isFullscreen
+                ? 'linear-gradient(45deg, #f44336 0%, #d32f2f 100%)'
+                : 'linear-gradient(45deg, #2e7d32 0%, #1b5e20 100%)',
+              boxShadow: isFullscreen
+                ? '0 4px 15px rgba(244,67,54,0.4)'
+                : '0 4px 15px rgba(46,125,50,0.4)',
+              '&:hover': {
+                background: isFullscreen
+                  ? 'linear-gradient(45deg, #d32f2f 0%, #b71c1c 100%)'
+                  : 'linear-gradient(45deg, #1b5e20 0%, #0a3d0a 100%)',
+                transform: 'scale(1.1)',
+              },
+              transition: 'all 0.3s ease',
+            }}
+            title={isFullscreen ? "الخروج من ملء الشاشة" : "ملء الشاشة"}
+          >
+            {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
           </Fab>
         </>
       )}
