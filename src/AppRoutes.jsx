@@ -51,14 +51,23 @@ const LoadingFallback = () => (
 
 
 export default function AppRoutes() {
-  const { isAuthenticated } = useAuth?.() || { isAuthenticated: false };
+  const { isAuthenticated, loading } = useAuth?.() || { isAuthenticated: false, loading: true };
 
   // يقرر الوجهة عند الدخول للجذر /
-  const IndexRoute = () =>
-    isAuthenticated ? <Navigate to="/family" replace /> : <Navigate to="/login" replace />;
+  const IndexRoute = () => {
+    // انتظار انتهاء التحميل قبل التوجيه
+    if (loading) {
+      return <LoadingFallback />;
+    }
+    return isAuthenticated ? <Navigate to="/family" replace /> : <Navigate to="/login" replace />;
+  };
 
   // صفحة اللوجن: لو المستخدم مسجّل، وديه لإدارة العائلة
   const LoginRoute = () => {
+    // ✅ انتظار انتهاء التحميل قبل عرض صفحة اللوجن
+    if (loading) {
+      return <LoadingFallback />;
+    }
     if (isAuthenticated) {
       return <Navigate to="/family" replace />;
     }

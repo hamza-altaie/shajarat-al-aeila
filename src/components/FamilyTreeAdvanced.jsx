@@ -2000,13 +2000,36 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
       // ✅ زوم على أول نتيجة بحث (مثل الكاميرا) - فقط عند 3 أحرف أو أكثر
       if (foundNode && containerRef.current && query.trim().length >= 3) {
         const container = containerRef.current;
-        const width = container.clientWidth;
-        const height = container.clientHeight;
+        const containerWidth = container.clientWidth;
+        const containerHeight = container.clientHeight;
+        const screenWidth = window.innerWidth;
+        const isMobileDevice = screenWidth < 480;
         
-        // حساب الـ transform للتركيز على العقدة
-        const scale = 1.2; // تكبير قليل للتركيز
-        const targetX = width / 2 - foundX * scale;
-        const targetY = height / 2 - foundY * scale;
+        // الحصول على الـ bounding box للعقدة المستهدفة
+        const nodeElement = d3.select(foundNode);
+        const nodeTransform = nodeElement.attr('transform');
+        
+        // استخراج الإحداثيات من transform
+        let nodeX = foundX;
+        let nodeY = foundY;
+        
+        if (nodeTransform) {
+          const match = nodeTransform.match(/translate\(([^,]+),([^)]+)\)/);
+          if (match) {
+            nodeX = parseFloat(match[1]);
+            nodeY = parseFloat(match[2]);
+          }
+        }
+        
+        // حساب الـ scale المناسب
+        const scale = isMobileDevice ? 1.0 : 1.2;
+        
+        // حساب الموضع لتمركز العقدة في منتصف الشاشة المرئية
+        // على الهاتف نحتاج رفع الموضع لأن الهيدر والبحث يأخذان مساحة
+        const visibleHeight = isMobileDevice ? containerHeight - 200 : containerHeight - 150;
+        
+        const targetX = (containerWidth / 2) - (nodeX * scale);
+        const targetY = (visibleHeight / 2) - (nodeY * scale);
         
         // أنيميشن الزوم للعقدة - سلس بدون تقطيع
         svg.transition()
