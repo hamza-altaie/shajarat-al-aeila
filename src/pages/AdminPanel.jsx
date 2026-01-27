@@ -87,7 +87,7 @@ import {
 
 export default function AdminPanel() {
   const navigate = useNavigate();
-  const { tribe, isAdmin } = useTribe();
+  const { tribe, isAdmin, loading: tribeLoading, membership } = useTribe();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
@@ -129,8 +129,45 @@ export default function AdminPanel() {
   const [healthDialogOpen, setHealthDialogOpen] = useState(false);
   const [healthReport, setHealthReport] = useState(null);
 
+  // ========================================
+  // 🔄 useEffects - يجب أن تكون قبل أي return مشروط
+  // ========================================
+  
+  // جلب المستخدمين عند فتح التبويب
+  useEffect(() => {
+    if (activeTab === 1 && tribe?.id && membership?.role === 'admin') {
+      loadUsersInternal();
+    }
+  }, [activeTab, tribe?.id, membership?.role]);
+
+  // جلب سجل التعديلات
+  useEffect(() => {
+    if (activeTab === 2 && tribe?.id && membership?.role === 'admin') {
+      loadAuditLogsInternal();
+    }
+  }, [activeTab, tribe?.id, membership?.role]);
+
+  // جلب إعدادات القبيلة
+  useEffect(() => {
+    if (activeTab === 3 && tribe?.id && membership?.role === 'admin') {
+      loadTribeSettingsInternal();
+    }
+  }, [activeTab, tribe?.id, membership?.role]);
+
+  // انتظار تحميل بيانات القبيلة والصلاحيات
+  if (tribeLoading || !membership) {
+    return (
+      <Container maxWidth="sm" sx={{ mt: 8, textAlign: 'center' }}>
+        <CircularProgress size={60} sx={{ mb: 3 }} />
+        <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', color: 'text.secondary' }}>
+          جاري التحقق من الصلاحيات...
+        </Typography>
+      </Container>
+    );
+  }
+
   // التحقق من صلاحية المدير
-  if (!isAdmin) {
+  if (membership.role !== 'admin') {
     return (
       <Container maxWidth="sm" sx={{ mt: 8, textAlign: 'center' }}>
         <SecurityIcon sx={{ fontSize: 100, color: '#ef4444', mb: 2 }} />
@@ -150,6 +187,56 @@ export default function AdminPanel() {
       </Container>
     );
   }
+
+  // ========================================
+  // 📌 دوال التحميل الداخلية (تُستدعى من useEffect)
+  // ========================================
+  
+  const loadUsersInternal = async () => {
+    if (!tribe?.id) return;
+    setUsersLoading(true);
+    try {
+      const data = await getTribeUsers(tribe.id);
+      setUsers(data);
+    } catch (err) {
+      console.error('خطأ في جلب المستخدمين:', err);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const loadAuditLogsInternal = async () => {
+    if (!tribe?.id) return;
+    setAuditLoading(true);
+    try {
+      const data = await getAuditLogs(tribe.id, { limit: 100 });
+      setAuditLogs(data);
+    } catch (err) {
+      console.error('خطأ في جلب السجل:', err);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  const loadTribeSettingsInternal = async () => {
+    if (!tribe?.id) return;
+    setSettingsLoading(true);
+    try {
+      const data = await getTribeSettings(tribe.id);
+      setTribeSettings(data);
+      setSettingsForm({
+        name: data.name || '',
+        name_en: data.name_en || '',
+        description: data.description || '',
+        location: data.location || '',
+        established_year: data.established_year || ''
+      });
+    } catch (err) {
+      console.error('خطأ في جلب الإعدادات:', err);
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
 
   const showMessage = (message, severity = 'info') => {
     setSnackbar({ open: true, message, severity });
@@ -277,13 +364,6 @@ export default function AdminPanel() {
   // ========================================
   // 5️⃣ إدارة المستخدمين
   // ========================================
-  
-  // جلب المستخدمين عند فتح التبويب
-  useEffect(() => {
-    if (activeTab === 1 && tribe?.id) {
-      loadUsers();
-    }
-  }, [activeTab, tribe?.id]);
 
   const loadUsers = async () => {
     if (!tribe?.id) return;
@@ -365,12 +445,6 @@ export default function AdminPanel() {
   // ========================================
   // 6️⃣ سجل التعديلات
   // ========================================
-  
-  useEffect(() => {
-    if (activeTab === 2 && tribe?.id) {
-      loadAuditLogs();
-    }
-  }, [activeTab, tribe?.id]);
 
   const loadAuditLogs = async () => {
     if (!tribe?.id) return;
@@ -409,12 +483,6 @@ export default function AdminPanel() {
   // ========================================
   // 7️⃣ إعدادات القبيلة
   // ========================================
-  
-  useEffect(() => {
-    if (activeTab === 3 && tribe?.id) {
-      loadTribeSettings();
-    }
-  }, [activeTab, tribe?.id]);
 
   const loadTribeSettings = async () => {
     if (!tribe?.id) return;
@@ -507,23 +575,31 @@ export default function AdminPanel() {
       </Box>
 
       {/* التبويبات */}
-      <Paper sx={{ mb: 3, borderRadius: 2 }}>
+      <Paper sx={{ mb: 3, borderRadius: 2, overflow: 'hidden' }}>
         <Tabs
           value={activeTab}
           onChange={(e, newValue) => setActiveTab(newValue)}
-          variant="fullWidth"
+          variant={isMobile ? "scrollable" : "fullWidth"}
+          scrollButtons={isMobile ? "auto" : false}
+          allowScrollButtonsMobile
           sx={{
             '& .MuiTab-root': {
               fontFamily: 'Cairo, sans-serif',
               fontWeight: 'bold',
-              fontSize: { xs: '0.8rem', sm: '1rem' }
+              fontSize: { xs: '0.75rem', sm: '1rem' },
+              minWidth: { xs: 'auto', sm: 120 },
+              px: { xs: 1.5, sm: 2 },
+              gap: 0.5
+            },
+            '& .MuiTabs-scrollButtons': {
+              '&.Mui-disabled': { opacity: 0.3 }
             }
           }}
         >
-          <Tab icon={<BuildIcon />} label="الأدوات" iconPosition="start" />
-          <Tab icon={<PeopleIcon />} label="المستخدمين" iconPosition="start" />
-          <Tab icon={<HistoryIcon />} label="السجل" iconPosition="start" />
-          <Tab icon={<SettingsIcon />} label="الإعدادات" iconPosition="start" />
+          <Tab icon={<BuildIcon sx={{ fontSize: { xs: 18, sm: 24 } }} />} label="الأدوات" iconPosition="start" />
+          <Tab icon={<PeopleIcon sx={{ fontSize: { xs: 18, sm: 24 } }} />} label="المستخدمين" iconPosition="start" />
+          <Tab icon={<HistoryIcon sx={{ fontSize: { xs: 18, sm: 24 } }} />} label="السجل" iconPosition="start" />
+          <Tab icon={<SettingsIcon sx={{ fontSize: { xs: 18, sm: 24 } }} />} label="الإعدادات" iconPosition="start" />
         </Tabs>
       </Paper>
 
@@ -803,14 +879,14 @@ export default function AdminPanel() {
 
           {/* دليل الصلاحيات */}
           <Box sx={{ mt: 3, p: 2, bgcolor: '#f9fafb', borderRadius: 2 }}>
-            <Typography variant="subtitle2" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', mb: 1 }}>
+            <Typography variant="subtitle2" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', mb: 1, color: '#1f2937' }}>
               📋 دليل الصلاحيات:
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-              <Typography variant="caption" sx={{ fontFamily: 'Cairo, sans-serif' }}>🔴 <strong>مدير:</strong> كل الصلاحيات</Typography>
-              <Typography variant="caption" sx={{ fontFamily: 'Cairo, sans-serif' }}>🟡 <strong>مشرف:</strong> إضافة وتعديل</Typography>
-              <Typography variant="caption" sx={{ fontFamily: 'Cairo, sans-serif' }}>🔵 <strong>مساهم:</strong> إضافة فقط</Typography>
-              <Typography variant="caption" sx={{ fontFamily: 'Cairo, sans-serif' }}>⚪ <strong>مشاهد:</strong> عرض فقط</Typography>
+              <Typography variant="caption" sx={{ fontFamily: 'Cairo, sans-serif', color: '#374151' }}>🔴 <strong>مدير:</strong> كل الصلاحيات</Typography>
+              <Typography variant="caption" sx={{ fontFamily: 'Cairo, sans-serif', color: '#374151' }}>🟡 <strong>مشرف:</strong> إضافة وتعديل</Typography>
+              <Typography variant="caption" sx={{ fontFamily: 'Cairo, sans-serif', color: '#374151' }}>🔵 <strong>مساهم:</strong> إضافة فقط</Typography>
+              <Typography variant="caption" sx={{ fontFamily: 'Cairo, sans-serif', color: '#374151' }}>⚪ <strong>مشاهد:</strong> عرض فقط</Typography>
             </Box>
           </Box>
         </Paper>

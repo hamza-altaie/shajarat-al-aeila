@@ -8,7 +8,7 @@ const TribeContext = createContext(null);
 export const useTribe = () => useContext(TribeContext);
 
 export const TribeProvider = ({ children }) => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [tribe, setTribe] = useState(null);
   const [membership, setMembership] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -20,6 +20,11 @@ export const TribeProvider = ({ children }) => {
   useEffect(() => {
     // ✅ تعيين الحالة عند بداية كل effect
     isMountedRef.current = true;
+    
+    // ✅ انتظار انتهاء تحميل Auth أولاً
+    if (authLoading) {
+      return;
+    }
     
     // إعادة تعيين البيانات عند تغير المستخدم
     setTribe(null);
@@ -75,7 +80,7 @@ export const TribeProvider = ({ children }) => {
     return () => {
       isMountedRef.current = false;
     };
-  }, [isAuthenticated, user?.uid, user?.phoneNumber, user?.displayName]);
+  }, [authLoading, isAuthenticated, user?.uid, user?.phoneNumber, user?.displayName]);
 
   // ✅ دالة لإعادة تحميل العضوية (تُستخدم بعد إضافة "أنا")
   const refreshMembership = async () => {

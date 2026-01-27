@@ -65,6 +65,11 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
+    // ✅ دائماً log الخطأ
+    console.error('🔴 ErrorBoundary - الخطأ:', error);
+    console.error('🔴 ErrorBoundary - المعلومات:', errorInfo);
+    console.error('🔴 ErrorBoundary - Stack:', error?.stack);
+    
     // ✅ تجاهل أخطاء DOM المعروفة
     if (error?.message?.includes('removeChild') || 
         error?.message?.includes('insertBefore') ||
@@ -73,8 +78,6 @@ class ErrorBoundary extends React.Component {
       this.setState({ hasError: false, error: null });
       return;
     }
-    
-    console.error('❌ خطأ في التطبيق:', error, errorInfo);
     
     // تجنب إرسال أخطاء Chrome Extensions
     if (error.stack && !error.stack.includes('extension://')) {
@@ -116,21 +119,24 @@ class ErrorBoundary extends React.Component {
             🔄 إعادة تحميل الصفحة
           </button>
           
-          {process.env.NODE_ENV === 'development' && (
-            <details style={{ marginTop: '20px', textAlign: 'left' }}>
-              <summary>تفاصيل الخطأ (للمطورين)</summary>
-              <pre style={{ 
-                background: '#f5f5f5', 
-                padding: '10px', 
-                borderRadius: '5px',
-                fontSize: '12px',
-                overflow: 'auto',
-                maxWidth: '600px'
-              }}>
-                {this.state.error?.stack || this.state.error?.message || 'خطأ غير معروف'}
-              </pre>
-            </details>
-          )}
+          {/* عرض تفاصيل الخطأ دائماً للتشخيص */}
+          <details style={{ marginTop: '20px', textAlign: 'left', width: '100%', maxWidth: '600px' }}>
+            <summary style={{ cursor: 'pointer', color: '#666' }}>تفاصيل الخطأ</summary>
+            <pre style={{ 
+              background: '#f5f5f5', 
+              padding: '10px', 
+              borderRadius: '5px',
+              fontSize: '12px',
+              overflow: 'auto',
+              color: '#333',
+              direction: 'ltr',
+              textAlign: 'left'
+            }}>
+              {this.state.error?.message || 'خطأ غير معروف'}
+              {'\n\n'}
+              {this.state.error?.stack || ''}
+            </pre>
+          </details>
         </div>
       );
     }

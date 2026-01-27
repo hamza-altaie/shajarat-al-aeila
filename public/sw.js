@@ -1,5 +1,5 @@
 // public/sw.js - النسخة المُصححة الكاملة
-const CACHE_VERSION = 'family-tree-v1.0.1';
+const CACHE_VERSION = 'family-tree-v1.0.3';
 const CACHE_NAME = `family-tree-cache-${CACHE_VERSION}`;
 
 // الملفات الأساسية (مسارات صحيحة لـ Vite)
