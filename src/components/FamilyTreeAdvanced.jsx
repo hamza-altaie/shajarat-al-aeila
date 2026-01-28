@@ -278,32 +278,58 @@ export default function FamilyTreeAdvanced() {
   // ✅ حالة ملء الشاشة
   const [isFullscreen, setIsFullscreen] = useState(false);
   
+  // فحص إذا كان الجهاز iOS
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  
   // معالج تغيير حالة ملء الشاشة
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      setIsFullscreen(
+        !!document.fullscreenElement || 
+        !!document.webkitFullscreenElement ||
+        !!document.msFullscreenElement
+      );
     };
     
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
     
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
     };
   }, []);
   
   // دالة تبديل ملء الشاشة
   const toggleFullscreen = useCallback(async () => {
     try {
-      if (!document.fullscreenElement) {
+      const currentFullscreen = document.fullscreenElement || 
+        document.webkitFullscreenElement || 
+        document.msFullscreenElement;
+      
+      if (!currentFullscreen) {
         // الدخول لوضع ملء الشاشة
         const element = containerRef.current;
         if (element) {
           if (element.requestFullscreen) {
             await element.requestFullscreen();
           } else if (element.webkitRequestFullscreen) {
+            // Safari/iOS
             await element.webkitRequestFullscreen();
+          } else if (element.webkitEnterFullscreen) {
+            // iOS Safari للفيديو
+            await element.webkitEnterFullscreen();
+          } else if (element.msRequestFullscreen) {
+            // IE/Edge
+            await element.msRequestFullscreen();
+          } else if (isIOS) {
+            // بديل لـ iOS - استخدام CSS لمحاكاة ملء الشاشة
+            setIsFullscreen(true);
+            document.body.style.overflow = 'hidden';
+            showSnackbar('📱 وضع العرض الموسع - اسحب لأعلى لإخفاء شريط العنوان', 'info');
           }
         }
       } else {
@@ -312,12 +338,26 @@ export default function FamilyTreeAdvanced() {
           await document.exitFullscreen();
         } else if (document.webkitExitFullscreen) {
           await document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+          await document.msExitFullscreen();
+        } else if (isIOS) {
+          setIsFullscreen(false);
+          document.body.style.overflow = '';
         }
       }
     } catch (err) {
-      console.error('خطأ في ملء الشاشة:', err);
+      // iOS لا يدعم Fullscreen API - استخدام بديل CSS
+      if (isIOS) {
+        setIsFullscreen(!isFullscreen);
+        document.body.style.overflow = !isFullscreen ? 'hidden' : '';
+        if (!isFullscreen) {
+          showSnackbar('📱 وضع العرض الموسع', 'info');
+        }
+      } else {
+        console.error('خطأ في ملء الشاشة:', err);
+      }
     }
-  }, []);
+  }, [isIOS, isFullscreen, showSnackbar]);
 
   // =============================================
   // 📸 تصدير الشجرة كصورة
@@ -1806,6 +1846,7 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
             .transition()
             .duration(300)
             .style("opacity", 1)
+            .style("visibility", "visible")
             .style("pointer-events", "auto");
           
           // إظهار الروابط
@@ -1817,7 +1858,8 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
             })
             .transition()
             .duration(300)
-            .style("opacity", 0.9);
+            .style("opacity", 0.9)
+            .style("visibility", "visible");
         });
         
         // تغيير مظهر الزر
@@ -1842,7 +1884,10 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
             .transition()
             .duration(300)
             .style("opacity", 0)
-            .style("pointer-events", "none");
+            .style("pointer-events", "none")
+            .on("end", function() {
+              d3.select(this).style("visibility", "hidden");
+            });
           
           // إخفاء الروابط
           g.selectAll(".link")
@@ -1853,7 +1898,10 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
             })
             .transition()
             .duration(300)
-            .style("opacity", 0);
+            .style("opacity", 0)
+            .on("end", function() {
+              d3.select(this).style("visibility", "hidden");
+            });
         });
         
         // تغيير مظهر الزر
@@ -2687,12 +2735,14 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
                   .transition()
                   .duration(400)
                   .style("opacity", 1)
+                  .style("visibility", "visible")
                   .style("pointer-events", "auto");
                 
                 g.selectAll(".link")
                   .transition()
                   .duration(400)
-                  .style("opacity", 0.9);
+                  .style("opacity", 0.9)
+                  .style("visibility", "visible");
                 
                 // إعادة تعيين أزرار الطي
                 g.selectAll(".collapse-button circle")
@@ -2745,7 +2795,10 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
                       .transition()
                       .duration(400)
                       .style("opacity", 0)
-                      .style("pointer-events", "none");
+                      .style("pointer-events", "none")
+                      .on("end", function() {
+                        d3.select(this).style("visibility", "hidden");
+                      });
                     
                     g.selectAll(".link")
                       .filter(linkData => {
@@ -2755,7 +2808,10 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
                       })
                       .transition()
                       .duration(400)
-                      .style("opacity", 0);
+                      .style("opacity", 0)
+                      .on("end", function() {
+                        d3.select(this).style("visibility", "hidden");
+                      });
                   });
                   
                   // تحديث أزرار الطي للعقد المطوية

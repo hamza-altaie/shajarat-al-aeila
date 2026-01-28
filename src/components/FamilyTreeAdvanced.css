@@ -991,3 +991,105 @@ svg {
   -webkit-user-select: none;
   user-select: none;
 }
+/* =============================================================== */
+/* ✅ دعم الوضع الأفقي (Landscape Mode) للهواتف والتابلت فقط */
+/* =============================================================== */
+
+/* الوضع الأفقي للهواتف الصغيرة فقط (ليس الحاسوب) */
+@media screen and (orientation: landscape) and (max-height: 500px) and (max-width: 915px) {
+  .family-tree-advanced-root {
+    height: 100vh !important;
+    width: 100vw !important;
+    overflow: hidden;
+  }
+  
+  /* تقليل ارتفاع الهيدر في الوضع الأفقي */
+  .family-tree-advanced-root .MuiPaper-root:first-of-type {
+    padding: 4px 8px !important;
+    min-height: auto !important;
+  }
+  
+  /* تكبير منطقة الشجرة */
+  .family-tree-advanced-root > div:nth-child(2) {
+    top: 70px !important;
+    bottom: 0 !important;
+  }
+  
+  /* تصغير الأزرار العائمة */
+  .family-tree-advanced-root .MuiFab-root {
+    width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+  }
+  
+  .family-tree-advanced-root .MuiFab-root svg {
+    font-size: 18px !important;
+  }
+}
+
+/* الوضع الأفقي للهواتف المتوسطة */
+@media screen and (orientation: landscape) and (min-height: 320px) and (max-height: 450px) and (max-width: 915px) {
+  .family-tree-advanced-root > div:nth-child(2) {
+    top: 60px !important;
+  }
+}
+
+/* الوضع الأفقي للتابلت فقط */
+@media screen and (orientation: landscape) and (min-height: 450px) and (max-height: 800px) and (max-width: 1200px) {
+  .family-tree-advanced-root {
+    height: 100vh !important;
+    width: 100vw !important;
+  }
+  
+  .family-tree-advanced-root > div:nth-child(2) {
+    top: 100px !important;
+    bottom: 0 !important;
+  }
+}
+
+/* تحسين SVG في الوضع الأفقي للموبايل والتابلت فقط */
+@media screen and (orientation: landscape) and (max-width: 1200px) and (hover: none) {
+  .family-tree-advanced-root svg {
+    width: 100% !important;
+    height: 100% !important;
+  }
+  
+  /* منع تمرير الصفحة أثناء التنقل في الشجرة */
+  .family-tree-advanced-root {
+    touch-action: none;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* دعم iOS في الوضع الأفقي - للأجهزة اللمسية فقط */
+@supports (-webkit-touch-callout: none) {
+  @media screen and (orientation: landscape) and (max-width: 1200px) {
+    .family-tree-advanced-root {
+      height: 100vh !important;
+      height: -webkit-fill-available !important;
+      min-height: -webkit-fill-available !important;
+    }
+    
+    /* إصلاح مشكلة الهيدر على iOS landscape */
+    .family-tree-advanced-root > div:nth-child(2) {
+      position: fixed !important;
+      top: 60px !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+    }
+  }
+}
+
+/* دعم الشاشات الكاملة */
+.family-tree-advanced-root:fullscreen,
+.family-tree-advanced-root:-webkit-full-screen {
+  width: 100vw !important;
+  height: 100vh !important;
+  background: #1a1a2e !important;
+}
+
+.family-tree-advanced-root:fullscreen svg,
+.family-tree-advanced-root:-webkit-full-screen svg {
+  background: #1a1a2e !important;
+}
