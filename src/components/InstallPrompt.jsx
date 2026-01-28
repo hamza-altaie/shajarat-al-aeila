@@ -15,6 +15,7 @@ const InstallPrompt = () => {
   const [showInstallScreen, setShowInstallScreen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [showSuccessScreen, setShowSuccessScreen] = useState(false);
 
   useEffect(() => {
     // التحقق من التنصيب المسبق
@@ -57,10 +58,17 @@ const InstallPrompt = () => {
 
     // مستمع لحدث التنصيب المكتمل
     const handleAppInstalled = () => {
-      setIsInstalled(true);
       setShowInstallScreen(false);
       setDeferredPrompt(null);
+      // إظهار شاشة النجاح
+      setShowSuccessScreen(true);
       localStorage.removeItem('install-declined');
+      
+      // إخفاء شاشة النجاح بعد 5 ثوان
+      setTimeout(() => {
+        setShowSuccessScreen(false);
+        setIsInstalled(true);
+      }, 5000);
     };
 
     window.addEventListener('appinstalled', handleAppInstalled);
@@ -80,12 +88,19 @@ const InstallPrompt = () => {
 
         if (result.outcome === 'accepted') {
           localStorage.removeItem('install-declined');
+          // إظهار شاشة النجاح
+          setShowInstallScreen(false);
+          setShowSuccessScreen(true);
+          setTimeout(() => {
+            setShowSuccessScreen(false);
+            setIsInstalled(true);
+          }, 5000);
         } else {
           localStorage.setItem('install-declined', 'true');
+          setShowInstallScreen(false);
         }
         
         setDeferredPrompt(null);
-        setShowInstallScreen(false);
         
       } catch (error) {
         console.error('❌ خطأ في التنصيب التلقائي:', error);
@@ -123,8 +138,118 @@ const InstallPrompt = () => {
   };
 
   // تظهر الواجهة لجميع الأجهزة المحمولة
-  if (isInstalled || !showInstallScreen) {
+  if (isInstalled || (!showInstallScreen && !showSuccessScreen)) {
     return null;
+  }
+
+  // شاشة النجاح بعد التثبيت
+  if (showSuccessScreen) {
+    return (
+      <Fade in={showSuccessScreen}>
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            p: 2
+          }}
+        >
+          <Card
+            sx={{
+              maxWidth: 400,
+              width: '100%',
+              borderRadius: 4,
+              background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              textAlign: 'center'
+            }}
+          >
+            <CardContent sx={{ p: 4 }}>
+              {/* أيقونة النجاح */}
+              <Box
+                sx={{
+                  width: 100,
+                  height: 100,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 24px',
+                  boxShadow: '0 8px 24px rgba(46,125,50,0.4)',
+                  animation: 'pulse 1.5s infinite'
+                }}
+              >
+                <Typography sx={{ fontSize: 50 }}>✓</Typography>
+              </Box>
+
+              <Typography 
+                variant="h4" 
+                sx={{ 
+                  fontWeight: 'bold', 
+                  color: '#2e7d32',
+                  mb: 2,
+                  fontFamily: 'Cairo, sans-serif'
+                }}
+              >
+                🎉 تم التثبيت بنجاح!
+              </Typography>
+
+              <Typography 
+                variant="body1" 
+                sx={{ 
+                  color: '#1b5e20',
+                  mb: 3,
+                  lineHeight: 1.8,
+                  fontSize: '1.1rem'
+                }}
+              >
+                تم تثبيت التطبيق على جهازك.
+                <br />
+                ستجده الآن في الشاشة الرئيسية 📱
+              </Typography>
+
+              <Box sx={{ 
+                backgroundColor: 'rgba(46,125,50,0.1)', 
+                borderRadius: 2, 
+                p: 2,
+                mb: 2
+              }}>
+                <Typography variant="body2" sx={{ color: '#2e7d32' }}>
+                  💡 يمكنك الآن فتح التطبيق من الشاشة الرئيسية للحصول على تجربة أفضل
+                </Typography>
+              </Box>
+
+              <Button
+                onClick={() => {
+                  setShowSuccessScreen(false);
+                  setIsInstalled(true);
+                }}
+                variant="contained"
+                sx={{
+                  mt: 2,
+                  px: 4,
+                  py: 1.5,
+                  borderRadius: 2,
+                  background: 'linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)',
+                  color: 'white',
+                  fontWeight: 'bold'
+                }}
+              >
+                حسناً، فهمت
+              </Button>
+            </CardContent>
+          </Card>
+        </Box>
+      </Fade>
+    );
   }
 
   return (
