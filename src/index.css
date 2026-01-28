@@ -499,6 +499,21 @@ table {
   }
 }
 
+/* ✅ إصلاح Scroll على iOS */
+@supports (-webkit-touch-callout: none) {
+  html, body {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+    height: 100%;
+  }
+  
+  /* إصلاح Container لصفحة Family */
+  .MuiContainer-root {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+  }
+}
+
 /* تحسين أداء التمرير */
 .smooth-scroll {
   scroll-behavior: smooth;

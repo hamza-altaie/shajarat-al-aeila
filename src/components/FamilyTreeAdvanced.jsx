@@ -306,6 +306,43 @@ export default function FamilyTreeAdvanced() {
   // دالة تبديل ملء الشاشة
   const toggleFullscreen = useCallback(async () => {
     try {
+      // iOS لا يدعم Fullscreen API - استخدام بديل CSS مباشرة
+      if (isIOS) {
+        const newState = !isFullscreen;
+        setIsFullscreen(newState);
+        document.body.style.overflow = newState ? 'hidden' : '';
+        document.documentElement.style.overflow = newState ? 'hidden' : '';
+        
+        if (containerRef.current) {
+          if (newState) {
+            containerRef.current.style.position = 'fixed';
+            containerRef.current.style.top = '0';
+            containerRef.current.style.left = '0';
+            containerRef.current.style.right = '0';
+            containerRef.current.style.bottom = '0';
+            containerRef.current.style.zIndex = '9999';
+            containerRef.current.style.width = '100vw';
+            containerRef.current.style.height = '100vh';
+            containerRef.current.style.background = '#1a1a2e';
+          } else {
+            containerRef.current.style.position = '';
+            containerRef.current.style.top = '';
+            containerRef.current.style.left = '';
+            containerRef.current.style.right = '';
+            containerRef.current.style.bottom = '';
+            containerRef.current.style.zIndex = '';
+            containerRef.current.style.width = '';
+            containerRef.current.style.height = '';
+            containerRef.current.style.background = '';
+          }
+        }
+        
+        if (newState) {
+          showSnackbar('📱 وضع العرض الموسع - اضغط مرة أخرى للخروج', 'info');
+        }
+        return;
+      }
+      
       const currentFullscreen = document.fullscreenElement || 
         document.webkitFullscreenElement || 
         document.msFullscreenElement;
@@ -317,19 +354,9 @@ export default function FamilyTreeAdvanced() {
           if (element.requestFullscreen) {
             await element.requestFullscreen();
           } else if (element.webkitRequestFullscreen) {
-            // Safari/iOS
             await element.webkitRequestFullscreen();
-          } else if (element.webkitEnterFullscreen) {
-            // iOS Safari للفيديو
-            await element.webkitEnterFullscreen();
           } else if (element.msRequestFullscreen) {
-            // IE/Edge
             await element.msRequestFullscreen();
-          } else if (isIOS) {
-            // بديل لـ iOS - استخدام CSS لمحاكاة ملء الشاشة
-            setIsFullscreen(true);
-            document.body.style.overflow = 'hidden';
-            showSnackbar('📱 وضع العرض الموسع - اسحب لأعلى لإخفاء شريط العنوان', 'info');
           }
         }
       } else {
@@ -340,22 +367,14 @@ export default function FamilyTreeAdvanced() {
           await document.webkitExitFullscreen();
         } else if (document.msExitFullscreen) {
           await document.msExitFullscreen();
-        } else if (isIOS) {
-          setIsFullscreen(false);
-          document.body.style.overflow = '';
         }
       }
     } catch (err) {
-      // iOS لا يدعم Fullscreen API - استخدام بديل CSS
-      if (isIOS) {
-        setIsFullscreen(!isFullscreen);
-        document.body.style.overflow = !isFullscreen ? 'hidden' : '';
-        if (!isFullscreen) {
-          showSnackbar('📱 وضع العرض الموسع', 'info');
-        }
-      } else {
-        console.error('خطأ في ملء الشاشة:', err);
-      }
+      console.error('خطأ في ملء الشاشة:', err);
+      // استخدام بديل CSS
+      const newState = !isFullscreen;
+      setIsFullscreen(newState);
+      document.body.style.overflow = newState ? 'hidden' : '';
     }
   }, [isIOS, isFullscreen, showSnackbar]);
 
@@ -1843,10 +1862,11 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
               const id = nodeData?.attributes?.id || nodeData?.id;
               return id === descId;
             })
+            .style("display", "block")
+            .style("visibility", "visible")
             .transition()
             .duration(300)
             .style("opacity", 1)
-            .style("visibility", "visible")
             .style("pointer-events", "auto");
           
           // إظهار الروابط
@@ -1856,10 +1876,11 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
               const targetId = linkData.target?.data?.attributes?.id || linkData.target?.data?.id;
               return descId === sourceId || descId === targetId;
             })
+            .style("display", "block")
+            .style("visibility", "visible")
             .transition()
             .duration(300)
-            .style("opacity", 0.9)
-            .style("visibility", "visible");
+            .style("opacity", 0.9);
         });
         
         // تغيير مظهر الزر
@@ -1886,7 +1907,9 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
             .style("opacity", 0)
             .style("pointer-events", "none")
             .on("end", function() {
-              d3.select(this).style("visibility", "hidden");
+              d3.select(this)
+                .style("visibility", "hidden")
+                .style("display", "none");
             });
           
           // إخفاء الروابط
@@ -1900,7 +1923,9 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
             .duration(300)
             .style("opacity", 0)
             .on("end", function() {
-              d3.select(this).style("visibility", "hidden");
+              d3.select(this)
+                .style("visibility", "hidden")
+                .style("display", "none");
             });
         });
         

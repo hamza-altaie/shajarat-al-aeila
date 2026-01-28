@@ -1093,3 +1093,35 @@ svg {
 .family-tree-advanced-root:-webkit-full-screen svg {
   background: #1a1a2e !important;
 }
+
+/* ✅ إصلاح iOS Fullscreen البديل */
+.family-tree-advanced-root.ios-fullscreen {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: -webkit-fill-available !important;
+  z-index: 9999 !important;
+  background: #1a1a2e !important;
+}
+
+.family-tree-advanced-root.ios-fullscreen svg {
+  background: #1a1a2e !important;
+}
+
+/* ✅ إخفاء العقد المطوية بالكامل */
+.node.collapsed-child {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.link.collapsed-child {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
