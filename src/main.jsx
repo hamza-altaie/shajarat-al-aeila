@@ -46,105 +46,6 @@ if (typeof window !== 'undefined') {
 // 🛡️ معالجة الأخطاء العامة
 // ===========================================================================
 
-// ErrorBoundary مكون لمعالجة الأخطاء
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error) {
-    // ✅ تجاهل أخطاء DOM المعروفة التي تحدث عند التنقل
-    if (error?.message?.includes('removeChild') || 
-        error?.message?.includes('insertBefore') ||
-        error?.message?.includes('not a child of this node')) {
-      console.warn('⚠️ خطأ DOM معروف (تم تجاهله):', error.message);
-      return { hasError: false, error: null };
-    }
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    // ✅ دائماً log الخطأ
-    console.error('🔴 ErrorBoundary - الخطأ:', error);
-    console.error('🔴 ErrorBoundary - المعلومات:', errorInfo);
-    console.error('🔴 ErrorBoundary - Stack:', error?.stack);
-    
-    // ✅ تجاهل أخطاء DOM المعروفة
-    if (error?.message?.includes('removeChild') || 
-        error?.message?.includes('insertBefore') ||
-        error?.message?.includes('not a child of this node')) {
-      console.warn('⚠️ خطأ DOM تم التقاطه وتجاهله');
-      this.setState({ hasError: false, error: null });
-      return;
-    }
-    
-    // تجنب إرسال أخطاء Chrome Extensions
-    if (error.stack && !error.stack.includes('extension://')) {
-      // يمكن إضافة خدمة لوغ الأخطاء هنا
-    }
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh',
-          padding: '20px',
-          textAlign: 'center',
-          fontFamily: 'Cairo, Arial, sans-serif'
-        }}>
-          <h1 style={{ color: '#d32f2f', marginBottom: '20px' }}>
-            🚫 حدث خطأ في التطبيق
-          </h1>
-          <p style={{ color: '#666', marginBottom: '20px' }}>
-            عذراً، حدث خطأ غير متوقع. يرجى إعادة تحميل الصفحة.
-          </p>
-          <button 
-            onClick={() => window.location.reload()}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#4caf50',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              fontSize: '16px'
-            }}
-          >
-            🔄 إعادة تحميل الصفحة
-          </button>
-          
-          {/* عرض تفاصيل الخطأ دائماً للتشخيص */}
-          <details style={{ marginTop: '20px', textAlign: 'left', width: '100%', maxWidth: '600px' }}>
-            <summary style={{ cursor: 'pointer', color: '#666' }}>تفاصيل الخطأ</summary>
-            <pre style={{ 
-              background: '#f5f5f5', 
-              padding: '10px', 
-              borderRadius: '5px',
-              fontSize: '12px',
-              overflow: 'auto',
-              color: '#333',
-              direction: 'ltr',
-              textAlign: 'left'
-            }}>
-              {this.state.error?.message || 'خطأ غير معروف'}
-              {'\n\n'}
-              {this.state.error?.stack || ''}
-            </pre>
-          </details>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
 // دالة لمعالجة الأخطاء العامة
 const handleGlobalError = (error, context = {}) => {
   // تجنب أخطاء Chrome Extensions
@@ -181,9 +82,7 @@ const root = createRoot(container);
 try {
   root.render(
     <React.StrictMode>
-      <ErrorBoundary>
-        <App />
-      </ErrorBoundary>
+      <App />
     </React.StrictMode>
   );
 

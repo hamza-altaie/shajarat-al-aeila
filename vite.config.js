@@ -10,12 +10,7 @@ export default defineConfig({
   plugins: [
     react({
       jsxRuntime: 'automatic',
-      jsxImportSource: 'react',
-      fastRefresh: true,
-      babel: {
-        plugins: [],
-        presets: [['@babel/preset-react', { runtime: 'automatic', importSource: 'react' }]]
-      }
+      fastRefresh: true
     })
   ],
 
