@@ -2055,6 +2055,7 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
     
     if (svgRef.current && zoomRef.current) {
       const svg = d3.select(svgRef.current);
+      // eslint-disable-next-line no-unused-vars
       const g = svg.select('g');
       
       // إعادة تعيين كل العقد لحالتها الطبيعية أولاً
@@ -2750,7 +2751,7 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
                   .duration(200)
                   .attr("fill", "#4caf50");
                 g.selectAll(".collapse-button text")
-                  .filter((_, i, nodes) => i === 0)
+                  .filter((_, i) => i === 0)
                   .text("−");
                 
                 setCollapsedNodes(new Set());

@@ -87,7 +87,7 @@ import {
 
 export default function AdminPanel() {
   const navigate = useNavigate();
-  const { tribe, isAdmin, loading: tribeLoading, membership } = useTribe();
+  const { tribe, loading: tribeLoading, membership } = useTribe();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
@@ -421,6 +421,7 @@ export default function AdminPanel() {
   };
 
   // الحصول على لون الصلاحية
+  // eslint-disable-next-line no-unused-vars
   const getRoleColor = (role) => {
     switch (role) {
       case 'admin': return 'error';
@@ -432,6 +433,7 @@ export default function AdminPanel() {
   };
 
   // ترجمة الصلاحية
+  // eslint-disable-next-line no-unused-vars
   const getRoleLabel = (role) => {
     switch (role) {
       case 'admin': return 'مدير';

@@ -4,8 +4,7 @@ import {
   signOut,
   onAuthStateChanged,
   PhoneAuthProvider,
-  updatePhoneNumber,
-  linkWithCredential
+  updatePhoneNumber
 } from 'firebase/auth';
 import { auth } from './config.js';
 
