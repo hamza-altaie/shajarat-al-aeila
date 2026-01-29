@@ -19,19 +19,18 @@ User → PhoneLogin.jsx → Firebase Auth (OTP) → AuthContext.jsx
 | Auth | `src/firebase/auth.js` | OTP send/verify, reCAPTCHA (Iraqi `+964` only) |
 | Auth State | `src/AuthContext.jsx` | Firebase `onAuthChange` listener, `useAuth()` hook |
 | Tribe State | `src/contexts/TribeContext.jsx` | Auto-join tribe, membership checks, `useTribe()` hook |
-| Data | `src/services/tribeService.js` | **ALL** Supabase queries - centralized data layer |
+| Data | `src/services/tribeService.js` | **ALL** Supabase queries - centralized data layer (~2600 lines) |
 | Tree Logic | `src/utils/FamilyTreeBuilder.js` | Hierarchy building, `isChildOfParent()`, `findFamilyHead()` |
 | Tree UI | `src/components/FamilyTreeAdvanced.jsx` | D3.js rendering, export, search |
 | Relations | `src/utils/FamilyRelations.js` | `MALE_RELATIONS`, `FEMALE_RELATIONS` arrays, `RelationUtils` |
 
 ## Commands
 ```bash
-npm run dev           # localhost:5173
-npm run build         # Production build (Vite)
+npm run dev           # localhost:5173 (Vite)
+npm run build         # Production build
 npm run lint:fix      # ESLint auto-fix
 npm run deploy        # Firebase hosting deployment
 npm run fresh-install # Clean reinstall (deletes node_modules + lock)
-npm run preview       # Preview production build locally
 ```
 
 ## Critical Patterns
@@ -68,27 +67,24 @@ Uses `namesAreSimilar(name1, name2, threshold=0.85)` with Arabic normalization:
 ```
 
 ### RTL & Arabic UI
-- MUI theme: `direction: 'rtl'` set dynamically in `createDynamicTheme()` (App.jsx)
-- Font: `Cairo` (Google Fonts) configured in theme typography
-- All UI text in Arabic - use Arabic strings for labels/messages
+- MUI theme: `direction: 'rtl'` set in `createDynamicTheme()` (App.jsx)
+- Font: `Cairo` (Google Fonts) in theme typography
+- All UI text in Arabic - use Arabic strings for labels/messages/errors
 
 ### Routing & Protection
 ```jsx
 // AppRoutes.jsx - Protected pages use lazy loading
 const Family = lazy(() => import('./pages/Family.jsx'));
-
 // Wrap authenticated routes:
 <Route path="/family" element={<ProtectedRoute><Family /></ProtectedRoute>} />
 ```
 
-### Debug Logging (No console.log!)
+### Debug Logging
 ```js
 import debugLogger from './utils/DebugLogger.js';
 debugLogger.familyDebug('🔍', 'message', data);  // Conditional logging
 debugLogger.error('❌', 'error');                 // Always logs
-
-// Enable in browser console: window.familyDebug.enable()
-// Or via URL: ?debug=true
+// Enable: window.familyDebug.enable() or URL ?debug=true
 ```
 
 ## File Modification Guide
@@ -97,7 +93,7 @@ debugLogger.error('❌', 'error');                 // Always logs
 | New page | Create `src/pages/X.jsx`, add route in `AppRoutes.jsx`, wrap with `ProtectedRoute` |
 | Tree visualization | `FamilyTreeAdvanced.jsx` (D3 rendering) + `FamilyTreeBuilder.js` (data logic) |
 | Database CRUD | `tribeService.js` ONLY - never import `supabaseClient` elsewhere |
-| Add relation type | Update `MALE_RELATIONS`/`FEMALE_RELATIONS` in `FamilyRelations.js` |
+| Add relation type | Update both `MALE_RELATIONS` and `FEMALE_RELATIONS` in `FamilyRelations.js` |
 | New tribe feature | `TribeContext.jsx` (state) + `tribeService.js` (queries) |
 
 ## Database Schema (Supabase)
@@ -108,9 +104,14 @@ debugLogger.error('❌', 'error');                 // Always logs
 
 ## Phone Authentication (Firebase)
 - Iraqi numbers only: must start with `+964`
-- Requires `<div id="recaptcha-container"></div>` in DOM
-- `sendOtp()` handles reCAPTCHA lifecycle automatically
+- Requires `<div id="recaptcha-container"></div>` in DOM before calling `sendOtp()`
 - `confirmationResult` stored in module scope for `verifyOtp()`
+
+## Tech Stack
+- **React 19** + **Vite 6** + **MUI 7** + **React Router 7**
+- **D3.js** for tree visualization
+- **Firebase 11** for auth only
+- **Supabase** for PostgreSQL data
 
 ## Don'ts
 - ❌ `console.log` in production → use `DebugLogger`
@@ -118,5 +119,6 @@ debugLogger.error('❌', 'error');                 // Always logs
 - ❌ Hardcode phone format → always validate `+964` prefix
 - ❌ Bypass `ProtectedRoute.jsx` for authenticated pages
 - ❌ Query Supabase outside `tribeService.js` - breaks service boundary
-- ❌ Add new relation types without updating both `MALE_RELATIONS` and `FEMALE_RELATIONS`
+- ❌ Add relation types without updating both `MALE_RELATIONS` and `FEMALE_RELATIONS`
 - ❌ Use `single()` for optional Supabase results → use `maybeSingle()` to avoid 406 errors
+- ❌ Forget `isMountedRef.current` checks in async useEffect callbacks (see TribeContext.jsx pattern)
