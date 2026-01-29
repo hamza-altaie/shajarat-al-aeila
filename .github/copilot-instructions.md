@@ -17,17 +17,21 @@ User → PhoneLogin.jsx → Firebase Auth (OTP) → AuthContext.jsx
 | Layer | File | Responsibility |
 |-------|------|----------------|
 | Auth | `src/firebase/auth.js` | OTP send/verify, reCAPTCHA (Iraqi `+964` only) |
-| Data | `src/services/tribeService.js` | ALL Supabase queries, `wouldCreateCircle()` cycle detection |
-| Tree Logic | `src/utils/FamilyTreeBuilder.js` | Hierarchy building, name matching (`namesAreSimilar`) |
+| Auth State | `src/AuthContext.jsx` | Firebase `onAuthChange` listener, `useAuth()` hook |
+| Tribe State | `src/contexts/TribeContext.jsx` | Auto-join tribe, membership checks, `useTribe()` hook |
+| Data | `src/services/tribeService.js` | **ALL** Supabase queries - centralized data layer |
+| Tree Logic | `src/utils/FamilyTreeBuilder.js` | Hierarchy building, `isChildOfParent()`, `findFamilyHead()` |
 | Tree UI | `src/components/FamilyTreeAdvanced.jsx` | D3.js rendering, export, search |
+| Relations | `src/utils/FamilyRelations.js` | `MALE_RELATIONS`, `FEMALE_RELATIONS` arrays, `RelationUtils` |
 
 ## Commands
 ```bash
-npm run dev          # localhost:5173
-npm run build        # Production build
-npm run lint:fix     # ESLint auto-fix
-npm run deploy       # Firebase hosting
-npm run fresh-install # Clean reinstall (node_modules + lock file)
+npm run dev           # localhost:5173
+npm run build         # Production build (Vite)
+npm run lint:fix      # ESLint auto-fix
+npm run deploy        # Firebase hosting deployment
+npm run fresh-install # Clean reinstall (deletes node_modules + lock)
+npm run preview       # Preview production build locally
 ```
 
 ## Critical Patterns
@@ -35,54 +39,84 @@ npm run fresh-install # Clean reinstall (node_modules + lock file)
 ### Context Provider Order (App.jsx)
 ```jsx
 <AuthProvider>      {/* Outermost - Firebase auth state */}
-  <TribeProvider>   {/* Depends on useAuth() */}
+  <TribeProvider>   {/* Depends on useAuth() - auto-joins tribe on login */}
     <AppRoutes />
   </TribeProvider>
 </AuthProvider>
 ```
+**Why this order matters**: `TribeProvider` calls `useAuth()` to get `user.uid` for tribe membership.
 
-### Relation Cycle Prevention
+### Relation Cycle Prevention (CRITICAL)
 ```js
 // tribeService.js - ALWAYS check before creating relations
 if (await wouldCreateCircle(tribeId, parentId, childId)) {
   throw new Error('This would create a circular relationship');
 }
-// Uses graph traversal to detect A→B→C→A cycles
+// Uses DFS graph traversal to detect A→B→C→A cycles
+// Fail-safe: returns true on error to prevent relation creation
 ```
 
 ### Smart Auto-Linking (tribeService.js)
-When adding a person, `smartAutoLink()` automatically:
-- Links children to parents via `fatherName` matching
-- Uses `namesAreSimilar()` with Arabic normalization (أ/إ/آ→ا, ة→ه, ى→ي)
+When adding a person, `smartAutoLink()` automatically creates relations:
+1. Links new person to potential parent via `fatherName` matching
+2. Links existing children whose `fatherName` matches new person's `firstName`
+3. Links siblings with same `fatherName` and `grandfatherName`
 
-### RTL & Arabic
-- MUI theme: `direction: 'rtl'` set globally in `App.jsx`
-- Font: Cairo (configured in theme typography)
-- All UI text in Arabic
+Uses `namesAreSimilar(name1, name2, threshold=0.85)` with Arabic normalization:
+```js
+// normalizeNameForMatch(): أ/إ/آ→ا, ة→ه, ى→ي, lowercase
+```
 
-### Debug Logging
+### RTL & Arabic UI
+- MUI theme: `direction: 'rtl'` set dynamically in `createDynamicTheme()` (App.jsx)
+- Font: `Cairo` (Google Fonts) configured in theme typography
+- All UI text in Arabic - use Arabic strings for labels/messages
+
+### Routing & Protection
+```jsx
+// AppRoutes.jsx - Protected pages use lazy loading
+const Family = lazy(() => import('./pages/Family.jsx'));
+
+// Wrap authenticated routes:
+<Route path="/family" element={<ProtectedRoute><Family /></ProtectedRoute>} />
+```
+
+### Debug Logging (No console.log!)
 ```js
 import debugLogger from './utils/DebugLogger.js';
-debugLogger.familyDebug('🔍', 'message', data);
-// Browser console: window.familyDebug.enable()
+debugLogger.familyDebug('🔍', 'message', data);  // Conditional logging
+debugLogger.error('❌', 'error');                 // Always logs
+
+// Enable in browser console: window.familyDebug.enable()
+// Or via URL: ?debug=true
 ```
 
 ## File Modification Guide
-| Task | Files |
-|------|-------|
-| New page | `src/pages/X.jsx` + `AppRoutes.jsx` + protect with `ProtectedRoute` |
-| Tree visualization | `FamilyTreeAdvanced.jsx` (UI) + `FamilyTreeBuilder.js` (logic) |
-| Database queries | `tribeService.js` ONLY |
-| Relation types | `FamilyRelations.js` (MALE_RELATIONS, FEMALE_RELATIONS arrays) |
+| Task | Files to Modify |
+|------|-----------------|
+| New page | Create `src/pages/X.jsx`, add route in `AppRoutes.jsx`, wrap with `ProtectedRoute` |
+| Tree visualization | `FamilyTreeAdvanced.jsx` (D3 rendering) + `FamilyTreeBuilder.js` (data logic) |
+| Database CRUD | `tribeService.js` ONLY - never import `supabaseClient` elsewhere |
+| Add relation type | Update `MALE_RELATIONS`/`FEMALE_RELATIONS` in `FamilyRelations.js` |
+| New tribe feature | `TribeContext.jsx` (state) + `tribeService.js` (queries) |
 
-## Database (Supabase)
-- Schema: `supabase-schema.sql`, `supabase-tribe-schema.sql`
-- Tables: `tribes`, `persons`, `relations` (parent_id/child_id), `tribe_users`
-- RLS policies in `supabase-rls-policies.sql`
+## Database Schema (Supabase)
+- **Tables**: `tribes`, `persons`, `relations` (parent_id/child_id), `tribe_users`
+- **Schema files**: `supabase-schema.sql`, `supabase-tribe-schema.sql`
+- **RLS policies**: `supabase-rls-policies.sql` - Firebase UID-based access control
+- **Key constraint**: `relations` uses `tribe_id + parent_id + child_id` for uniqueness
+
+## Phone Authentication (Firebase)
+- Iraqi numbers only: must start with `+964`
+- Requires `<div id="recaptcha-container"></div>` in DOM
+- `sendOtp()` handles reCAPTCHA lifecycle automatically
+- `confirmationResult` stored in module scope for `verifyOtp()`
 
 ## Don'ts
 - ❌ `console.log` in production → use `DebugLogger`
-- ❌ Skip `wouldCreateCircle()` when creating relations
+- ❌ Skip `wouldCreateCircle()` when creating parent-child relations
 - ❌ Hardcode phone format → always validate `+964` prefix
 - ❌ Bypass `ProtectedRoute.jsx` for authenticated pages
-- ❌ Query Supabase outside `tribeService.js`
+- ❌ Query Supabase outside `tribeService.js` - breaks service boundary
+- ❌ Add new relation types without updating both `MALE_RELATIONS` and `FEMALE_RELATIONS`
+- ❌ Use `single()` for optional Supabase results → use `maybeSingle()` to avoid 406 errors
