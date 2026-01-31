@@ -305,41 +305,45 @@ export default function FamilyTreeAdvanced() {
   
   // دالة تبديل ملء الشاشة
   const toggleFullscreen = useCallback(async () => {
+    // دالة مساعدة لتطبيق CSS البديل
+    const applyCSSFullscreen = (enable) => {
+      setIsFullscreen(enable);
+      document.body.style.overflow = enable ? 'hidden' : '';
+      document.documentElement.style.overflow = enable ? 'hidden' : '';
+      
+      if (containerRef.current) {
+        if (enable) {
+          containerRef.current.style.position = 'fixed';
+          containerRef.current.style.top = '0';
+          containerRef.current.style.left = '0';
+          containerRef.current.style.right = '0';
+          containerRef.current.style.bottom = '0';
+          containerRef.current.style.zIndex = '9999';
+          containerRef.current.style.width = '100vw';
+          containerRef.current.style.height = '100vh';
+          containerRef.current.style.background = '#1a1a2e';
+        } else {
+          containerRef.current.style.position = '';
+          containerRef.current.style.top = '';
+          containerRef.current.style.left = '';
+          containerRef.current.style.right = '';
+          containerRef.current.style.bottom = '';
+          containerRef.current.style.zIndex = '';
+          containerRef.current.style.width = '';
+          containerRef.current.style.height = '';
+          containerRef.current.style.background = '';
+        }
+      }
+      
+      if (enable) {
+        showSnackbar('📱 وضع العرض الموسع - اضغط زر الخروج الأحمر للعودة', 'info');
+      }
+    };
+
     try {
       // iOS لا يدعم Fullscreen API - استخدام بديل CSS مباشرة
       if (isIOS) {
-        const newState = !isFullscreen;
-        setIsFullscreen(newState);
-        document.body.style.overflow = newState ? 'hidden' : '';
-        document.documentElement.style.overflow = newState ? 'hidden' : '';
-        
-        if (containerRef.current) {
-          if (newState) {
-            containerRef.current.style.position = 'fixed';
-            containerRef.current.style.top = '0';
-            containerRef.current.style.left = '0';
-            containerRef.current.style.right = '0';
-            containerRef.current.style.bottom = '0';
-            containerRef.current.style.zIndex = '9999';
-            containerRef.current.style.width = '100vw';
-            containerRef.current.style.height = '100vh';
-            containerRef.current.style.background = '#1a1a2e';
-          } else {
-            containerRef.current.style.position = '';
-            containerRef.current.style.top = '';
-            containerRef.current.style.left = '';
-            containerRef.current.style.right = '';
-            containerRef.current.style.bottom = '';
-            containerRef.current.style.zIndex = '';
-            containerRef.current.style.width = '';
-            containerRef.current.style.height = '';
-            containerRef.current.style.background = '';
-          }
-        }
-        
-        if (newState) {
-          showSnackbar('📱 وضع العرض الموسع - اضغط مرة أخرى للخروج', 'info');
-        }
+        applyCSSFullscreen(!isFullscreen);
         return;
       }
       
@@ -351,12 +355,20 @@ export default function FamilyTreeAdvanced() {
         // الدخول لوضع ملء الشاشة
         const element = containerRef.current;
         if (element) {
-          if (element.requestFullscreen) {
-            await element.requestFullscreen();
-          } else if (element.webkitRequestFullscreen) {
-            await element.webkitRequestFullscreen();
-          } else if (element.msRequestFullscreen) {
-            await element.msRequestFullscreen();
+          try {
+            if (element.requestFullscreen) {
+              await element.requestFullscreen();
+            } else if (element.webkitRequestFullscreen) {
+              await element.webkitRequestFullscreen();
+            } else if (element.msRequestFullscreen) {
+              await element.msRequestFullscreen();
+            } else {
+              // لا يوجد دعم للـ Fullscreen API - استخدام البديل
+              applyCSSFullscreen(true);
+            }
+          } catch {
+            // فشل الـ Fullscreen API - استخدام البديل
+            applyCSSFullscreen(true);
           }
         }
       } else {
@@ -371,10 +383,8 @@ export default function FamilyTreeAdvanced() {
       }
     } catch (err) {
       console.error('خطأ في ملء الشاشة:', err);
-      // استخدام بديل CSS
-      const newState = !isFullscreen;
-      setIsFullscreen(newState);
-      document.body.style.overflow = newState ? 'hidden' : '';
+      // استخدام بديل CSS الكامل
+      applyCSSFullscreen(!isFullscreen);
     }
   }, [isIOS, isFullscreen, showSnackbar]);
 
@@ -1895,38 +1905,49 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
       } else {
         // ✅ طي الفرع - إخفاء العناصر
         descendantIds.forEach(descId => {
-          // إخفاء العقد
-          g.selectAll(".node")
+          // إخفاء العقد - iOS fix: تطبيق الإخفاء مباشرة ثم الـ transition
+          const nodesToHide = g.selectAll(".node")
             .filter(function() {
               const nodeData = d3.select(this).datum()?.data;
               const id = nodeData?.attributes?.id || nodeData?.id;
               return id === descId;
-            })
-            .transition()
-            .duration(300)
-            .style("opacity", 0)
-            .style("pointer-events", "none")
-            .on("end", function() {
-              d3.select(this)
-                .style("visibility", "hidden")
-                .style("display", "none");
             });
           
+          // تطبيق الإخفاء الفوري للـ pointer-events
+          nodesToHide.style("pointer-events", "none");
+          
+          // ثم الـ transition للـ opacity
+          nodesToHide
+            .transition()
+            .duration(300)
+            .style("opacity", 0);
+          
+          // إخفاء كامل بعد انتهاء الـ transition باستخدام setTimeout (iOS compatible)
+          setTimeout(() => {
+            nodesToHide
+              .style("visibility", "hidden")
+              .style("display", "none");
+          }, 320);
+          
           // إخفاء الروابط
-          g.selectAll(".link")
+          const linksToHide = g.selectAll(".link")
             .filter(linkData => {
               const sourceId = linkData.source?.data?.attributes?.id || linkData.source?.data?.id;
               const targetId = linkData.target?.data?.attributes?.id || linkData.target?.data?.id;
               return descId === sourceId || descId === targetId;
-            })
+            });
+          
+          linksToHide
             .transition()
             .duration(300)
-            .style("opacity", 0)
-            .on("end", function() {
-              d3.select(this)
-                .style("visibility", "hidden")
-                .style("display", "none");
-            });
+            .style("opacity", 0);
+          
+          // إخفاء كامل بعد انتهاء الـ transition
+          setTimeout(() => {
+            linksToHide
+              .style("visibility", "hidden")
+              .style("display", "none");
+          }, 320);
         });
         
         // تغيير مظهر الزر
@@ -2411,6 +2432,31 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
             )}
           </>
         )}
+        
+        {/* ✅ زر الخروج من ملء الشاشة - داخل الـ container ليظهر على Android */}
+        {isFullscreen && (
+          <Fab
+            color="error"
+            size="medium"
+            onClick={toggleFullscreen}
+            sx={{
+              position: 'absolute',
+              top: 20,
+              right: 20,
+              zIndex: 10000,
+              background: 'linear-gradient(45deg, #ef4444 0%, #dc2626 100%)',
+              boxShadow: '0 4px 15px rgba(239,68,68,0.5)',
+              '&:hover': {
+                background: 'linear-gradient(45deg, #dc2626 0%, #b91c1c 100%)',
+                transform: 'scale(1.1)',
+              },
+              transition: 'all 0.3s ease',
+            }}
+            title="الخروج من ملء الشاشة"
+          >
+            <FullscreenExitIcon />
+          </Fab>
+        )}
       </Box>
     );
   };
@@ -2757,18 +2803,21 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
               
               if (collapsedNodes.size > 0) {
                 // ✅ فتح الكل - إظهار جميع العناصر
+                // أولاً: إزالة display:none و visibility:hidden فوراً
                 g.selectAll(".node")
+                  .style("display", "block")
+                  .style("visibility", "visible")
+                  .style("pointer-events", "auto")
                   .transition()
                   .duration(400)
-                  .style("opacity", 1)
-                  .style("visibility", "visible")
-                  .style("pointer-events", "auto");
+                  .style("opacity", 1);
                 
                 g.selectAll(".link")
+                  .style("display", "block")
+                  .style("visibility", "visible")
                   .transition()
                   .duration(400)
-                  .style("opacity", 0.9)
-                  .style("visibility", "visible");
+                  .style("opacity", 0.9);
                 
                 // إعادة تعيين أزرار الطي
                 g.selectAll(".collapse-button circle")
@@ -2810,34 +2859,48 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
                   };
                   collectNodes(treeData, 0);
                   
-                  // إخفاء العقد
+                  // إخفاء العقد - iOS fix: استخدام setTimeout بدلاً من .on("end")
                   nodesToHide.forEach(hideId => {
-                    g.selectAll(".node")
+                    const nodesToHideElements = g.selectAll(".node")
                       .filter(function() {
                         const nodeData = d3.select(this).datum()?.data;
                         const id = nodeData?.attributes?.id || nodeData?.id;
                         return id === hideId;
-                      })
-                      .transition()
-                      .duration(400)
-                      .style("opacity", 0)
-                      .style("pointer-events", "none")
-                      .on("end", function() {
-                        d3.select(this).style("visibility", "hidden");
                       });
                     
-                    g.selectAll(".link")
+                    // تطبيق pointer-events فوراً
+                    nodesToHideElements.style("pointer-events", "none");
+                    
+                    // ثم الـ transition
+                    nodesToHideElements
+                      .transition()
+                      .duration(400)
+                      .style("opacity", 0);
+                    
+                    // إخفاء كامل بعد الـ transition باستخدام setTimeout (iOS compatible)
+                    setTimeout(() => {
+                      nodesToHideElements
+                        .style("visibility", "hidden")
+                        .style("display", "none");
+                    }, 420);
+                    
+                    const linksToHideElements = g.selectAll(".link")
                       .filter(linkData => {
                         const sourceId = linkData.source?.data?.attributes?.id || linkData.source?.data?.id;
                         const targetId = linkData.target?.data?.attributes?.id || linkData.target?.data?.id;
                         return hideId === sourceId || hideId === targetId;
-                      })
+                      });
+                    
+                    linksToHideElements
                       .transition()
                       .duration(400)
-                      .style("opacity", 0)
-                      .on("end", function() {
-                        d3.select(this).style("visibility", "hidden");
-                      });
+                      .style("opacity", 0);
+                    
+                    setTimeout(() => {
+                      linksToHideElements
+                        .style("visibility", "hidden")
+                        .style("display", "none");
+                    }, 420);
                   });
                   
                   // تحديث أزرار الطي للعقد المطوية
