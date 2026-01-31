@@ -2432,31 +2432,6 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
             )}
           </>
         )}
-        
-        {/* ✅ زر الخروج من ملء الشاشة - داخل الـ container ليظهر على Android */}
-        {isFullscreen && (
-          <Fab
-            color="error"
-            size="medium"
-            onClick={toggleFullscreen}
-            sx={{
-              position: 'absolute',
-              top: 20,
-              right: 20,
-              zIndex: 10000,
-              background: 'linear-gradient(45deg, #ef4444 0%, #dc2626 100%)',
-              boxShadow: '0 4px 15px rgba(239,68,68,0.5)',
-              '&:hover': {
-                background: 'linear-gradient(45deg, #dc2626 0%, #b91c1c 100%)',
-                transform: 'scale(1.1)',
-              },
-              transition: 'all 0.3s ease',
-            }}
-            title="الخروج من ملء الشاشة"
-          >
-            <FullscreenExitIcon />
-          </Fab>
-        )}
       </Box>
     );
   };
@@ -2767,6 +2742,31 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
       <Box sx={{ position: 'absolute', top: 110, left: 0, right: 0, bottom: isMobile ? 80 : 0, minHeight: 400 }}>
         {renderTreeView()}
       </Box>
+
+      {/* ✅ زر الخروج من وضع ملء الشاشة - يظهر فقط في وضع الفول سكرين */}
+      {isFullscreen && (
+        <Fab
+          color="error"
+          size="medium"
+          onClick={toggleFullscreen}
+          sx={{
+            position: 'fixed',
+            top: 20,
+            right: 20,
+            zIndex: 10000,
+            background: 'linear-gradient(45deg, #ef4444 0%, #dc2626 100%)',
+            boxShadow: '0 4px 15px rgba(239,68,68,0.5)',
+            '&:hover': {
+              background: 'linear-gradient(45deg, #dc2626 0%, #b91c1c 100%)',
+              transform: 'scale(1.1)',
+            },
+            transition: 'all 0.3s ease',
+          }}
+          title="الخروج من ملء الشاشة"
+        >
+          <FullscreenExitIcon />
+        </Fab>
+      )}
 
       {/* زر إعادة التركيز العائم - يظهر على الهاتف فقط */}
       {treeData && (
