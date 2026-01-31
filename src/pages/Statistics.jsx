@@ -105,23 +105,53 @@ const Statistics = () => {
     const head = members.find(m => m.relation === 'رب العائلة' || m.is_root) || members[0];
     if (!head) return null;
 
-    // بناء الشجرة بشكل متكرر - نشمل جميع الأعضاء الآخرين كأطفال
-    const buildChildren = (parentId) => {
+    // مجموعة لتتبع العقد المضافة ومنع الحلقات اللانهائية
+    const addedIds = new Set();
+    addedIds.add(head.id);
+
+    // بناء الشجرة بشكل متكرر مع حماية من الحلقات
+    const buildChildren = (parentId, depth = 0) => {
+      // حماية من العمق الزائد
+      if (depth > 20) return [];
+      
       return members
-        .filter(m => m.parentId === parentId || (m.id !== head.id && !m.parentId && parentId === head.id))
-        .map(child => ({
-          name: child.name,
-          id: child.globalId,
-          attributes: child,
-          children: buildChildren(child.id)
-        }));
+        .filter(m => {
+          if (addedIds.has(m.id)) return false;
+          if (m.id === head.id) return false;
+          return m.parentId === parentId;
+        })
+        .map(child => {
+          addedIds.add(child.id);
+          return {
+            name: child.name,
+            id: child.globalId,
+            attributes: child,
+            children: buildChildren(child.id, depth + 1)
+          };
+        });
     };
+
+    // بناء الأبناء المباشرين
+    const directChildren = buildChildren(head.id, 0);
+    
+    // إضافة الأعضاء بدون والد كأبناء للرأس
+    const orphans = members
+      .filter(m => !addedIds.has(m.id) && m.id !== head.id)
+      .map(orphan => {
+        addedIds.add(orphan.id);
+        return {
+          name: orphan.name,
+          id: orphan.globalId,
+          attributes: orphan,
+          children: []
+        };
+      });
 
     const tree = {
       name: head.name,
       id: head.globalId,
       attributes: head,
-      children: buildChildren(head.id)
+      children: [...directChildren, ...orphans]
     };
     
     return tree;
