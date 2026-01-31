@@ -1012,14 +1012,14 @@ const drawTreeWithD3 = useCallback((data) => {
     svgContainer.selectAll('*').remove();
     
     // إنشاء SVG جديد بواسطة D3 (ليس React)
-    const container = containerRef.current;
-    const width = container.clientWidth;
-    const height = container.clientHeight;
-    
+    // ✅ استخدام 100% بدلاً من أرقام ثابتة ليتمدد مع الحاوية
     const svg = svgContainer
       .append('svg')
-      .attr('width', width)
-      .attr('height', height)
+      .attr('width', '100%')
+      .attr('height', '100%')
+      .style('width', '100%')
+      .style('height', '100%')
+      .style('min-height', '100vh')
       .style('cursor', 'grab')
       .style('user-select', 'none')
       .style('background', 'transparent')
@@ -2351,8 +2351,15 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
               style={{ 
                 width: '100%',
                 height: '100%',
+                minHeight: '100%',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
                 cursor: 'grab', 
                 userSelect: 'none',
+                touchAction: 'none',
                 background: 'transparent',
                 display: treeData ? 'block' : 'none'
               }}
@@ -2431,6 +2438,31 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
               </Box>
             )}
           </>
+        )}
+        
+        {/* ✅ زر الخروج من وضع ملء الشاشة - داخل الـ container */}
+        {isFullscreen && (
+          <Fab
+            color="error"
+            size="medium"
+            onClick={toggleFullscreen}
+            sx={{
+              position: 'absolute',
+              top: 20,
+              right: 20,
+              zIndex: 10000,
+              background: 'linear-gradient(45deg, #ef4444 0%, #dc2626 100%)',
+              boxShadow: '0 4px 15px rgba(239,68,68,0.5)',
+              '&:hover': {
+                background: 'linear-gradient(45deg, #dc2626 0%, #b91c1c 100%)',
+                transform: 'scale(1.1)',
+              },
+              transition: 'all 0.3s ease',
+            }}
+            title="الخروج من ملء الشاشة"
+          >
+            <FullscreenExitIcon />
+          </Fab>
         )}
       </Box>
     );
@@ -2742,31 +2774,6 @@ if (searchQueryRef.current.length > 1 && name.toLowerCase().includes(searchQuery
       <Box sx={{ position: 'absolute', top: 110, left: 0, right: 0, bottom: isMobile ? 80 : 0, minHeight: 400 }}>
         {renderTreeView()}
       </Box>
-
-      {/* ✅ زر الخروج من وضع ملء الشاشة - يظهر فقط في وضع الفول سكرين */}
-      {isFullscreen && (
-        <Fab
-          color="error"
-          size="medium"
-          onClick={toggleFullscreen}
-          sx={{
-            position: 'fixed',
-            top: 20,
-            right: 20,
-            zIndex: 10000,
-            background: 'linear-gradient(45deg, #ef4444 0%, #dc2626 100%)',
-            boxShadow: '0 4px 15px rgba(239,68,68,0.5)',
-            '&:hover': {
-              background: 'linear-gradient(45deg, #dc2626 0%, #b91c1c 100%)',
-              transform: 'scale(1.1)',
-            },
-            transition: 'all 0.3s ease',
-          }}
-          title="الخروج من ملء الشاشة"
-        >
-          <FullscreenExitIcon />
-        </Fab>
-      )}
 
       {/* زر إعادة التركيز العائم - يظهر على الهاتف فقط */}
       {treeData && (
