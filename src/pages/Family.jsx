@@ -2009,6 +2009,14 @@ const loadFamily = useCallback(async () => {
           تغيير رقم الهاتف
         </MenuItem>
         <Divider />
+        <MenuItem onClick={() => {
+          navigate('/settings');
+          handleSettingsClose();
+        }}>
+          <SettingsIcon sx={{ mr: 1, color: '#6b7280' }} />
+          إعدادات الحساب
+        </MenuItem>
+        <Divider />
         <MenuItem onClick={() => { handleLogout(); handleSettingsClose(); }}>
           <LogoutIcon sx={{ mr: 1 }} />
           تسجيل الخروج

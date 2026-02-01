@@ -2594,3 +2594,34 @@ export async function uploadTribeLogo(tribeId, file) {
   }
 }
 
+// =============================================
+// دوال إدارة المستخدم (User Management)
+// =============================================
+
+/**
+ * حذف جميع بيانات المستخدم من Supabase
+ * @param {string} firebaseUid - معرف المستخدم في Firebase
+ * @returns {Promise<void>}
+ */
+export async function deleteUserData(firebaseUid) {
+  try {
+    debugLogger.familyDebug('🗑️', 'بدء حذف بيانات المستخدم:', firebaseUid);
+
+    // حذف من جدول tribe_users
+    const { error: deleteError } = await supabase
+      .from('tribe_users')
+      .delete()
+      .eq('firebase_uid', firebaseUid);
+
+    if (deleteError) {
+      debugLogger.error('❌ خطأ في حذف بيانات المستخدم من Supabase:', deleteError);
+      throw deleteError;
+    }
+
+    debugLogger.familyDebug('✅', 'تم حذف بيانات المستخدم من Supabase بنجاح');
+  } catch (err) {
+    debugLogger.error("❌ خطأ في حذف بيانات المستخدم:", err);
+    throw err;
+  }
+}
+

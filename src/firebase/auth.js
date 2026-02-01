@@ -4,7 +4,8 @@ import {
   signOut,
   onAuthStateChanged,
   PhoneAuthProvider,
-  updatePhoneNumber
+  updatePhoneNumber,
+  deleteUser
 } from 'firebase/auth';
 import { auth } from './config.js';
 
@@ -260,6 +261,31 @@ export async function verifyAndUpdatePhone(verificationCode) {
       errorMessage = 'انتهت صلاحية كود التحقق. أعد المحاولة';
     } else if (error.code === 'auth/credential-already-in-use') {
       errorMessage = 'هذا الرقم مستخدم بحساب آخر';
+    }
+    
+    throw new Error(errorMessage);
+  }
+}
+
+/**
+ * حذف حساب المستخدم من Firebase نهائياً
+ * @returns {Promise<void>}
+ */
+export async function deleteAccount() {
+  try {
+    if (!auth.currentUser) {
+      throw new Error('لا يوجد مستخدم مسجل دخول');
+    }
+
+    await deleteUser(auth.currentUser);
+    console.log("✅ تم حذف حساب المستخدم من Firebase");
+  } catch (error) {
+    console.error("❌ خطأ في حذف الحساب من Firebase:", error);
+    
+    // رسائل خطأ مفهومة
+    let errorMessage = 'فشل في حذف الحساب';
+    if (error.code === 'auth/requires-recent-login') {
+      errorMessage = 'يجب إعادة تسجيل الدخول قبل حذف الحساب لأسباب أمنية';
     }
     
     throw new Error(errorMessage);

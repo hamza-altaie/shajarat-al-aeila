@@ -20,6 +20,7 @@ const FamilyTree = lazy(() => import('./pages/FamilyTree.jsx'));
 const Statistics = lazy(() => import('./pages/Statistics.jsx'));
 const AdminPanel = lazy(() => import('./pages/AdminPanel.jsx'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy.jsx'));
+const Settings = lazy(() => import('./pages/Settings.jsx'));
 
 // ======================================
 // مكون التحميل
@@ -184,6 +185,16 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <AdminPanel />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* صفحة الإعدادات - محمية */}
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <Settings />
           </ProtectedRoute>
         }
       />
