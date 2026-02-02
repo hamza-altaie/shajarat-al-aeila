@@ -1217,18 +1217,51 @@ export default function Family() {
     </Box>
   );
 
+  // دالة لتحديد ألوان الكارت حسب العلاقة
+  const getCardColors = (relation) => {
+    const colorMap = {
+      // أصول العائلة - أزرق
+      'والد': { bg: '#f0f9ff', border: '#3b82f6' },
+      'جد': { bg: '#eff6ff', border: '#2563eb' },
+      'رب العائلة': { bg: '#f0f9ff', border: '#1d4ed8' },
+      'أنا': { bg: '#f0f9ff', border: '#1d4ed8' },
+      
+      // الأبناء - أخضر
+      'ابن': { bg: '#f0fdf4', border: '#22c55e' },
+      'بنت': { bg: '#fdf2f8', border: '#ec4899' },
+      
+      // الإخوة - برتقالي/أصفر
+      'أخ': { bg: '#fff7ed', border: '#f97316' },
+      'أخت': { bg: '#fef3c7', border: '#f59e0b' },
+      
+      // الزوجات - بنفسجي
+      'زوجة': { bg: '#faf5ff', border: '#a855f7' },
+      'زوجة ثانية': { bg: '#f3e8ff', border: '#9333ea' },
+      'زوجة ثالثة': { bg: '#f3e8ff', border: '#7c3aed' },
+      'زوجة رابعة': { bg: '#f3e8ff', border: '#6d28d9' },
+    };
+    
+    return colorMap[relation] || { bg: '#f9fafb', border: '#9ca3af' };
+  };
+
   // عرض كارت العضو
-  const renderMemberCard = (member) => (
+  const renderMemberCard = (member) => {
+    const colors = getCardColors(member.relation);
+    
+    return (
     <Card
       key={member.id}
-      elevation={3}
+      elevation={2}
       sx={{
         height: '100%',
         borderRadius: 3,
         transition: 'all 0.3s ease',
+        bgcolor: colors.bg,
+        border: `3px solid ${colors.border}`,
         '&:hover': {
           transform: 'translateY(-4px)',
           boxShadow: 6,
+          borderWidth: '4px',
         },
       }}
     >
@@ -1373,7 +1406,8 @@ export default function Family() {
         )}
       </CardActions>
     </Card>
-  );
+    );
+  };
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
