@@ -21,14 +21,15 @@ const createDynamicTheme = (mode = 'light') => {
   // التأكد من تحديد الاتجاه بأمان
   let isRTL = false;
   try {
-    isRTL = document.dir === 'rtl' || 
-           document.documentElement.lang === 'ar' || 
-           document.documentElement.getAttribute('dir') === 'rtl';
+    isRTL =
+      document.dir === 'rtl' ||
+      document.documentElement.lang === 'ar' ||
+      document.documentElement.getAttribute('dir') === 'rtl';
   } catch {
     // في حالة عدم توفر document، استخدم RTL كافتراضي للعربية
     isRTL = true;
   }
-  
+
   return createTheme({
     direction: isRTL ? 'rtl' : 'ltr',
     palette: {
@@ -86,10 +87,14 @@ const createDynamicTheme = (mode = 'light') => {
             fontSize: '0.95rem',
             fontWeight: 600,
             transition: 'all 0.3s ease',
-            boxShadow: mode === 'light' ? '0 2px 8px rgba(0,0,0,0.1)' : '0 2px 8px rgba(255,255,255,0.1)',
+            boxShadow:
+              mode === 'light' ? '0 2px 8px rgba(0,0,0,0.1)' : '0 2px 8px rgba(255,255,255,0.1)',
             '&:hover': {
               transform: 'translateY(-2px)',
-              boxShadow: mode === 'light' ? '0 4px 16px rgba(0,0,0,0.15)' : '0 4px 16px rgba(255,255,255,0.15)',
+              boxShadow:
+                mode === 'light'
+                  ? '0 4px 16px rgba(0,0,0,0.15)'
+                  : '0 4px 16px rgba(255,255,255,0.15)',
             },
           },
         },
@@ -98,15 +103,17 @@ const createDynamicTheme = (mode = 'light') => {
         styleOverrides: {
           root: {
             borderRadius: 16,
-            boxShadow: mode === 'light' 
-              ? '0 4px 20px rgba(0,0,0,0.08)' 
-              : '0 4px 20px rgba(255,255,255,0.08)',
+            boxShadow:
+              mode === 'light'
+                ? '0 4px 20px rgba(0,0,0,0.08)'
+                : '0 4px 20px rgba(255,255,255,0.08)',
             transition: 'all 0.3s ease',
             '&:hover': {
               transform: 'translateY(-4px)',
-              boxShadow: mode === 'light' 
-                ? '0 8px 32px rgba(0,0,0,0.12)' 
-                : '0 8px 32px rgba(255,255,255,0.12)',
+              boxShadow:
+                mode === 'light'
+                  ? '0 8px 32px rgba(0,0,0,0.12)'
+                  : '0 8px 32px rgba(255,255,255,0.12)',
             },
           },
         },
@@ -241,13 +248,11 @@ const createGlobalStyles = (mode) => (
         animation: 'pulse 2s infinite',
       },
       '.glass-morphism': {
-        background: mode === 'light' 
-          ? 'rgba(255, 255, 255, 0.7)' 
-          : 'rgba(30, 30, 30, 0.7)',
+        background: mode === 'light' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(30, 30, 30, 0.7)',
         backdropFilter: 'blur(10px)',
-        border: '1px solid ' + (mode === 'light' 
-          ? 'rgba(255, 255, 255, 0.3)' 
-          : 'rgba(255, 255, 255, 0.1)'),
+        border:
+          '1px solid ' +
+          (mode === 'light' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.1)'),
       },
     }}
   />
@@ -258,7 +263,7 @@ const createGlobalStyles = (mode) => (
 // ======================================================
 function AuthMonitor({ children }) {
   const [authLoading, setAuthLoading] = useState(true);
-  
+
   useEffect(() => {
     // محاكاة فحص المصادقة
     const checkAuth = () => {
@@ -267,7 +272,6 @@ function AuthMonitor({ children }) {
         setTimeout(() => {
           setAuthLoading(false);
         }, 1000);
-        
       } catch (error) {
         console.error('❌ خطأ في مراقبة المصادقة:', error);
         setAuthLoading(false);
@@ -304,23 +308,15 @@ function AuthMonitor({ children }) {
             🌳
           </Typography>
         </Box>
-        
-        <CircularProgress 
-          size={60} 
-          sx={{ color: 'primary.main', mb: 2 }} 
-        />
-        
-        <Typography 
-          variant="h5" 
-          color="text.primary"
-          gutterBottom
-          className="fade-in-up"
-        >
+
+        <CircularProgress size={60} sx={{ color: 'primary.main', mb: 2 }} />
+
+        <Typography variant="h5" color="text.primary" gutterBottom className="fade-in-up">
           جاري تحميل شجرة القبيلة...
         </Typography>
-        
-        <Typography 
-          variant="body1" 
+
+        <Typography
+          variant="body1"
           color="text.secondary"
           textAlign="center"
           className="fade-in-up"
@@ -341,7 +337,7 @@ function AuthMonitor({ children }) {
 function ThemeManager({ children }) {
   const [theme] = useState('light'); // يمكن تطويرها لاحقاً لدعم الوضع المظلم
   const dynamicTheme = createDynamicTheme(theme);
-  
+
   return (
     <ThemeProvider theme={dynamicTheme}>
       <CssBaseline />

@@ -13,9 +13,9 @@ const firebaseConfig = {
 
 // تحقق من تهيئة الإعدادات
 if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-  console.error("❌ Firebase غير مهيأ! تحقق من متغيرات البيئة:");
-  console.error("   VITE_FIREBASE_API_KEY:", firebaseConfig.apiKey ? '✓' : '✗');
-  console.error("   VITE_FIREBASE_PROJECT_ID:", firebaseConfig.projectId ? '✓' : '✗');
+  console.error('❌ Firebase غير مهيأ! تحقق من متغيرات البيئة:');
+  console.error('   VITE_FIREBASE_API_KEY:', firebaseConfig.apiKey ? '✓' : '✗');
+  console.error('   VITE_FIREBASE_PROJECT_ID:', firebaseConfig.projectId ? '✓' : '✗');
 }
 
 // Firebase Config loaded

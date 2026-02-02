@@ -12,7 +12,7 @@ import {
   TextField,
   Box,
   Alert,
-  CircularProgress
+  CircularProgress,
 } from '@mui/material';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -65,7 +65,7 @@ export default function Settings() {
           <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: 'error.main' }}>
             منطقة الخطر
           </Typography>
-          
+
           <Alert severity="warning" sx={{ mb: 2 }}>
             <Typography variant="body2">
               حذف الحساب عملية نهائية ولا يمكن التراجع عنها. سيتم حذف جميع بياناتك من النظام.
@@ -103,9 +103,11 @@ export default function Settings() {
           <Box component="ul" sx={{ mb: 2, pr: 2 }}>
             <li>ستحذف جميع بياناتك من النظام</li>
             <li>ستحذف رقم هاتفك وإمكانية الوصول</li>
-            <li><strong>لا يمكن التراجع عنها</strong></li>
+            <li>
+              <strong>لا يمكن التراجع عنها</strong>
+            </li>
           </Box>
-          
+
           <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
             للتأكيد، اكتب كلمة "حذف":
           </Typography>
@@ -125,10 +127,7 @@ export default function Settings() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button 
-            onClick={() => setOpenDeleteDialog(false)}
-            disabled={loading}
-          >
+          <Button onClick={() => setOpenDeleteDialog(false)} disabled={loading}>
             إلغاء
           </Button>
           <Button

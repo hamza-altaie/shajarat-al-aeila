@@ -15,14 +15,14 @@ if (typeof window !== 'undefined') {
     if (!window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
       window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {};
     }
-    
+
     // تعيين خصائص آمنة لـ React DevTools
     const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
-    
+
     if (typeof hook === 'object' && hook !== null) {
       // تعيين الخصائص المطلوبة بشكل آمن
       if (!hook.checkDCE) {
-        hook.checkDCE = function() {};
+        hook.checkDCE = function () {};
       }
       if (!hook.supportsFiber) {
         hook.supportsFiber = true;
@@ -31,10 +31,10 @@ if (typeof window !== 'undefined') {
         hook.renderers = new Map();
       }
       if (!hook.onCommitFiberRoot) {
-        hook.onCommitFiberRoot = function() {};
+        hook.onCommitFiberRoot = function () {};
       }
       if (!hook.onCommitFiberUnmount) {
-        hook.onCommitFiberUnmount = function() {};
+        hook.onCommitFiberUnmount = function () {};
       }
     }
   } catch (devToolsError) {
@@ -52,17 +52,17 @@ const handleGlobalError = (error, context = {}) => {
   if (error.message && error.message.includes('extension')) {
     return;
   }
-  
+
   if (error.stack && error.stack.includes('extension://')) {
     return;
   }
-  
+
   console.error('❌ خطأ عام في التطبيق:', {
     error: error.message || error,
     stack: error.stack,
     context,
     timestamp: new Date().toISOString(),
-    userAgent: navigator.userAgent
+    userAgent: navigator.userAgent,
   });
 };
 
@@ -85,7 +85,6 @@ try {
       <App />
     </React.StrictMode>
   );
-
 } catch (renderError) {
   console.error('❌ خطأ في عرض التطبيق:', renderError);
   handleGlobalError(renderError, { phase: 'render' });
@@ -102,43 +101,43 @@ window.addEventListener('error', (event) => {
     event.preventDefault();
     return false;
   }
-  
+
   // تجاهل أخطاء React DevTools المعروفة
   if (event.message && event.message.includes('__REACT_DEVTOOLS_GLOBAL_HOOK__')) {
     event.preventDefault();
     return false;
   }
-  
-  handleGlobalError(event.error || new Error(event.message), { 
-    type: 'javascript', 
-    source: event.filename, 
+
+  handleGlobalError(event.error || new Error(event.message), {
+    type: 'javascript',
+    source: event.filename,
     line: event.lineno,
-    column: event.colno
+    column: event.colno,
   });
 });
 
 // معالجة Promise المرفوضة
 window.addEventListener('unhandledrejection', (event) => {
   const reason = event.reason;
-  
+
   // تجاهل أخطاء Chrome Extensions
   if (reason && reason.toString().includes('extension')) {
     event.preventDefault();
     return false;
   }
-  
+
   // تجاهل أخطاء React DevTools
   if (reason && reason.toString().includes('__REACT_DEVTOOLS_GLOBAL_HOOK__')) {
     event.preventDefault();
     return false;
   }
-  
+
   // تجاهل أخطاء Firebase المعروفة غير الحرجة
   if (reason && reason.code && reason.code.startsWith('firebase/')) {
     console.warn('⚠️ تحذير Firebase:', reason);
     return;
   }
-  
+
   handleGlobalError(new Error(reason), { type: 'promise' });
 });
 
@@ -150,7 +149,7 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', async () => {
     try {
       const registration = await navigator.serviceWorker.register('/sw.js');
-      
+
       registration.addEventListener('updatefound', () => {
         const newWorker = registration.installing;
         if (newWorker) {
@@ -163,7 +162,6 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
           });
         }
       });
-      
     } catch (error) {
       console.warn('⚠️ تحذير: فشل تسجيل Service Worker:', error);
     }
@@ -179,7 +177,7 @@ const appInfo = {
   name: import.meta.env.VITE_APP_NAME || 'شجرة القبيلة',
   version: import.meta.env.VITE_APP_VERSION || '1.0.0',
   mode: import.meta.env.MODE,
-  timestamp: new Date().toISOString()
+  timestamp: new Date().toISOString(),
 };
 
 // أدوات التطوير (بيئة التطوير فقط)
@@ -195,9 +193,9 @@ if (import.meta.env.DEV) {
         } catch (error) {
           console.error('❌ فشل في مسح البيانات المحلية:', error);
         }
-      }
+      },
       // ✅ تم إزالة checkFirebase الذي كان يستورد ./firebase/config
-    }
+    },
   };
 }
 

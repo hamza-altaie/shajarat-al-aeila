@@ -10,7 +10,7 @@ class DebugLogger {
   shouldEnableLogging() {
     // تفعيل السجلات في بيئة التطوير أو عند تحديد متغير خاص
     return (
-      import.meta.env.DEV || 
+      import.meta.env.DEV ||
       import.meta.env.VITE_ENABLE_DEBUG_LOGS === 'true' ||
       localStorage.getItem('familyTree_debug') === 'true' ||
       window.location.search.includes('debug=true')
@@ -82,7 +82,7 @@ if (import.meta.env.DEV) {
     enable: () => debugLogger.enable(),
     disable: () => debugLogger.disable(),
     status: () => debugLogger.status(),
-    logger: debugLogger
+    logger: debugLogger,
   };
 }
 

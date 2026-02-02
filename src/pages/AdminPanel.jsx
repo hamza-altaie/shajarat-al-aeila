@@ -68,9 +68,9 @@ import SaveIcon from '@mui/icons-material/Save';
 import TextField from '@mui/material/TextField';
 
 import { useTribe } from '../contexts/TribeContext';
-import { 
-  getUnlinkedRoots, 
-  mergeRoots, 
+import {
+  getUnlinkedRoots,
+  mergeRoots,
   cleanDuplicateRelations,
   findDuplicatePersons,
   mergePersons,
@@ -82,7 +82,7 @@ import {
   getAuditLogs,
   getTribeSettings,
   updateTribeSettings,
-  uploadTribeLogo
+  uploadTribeLogo,
 } from '../services/tribeService';
 
 export default function AdminPanel() {
@@ -90,20 +90,20 @@ export default function AdminPanel() {
   const { tribe, loading: tribeLoading, membership } = useTribe();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  
+
   // التبويب الحالي
   const [activeTab, setActiveTab] = useState(0);
-  
+
   // الحالات
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
-  
+
   // ربط الجذور
   const [rootsDialogOpen, setRootsDialogOpen] = useState(false);
   const [unlinkedRoots, setUnlinkedRoots] = useState([]);
   const [selectedChildRoot, setSelectedChildRoot] = useState(null);
   const [linking, setLinking] = useState(false);
-  
+
   // الأشخاص المكررين
   const [duplicatesDialogOpen, setDuplicatesDialogOpen] = useState(false);
   const [duplicates, setDuplicates] = useState([]);
@@ -113,18 +113,18 @@ export default function AdminPanel() {
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ open: false, type: '', user: null });
-  
+
   // سجل التعديلات
   const [auditLogs, setAuditLogs] = useState([]);
   const [auditLoading, setAuditLoading] = useState(false);
-  
+
   // إعدادات القبيلة
   const [tribeSettings, setTribeSettings] = useState(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [editingSettings, setEditingSettings] = useState(false);
   const [settingsForm, setSettingsForm] = useState({});
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  
+
   // فحص صحة الشجرة
   const [healthDialogOpen, setHealthDialogOpen] = useState(false);
   const [healthReport, setHealthReport] = useState(null);
@@ -132,7 +132,7 @@ export default function AdminPanel() {
   // ========================================
   // 🔄 useEffects - يجب أن تكون قبل أي return مشروط
   // ========================================
-  
+
   // جلب المستخدمين عند فتح التبويب
   useEffect(() => {
     if (activeTab === 1 && tribe?.id && membership?.role === 'admin') {
@@ -174,11 +174,14 @@ export default function AdminPanel() {
         <Typography variant="h4" sx={{ mb: 2, fontFamily: 'Cairo, sans-serif', color: '#ef4444' }}>
           🚫 غير مصرح
         </Typography>
-        <Typography variant="body1" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif', color: 'text.secondary' }}>
+        <Typography
+          variant="body1"
+          sx={{ mb: 3, fontFamily: 'Cairo, sans-serif', color: 'text.secondary' }}
+        >
           هذه الصفحة متاحة للمدير فقط
         </Typography>
-        <Button 
-          variant="contained" 
+        <Button
+          variant="contained"
           onClick={() => navigate('/tree')}
           sx={{ fontFamily: 'Cairo, sans-serif' }}
         >
@@ -191,7 +194,7 @@ export default function AdminPanel() {
   // ========================================
   // 📌 دوال التحميل الداخلية (تُستدعى من useEffect)
   // ========================================
-  
+
   const loadUsersInternal = async () => {
     if (!tribe?.id) return;
     setUsersLoading(true);
@@ -229,7 +232,7 @@ export default function AdminPanel() {
         name_en: data.name_en || '',
         description: data.description || '',
         location: data.location || '',
-        established_year: data.established_year || ''
+        established_year: data.established_year || '',
       });
     } catch (err) {
       console.error('خطأ في جلب الإعدادات:', err);
@@ -247,7 +250,7 @@ export default function AdminPanel() {
   // ========================================
   const handleOpenRootsDialog = async () => {
     if (!tribe?.id) return;
-    
+
     setLoading(true);
     try {
       const roots = await getUnlinkedRoots(tribe.id);
@@ -266,7 +269,7 @@ export default function AdminPanel() {
 
   const handleLinkRoots = async (childId, parentId) => {
     if (!tribe?.id) return;
-    
+
     setLinking(true);
     try {
       await mergeRoots(tribe.id, childId, parentId);
@@ -285,7 +288,7 @@ export default function AdminPanel() {
   // ========================================
   const handleCleanDuplicates = async () => {
     if (!tribe?.id) return;
-    
+
     setLoading(true);
     try {
       const result = await cleanDuplicateRelations(tribe.id);
@@ -306,7 +309,7 @@ export default function AdminPanel() {
   // ========================================
   const handleOpenDuplicatesDialog = async () => {
     if (!tribe?.id) return;
-    
+
     setLoading(true);
     try {
       const result = await findDuplicatePersons(tribe.id);
@@ -325,7 +328,7 @@ export default function AdminPanel() {
 
   const handleMergePersons = async (keepId, mergeId) => {
     if (!tribe?.id) return;
-    
+
     setMerging(true);
     try {
       await mergePersons(tribe.id, keepId, mergeId);
@@ -348,7 +351,7 @@ export default function AdminPanel() {
   // ========================================
   const handleAnalyzeTree = async () => {
     if (!tribe?.id) return;
-    
+
     setLoading(true);
     try {
       const report = await analyzeTreeHealth(tribe.id);
@@ -392,7 +395,10 @@ export default function AdminPanel() {
     const newStatus = user.status === 'active' ? 'blocked' : 'active';
     try {
       await updateUserStatus(tribe.id, user.id, newStatus);
-      showMessage(newStatus === 'blocked' ? '🚫 تم حظر المستخدم' : '✅ تم تفعيل المستخدم', 'success');
+      showMessage(
+        newStatus === 'blocked' ? '🚫 تم حظر المستخدم' : '✅ تم تفعيل المستخدم',
+        'success'
+      );
       loadUsers();
     } catch (err) {
       showMessage(`❌ ${err.message}`, 'error');
@@ -415,7 +421,9 @@ export default function AdminPanel() {
   const getUserDisplayName = (user) => {
     if (user.persons) {
       const p = user.persons;
-      return `${p.first_name || ''} ${p.father_name || ''} ${p.family_name || ''}`.trim() || 'غير معروف';
+      return (
+        `${p.first_name || ''} ${p.father_name || ''} ${p.family_name || ''}`.trim() || 'غير معروف'
+      );
     }
     return user.phone || 'مستخدم';
   };
@@ -424,11 +432,16 @@ export default function AdminPanel() {
   // eslint-disable-next-line no-unused-vars
   const getRoleColor = (role) => {
     switch (role) {
-      case 'admin': return 'error';
-      case 'moderator': return 'warning';
-      case 'contributor': return 'primary';
-      case 'viewer': return 'default';
-      default: return 'default';
+      case 'admin':
+        return 'error';
+      case 'moderator':
+        return 'warning';
+      case 'contributor':
+        return 'primary';
+      case 'viewer':
+        return 'default';
+      default:
+        return 'default';
     }
   };
 
@@ -436,11 +449,16 @@ export default function AdminPanel() {
   // eslint-disable-next-line no-unused-vars
   const getRoleLabel = (role) => {
     switch (role) {
-      case 'admin': return 'مدير';
-      case 'moderator': return 'مشرف';
-      case 'contributor': return 'مساهم';
-      case 'viewer': return 'مشاهد';
-      default: return role;
+      case 'admin':
+        return 'مدير';
+      case 'moderator':
+        return 'مشرف';
+      case 'contributor':
+        return 'مساهم';
+      case 'viewer':
+        return 'مشاهد';
+      default:
+        return role;
     }
   };
 
@@ -463,10 +481,14 @@ export default function AdminPanel() {
 
   const getActionLabel = (action) => {
     switch (action) {
-      case 'create': return { label: 'إضافة', color: 'success', icon: <AddIcon fontSize="small" /> };
-      case 'update': return { label: 'تعديل', color: 'warning', icon: <EditIcon fontSize="small" /> };
-      case 'delete': return { label: 'حذف', color: 'error', icon: <DeleteIcon fontSize="small" /> };
-      default: return { label: action, color: 'default', icon: null };
+      case 'create':
+        return { label: 'إضافة', color: 'success', icon: <AddIcon fontSize="small" /> };
+      case 'update':
+        return { label: 'تعديل', color: 'warning', icon: <EditIcon fontSize="small" /> };
+      case 'delete':
+        return { label: 'حذف', color: 'error', icon: <DeleteIcon fontSize="small" /> };
+      default:
+        return { label: action, color: 'default', icon: null };
     }
   };
 
@@ -478,7 +500,7 @@ export default function AdminPanel() {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
 
@@ -497,7 +519,7 @@ export default function AdminPanel() {
         name_en: data.name_en || '',
         description: data.description || '',
         location: data.location || '',
-        established_year: data.established_year || ''
+        established_year: data.established_year || '',
       });
     } catch {
       showMessage('❌ خطأ في جلب الإعدادات', 'error');
@@ -524,7 +546,7 @@ export default function AdminPanel() {
   const handleLogoUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file || !tribe?.id) return;
-    
+
     setUploadingLogo(true);
     try {
       await uploadTribeLogo(tribe.id, file);
@@ -538,38 +560,53 @@ export default function AdminPanel() {
   };
 
   return (
-    <Container maxWidth="md" sx={{ py: { xs: 2, sm: 4 }, pb: { xs: 16, sm: 12 }, px: { xs: 2, sm: 3 } }}>
+    <Container
+      maxWidth="md"
+      sx={{ py: { xs: 2, sm: 4 }, pb: { xs: 16, sm: 12 }, px: { xs: 2, sm: 3 } }}
+    >
       {/* الهيدر */}
-      <Box sx={{ 
-        display: 'flex', 
-        flexDirection: { xs: 'column', sm: 'row' },
-        alignItems: { xs: 'flex-start', sm: 'center' }, 
-        gap: { xs: 2, sm: 0 },
-        mb: { xs: 3, sm: 4 } 
-      }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          gap: { xs: 2, sm: 0 },
+          mb: { xs: 3, sm: 4 },
+        }}
+      >
         <Box sx={{ display: 'flex', alignItems: 'center', width: { xs: '100%', sm: 'auto' } }}>
           <IconButton onClick={() => navigate(-1)} sx={{ mr: 1 }}>
             <ArrowBackIcon />
           </IconButton>
           <AdminPanelSettingsIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: '#8b5cf6', mr: 1 }} />
           <Box flex={1}>
-            <Typography variant="h4" sx={{ 
-              fontFamily: 'Cairo, sans-serif', 
-              fontWeight: 'bold', 
-              color: '#8b5cf6',
-              fontSize: { xs: '1.5rem', sm: '2rem' }
-            }}>
+            <Typography
+              variant="h4"
+              sx={{
+                fontFamily: 'Cairo, sans-serif',
+                fontWeight: 'bold',
+                color: '#8b5cf6',
+                fontSize: { xs: '1.5rem', sm: '2rem' },
+              }}
+            >
               لوحة تحكم المدير
             </Typography>
-            <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontFamily: 'Cairo, sans-serif',
+                color: 'text.secondary',
+                display: { xs: 'none', sm: 'block' },
+              }}
+            >
               أدوات إدارة الشجرة والبيانات
             </Typography>
           </Box>
           {!isMobile && <Box sx={{ flexGrow: 1 }} />}
-          <Chip 
-            icon={<SecurityIcon />} 
-            label="مدير" 
-            color="secondary" 
+          <Chip
+            icon={<SecurityIcon />}
+            label="مدير"
+            color="secondary"
             size={isMobile ? 'small' : 'medium'}
             sx={{ fontFamily: 'Cairo, sans-serif', ml: { xs: 'auto', sm: 0 } }}
           />
@@ -581,8 +618,8 @@ export default function AdminPanel() {
         <Tabs
           value={activeTab}
           onChange={(e, newValue) => setActiveTab(newValue)}
-          variant={isMobile ? "scrollable" : "fullWidth"}
-          scrollButtons={isMobile ? "auto" : false}
+          variant={isMobile ? 'scrollable' : 'fullWidth'}
+          scrollButtons={isMobile ? 'auto' : false}
           allowScrollButtonsMobile
           sx={{
             '& .MuiTab-root': {
@@ -591,17 +628,33 @@ export default function AdminPanel() {
               fontSize: { xs: '0.75rem', sm: '1rem' },
               minWidth: { xs: 'auto', sm: 120 },
               px: { xs: 1.5, sm: 2 },
-              gap: 0.5
+              gap: 0.5,
             },
             '& .MuiTabs-scrollButtons': {
-              '&.Mui-disabled': { opacity: 0.3 }
-            }
+              '&.Mui-disabled': { opacity: 0.3 },
+            },
           }}
         >
-          <Tab icon={<BuildIcon sx={{ fontSize: { xs: 18, sm: 24 } }} />} label="الأدوات" iconPosition="start" />
-          <Tab icon={<PeopleIcon sx={{ fontSize: { xs: 18, sm: 24 } }} />} label="المستخدمين" iconPosition="start" />
-          <Tab icon={<HistoryIcon sx={{ fontSize: { xs: 18, sm: 24 } }} />} label="السجل" iconPosition="start" />
-          <Tab icon={<SettingsIcon sx={{ fontSize: { xs: 18, sm: 24 } }} />} label="الإعدادات" iconPosition="start" />
+          <Tab
+            icon={<BuildIcon sx={{ fontSize: { xs: 18, sm: 24 } }} />}
+            label="الأدوات"
+            iconPosition="start"
+          />
+          <Tab
+            icon={<PeopleIcon sx={{ fontSize: { xs: 18, sm: 24 } }} />}
+            label="المستخدمين"
+            iconPosition="start"
+          />
+          <Tab
+            icon={<HistoryIcon sx={{ fontSize: { xs: 18, sm: 24 } }} />}
+            label="السجل"
+            iconPosition="start"
+          />
+          <Tab
+            icon={<SettingsIcon sx={{ fontSize: { xs: 18, sm: 24 } }} />}
+            label="الإعدادات"
+            iconPosition="start"
+          />
         </Tabs>
       </Paper>
 
@@ -609,161 +662,217 @@ export default function AdminPanel() {
       {activeTab === 0 && (
         <>
           {/* التنبيه */}
-          <Alert severity="warning" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif', fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
+          <Alert
+            severity="warning"
+            sx={{
+              mb: 3,
+              fontFamily: 'Cairo, sans-serif',
+              fontSize: { xs: '0.8rem', sm: '0.875rem' },
+            }}
+          >
             ⚠️ هذه الصفحة تحتوي على أدوات متقدمة. استخدمها بحذر!
           </Alert>
 
           {/* البطاقات */}
-          <Box sx={{ display: 'grid', gap: { xs: 2, sm: 3 }, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
-            
+          <Box
+            sx={{
+              display: 'grid',
+              gap: { xs: 2, sm: 3 },
+              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+            }}
+          >
             {/* بطاقة ربط الجذور */}
             <Card elevation={3} sx={{ borderRadius: 3, border: '2px solid #f59e0b' }}>
               <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <LinkIcon sx={{ fontSize: { xs: 32, sm: 40 }, color: '#f59e0b', mr: { xs: 1, sm: 2 } }} />
-                  <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+                  <LinkIcon
+                    sx={{ fontSize: { xs: 32, sm: 40 }, color: '#f59e0b', mr: { xs: 1, sm: 2 } }}
+                  />
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      fontFamily: 'Cairo, sans-serif',
+                      fontWeight: 'bold',
+                      fontSize: { xs: '1rem', sm: '1.25rem' },
+                    }}
+                  >
                     ربط الجذور المنفصلة
                   </Typography>
                 </Box>
-                <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: 'text.secondary', mb: 2, fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontFamily: 'Cairo, sans-serif',
+                    color: 'text.secondary',
+                    mb: 2,
+                    fontSize: { xs: '0.8rem', sm: '0.875rem' },
+                  }}
+                >
                   إذا كان هناك أشخاص في الشجرة بدون والد، يمكنك ربطهم بوالد موجود لتوحيد الشجرة.
                 </Typography>
               </CardContent>
               <CardActions sx={{ px: 2, pb: 2 }}>
-                <Button 
+                <Button
                   variant="contained"
                   onClick={handleOpenRootsDialog}
                   disabled={loading}
                   startIcon={loading ? <CircularProgress size={20} /> : <LinkIcon />}
-                  sx={{ 
+                  sx={{
                     fontFamily: 'Cairo, sans-serif',
                     background: 'linear-gradient(45deg, #f59e0b 0%, #d97706 100%)',
                     '& .MuiButton-startIcon': { ml: 1 },
-              }}
-            >
-              فتح أداة الربط
-            </Button>
-          </CardActions>
-        </Card>
+                  }}
+                >
+                  فتح أداة الربط
+                </Button>
+              </CardActions>
+            </Card>
 
-        {/* بطاقة تنظيف العلاقات */}
-        <Card elevation={3} sx={{ borderRadius: 3, border: '2px solid #ef4444' }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <CleaningServicesIcon sx={{ fontSize: 40, color: '#ef4444', mr: 2 }} />
-              <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>
-                تنظيف العلاقات المكررة
-              </Typography>
-            </Box>
-            <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: 'text.secondary', mb: 2 }}>
-              يبحث عن علاقات مكررة (شخص له أكثر من والد) ويحذف التكرارات تلقائياً.
-            </Typography>
-          </CardContent>
-          <CardActions sx={{ px: 2, pb: 2 }}>
-            <Button 
-              variant="contained"
-              onClick={handleCleanDuplicates}
-              disabled={loading}
-              startIcon={loading ? <CircularProgress size={20} /> : <CleaningServicesIcon />}
-              sx={{ 
-                fontFamily: 'Cairo, sans-serif',
-                background: 'linear-gradient(45deg, #ef4444 0%, #dc2626 100%)',
-                '& .MuiButton-startIcon': { ml: 1 },
-              }}
-            >
-              تنظيف الآن
-            </Button>
-          </CardActions>
-        </Card>
+            {/* بطاقة تنظيف العلاقات */}
+            <Card elevation={3} sx={{ borderRadius: 3, border: '2px solid #ef4444' }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <CleaningServicesIcon sx={{ fontSize: 40, color: '#ef4444', mr: 2 }} />
+                  <Typography
+                    variant="h6"
+                    sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}
+                  >
+                    تنظيف العلاقات المكررة
+                  </Typography>
+                </Box>
+                <Typography
+                  variant="body2"
+                  sx={{ fontFamily: 'Cairo, sans-serif', color: 'text.secondary', mb: 2 }}
+                >
+                  يبحث عن علاقات مكررة (شخص له أكثر من والد) ويحذف التكرارات تلقائياً.
+                </Typography>
+              </CardContent>
+              <CardActions sx={{ px: 2, pb: 2 }}>
+                <Button
+                  variant="contained"
+                  onClick={handleCleanDuplicates}
+                  disabled={loading}
+                  startIcon={loading ? <CircularProgress size={20} /> : <CleaningServicesIcon />}
+                  sx={{
+                    fontFamily: 'Cairo, sans-serif',
+                    background: 'linear-gradient(45deg, #ef4444 0%, #dc2626 100%)',
+                    '& .MuiButton-startIcon': { ml: 1 },
+                  }}
+                >
+                  تنظيف الآن
+                </Button>
+              </CardActions>
+            </Card>
 
-        {/* بطاقة دمج المكررين */}
-        <Card elevation={3} sx={{ borderRadius: 3, border: '2px solid #8b5cf6' }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <MergeTypeIcon sx={{ fontSize: 40, color: '#8b5cf6', mr: 2 }} />
-              <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>
-                دمج الأشخاص المكررين
-              </Typography>
-            </Box>
-            <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: 'text.secondary', mb: 2 }}>
-              يبحث عن أشخاص لديهم نفس الاسم ويتيح لك دمجهم في شخص واحد.
-            </Typography>
-          </CardContent>
-          <CardActions sx={{ px: 2, pb: 2 }}>
-            <Button 
-              variant="contained"
-              onClick={handleOpenDuplicatesDialog}
-              disabled={loading}
-              startIcon={loading ? <CircularProgress size={20} /> : <MergeTypeIcon />}
-              sx={{ 
-                fontFamily: 'Cairo, sans-serif',
-                background: 'linear-gradient(45deg, #8b5cf6 0%, #7c3aed 100%)',
-                '& .MuiButton-startIcon': { ml: 1 },
-              }}
-            >
-              البحث عن المكررين
-            </Button>
-          </CardActions>
-        </Card>
+            {/* بطاقة دمج المكررين */}
+            <Card elevation={3} sx={{ borderRadius: 3, border: '2px solid #8b5cf6' }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <MergeTypeIcon sx={{ fontSize: 40, color: '#8b5cf6', mr: 2 }} />
+                  <Typography
+                    variant="h6"
+                    sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}
+                  >
+                    دمج الأشخاص المكررين
+                  </Typography>
+                </Box>
+                <Typography
+                  variant="body2"
+                  sx={{ fontFamily: 'Cairo, sans-serif', color: 'text.secondary', mb: 2 }}
+                >
+                  يبحث عن أشخاص لديهم نفس الاسم ويتيح لك دمجهم في شخص واحد.
+                </Typography>
+              </CardContent>
+              <CardActions sx={{ px: 2, pb: 2 }}>
+                <Button
+                  variant="contained"
+                  onClick={handleOpenDuplicatesDialog}
+                  disabled={loading}
+                  startIcon={loading ? <CircularProgress size={20} /> : <MergeTypeIcon />}
+                  sx={{
+                    fontFamily: 'Cairo, sans-serif',
+                    background: 'linear-gradient(45deg, #8b5cf6 0%, #7c3aed 100%)',
+                    '& .MuiButton-startIcon': { ml: 1 },
+                  }}
+                >
+                  البحث عن المكررين
+                </Button>
+              </CardActions>
+            </Card>
 
-        {/* بطاقة إعادة التحميل */}
-        <Card elevation={3} sx={{ borderRadius: 3, border: '2px solid #10b981' }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <RefreshIcon sx={{ fontSize: 40, color: '#10b981', mr: 2 }} />
-              <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>
-                تحديث الشجرة
-              </Typography>
-            </Box>
-            <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: 'text.secondary', mb: 2 }}>
-              بعد إجراء أي تعديلات، يُنصح بالذهاب للشجرة وتحديثها لرؤية التغييرات.
-            </Typography>
-          </CardContent>
-          <CardActions sx={{ px: 2, pb: 2 }}>
-            <Button 
-              variant="contained"
-              onClick={() => navigate('/tree')}
-              startIcon={<RefreshIcon />}
-              sx={{ 
-                fontFamily: 'Cairo, sans-serif',
-                background: 'linear-gradient(45deg, #10b981 0%, #059669 100%)',
-                '& .MuiButton-startIcon': { ml: 1 },
-              }}
-            >
-              الذهاب للشجرة
-            </Button>
-          </CardActions>
-        </Card>
+            {/* بطاقة إعادة التحميل */}
+            <Card elevation={3} sx={{ borderRadius: 3, border: '2px solid #10b981' }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <RefreshIcon sx={{ fontSize: 40, color: '#10b981', mr: 2 }} />
+                  <Typography
+                    variant="h6"
+                    sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}
+                  >
+                    تحديث الشجرة
+                  </Typography>
+                </Box>
+                <Typography
+                  variant="body2"
+                  sx={{ fontFamily: 'Cairo, sans-serif', color: 'text.secondary', mb: 2 }}
+                >
+                  بعد إجراء أي تعديلات، يُنصح بالذهاب للشجرة وتحديثها لرؤية التغييرات.
+                </Typography>
+              </CardContent>
+              <CardActions sx={{ px: 2, pb: 2 }}>
+                <Button
+                  variant="contained"
+                  onClick={() => navigate('/tree')}
+                  startIcon={<RefreshIcon />}
+                  sx={{
+                    fontFamily: 'Cairo, sans-serif',
+                    background: 'linear-gradient(45deg, #10b981 0%, #059669 100%)',
+                    '& .MuiButton-startIcon': { ml: 1 },
+                  }}
+                >
+                  الذهاب للشجرة
+                </Button>
+              </CardActions>
+            </Card>
 
-        {/* بطاقة فحص صحة الشجرة */}
-        <Card elevation={3} sx={{ borderRadius: 3, border: '2px solid #3b82f6', gridColumn: { md: 'span 2' } }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <HealthAndSafetyIcon sx={{ fontSize: 40, color: '#3b82f6', mr: 2 }} />
-              <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>
-                📊 فحص صحة الشجرة
-              </Typography>
-            </Box>
-            <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: 'text.secondary', mb: 2 }}>
-              تحليل شامل للشجرة: عدد الأشخاص، الجذور، المكررين، العمق، والمشاكل المحتملة.
-            </Typography>
-          </CardContent>
-          <CardActions sx={{ px: 2, pb: 2 }}>
-            <Button 
-              variant="contained"
-              onClick={handleAnalyzeTree}
-              disabled={loading}
-              startIcon={loading ? <CircularProgress size={20} /> : <HealthAndSafetyIcon />}
-              sx={{ 
-                fontFamily: 'Cairo, sans-serif',
-                background: 'linear-gradient(45deg, #3b82f6 0%, #2563eb 100%)',
-                '& .MuiButton-startIcon': { ml: 1 },
-              }}
+            {/* بطاقة فحص صحة الشجرة */}
+            <Card
+              elevation={3}
+              sx={{ borderRadius: 3, border: '2px solid #3b82f6', gridColumn: { md: 'span 2' } }}
             >
-              فحص الآن
-            </Button>
-          </CardActions>
-        </Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <HealthAndSafetyIcon sx={{ fontSize: 40, color: '#3b82f6', mr: 2 }} />
+                  <Typography
+                    variant="h6"
+                    sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}
+                  >
+                    📊 فحص صحة الشجرة
+                  </Typography>
+                </Box>
+                <Typography
+                  variant="body2"
+                  sx={{ fontFamily: 'Cairo, sans-serif', color: 'text.secondary', mb: 2 }}
+                >
+                  تحليل شامل للشجرة: عدد الأشخاص، الجذور، المكررين، العمق، والمشاكل المحتملة.
+                </Typography>
+              </CardContent>
+              <CardActions sx={{ px: 2, pb: 2 }}>
+                <Button
+                  variant="contained"
+                  onClick={handleAnalyzeTree}
+                  disabled={loading}
+                  startIcon={loading ? <CircularProgress size={20} /> : <HealthAndSafetyIcon />}
+                  sx={{
+                    fontFamily: 'Cairo, sans-serif',
+                    background: 'linear-gradient(45deg, #3b82f6 0%, #2563eb 100%)',
+                    '& .MuiButton-startIcon': { ml: 1 },
+                  }}
+                >
+                  فحص الآن
+                </Button>
+              </CardActions>
+            </Card>
           </Box>
         </>
       )}
@@ -771,8 +880,19 @@ export default function AdminPanel() {
       {/* ====== تبويب المستخدمين ====== */}
       {activeTab === 1 && (
         <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-            <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box
+            sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}
+          >
+            <Typography
+              variant="h6"
+              sx={{
+                fontFamily: 'Cairo, sans-serif',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+              }}
+            >
               <PeopleIcon color="primary" />
               مستخدمي القبيلة ({users.length})
             </Typography>
@@ -801,10 +921,18 @@ export default function AdminPanel() {
               <Table size={isMobile ? 'small' : 'medium'}>
                 <TableHead>
                   <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>المستخدم</TableCell>
-                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>الصلاحية</TableCell>
-                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>الحالة</TableCell>
-                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>الإجراءات</TableCell>
+                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>
+                      المستخدم
+                    </TableCell>
+                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>
+                      الصلاحية
+                    </TableCell>
+                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>
+                      الحالة
+                    </TableCell>
+                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>
+                      الإجراءات
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -812,17 +940,28 @@ export default function AdminPanel() {
                     <TableRow key={user.id} hover>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Avatar 
-                            src={user.persons?.photo_url} 
-                            sx={{ width: 36, height: 36, bgcolor: user.persons?.gender === 'F' ? '#ec4899' : '#3b82f6' }}
+                          <Avatar
+                            src={user.persons?.photo_url}
+                            sx={{
+                              width: 36,
+                              height: 36,
+                              bgcolor: user.persons?.gender === 'F' ? '#ec4899' : '#3b82f6',
+                            }}
                           >
                             {getUserDisplayName(user).charAt(0)}
                           </Avatar>
                           <Box>
-                            <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>
+                            <Typography
+                              variant="body2"
+                              sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}
+                            >
                               {getUserDisplayName(user)}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ fontFamily: 'Cairo, sans-serif' }}
+                            >
                               {user.phone || 'بدون رقم'}
                             </Typography>
                           </Box>
@@ -835,18 +974,38 @@ export default function AdminPanel() {
                             onChange={(e) => handleRoleChange(user.id, e.target.value)}
                             sx={{ fontFamily: 'Cairo, sans-serif', fontSize: '0.85rem' }}
                           >
-                            <MenuItem value="admin" sx={{ fontFamily: 'Cairo, sans-serif' }}>🔴 مدير</MenuItem>
-                            <MenuItem value="moderator" sx={{ fontFamily: 'Cairo, sans-serif' }}>🟡 مشرف</MenuItem>
-                            <MenuItem value="contributor" sx={{ fontFamily: 'Cairo, sans-serif' }}>🔵 مساهم</MenuItem>
-                            <MenuItem value="viewer" sx={{ fontFamily: 'Cairo, sans-serif' }}>⚪ مشاهد</MenuItem>
+                            <MenuItem value="admin" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+                              🔴 مدير
+                            </MenuItem>
+                            <MenuItem value="moderator" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+                              🟡 مشرف
+                            </MenuItem>
+                            <MenuItem value="contributor" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+                              🔵 مساهم
+                            </MenuItem>
+                            <MenuItem value="viewer" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+                              ⚪ مشاهد
+                            </MenuItem>
                           </Select>
                         </FormControl>
                       </TableCell>
                       <TableCell>
                         <Chip
                           size="small"
-                          label={user.status === 'active' ? 'نشط' : user.status === 'blocked' ? 'محظور' : 'معلق'}
-                          color={user.status === 'active' ? 'success' : user.status === 'blocked' ? 'error' : 'warning'}
+                          label={
+                            user.status === 'active'
+                              ? 'نشط'
+                              : user.status === 'blocked'
+                                ? 'محظور'
+                                : 'معلق'
+                          }
+                          color={
+                            user.status === 'active'
+                              ? 'success'
+                              : user.status === 'blocked'
+                                ? 'error'
+                                : 'warning'
+                          }
                           sx={{ fontFamily: 'Cairo, sans-serif' }}
                         />
                       </TableCell>
@@ -881,14 +1040,37 @@ export default function AdminPanel() {
 
           {/* دليل الصلاحيات */}
           <Box sx={{ mt: 3, p: 2, bgcolor: '#f9fafb', borderRadius: 2 }}>
-            <Typography variant="subtitle2" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', mb: 1, color: '#1f2937' }}>
+            <Typography
+              variant="subtitle2"
+              sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', mb: 1, color: '#1f2937' }}
+            >
               📋 دليل الصلاحيات:
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-              <Typography variant="caption" sx={{ fontFamily: 'Cairo, sans-serif', color: '#374151' }}>🔴 <strong>مدير:</strong> كل الصلاحيات</Typography>
-              <Typography variant="caption" sx={{ fontFamily: 'Cairo, sans-serif', color: '#374151' }}>🟡 <strong>مشرف:</strong> إضافة وتعديل</Typography>
-              <Typography variant="caption" sx={{ fontFamily: 'Cairo, sans-serif', color: '#374151' }}>🔵 <strong>مساهم:</strong> إضافة فقط</Typography>
-              <Typography variant="caption" sx={{ fontFamily: 'Cairo, sans-serif', color: '#374151' }}>⚪ <strong>مشاهد:</strong> عرض فقط</Typography>
+              <Typography
+                variant="caption"
+                sx={{ fontFamily: 'Cairo, sans-serif', color: '#374151' }}
+              >
+                🔴 <strong>مدير:</strong> كل الصلاحيات
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{ fontFamily: 'Cairo, sans-serif', color: '#374151' }}
+              >
+                🟡 <strong>مشرف:</strong> إضافة وتعديل
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{ fontFamily: 'Cairo, sans-serif', color: '#374151' }}
+              >
+                🔵 <strong>مساهم:</strong> إضافة فقط
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{ fontFamily: 'Cairo, sans-serif', color: '#374151' }}
+              >
+                ⚪ <strong>مشاهد:</strong> عرض فقط
+              </Typography>
             </Box>
           </Box>
         </Paper>
@@ -897,8 +1079,19 @@ export default function AdminPanel() {
       {/* ====== تبويب سجل التعديلات ====== */}
       {activeTab === 2 && (
         <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-            <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box
+            sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}
+          >
+            <Typography
+              variant="h6"
+              sx={{
+                fontFamily: 'Cairo, sans-serif',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+              }}
+            >
               <HistoryIcon color="primary" />
               سجل التعديلات ({auditLogs.length})
             </Typography>
@@ -927,18 +1120,31 @@ export default function AdminPanel() {
               <Table size="small">
                 <TableHead>
                   <TableRow sx={{ bgcolor: '#f3f4f6' }}>
-                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>التاريخ</TableCell>
-                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>النوع</TableCell>
-                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>التفاصيل</TableCell>
+                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>
+                      التاريخ
+                    </TableCell>
+                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>
+                      النوع
+                    </TableCell>
+                    <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold' }}>
+                      التفاصيل
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {auditLogs.map((log) => {
                     const actionInfo = getActionLabel(log.action);
-                    const personName = log.new_data?.first_name || log.old_data?.first_name || 'غير معروف';
+                    const personName =
+                      log.new_data?.first_name || log.old_data?.first_name || 'غير معروف';
                     return (
                       <TableRow key={log.id} hover>
-                        <TableCell sx={{ fontFamily: 'Cairo, sans-serif', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                        <TableCell
+                          sx={{
+                            fontFamily: 'Cairo, sans-serif',
+                            fontSize: '0.85rem',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
                           {formatDate(log.changed_at)}
                         </TableCell>
                         <TableCell>
@@ -954,7 +1160,15 @@ export default function AdminPanel() {
                           {log.action === 'create' && `تمت إضافة "${personName}"`}
                           {log.action === 'update' && `تم تعديل "${personName}"`}
                           {log.action === 'delete' && `تم حذف "${personName}"`}
-                          {log.notes && <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{log.notes}</Typography>}
+                          {log.notes && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ display: 'block' }}
+                            >
+                              {log.notes}
+                            </Typography>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
@@ -969,8 +1183,20 @@ export default function AdminPanel() {
       {/* ====== تبويب إعدادات القبيلة ====== */}
       {activeTab === 3 && (
         <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-            <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1, color: '#1f2937' }}>
+          <Box
+            sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}
+          >
+            <Typography
+              variant="h6"
+              sx={{
+                fontFamily: 'Cairo, sans-serif',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                color: '#1f2937',
+              }}
+            >
               <SettingsIcon color="primary" />
               إعدادات القبيلة
             </Typography>
@@ -994,7 +1220,17 @@ export default function AdminPanel() {
           ) : tribeSettings ? (
             <Box>
               {/* الشعار */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 4, p: 2, bgcolor: '#f9fafb', borderRadius: 2 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 3,
+                  mb: 4,
+                  p: 2,
+                  bgcolor: '#f9fafb',
+                  borderRadius: 2,
+                }}
+              >
                 <Avatar
                   src={tribeSettings.logo_url}
                   sx={{ width: 100, height: 100, fontSize: '2rem', bgcolor: '#8b5cf6' }}
@@ -1002,7 +1238,10 @@ export default function AdminPanel() {
                   {tribeSettings.name?.[0] || '🏠'}
                 </Avatar>
                 <Box>
-                  <Typography variant="h5" sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', color: '#1f2937' }}>
+                  <Typography
+                    variant="h5"
+                    sx={{ fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', color: '#1f2937' }}
+                  >
                     {tribeSettings.name}
                   </Typography>
                   {tribeSettings.name_en && (
@@ -1021,9 +1260,15 @@ export default function AdminPanel() {
                     <Button
                       component="span"
                       size="small"
-                      startIcon={uploadingLogo ? <CircularProgress size={16} /> : <PhotoCameraIcon />}
+                      startIcon={
+                        uploadingLogo ? <CircularProgress size={16} /> : <PhotoCameraIcon />
+                      }
                       disabled={uploadingLogo}
-                      sx={{ mt: 1, fontFamily: 'Cairo, sans-serif', '& .MuiButton-startIcon': { ml: 1 } }}
+                      sx={{
+                        mt: 1,
+                        fontFamily: 'Cairo, sans-serif',
+                        '& .MuiButton-startIcon': { ml: 1 },
+                      }}
                     >
                       تغيير الشعار
                     </Button>
@@ -1054,7 +1299,9 @@ export default function AdminPanel() {
                 <TextField
                   label="الوصف"
                   value={settingsForm.description}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, description: e.target.value })}
+                  onChange={(e) =>
+                    setSettingsForm({ ...settingsForm, description: e.target.value })
+                  }
                   disabled={!editingSettings}
                   fullWidth
                   multiline
@@ -1075,7 +1322,9 @@ export default function AdminPanel() {
                   <TextField
                     label="سنة التأسيس"
                     value={settingsForm.established_year}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, established_year: e.target.value })}
+                    onChange={(e) =>
+                      setSettingsForm({ ...settingsForm, established_year: e.target.value })
+                    }
                     disabled={!editingSettings}
                     type="number"
                     fullWidth
@@ -1114,7 +1363,11 @@ export default function AdminPanel() {
               <Divider sx={{ my: 3 }} />
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
                 <Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ fontFamily: 'Cairo, sans-serif' }}
+                  >
                     تاريخ الإنشاء
                   </Typography>
                   <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif' }}>
@@ -1122,7 +1375,11 @@ export default function AdminPanel() {
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ fontFamily: 'Cairo, sans-serif' }}
+                  >
                     آخر تحديث
                   </Typography>
                   <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif' }}>
@@ -1147,22 +1404,29 @@ export default function AdminPanel() {
         onClose={() => setConfirmDialog({ open: false, type: '', user: null })}
         dir="rtl"
       >
-        <DialogTitle sx={{ fontFamily: 'Cairo, sans-serif' }}>
-          ⚠️ تأكيد الحذف
-        </DialogTitle>
+        <DialogTitle sx={{ fontFamily: 'Cairo, sans-serif' }}>⚠️ تأكيد الحذف</DialogTitle>
         <DialogContent>
           <Typography sx={{ fontFamily: 'Cairo, sans-serif' }}>
-            هل أنت متأكد من حذف المستخدم "{confirmDialog.user ? getUserDisplayName(confirmDialog.user) : ''}" من القبيلة؟
+            هل أنت متأكد من حذف المستخدم "
+            {confirmDialog.user ? getUserDisplayName(confirmDialog.user) : ''}" من القبيلة؟
           </Typography>
           <Alert severity="warning" sx={{ mt: 2, fontFamily: 'Cairo, sans-serif' }}>
             سيتم حذف المستخدم نهائياً ولن يتمكن من الوصول للقبيلة.
           </Alert>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmDialog({ open: false, type: '', user: null })} sx={{ fontFamily: 'Cairo, sans-serif' }}>
+          <Button
+            onClick={() => setConfirmDialog({ open: false, type: '', user: null })}
+            sx={{ fontFamily: 'Cairo, sans-serif' }}
+          >
             إلغاء
           </Button>
-          <Button onClick={handleRemoveUser} color="error" variant="contained" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+          <Button
+            onClick={handleRemoveUser}
+            color="error"
+            variant="contained"
+            sx={{ fontFamily: 'Cairo, sans-serif' }}
+          >
             حذف
           </Button>
         </DialogActions>
@@ -1171,8 +1435,8 @@ export default function AdminPanel() {
       {/* ================================================= */}
       {/* نافذة ربط الجذور */}
       {/* ================================================= */}
-      <Dialog 
-        open={rootsDialogOpen} 
+      <Dialog
+        open={rootsDialogOpen}
         onClose={() => {
           setRootsDialogOpen(false);
           setSelectedChildRoot(null);
@@ -1188,22 +1452,26 @@ export default function AdminPanel() {
           {unlinkedRoots.length > 1 && (
             <Box>
               <Alert severity="warning" sx={{ mb: 2, fontFamily: 'Cairo, sans-serif' }}>
-                يوجد {unlinkedRoots.length} أشخاص بدون والد في الشجرة. اختر الشخص الابن ثم الوالد لربطهم.
+                يوجد {unlinkedRoots.length} أشخاص بدون والد في الشجرة. اختر الشخص الابن ثم الوالد
+                لربطهم.
               </Alert>
-              
+
               {!selectedChildRoot ? (
                 <>
-                  <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold', fontFamily: 'Cairo, sans-serif' }}>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ mb: 1, fontWeight: 'bold', fontFamily: 'Cairo, sans-serif' }}
+                  >
                     1️⃣ اختر الشخص (الابن):
                   </Typography>
                   <List>
                     {unlinkedRoots.map((person) => (
                       <ListItem key={person.id} disablePadding>
-                        <ListItemButton 
+                        <ListItemButton
                           onClick={() => setSelectedChildRoot(person)}
                           sx={{ borderRadius: 2, mb: 0.5 }}
                         >
-                          <ListItemText 
+                          <ListItemText
                             primary={`${person.first_name || ''} ${person.father_name || ''} ${person.family_name || ''}`}
                             secondary={person.relation || 'غير محدد'}
                             primaryTypographyProps={{ fontFamily: 'Cairo, sans-serif' }}
@@ -1216,42 +1484,47 @@ export default function AdminPanel() {
                 </>
               ) : (
                 <>
-                  <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold', fontFamily: 'Cairo, sans-serif' }}>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ mb: 1, fontWeight: 'bold', fontFamily: 'Cairo, sans-serif' }}
+                  >
                     ✅ الابن المختار: {selectedChildRoot.first_name} {selectedChildRoot.father_name}
                   </Typography>
-                  <Button 
-                    size="small" 
-                    onClick={() => setSelectedChildRoot(null)}
-                    sx={{ mb: 2 }}
-                  >
+                  <Button size="small" onClick={() => setSelectedChildRoot(null)} sx={{ mb: 2 }}>
                     تغيير
                   </Button>
-                  
+
                   <Divider sx={{ my: 2 }} />
-                  
-                  <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold', fontFamily: 'Cairo, sans-serif' }}>
+
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ mb: 1, fontWeight: 'bold', fontFamily: 'Cairo, sans-serif' }}
+                  >
                     2️⃣ اختر الوالد:
                   </Typography>
                   <List>
                     {unlinkedRoots
-                      .filter(p => p.id !== selectedChildRoot.id)
+                      .filter((p) => p.id !== selectedChildRoot.id)
                       .map((person) => (
                         <ListItem key={person.id} disablePadding>
-                          <ListItemButton 
+                          <ListItemButton
                             onClick={() => handleLinkRoots(selectedChildRoot.id, person.id)}
                             disabled={linking}
-                            sx={{ 
-                              borderRadius: 2, 
+                            sx={{
+                              borderRadius: 2,
                               mb: 0.5,
                               bgcolor: 'rgba(16,185,129,0.1)',
-                              '&:hover': { bgcolor: 'rgba(16,185,129,0.2)' }
+                              '&:hover': { bgcolor: 'rgba(16,185,129,0.2)' },
                             }}
                           >
-                            <ListItemText 
+                            <ListItemText
                               primary={`${person.first_name || ''} ${person.father_name || ''} ${person.family_name || ''}`}
                               secondary={`اضغط لجعله والد ${selectedChildRoot.first_name}`}
                               primaryTypographyProps={{ fontFamily: 'Cairo, sans-serif' }}
-                              secondaryTypographyProps={{ fontFamily: 'Cairo, sans-serif', color: 'success.main' }}
+                              secondaryTypographyProps={{
+                                fontFamily: 'Cairo, sans-serif',
+                                color: 'success.main',
+                              }}
                             />
                             {linking && <CircularProgress size={20} />}
                           </ListItemButton>
@@ -1264,7 +1537,7 @@ export default function AdminPanel() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button 
+          <Button
             onClick={() => {
               setRootsDialogOpen(false);
               setSelectedChildRoot(null);
@@ -1279,8 +1552,8 @@ export default function AdminPanel() {
       {/* ================================================= */}
       {/* نافذة الأشخاص المكررين */}
       {/* ================================================= */}
-      <Dialog 
-        open={duplicatesDialogOpen} 
+      <Dialog
+        open={duplicatesDialogOpen}
         onClose={() => setDuplicatesDialogOpen(false)}
         maxWidth="md"
         fullWidth
@@ -1292,12 +1565,15 @@ export default function AdminPanel() {
         <DialogContent>
           {duplicates.map((group, index) => (
             <Paper key={group.key} sx={{ p: 2, mb: 2, bgcolor: 'rgba(139,92,246,0.05)' }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', fontFamily: 'Cairo, sans-serif', mb: 1 }}>
+              <Typography
+                variant="subtitle1"
+                sx={{ fontWeight: 'bold', fontFamily: 'Cairo, sans-serif', mb: 1 }}
+              >
                 {index + 1}. {group.name}
               </Typography>
               <List dense>
                 {group.persons.map((person, pIndex) => (
-                  <ListItem 
+                  <ListItem
                     key={person.id}
                     secondaryAction={
                       pIndex > 0 && (
@@ -1318,7 +1594,10 @@ export default function AdminPanel() {
                       primary={`${person.first_name} ${person.father_name || ''}`}
                       secondary={`ID: ${person.id} | ${person.relation || 'غير محدد'}`}
                       primaryTypographyProps={{ fontFamily: 'Cairo, sans-serif' }}
-                      secondaryTypographyProps={{ fontFamily: 'Cairo, sans-serif', fontSize: '0.75rem' }}
+                      secondaryTypographyProps={{
+                        fontFamily: 'Cairo, sans-serif',
+                        fontSize: '0.75rem',
+                      }}
                     />
                     {pIndex === 0 && (
                       <Chip label="الأساسي" size="small" color="primary" sx={{ ml: 1 }} />
@@ -1328,7 +1607,7 @@ export default function AdminPanel() {
               </List>
             </Paper>
           ))}
-          
+
           {duplicates.length === 0 && (
             <Alert severity="success" sx={{ fontFamily: 'Cairo, sans-serif' }}>
               ✅ لا يوجد أشخاص مكررين!
@@ -1336,7 +1615,7 @@ export default function AdminPanel() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button 
+          <Button
             onClick={() => setDuplicatesDialogOpen(false)}
             sx={{ fontFamily: 'Cairo, sans-serif' }}
           >
@@ -1348,8 +1627,8 @@ export default function AdminPanel() {
       {/* ================================================= */}
       {/* نافذة فحص صحة الشجرة */}
       {/* ================================================= */}
-      <Dialog 
-        open={healthDialogOpen} 
+      <Dialog
+        open={healthDialogOpen}
         onClose={() => setHealthDialogOpen(false)}
         maxWidth="md"
         fullWidth
@@ -1362,42 +1641,130 @@ export default function AdminPanel() {
           {healthReport && (
             <Box>
               {/* حالة الصحة العامة */}
-              <Alert 
-                severity={healthReport.isHealthy ? 'success' : 'warning'} 
+              <Alert
+                severity={healthReport.isHealthy ? 'success' : 'warning'}
                 icon={healthReport.isHealthy ? <CheckCircleIcon /> : <WarningIcon />}
                 sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}
               >
-                {healthReport.isHealthy 
-                  ? '✅ الشجرة بحالة جيدة!' 
-                  : '⚠️ توجد بعض المشاكل التي تحتاج معالجة'
-                }
+                {healthReport.isHealthy
+                  ? '✅ الشجرة بحالة جيدة!'
+                  : '⚠️ توجد بعض المشاكل التي تحتاج معالجة'}
               </Alert>
 
               {/* الإحصائيات */}
               <Paper sx={{ p: 2, mb: 3, bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', mb: 2, fontWeight: 'bold', color: '#1e293b' }}>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontFamily: 'Cairo, sans-serif',
+                    mb: 2,
+                    fontWeight: 'bold',
+                    color: '#1e293b',
+                  }}
+                >
                   📈 الإحصائيات
                 </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 2 }}>
-                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0' }}>
-                    <Typography variant="h4" sx={{ color: '#3b82f6', fontWeight: 'bold' }}>{healthReport.stats.totalPersons}</Typography>
-                    <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: '#64748b' }}>إجمالي الأشخاص</Typography>
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                    gap: 2,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      textAlign: 'center',
+                      p: 2,
+                      bgcolor: 'white',
+                      borderRadius: 2,
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
+                    <Typography variant="h4" sx={{ color: '#3b82f6', fontWeight: 'bold' }}>
+                      {healthReport.stats.totalPersons}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{ fontFamily: 'Cairo, sans-serif', color: '#64748b' }}
+                    >
+                      إجمالي الأشخاص
+                    </Typography>
                   </Box>
-                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0' }}>
-                    <Typography variant="h4" sx={{ color: '#8b5cf6', fontWeight: 'bold' }}>{healthReport.stats.totalRelations}</Typography>
-                    <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: '#64748b' }}>العلاقات</Typography>
+                  <Box
+                    sx={{
+                      textAlign: 'center',
+                      p: 2,
+                      bgcolor: 'white',
+                      borderRadius: 2,
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
+                    <Typography variant="h4" sx={{ color: '#8b5cf6', fontWeight: 'bold' }}>
+                      {healthReport.stats.totalRelations}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{ fontFamily: 'Cairo, sans-serif', color: '#64748b' }}
+                    >
+                      العلاقات
+                    </Typography>
                   </Box>
-                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0' }}>
-                    <Typography variant="h4" sx={{ color: '#10b981', fontWeight: 'bold' }}>{healthReport.stats.maxDepth}</Typography>
-                    <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: '#64748b' }}>عمق الشجرة (أجيال)</Typography>
+                  <Box
+                    sx={{
+                      textAlign: 'center',
+                      p: 2,
+                      bgcolor: 'white',
+                      borderRadius: 2,
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
+                    <Typography variant="h4" sx={{ color: '#10b981', fontWeight: 'bold' }}>
+                      {healthReport.stats.maxDepth}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{ fontFamily: 'Cairo, sans-serif', color: '#64748b' }}
+                    >
+                      عمق الشجرة (أجيال)
+                    </Typography>
                   </Box>
-                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0' }}>
-                    <Typography variant="h4" sx={{ color: '#f59e0b', fontWeight: 'bold' }}>{healthReport.stats.rootsCount}</Typography>
-                    <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: '#64748b' }}>عدد الجذور</Typography>
+                  <Box
+                    sx={{
+                      textAlign: 'center',
+                      p: 2,
+                      bgcolor: 'white',
+                      borderRadius: 2,
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
+                    <Typography variant="h4" sx={{ color: '#f59e0b', fontWeight: 'bold' }}>
+                      {healthReport.stats.rootsCount}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{ fontFamily: 'Cairo, sans-serif', color: '#64748b' }}
+                    >
+                      عدد الجذور
+                    </Typography>
                   </Box>
-                  <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid #e2e8f0' }}>
-                    <Typography variant="h4" sx={{ color: '#06b6d4', fontWeight: 'bold' }}>{healthReport.stats.linkedUsers}/{healthReport.stats.totalUsers}</Typography>
-                    <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: '#64748b' }}>مستخدمين مرتبطين</Typography>
+                  <Box
+                    sx={{
+                      textAlign: 'center',
+                      p: 2,
+                      bgcolor: 'white',
+                      borderRadius: 2,
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
+                    <Typography variant="h4" sx={{ color: '#06b6d4', fontWeight: 'bold' }}>
+                      {healthReport.stats.linkedUsers}/{healthReport.stats.totalUsers}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{ fontFamily: 'Cairo, sans-serif', color: '#64748b' }}
+                    >
+                      مستخدمين مرتبطين
+                    </Typography>
                   </Box>
                 </Box>
               </Paper>
@@ -1405,19 +1772,27 @@ export default function AdminPanel() {
               {/* الجذور */}
               {healthReport.roots.length > 0 && (
                 <Paper sx={{ p: 2, mb: 3, bgcolor: '#fffbeb', border: '1px solid #fde68a' }}>
-                  <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', mb: 2, fontWeight: 'bold', color: '#92400e' }}>
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      fontFamily: 'Cairo, sans-serif',
+                      mb: 2,
+                      fontWeight: 'bold',
+                      color: '#92400e',
+                    }}
+                  >
                     🌳 الجذور (الأشخاص بدون والد)
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                     {healthReport.roots.map((root, i) => (
-                      <Chip 
-                        key={root.id} 
-                        label={root.name} 
-                        sx={{ 
+                      <Chip
+                        key={root.id}
+                        label={root.name}
+                        sx={{
                           bgcolor: i === 0 ? '#dcfce7' : '#fef3c7',
                           color: i === 0 ? '#166534' : '#92400e',
                           fontWeight: 'bold',
-                          border: i === 0 ? '1px solid #86efac' : '1px solid #fcd34d'
+                          border: i === 0 ? '1px solid #86efac' : '1px solid #fcd34d',
                         }}
                       />
                     ))}
@@ -1433,21 +1808,49 @@ export default function AdminPanel() {
               {/* المشاكل */}
               {healthReport.problems.length > 0 && (
                 <Paper sx={{ p: 2, mb: 3, bgcolor: '#fef2f2', border: '1px solid #fecaca' }}>
-                  <Typography variant="h6" sx={{ fontFamily: 'Cairo, sans-serif', mb: 2, fontWeight: 'bold', color: '#991b1b' }}>
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      fontFamily: 'Cairo, sans-serif',
+                      mb: 2,
+                      fontWeight: 'bold',
+                      color: '#991b1b',
+                    }}
+                  >
                     ⚠️ المشاكل المكتشفة
                   </Typography>
                   <List dense>
                     {healthReport.problems.map((problem, i) => (
-                      <ListItem key={i} sx={{ bgcolor: 'white', borderRadius: 1, mb: 1, border: '1px solid #fecaca' }}>
+                      <ListItem
+                        key={i}
+                        sx={{
+                          bgcolor: 'white',
+                          borderRadius: 1,
+                          mb: 1,
+                          border: '1px solid #fecaca',
+                        }}
+                      >
                         <ListItemText
                           primary={
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              {problem.severity === 'warning' ? <WarningIcon sx={{ color: '#f59e0b' }} /> : <InfoIcon sx={{ color: '#3b82f6' }} />}
-                              <Typography sx={{ fontFamily: 'Cairo, sans-serif', color: '#1e293b' }}>{problem.message}</Typography>
+                              {problem.severity === 'warning' ? (
+                                <WarningIcon sx={{ color: '#f59e0b' }} />
+                              ) : (
+                                <InfoIcon sx={{ color: '#3b82f6' }} />
+                              )}
+                              <Typography
+                                sx={{ fontFamily: 'Cairo, sans-serif', color: '#1e293b' }}
+                              >
+                                {problem.message}
+                              </Typography>
                             </Box>
                           }
                           secondary={problem.details}
-                          secondaryTypographyProps={{ fontFamily: 'Cairo, sans-serif', fontSize: '0.75rem', color: '#64748b' }}
+                          secondaryTypographyProps={{
+                            fontFamily: 'Cairo, sans-serif',
+                            fontSize: '0.75rem',
+                            color: '#64748b',
+                          }}
                         />
                       </ListItem>
                     ))}
@@ -1465,7 +1868,7 @@ export default function AdminPanel() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button 
+          <Button
             onClick={() => setHealthDialogOpen(false)}
             sx={{ fontFamily: 'Cairo, sans-serif' }}
           >
@@ -1481,15 +1884,15 @@ export default function AdminPanel() {
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert 
-          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
           sx={{ fontFamily: 'Cairo, sans-serif' }}
         >
           {snackbar.message}
         </Alert>
       </Snackbar>
-      
+
       {/* مسافة سفلية للقائمة على الهاتف */}
       {isMobile && <Box sx={{ height: 100 }} />}
     </Container>

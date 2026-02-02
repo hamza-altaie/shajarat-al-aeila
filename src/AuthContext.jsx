@@ -8,7 +8,7 @@ import {
   logout as firebaseLogout,
   onAuthChange,
   sendOtpForPhoneUpdate as firebaseSendOtpForPhoneUpdate,
-  verifyAndUpdatePhone as firebaseVerifyAndUpdatePhone
+  verifyAndUpdatePhone as firebaseVerifyAndUpdatePhone,
 } from './firebase/auth';
 
 // عرّف الـ Context محليًا وصدّر useAuth
@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }) => {
   // تهيئة الجلسة والاستماع لتغييرات المصادقة
   useEffect(() => {
     setLoading(true);
-    
+
     // الاستماع المستمر لتغييرات حالة المصادقة
     const unsubscribe = onAuthChange((u) => {
       if (u) {
@@ -123,8 +123,12 @@ export const AuthProvider = ({ children }) => {
       const result = await firebaseVerifyAndUpdatePhone(code);
       if (result.success) {
         // تحديث بيانات المستخدم محلياً
-        setUser(prev => prev ? { ...prev, phone: result.newPhone, phoneNumber: result.newPhone } : prev);
-        setUserData(prev => prev ? { ...prev, phone: result.newPhone, phoneNumber: result.newPhone } : prev);
+        setUser((prev) =>
+          prev ? { ...prev, phone: result.newPhone, phoneNumber: result.newPhone } : prev
+        );
+        setUserData((prev) =>
+          prev ? { ...prev, phone: result.newPhone, phoneNumber: result.newPhone } : prev
+        );
         return { success: true, newPhone: result.newPhone };
       }
       throw new Error('فشل في تحديث رقم الهاتف');
@@ -147,8 +151,8 @@ export const AuthProvider = ({ children }) => {
     logout,
     clearError,
     hasPermission,
-    sendPhoneUpdateOtp,      // ✅ جديد
-    verifyAndUpdatePhone,    // ✅ جديد
+    sendPhoneUpdateOtp, // ✅ جديد
+    verifyAndUpdatePhone, // ✅ جديد
     isLoading: loading,
     isLoggedIn: isAuthenticated,
     userPhone: userData?.phone,

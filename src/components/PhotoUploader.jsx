@@ -27,7 +27,7 @@ import {
   validateImageFile,
   uploadAndUpdatePersonPhoto,
   deletePersonPhoto,
-  getDefaultAvatar
+  getDefaultAvatar,
 } from '../services/imageService';
 
 // =============================================
@@ -39,14 +39,14 @@ const styles = {
     display: 'inline-flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: 1
+    gap: 1,
   },
   avatarWrapper: {
     position: 'relative',
     cursor: 'pointer',
     '&:hover .photo-overlay': {
-      opacity: 1
-    }
+      opacity: 1,
+    },
   },
   avatar: {
     width: 120,
@@ -55,17 +55,17 @@ const styles = {
     borderColor: 'primary.main',
     boxShadow: 2,
     fontSize: '2.5rem',
-    transition: 'all 0.3s ease'
+    transition: 'all 0.3s ease',
   },
   avatarSmall: {
     width: 60,
     height: 60,
-    fontSize: '1.5rem'
+    fontSize: '1.5rem',
   },
   avatarLarge: {
     width: 180,
     height: 180,
-    fontSize: '4rem'
+    fontSize: '4rem',
   },
   overlay: {
     position: 'absolute',
@@ -79,16 +79,16 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     opacity: 0,
-    transition: 'opacity 0.3s ease'
+    transition: 'opacity 0.3s ease',
   },
   hiddenInput: {
-    display: 'none'
+    display: 'none',
   },
   actionButtons: {
     display: 'flex',
     gap: 0.5,
-    mt: 1
-  }
+    mt: 1,
+  },
 };
 
 // =============================================
@@ -100,79 +100,82 @@ export default function PhotoUploader({
   size = 'medium', // small, medium, large
   editable = true,
   onPhotoChange,
-  showName = false
+  showName = false,
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  
+
   const fileInputRef = useRef(null);
-  
+
   // تحديد حجم الـ Avatar
-  const avatarSize = {
-    small: styles.avatarSmall,
-    medium: {},
-    large: styles.avatarLarge
-  }[size] || {};
-  
+  const avatarSize =
+    {
+      small: styles.avatarSmall,
+      medium: {},
+      large: styles.avatarLarge,
+    }[size] || {};
+
   // الحصول على الصورة الافتراضية
   const defaultAvatar = getDefaultAvatar(person?.gender, person?.first_name);
-  
+
   // =============================================
   // 📤 رفع الصورة
   // =============================================
-  const handleFileSelect = useCallback(async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    
-    // إعادة تعيين input للسماح برفع نفس الملف مرة أخرى
-    event.target.value = '';
-    
-    // التحقق من الملف
-    const validation = validateImageFile(file);
-    if (!validation.valid) {
-      setError(validation.errors.join(', '));
-      return;
-    }
-    
-    setError(null);
-    setUploading(true);
-    
-    try {
-      const newUrl = await uploadAndUpdatePersonPhoto(tribeId, person.id, file);
-      
-      // إعلام المكون الأب
-      if (onPhotoChange) {
-        onPhotoChange(newUrl);
+  const handleFileSelect = useCallback(
+    async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      // إعادة تعيين input للسماح برفع نفس الملف مرة أخرى
+      event.target.value = '';
+
+      // التحقق من الملف
+      const validation = validateImageFile(file);
+      if (!validation.valid) {
+        setError(validation.errors.join(', '));
+        return;
       }
-      
-    } catch (err) {
-      console.error('خطأ في رفع الصورة:', err);
-      setError(err.message || 'فشل في رفع الصورة');
-    } finally {
-      setUploading(false);
-    }
-  }, [tribeId, person?.id, onPhotoChange]);
-  
+
+      setError(null);
+      setUploading(true);
+
+      try {
+        const newUrl = await uploadAndUpdatePersonPhoto(tribeId, person.id, file);
+
+        // إعلام المكون الأب
+        if (onPhotoChange) {
+          onPhotoChange(newUrl);
+        }
+      } catch (err) {
+        console.error('خطأ في رفع الصورة:', err);
+        setError(err.message || 'فشل في رفع الصورة');
+      } finally {
+        setUploading(false);
+      }
+    },
+    [tribeId, person?.id, onPhotoChange]
+  );
+
   // =============================================
   // 🗑️ حذف الصورة
   // =============================================
   const handleDelete = useCallback(async () => {
     setConfirmDelete(false);
     setUploading(true);
-    
+
     try {
       // استخراج مسار الملف من الرابط
-      const photoPath = person?.photo_url ? 
-        new URL(person.photo_url).pathname.split('/').slice(-3).join('/') : null;
-      
+      const photoPath = person?.photo_url
+        ? new URL(person.photo_url).pathname.split('/').slice(-3).join('/')
+        : null;
+
       await deletePersonPhoto(tribeId, person.id, photoPath);
-      
+
       if (onPhotoChange) {
         onPhotoChange(null);
       }
-      
     } catch (err) {
       console.error('خطأ في حذف الصورة:', err);
       setError(err.message || 'فشل في حذف الصورة');
@@ -180,7 +183,7 @@ export default function PhotoUploader({
       setUploading(false);
     }
   }, [tribeId, person?.id, person?.photo_url, onPhotoChange]);
-  
+
   // =============================================
   // 🖱️ معالجة النقر
   // =============================================
@@ -191,12 +194,12 @@ export default function PhotoUploader({
       fileInputRef.current?.click();
     }
   };
-  
+
   const handleUploadClick = (e) => {
     e.stopPropagation();
     fileInputRef.current?.click();
   };
-  
+
   // =============================================
   // 🎨 العرض
   // =============================================
@@ -204,15 +207,11 @@ export default function PhotoUploader({
     <Box sx={styles.container}>
       {/* خطأ */}
       {error && (
-        <Alert 
-          severity="error" 
-          onClose={() => setError(null)}
-          sx={{ mb: 1, maxWidth: 250 }}
-        >
+        <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 1, maxWidth: 250 }}>
           {error}
         </Alert>
       )}
-      
+
       {/* الصورة */}
       <Box sx={styles.avatarWrapper} onClick={handleAvatarClick}>
         <Badge
@@ -230,8 +229,8 @@ export default function PhotoUploader({
                     width: size === 'small' ? 24 : 32,
                     height: size === 'small' ? 24 : 32,
                     '&:hover': {
-                      backgroundColor: 'primary.dark'
-                    }
+                      backgroundColor: 'primary.dark',
+                    },
                   }}
                 >
                   <CameraIcon sx={{ fontSize: size === 'small' ? 14 : 18 }} />
@@ -247,19 +246,21 @@ export default function PhotoUploader({
               ...avatarSize,
               bgcolor: defaultAvatar.bgColor,
               color: defaultAvatar.color,
-              borderColor: person?.gender === 'F' ? '#e91e63' : '#2196f3'
+              borderColor: person?.gender === 'F' ? '#e91e63' : '#2196f3',
             }}
           >
             {uploading ? (
               <CircularProgress size={size === 'small' ? 20 : 40} color="inherit" />
-            ) : person?.photo_url ? null : (
-              person?.gender === 'F' ? <FemaleIcon sx={{ fontSize: 'inherit' }} /> :
-              person?.gender === 'M' ? <MaleIcon sx={{ fontSize: 'inherit' }} /> :
+            ) : person?.photo_url ? null : person?.gender === 'F' ? (
+              <FemaleIcon sx={{ fontSize: 'inherit' }} />
+            ) : person?.gender === 'M' ? (
+              <MaleIcon sx={{ fontSize: 'inherit' }} />
+            ) : (
               defaultAvatar.initial
             )}
           </Avatar>
         </Badge>
-        
+
         {/* Overlay للتكبير */}
         {person?.photo_url && (
           <Box className="photo-overlay" sx={styles.overlay}>
@@ -267,14 +268,14 @@ export default function PhotoUploader({
           </Box>
         )}
       </Box>
-      
+
       {/* الاسم */}
       {showName && person?.first_name && (
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
           {person.first_name}
         </Typography>
       )}
-      
+
       {/* أزرار الإجراءات */}
       {editable && person?.photo_url && !uploading && (
         <Box sx={styles.actionButtons}>
@@ -292,7 +293,7 @@ export default function PhotoUploader({
           </Tooltip>
         </Box>
       )}
-      
+
       {/* input مخفي للملف */}
       <input
         type="file"
@@ -301,14 +302,12 @@ export default function PhotoUploader({
         onChange={handleFileSelect}
         style={styles.hiddenInput}
       />
-      
+
       {/* نافذة المعاينة */}
-      <Dialog
-        open={previewOpen}
-        onClose={() => setPreviewOpen(false)}
-        maxWidth="md"
-      >
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Dialog open={previewOpen} onClose={() => setPreviewOpen(false)} maxWidth="md">
+        <DialogTitle
+          sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+        >
           <Typography>
             {person?.first_name} {person?.father_name}
           </Typography>
@@ -325,7 +324,7 @@ export default function PhotoUploader({
               maxWidth: '100%',
               maxHeight: '70vh',
               objectFit: 'contain',
-              borderRadius: 2
+              borderRadius: 2,
             }}
           />
         </DialogContent>
@@ -353,19 +352,15 @@ export default function PhotoUploader({
           </DialogActions>
         )}
       </Dialog>
-      
+
       {/* تأكيد الحذف */}
       <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)}>
         <DialogTitle>حذف الصورة؟</DialogTitle>
         <DialogContent>
-          <Typography>
-            هل أنت متأكد من حذف صورة {person?.first_name}؟
-          </Typography>
+          <Typography>هل أنت متأكد من حذف صورة {person?.first_name}؟</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmDelete(false)}>
-            إلغاء
-          </Button>
+          <Button onClick={() => setConfirmDelete(false)}>إلغاء</Button>
           <Button color="error" onClick={handleDelete}>
             حذف
           </Button>
@@ -380,15 +375,15 @@ export default function PhotoUploader({
 // =============================================
 export function PersonAvatar({ person, size = 'medium', onClick }) {
   const defaultAvatar = getDefaultAvatar(person?.gender, person?.first_name);
-  
+
   const sizeMap = {
     small: { width: 40, height: 40, fontSize: '1rem' },
     medium: { width: 56, height: 56, fontSize: '1.5rem' },
-    large: { width: 80, height: 80, fontSize: '2rem' }
+    large: { width: 80, height: 80, fontSize: '2rem' },
   };
-  
+
   const avatarSize = sizeMap[size] || sizeMap.medium;
-  
+
   return (
     <Avatar
       src={person?.photo_url}
@@ -399,12 +394,14 @@ export function PersonAvatar({ person, size = 'medium', onClick }) {
         color: defaultAvatar.color,
         cursor: onClick ? 'pointer' : 'default',
         border: '2px solid',
-        borderColor: person?.gender === 'F' ? '#e91e63' : '#2196f3'
+        borderColor: person?.gender === 'F' ? '#e91e63' : '#2196f3',
       }}
     >
-      {person?.photo_url ? null : (
-        person?.gender === 'F' ? <FemaleIcon sx={{ fontSize: avatarSize.fontSize }} /> :
-        person?.gender === 'M' ? <MaleIcon sx={{ fontSize: avatarSize.fontSize }} /> :
+      {person?.photo_url ? null : person?.gender === 'F' ? (
+        <FemaleIcon sx={{ fontSize: avatarSize.fontSize }} />
+      ) : person?.gender === 'M' ? (
+        <MaleIcon sx={{ fontSize: avatarSize.fontSize }} />
+      ) : (
         defaultAvatar.initial
       )}
     </Avatar>

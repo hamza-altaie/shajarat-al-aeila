@@ -52,7 +52,12 @@ export default function ProtectedRoute({ children, requireAuth = true }) {
           جاري التحقق من الحساب...
         </Typography>
 
-        <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ maxWidth: 300 }}>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          textAlign="center"
+          sx={{ maxWidth: 300 }}
+        >
           يرجى الانتظار بينما نتأكد من صلاحية وصولك للتطبيق
         </Typography>
 

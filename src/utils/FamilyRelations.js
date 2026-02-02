@@ -2,47 +2,82 @@
 
 // تعريف العلاقات حسب الجنس
 export const MALE_RELATIONS = [
-  "ابن", "والد", "جد", "جد الجد", "أخ", "أخ غير شقيق", "عم", "ابن عم", 
-  "خال", "ابن خال", "ابن أخ", "ابن أخت", "حفيد", "حفيد الحفيد", 
-  "زوج الابنة", "صهر", "حمو", "أخو الزوج", "ابن عم الوالد", 
-  "رب العائلة"
+  'ابن',
+  'والد',
+  'جد',
+  'جد الجد',
+  'أخ',
+  'أخ غير شقيق',
+  'عم',
+  'ابن عم',
+  'خال',
+  'ابن خال',
+  'ابن أخ',
+  'ابن أخت',
+  'حفيد',
+  'حفيد الحفيد',
+  'زوج الابنة',
+  'صهر',
+  'حمو',
+  'أخو الزوج',
+  'ابن عم الوالد',
+  'رب العائلة',
 ];
 
 export const FEMALE_RELATIONS = [
-  "بنت", "زوجة", "والدة", "جدة", "جدة الجد", "أخت", "أخت غير شقيقة", 
-  "عمة", "بنت عم", "خالة", "بنت خال", "بنت أخ", "بنت أخت", "حفيدة", 
-  "حفيدة الحفيد", "زوجة الابن", "كنة", "حماة", "أخت الزوج", "زوجة ثانية", 
-  "زوجة ثالثة", "زوجة رابعة", "بنت عم الوالد"
+  'بنت',
+  'زوجة',
+  'والدة',
+  'جدة',
+  'جدة الجد',
+  'أخت',
+  'أخت غير شقيقة',
+  'عمة',
+  'بنت عم',
+  'خالة',
+  'بنت خال',
+  'بنت أخ',
+  'بنت أخت',
+  'حفيدة',
+  'حفيدة الحفيد',
+  'زوجة الابن',
+  'كنة',
+  'حماة',
+  'أخت الزوج',
+  'زوجة ثانية',
+  'زوجة ثالثة',
+  'زوجة رابعة',
+  'بنت عم الوالد',
 ];
 
 // مجموعات العلاقات
 export const RELATION_GROUPS = {
   // العلاقات الأساسية
   IMMEDIATE_FAMILY: ['رب العائلة', 'زوجة', 'ابن', 'بنت'],
-  
+
   // الوالدين والأجداد
   PARENTS_GRANDPARENTS: ['والد', 'والدة', 'جد', 'جدة', 'جد الجد', 'جدة الجد'],
-  
+
   // الإخوة والأخوات
   SIBLINGS: ['أخ', 'أخت', 'أخ غير شقيق', 'أخت غير شقيقة'],
-  
+
   // أطفال الإخوة والأخوات
   SIBLINGS_CHILDREN: ['ابن أخ', 'بنت أخ', 'ابن أخت', 'بنت أخت'],
-  
+
   // الأعمام والعمات
   UNCLES_AUNTS: ['عم', 'عمة', 'خال', 'خالة'],
-  
+
   // أطفال الأعمام والأخوال
   COUSINS: ['ابن عم', 'بنت عم', 'ابن خال', 'بنت خال', 'ابن عم الوالد', 'بنت عم الوالد'],
-  
+
   // الأحفاد
   GRANDCHILDREN: ['حفيد', 'حفيدة', 'حفيد الحفيد', 'حفيدة الحفيد'],
-  
+
   // الزوجات الإضافيات
   ADDITIONAL_WIVES: ['زوجة ثانية', 'زوجة ثالثة', 'زوجة رابعة'],
-  
+
   // الأقارب بالمصاهرة
-  IN_LAWS: ['صهر', 'كنة', 'حمو', 'حماة', 'أخو الزوج', 'أخت الزوج', 'زوج الابنة']
+  IN_LAWS: ['صهر', 'كنة', 'حمو', 'حماة', 'أخو الزوج', 'أخت الزوج', 'زوج الابنة'],
 };
 
 // وظائف مساعدة للتحقق من العلاقات
@@ -50,7 +85,7 @@ export const RelationUtils = {
   // التحقق من الجنس بناءً على العلاقة
   isMaleRelation: (relation) => MALE_RELATIONS.includes(relation),
   isFemaleRelation: (relation) => FEMALE_RELATIONS.includes(relation),
-  
+
   // التحقق من المجموعات
   isImmediateFamily: (relation) => RELATION_GROUPS.IMMEDIATE_FAMILY.includes(relation),
   isParentOrGrandparent: (relation) => RELATION_GROUPS.PARENTS_GRANDPARENTS.includes(relation),
@@ -61,21 +96,21 @@ export const RelationUtils = {
   isGrandchild: (relation) => RELATION_GROUPS.GRANDCHILDREN.includes(relation),
   isAdditionalWife: (relation) => RELATION_GROUPS.ADDITIONAL_WIVES.includes(relation),
   isInLaw: (relation) => RELATION_GROUPS.IN_LAWS.includes(relation),
-  
+
   // تحديد نوع الشجرة بناءً على العلاقات الموجودة
   determineTreeType: (familyMembers) => {
     if (!familyMembers || familyMembers.length === 0) return 'empty';
-    
-    const hasFather = familyMembers.some(m => m.relation === 'والد');
-    const hasGrandfather = familyMembers.some(m => m.relation === 'جد');
-    const hasSiblings = familyMembers.some(m => RelationUtils.isSibling(m.relation));
-    const hasUnclesAunts = familyMembers.some(m => RelationUtils.isUncleAunt(m.relation));
-    
+
+    const hasFather = familyMembers.some((m) => m.relation === 'والد');
+    const hasGrandfather = familyMembers.some((m) => m.relation === 'جد');
+    const hasSiblings = familyMembers.some((m) => RelationUtils.isSibling(m.relation));
+    const hasUnclesAunts = familyMembers.some((m) => RelationUtils.isUncleAunt(m.relation));
+
     if (hasFather || hasGrandfather || hasUnclesAunts) return 'hierarchical';
     if (hasSiblings) return 'simple_with_siblings';
     return 'simple';
   },
-  
+
   // حساب الأولوية في الترتيب
   getRelationPriority: (relation) => {
     if (relation === 'جد' || relation === 'جدة') return 0; // الجد له أعلى أولوية
@@ -89,7 +124,7 @@ export const RelationUtils = {
     if (RelationUtils.isParentOrGrandparent(relation)) return 7;
     return 8;
   },
-  
+
   // الحصول على الأيقونة المناسبة للعلاقة
   getRelationIcon: (relation, isNephewNiece = false) => {
     if (isNephewNiece) return '👶';
@@ -100,7 +135,8 @@ export const RelationUtils = {
     if (relation === 'جدة') return '👵';
     if (relation === 'حفيد') return '👦';
     if (relation === 'حفيدة') return '👧';
-    if (RelationUtils.isSibling(relation)) return RelationUtils.isMaleRelation(relation) ? '👨‍🦰' : '👩‍🦰';
+    if (RelationUtils.isSibling(relation))
+      return RelationUtils.isMaleRelation(relation) ? '👨‍🦰' : '👩‍🦰';
     if (relation === 'زوجة' || RelationUtils.isAdditionalWife(relation)) return '👰';
     if (relation === 'عم') return '👨‍🦳';
     if (relation === 'عمة') return '👩‍🦳';
@@ -108,71 +144,71 @@ export const RelationUtils = {
     if (relation === 'خالة') return '👩‍🦲';
     if (RelationUtils.isCousin(relation)) return '👤';
     return '';
-  }
+  },
 };
 
 // ألوان العلاقات
 export const RELATION_COLORS = {
   MALE: {
-    fill: "#e3f2fd",
-    stroke: "#2196f3"
+    fill: '#e3f2fd',
+    stroke: '#2196f3',
   },
   FEMALE: {
-    fill: "#fce4ec", 
-    stroke: "#e91e63"
+    fill: '#fce4ec',
+    stroke: '#e91e63',
   },
   GRANDFATHER: {
-    fill: "#fff3e0",
-    stroke: "#ff9800"
+    fill: '#fff3e0',
+    stroke: '#ff9800',
   },
   GRANDMOTHER: {
-    fill: "#fdf2f8",
-    stroke: "#ec4899"
+    fill: '#fdf2f8',
+    stroke: '#ec4899',
   },
   NEPHEW_NIECE_MALE: {
-    fill: "#e8f4fd",
-    stroke: "#42a5f5"
+    fill: '#e8f4fd',
+    stroke: '#42a5f5',
   },
   NEPHEW_NIECE_FEMALE: {
-    fill: "#fde8f0",
-    stroke: "#ec407a"
+    fill: '#fde8f0',
+    stroke: '#ec407a',
   },
   UNCLE_AUNT_MALE: {
-    fill: "#f3e5f5",
-    stroke: "#9c27b0"
+    fill: '#f3e5f5',
+    stroke: '#9c27b0',
   },
   UNCLE_AUNT_FEMALE: {
-    fill: "#fce4ec",
-    stroke: "#e91e63"
+    fill: '#fce4ec',
+    stroke: '#e91e63',
   },
   COUSIN_MALE: {
-    fill: "#e8f5e8",
-    stroke: "#4caf50"
+    fill: '#e8f5e8',
+    stroke: '#4caf50',
   },
   COUSIN_FEMALE: {
-    fill: "#f1f8e9",
-    stroke: "#8bc34a"
+    fill: '#f1f8e9',
+    stroke: '#8bc34a',
   },
   GRANDCHILD_MALE: {
-    fill: "#e1f5fe",
-    stroke: "#0288d1"
+    fill: '#e1f5fe',
+    stroke: '#0288d1',
   },
   GRANDCHILD_FEMALE: {
-    fill: "#fce4ec",
-    stroke: "#ad1457"
+    fill: '#fce4ec',
+    stroke: '#ad1457',
   },
   VIRTUAL_ROOT: {
-    fill: "#f8fafc",
-    stroke: "#e2e8f0"
+    fill: '#f8fafc',
+    stroke: '#e2e8f0',
   },
   VIRTUAL_GRANDFATHER: {
-    fill: "#fef3c7",
-    stroke: "#d97706"
+    fill: '#fef3c7',
+    stroke: '#d97706',
   },
   DEFAULT: {
-    fill: "#f3f4f6",
-    stroke: "#cbd5e1"
-  }
+    fill: '#f3f4f6',
+    stroke: '#cbd5e1',
+  },
 };
 
 export default {
@@ -180,5 +216,5 @@ export default {
   FEMALE_RELATIONS,
   RELATION_GROUPS,
   RelationUtils,
-  RELATION_COLORS
+  RELATION_COLORS,
 };

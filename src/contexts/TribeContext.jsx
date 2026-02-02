@@ -12,7 +12,7 @@ export const TribeProvider = ({ children }) => {
   const [tribe, setTribe] = useState(null);
   const [membership, setMembership] = useState(null);
   const [loading, setLoading] = useState(true);
-  
+
   // ✅ إضافة ref لتتبع حالة المكون
   const isMountedRef = useRef(true);
 
@@ -20,16 +20,16 @@ export const TribeProvider = ({ children }) => {
   useEffect(() => {
     // ✅ تعيين الحالة عند بداية كل effect
     isMountedRef.current = true;
-    
+
     // ✅ انتظار انتهاء تحميل Auth أولاً
     if (authLoading) {
       return;
     }
-    
+
     // إعادة تعيين البيانات عند تغير المستخدم
     setTribe(null);
     setMembership(null);
-    
+
     if (!isAuthenticated || !user?.uid) {
       setLoading(false);
       return;
@@ -38,31 +38,31 @@ export const TribeProvider = ({ children }) => {
     const loadTribeData = async () => {
       try {
         setLoading(true);
-        
+
         // جلب القبيلة الافتراضية
         const tribeData = await getDefaultTribe();
-        
+
         // ✅ التحقق قبل تحديث الحالة
         if (!isMountedRef.current) return;
         setTribe(tribeData);
 
         // التحقق من العضوية
         let membershipData = await checkUserMembership(tribeData.id);
-        
+
         // ✅ التحقق مرة أخرى
         if (!isMountedRef.current) return;
-        
+
         // إذا لم يكن عضو، انضم تلقائياً
         if (!membershipData) {
           membershipData = await joinTribe(tribeData.id, {
             phone: user.phoneNumber,
-            displayName: user.displayName || user.phoneNumber
+            displayName: user.displayName || user.phoneNumber,
           });
-          
+
           // ✅ التحقق بعد الانضمام
           if (!isMountedRef.current) return;
         }
-        
+
         setMembership(membershipData);
       } catch (err) {
         console.error('❌ خطأ في تحميل بيانات القبيلة:', err);
@@ -75,7 +75,7 @@ export const TribeProvider = ({ children }) => {
     };
 
     loadTribeData();
-    
+
     // ✅ Cleanup function
     return () => {
       isMountedRef.current = false;
@@ -108,9 +108,5 @@ export const TribeProvider = ({ children }) => {
     refreshMembership, // ✅ إضافة الدالة
   };
 
-  return (
-    <TribeContext.Provider value={value}>
-      {children}
-    </TribeContext.Provider>
-  );
+  return <TribeContext.Provider value={value}>{children}</TribeContext.Provider>;
 };

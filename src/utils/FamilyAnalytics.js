@@ -14,27 +14,26 @@ export class FamilyAnalytics {
    * @returns {Object} تحليل شامل للعائلة
    */
   analyzeFamily(treeData, familyMembers = []) {
-
     const startTime = Date.now();
-    
+
     // استخراج البيانات
     const allMembers = this.extractAllMembers(treeData, familyMembers);
 
     // التحليل الأساسي
     const basicStats = this.calculateBasicStatistics(allMembers);
-    
+
     // تحليل الأجيال
     const generationAnalysis = this.analyzeGenerations(allMembers);
-    
+
     // التحليل الديموغرافي
     const demographicAnalysis = this.analyzeDemographics(allMembers);
-    
+
     // تحليل العلاقات
     const relationshipAnalysis = this.analyzeRelationships(allMembers);
-    
+
     // الرؤى الذكية
     const insights = this.generateSmartInsights(allMembers, basicStats);
-    
+
     // استخدام عدد الأعضاء الفعلي
     const finalMembersCount = allMembers.length;
 
@@ -44,16 +43,16 @@ export class FamilyAnalytics {
         uniqueMembers: allMembers.length,
         analysisDate: new Date().toISOString(),
         processingTime: Date.now() - startTime,
-        dataQuality: this.assessDataQuality(allMembers)
+        dataQuality: this.assessDataQuality(allMembers),
       },
       basicStats,
       generationAnalysis,
       demographicAnalysis,
       relationshipAnalysis,
       insights,
-      rawData: allMembers
+      rawData: allMembers,
     };
-    
+
     this.lastAnalysis = analysis;
 
     return analysis;
@@ -71,7 +70,9 @@ export class FamilyAnalytics {
       // --- حساب الأجيال تلقائياً بناءً على parentId ---
       // 1. بناء خريطة الأعضاء حسب id
       const memberMap = {};
-      familyMembers.forEach(m => { memberMap[m.id] = { ...m }; });
+      familyMembers.forEach((m) => {
+        memberMap[m.id] = { ...m };
+      });
       // 2. تعيين الجيل لكل عضو
       function assignGeneration(member) {
         if (member.generation !== undefined && member.generation !== null) return member.generation;
@@ -85,7 +86,7 @@ export class FamilyAnalytics {
       Object.values(memberMap).forEach(assignGeneration);
       allMembers = Object.values(memberMap);
     }
-    
+
     // إزالة التكرار بناءً على ID الفريد
     const uniqueMembers = [];
     const seenIds = new Set();
@@ -93,7 +94,7 @@ export class FamilyAnalytics {
     allMembers.forEach((member) => {
       // استخدام ID الفريد (من قاعدة البيانات) بدلاً من الاسم
       const memberId = member.id || member.globalId;
-      
+
       if (memberId && !seenIds.has(memberId)) {
         seenIds.add(memberId);
         uniqueMembers.push(member);
@@ -104,8 +105,8 @@ export class FamilyAnalytics {
     });
 
     // تطبيع البيانات
-    const finalMembers = uniqueMembers.map(member => this.normalizeMemberData(member));
-    
+    const finalMembers = uniqueMembers.map((member) => this.normalizeMemberData(member));
+
     return finalMembers;
   }
 
@@ -114,32 +115,28 @@ export class FamilyAnalytics {
    */
   extractFromTreeStructure(node, generation = 0, parentId = null) {
     if (!node) return [];
-    
+
     const members = [];
-    
+
     // استخراج بيانات العضو الحالي
     const memberData = {
       id: node.id || node.attributes?.globalId || this.generateId(),
       name: node.name || this.buildFullName(node.attributes || node),
       generation: generation,
       parentId: parentId,
-      ...this.extractMemberAttributes(node)
+      ...this.extractMemberAttributes(node),
     };
-    
+
     members.push(memberData);
-    
+
     // استخراج الأطفال
     if (node.children && Array.isArray(node.children)) {
-      node.children.forEach(child => {
-        const childMembers = this.extractFromTreeStructure(
-          child, 
-          generation + 1, 
-          memberData.id
-        );
+      node.children.forEach((child) => {
+        const childMembers = this.extractFromTreeStructure(child, generation + 1, memberData.id);
         members.push(...childMembers);
       });
     }
-    
+
     return members;
   }
 
@@ -149,7 +146,8 @@ export class FamilyAnalytics {
   extractMemberAttributes(node) {
     const attrs = node.attributes || node;
     // دعم جميع صيغ تاريخ الميلاد
-    const birthDate = attrs.birthDate || attrs.birthdate || attrs.BirthDate || attrs.BIRTHDATE || '';
+    const birthDate =
+      attrs.birthDate || attrs.birthdate || attrs.BirthDate || attrs.BIRTHDATE || '';
     return {
       firstName: attrs.firstName || '',
       fatherName: attrs.fatherName || '',
@@ -165,7 +163,7 @@ export class FamilyAnalytics {
       avatar: attrs.avatar,
       isExtended: attrs.isExtended || false,
       familyUid: attrs.familyUid,
-      familyName: attrs.familyName
+      familyName: attrs.familyName,
     };
   }
 
@@ -202,7 +200,7 @@ export class FamilyAnalytics {
       gender: this.normalizeGender(member.gender, member.relation),
       age: age,
       isMarried: this.parseBoolean(member.isMarried),
-      generation: member.generation || 0
+      generation: member.generation || 0,
     };
   }
 
@@ -211,19 +209,19 @@ export class FamilyAnalytics {
    */
   buildFullName(person) {
     if (!person) return 'غير محدد';
-    
+
     // إذا كان هناك اسم جاهز، استخدمه
     if (person.name && person.name.trim() !== '') {
       return person.name.trim();
     }
-    
+
     const parts = [
       person.firstName,
       person.fatherName,
       person.grandfatherName,
-      person.surname
-    ].filter(part => part && part.trim() !== '');
-    
+      person.surname,
+    ].filter((part) => part && part.trim() !== '');
+
     return parts.length > 0 ? parts.join(' ').trim() : 'غير محدد';
   }
 
@@ -233,25 +231,43 @@ export class FamilyAnalytics {
   normalizeGender(gender, relation) {
     // إذا لم يوجد جنس واضح، استنتج من العلاقة
     let genderStr = gender ? gender.toString().toLowerCase().trim() : '';
-    const maleValues = [
-      'ذكر', 'male', 'رجل', 'm', 'ذ', '1', 'boy', 'man', 'ذكرى', 'ذكرًا'
-    ];
+    const maleValues = ['ذكر', 'male', 'رجل', 'm', 'ذ', '1', 'boy', 'man', 'ذكرى', 'ذكرًا'];
     const femaleValues = [
-      'أنثى', 'female', 'امرأة', 'f', 'أ', '2', 'girl', 'woman', 'انثى', 'أنثىً', 'انثىً'
+      'أنثى',
+      'female',
+      'امرأة',
+      'f',
+      'أ',
+      '2',
+      'girl',
+      'woman',
+      'انثى',
+      'أنثىً',
+      'انثىً',
     ];
-    if (maleValues.some(val => genderStr === val || genderStr.includes(val))) {
+    if (maleValues.some((val) => genderStr === val || genderStr.includes(val))) {
       return 'ذكر';
     }
-    if (femaleValues.some(val => genderStr === val || genderStr.includes(val))) {
+    if (femaleValues.some((val) => genderStr === val || genderStr.includes(val))) {
       return 'أنثى';
     }
     // استنتاج الجنس من العلاقة
     if (relation) {
       const rel = relation.toString().toLowerCase();
-      if (rel.includes('ابن') || rel.includes('رب العائلة') || rel.includes('father') || rel.includes('اب')) {
+      if (
+        rel.includes('ابن') ||
+        rel.includes('رب العائلة') ||
+        rel.includes('father') ||
+        rel.includes('اب')
+      ) {
         return 'ذكر';
       }
-      if (rel.includes('بنت') || rel.includes('أم') || rel.includes('mother') || rel.includes('ام')) {
+      if (
+        rel.includes('بنت') ||
+        rel.includes('أم') ||
+        rel.includes('mother') ||
+        rel.includes('ام')
+      ) {
         return 'أنثى';
       }
     }
@@ -263,9 +279,9 @@ export class FamilyAnalytics {
    */
   parseAge(age) {
     if (!age) return null;
-    
+
     if (typeof age === 'number') return age;
-    
+
     const ageMatch = String(age).match(/(\d+)/);
     return ageMatch ? parseInt(ageMatch[1]) : null;
   }
@@ -287,18 +303,21 @@ export class FamilyAnalytics {
    */
   calculateBasicStatistics(members) {
     const total = members.length;
-    const males = members.filter(m => m.gender === 'ذكر').length;
-    const females = members.filter(m => m.gender === 'أنثى').length;
+    const males = members.filter((m) => m.gender === 'ذكر').length;
+    const females = members.filter((m) => m.gender === 'أنثى').length;
     // حذف حساب المتزوجين ومعدل الزواج
     // const married = members.filter(m => m.isMarried).length;
     // حساب الأعمار
-    const ages = members.map(m => m.age).filter(age => age !== null);
-    const ageStats = ages.length > 0 ? {
-      average: Math.round(ages.reduce((sum, age) => sum + age, 0) / ages.length),
-      min: Math.min(...ages),
-      max: Math.max(...ages),
-      median: this.calculateMedian(ages)
-    } : { average: 0, min: 0, max: 0, median: 0 };
+    const ages = members.map((m) => m.age).filter((age) => age !== null);
+    const ageStats =
+      ages.length > 0
+        ? {
+            average: Math.round(ages.reduce((sum, age) => sum + age, 0) / ages.length),
+            min: Math.min(...ages),
+            max: Math.max(...ages),
+            median: this.calculateMedian(ages),
+          }
+        : { average: 0, min: 0, max: 0, median: 0 };
     return {
       totalMembers: total,
       genderDistribution: {
@@ -306,11 +325,11 @@ export class FamilyAnalytics {
         females: females,
         unknown: total - males - females,
         malePercentage: total > 0 ? Math.round((males / total) * 100) : 0,
-        femalePercentage: total > 0 ? Math.round((females / total) * 100) : 0
+        femalePercentage: total > 0 ? Math.round((females / total) * 100) : 0,
       },
       // حذف marriageStats بالكامل
       ageStatistics: ageStats,
-      dataCompleteness: this.calculateDataCompleteness(members)
+      dataCompleteness: this.calculateDataCompleteness(members),
     };
   }
 
@@ -319,15 +338,15 @@ export class FamilyAnalytics {
    */
   analyzeGenerations(members) {
     const generationMap = new Map();
-    
-    members.forEach(member => {
+
+    members.forEach((member) => {
       const gen = member.generation || 0;
       if (!generationMap.has(gen)) {
         generationMap.set(gen, []);
       }
       generationMap.get(gen).push(member);
     });
-    
+
     const generations = Array.from(generationMap.entries())
       .sort(([a], [b]) => a - b)
       .map(([genNumber, genMembers]) => ({
@@ -336,16 +355,17 @@ export class FamilyAnalytics {
         percentage: Math.round((genMembers.length / members.length) * 100),
         members: genMembers,
         averageAge: this.calculateAverageAge(genMembers),
-        genderRatio: this.calculateGenderRatio(genMembers)
+        genderRatio: this.calculateGenderRatio(genMembers),
       }));
-    
+
     return {
       totalGenerations: generations.length,
       generations: generations,
-      largestGeneration: generations.reduce((max, gen) => 
-        gen.count > max.count ? gen : max, { count: 0, generation: 0 }
-      ),
-      generationGrowth: this.calculateGenerationGrowth(generations)
+      largestGeneration: generations.reduce((max, gen) => (gen.count > max.count ? gen : max), {
+        count: 0,
+        generation: 0,
+      }),
+      generationGrowth: this.calculateGenerationGrowth(generations),
     };
   }
 
@@ -357,7 +377,7 @@ export class FamilyAnalytics {
       ageGroups: this.categorizeByAge(members),
       // حذف marriageByAge بالكامل
       genderByGeneration: this.analyzeGenderByGeneration(members),
-      populationPyramid: this.createPopulationPyramid(members)
+      populationPyramid: this.createPopulationPyramid(members),
     };
   }
 
@@ -367,12 +387,12 @@ export class FamilyAnalytics {
   analyzeRelationships(members) {
     const relations = this.groupBy(members, 'relation');
     const familyStructure = this.analyzeFamilyStructure(members);
-    
+
     return {
       relationshipTypes: relations,
       uniqueRelations: Object.keys(relations).length,
       familyStructure: familyStructure,
-      connectivity: this.calculateFamilyConnectivity(members)
+      connectivity: this.calculateFamilyConnectivity(members),
     };
   }
 
@@ -382,7 +402,7 @@ export class FamilyAnalytics {
    */
   generateSmartInsights(members, basicStats) {
     const insights = [];
-    
+
     // رؤى حول الأجيال
     const generations = this.analyzeGenerations(members);
     if (generations.totalGenerations > 3) {
@@ -391,10 +411,10 @@ export class FamilyAnalytics {
         level: 'positive',
         title: 'شجرة عائلة متعددة الأجيال',
         description: `تضم شجرتك ${generations.totalGenerations} أجيال، مما يظهر تاريخاً عائلياً غنياً`,
-        icon: '🏛️'
+        icon: '🏛️',
       });
     }
-    
+
     // رؤى حول النمو
     if (generations.largestGeneration.count > 5) {
       insights.push({
@@ -402,10 +422,10 @@ export class FamilyAnalytics {
         level: 'info',
         title: 'نمو عائلي قوي',
         description: `الجيل ${generations.largestGeneration.generation} هو الأكبر بـ ${generations.largestGeneration.count} أفراد`,
-        icon: '📈'
+        icon: '📈',
       });
     }
-    
+
     // رؤى حول التوازن الجنسي
     const genderBalance = Math.abs(basicStats.genderDistribution.malePercentage - 50);
     if (genderBalance < 10) {
@@ -414,10 +434,10 @@ export class FamilyAnalytics {
         level: 'positive',
         title: 'توازن جنسي مثالي',
         description: 'يوجد توازن جيد بين الذكور والإناث في العائلة',
-        icon: '⚖️'
+        icon: '⚖️',
       });
     }
-    
+
     // رؤى حول البيانات
     if (basicStats.dataCompleteness > 80) {
       insights.push({
@@ -425,57 +445,57 @@ export class FamilyAnalytics {
         level: 'positive',
         title: 'بيانات شاملة',
         description: `${basicStats.dataCompleteness}% من البيانات مكتملة`,
-        icon: '✅'
+        icon: '✅',
       });
     }
-    
+
     return insights;
   }
 
   /**
    * دوال مساعدة
    */
-  
+
   calculateMedian(numbers) {
     const sorted = [...numbers].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
-    return sorted.length % 2 === 0
-      ? (sorted[mid - 1] + sorted[mid]) / 2
-      : sorted[mid];
+    return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
   }
 
   calculateAverageAge(members) {
     // حساب العمر من birthDate إذا لم توجد خاصية age رقمية
-    const ages = members.map(m => {
-      if (typeof m.age === 'number' && !isNaN(m.age)) return m.age;
-      if (m.birthDate || m.birthdate) {
-        const birth = new Date(m.birthDate || m.birthdate);
-        const today = new Date();
-        if (!isNaN(birth.getTime())) {
-          let age = today.getFullYear() - birth.getFullYear();
-          const monthDiff = today.getMonth() - birth.getMonth();
-          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-            age--;
+    const ages = members
+      .map((m) => {
+        if (typeof m.age === 'number' && !isNaN(m.age)) return m.age;
+        if (m.birthDate || m.birthdate) {
+          const birth = new Date(m.birthDate || m.birthdate);
+          const today = new Date();
+          if (!isNaN(birth.getTime())) {
+            let age = today.getFullYear() - birth.getFullYear();
+            const monthDiff = today.getMonth() - birth.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+              age--;
+            }
+            return age >= 0 ? age : null;
           }
-          return age >= 0 ? age : null;
         }
-      }
-      return null;
-    }).filter(age => age !== null);
-    return ages.length > 0 
-      ? Math.round(ages.reduce((sum, age) => sum + age, 0) / ages.length)
-      : 0;
+        return null;
+      })
+      .filter((age) => age !== null);
+    return ages.length > 0 ? Math.round(ages.reduce((sum, age) => sum + age, 0) / ages.length) : 0;
   }
 
   calculateGenderRatio(members) {
-    const males = members.filter(m => m.gender === 'ذكر').length;
-    const females = members.filter(m => m.gender === 'أنثى').length;
+    const males = members.filter((m) => m.gender === 'ذكر').length;
+    const females = members.filter((m) => m.gender === 'أنثى').length;
     const total = males + females;
-    
-    return total > 0 ? {
-      males: Math.round((males / total) * 100),
-      females: Math.round((females / total) * 100)
-    } : { males: 0, females: 0 };
+
+    return total > 0
+      ? {
+          males: Math.round((males / total) * 100),
+          females: Math.round((females / total) * 100),
+        }
+      : { males: 0, females: 0 };
   }
 
   categorizeByAge(members) {
@@ -485,10 +505,10 @@ export class FamilyAnalytics {
       'شباب (18-35)': 0,
       'متوسطو العمر (36-55)': 0,
       'كبار السن (56+)': 0,
-      'غير محدد': 0
+      'غير محدد': 0,
     };
 
-    members.forEach(member => {
+    members.forEach((member) => {
       const age = member.age;
       if (age === null) {
         categories['غير محدد']++;
@@ -521,41 +541,39 @@ export class FamilyAnalytics {
 
   calculateDataCompleteness(members) {
     if (members.length === 0) return 0;
-    
+
     const fields = ['name', 'gender', 'age', 'relation'];
     let totalFields = members.length * fields.length;
     let completedFields = 0;
-    
-    members.forEach(member => {
-      fields.forEach(field => {
+
+    members.forEach((member) => {
+      fields.forEach((field) => {
         if (member[field] && member[field] !== 'غير محدد' && member[field] !== '') {
           completedFields++;
         }
       });
     });
-    
+
     return Math.round((completedFields / totalFields) * 100);
   }
 
   calculateGenerationGrowth(generations) {
     if (generations.length < 2) return [];
-    
+
     const growth = [];
     for (let i = 1; i < generations.length; i++) {
       const current = generations[i].count;
       const previous = generations[i - 1].count;
-      const growthRate = previous > 0 
-        ? Math.round(((current - previous) / previous) * 100)
-        : 0;
-      
+      const growthRate = previous > 0 ? Math.round(((current - previous) / previous) * 100) : 0;
+
       growth.push({
         fromGeneration: generations[i - 1].generation,
         toGeneration: generations[i].generation,
         growthRate: growthRate,
-        absolute: current - previous
+        absolute: current - previous,
       });
     }
-    
+
     return growth;
   }
 
@@ -565,7 +583,7 @@ export class FamilyAnalytics {
 
   assessDataQuality(members) {
     const completeness = this.calculateDataCompleteness(members);
-    
+
     if (completeness >= 90) return 'ممتازة';
     if (completeness >= 70) return 'جيدة';
     if (completeness >= 50) return 'متوسطة';
@@ -580,23 +598,23 @@ export class FamilyAnalytics {
 
   analyzeGenderByGeneration(members) {
     const generations = new Map();
-    
-    members.forEach(member => {
+
+    members.forEach((member) => {
       const gen = member.generation || 0;
       if (!generations.has(gen)) {
         generations.set(gen, { males: 0, females: 0, unknown: 0 });
       }
-      
+
       const genData = generations.get(gen);
       if (member.gender === 'ذكر') genData.males++;
       else if (member.gender === 'أنثى') genData.females++;
       else genData.unknown++;
     });
-    
+
     return Array.from(generations.entries()).map(([gen, data]) => ({
       generation: gen + 1,
       ...data,
-      total: data.males + data.females + data.unknown
+      total: data.males + data.females + data.unknown,
     }));
   }
 
@@ -608,68 +626,65 @@ export class FamilyAnalytics {
       { min: 30, max: 39, label: '30-39' },
       { min: 40, max: 49, label: '40-49' },
       { min: 50, max: 59, label: '50-59' },
-      { min: 60, max: 100, label: '60+' }
+      { min: 60, max: 100, label: '60+' },
     ];
-    
-    return ageRanges.map(range => {
-      const rangeMembers = members.filter(m => 
-        m.age !== null && m.age >= range.min && m.age <= range.max
+
+    return ageRanges.map((range) => {
+      const rangeMembers = members.filter(
+        (m) => m.age !== null && m.age >= range.min && m.age <= range.max
       );
-      
+
       return {
         ageRange: range.label,
-        males: rangeMembers.filter(m => m.gender === 'ذكر').length,
-        females: rangeMembers.filter(m => m.gender === 'أنثى').length,
-        total: rangeMembers.length
+        males: rangeMembers.filter((m) => m.gender === 'ذكر').length,
+        females: rangeMembers.filter((m) => m.gender === 'أنثى').length,
+        total: rangeMembers.length,
       };
     });
   }
 
   analyzeFamilyStructure(members) {
-    const parents = members.filter(m => 
-      m.relation && (
-        m.relation.includes('أب') || 
-        m.relation.includes('أم') || 
-        m.relation.includes('والد') ||
-        m.relation.includes('parent')
-      )
+    const parents = members.filter(
+      (m) =>
+        m.relation &&
+        (m.relation.includes('أب') ||
+          m.relation.includes('أم') ||
+          m.relation.includes('والد') ||
+          m.relation.includes('parent'))
     );
-    
-    const children = members.filter(m => 
-      m.relation && (
-        m.relation.includes('ابن') || 
-        m.relation.includes('بنت') || 
-        m.relation.includes('child')
-      )
+
+    const children = members.filter(
+      (m) =>
+        m.relation &&
+        (m.relation.includes('ابن') || m.relation.includes('بنت') || m.relation.includes('child'))
     );
-    
+
     return {
       parents: parents.length,
       children: children.length,
-      avgChildrenPerParent: parents.length > 0 ? Math.round(children.length / parents.length * 100) / 100 : 0,
-      familySize: members.length
+      avgChildrenPerParent:
+        parents.length > 0 ? Math.round((children.length / parents.length) * 100) / 100 : 0,
+      familySize: members.length,
     };
   }
 
   calculateFamilyConnectivity(members) {
-    const connectedMembers = members.filter(m => m.parentId || 
-      members.some(other => other.parentId === m.id)
+    const connectedMembers = members.filter(
+      (m) => m.parentId || members.some((other) => other.parentId === m.id)
     ).length;
-    
-    return members.length > 0 
-      ? Math.round((connectedMembers / members.length) * 100)
-      : 0;
+
+    return members.length > 0 ? Math.round((connectedMembers / members.length) * 100) : 0;
   }
 
   analyzeGeographicDistribution(members) {
     const locations = this.groupBy(members, 'location');
     const totalWithLocation = Object.values(locations).reduce((sum, count) => sum + count, 0);
-    
+
     return {
       locations: locations,
       uniqueLocations: Object.keys(locations).length,
       coverage: members.length > 0 ? Math.round((totalWithLocation / members.length) * 100) : 0,
-      mostPopular: Object.entries(locations).sort(([,a], [,b]) => b - a)[0] || ['غير محدد', 0]
+      mostPopular: Object.entries(locations).sort(([, a], [, b]) => b - a)[0] || ['غير محدد', 0],
     };
   }
 
@@ -680,39 +695,36 @@ export class FamilyAnalytics {
     if (!this.lastAnalysis) {
       throw new Error('لا يوجد تحليل متاح للتصدير');
     }
-    
+
     switch (format.toLowerCase()) {
       case 'json':
         return JSON.stringify(this.lastAnalysis, null, 2);
-      
+
       case 'csv':
         return this.exportToCSV(this.lastAnalysis.rawData);
-      
+
       case 'summary':
         return this.exportSummary(this.lastAnalysis);
-      
+
       default:
         throw new Error('تنسيق التصدير غير مدعوم');
     }
   }
 
   exportToCSV(members) {
-    const headers = [
-      'الاسم', 'الجنس', 'العمر', 'العلاقة',
-      'الموقع', 'الجيل', 'رقم الهاتف'
-    ];
-    
-    const rows = members.map(member => [
+    const headers = ['الاسم', 'الجنس', 'العمر', 'العلاقة', 'الموقع', 'الجيل', 'رقم الهاتف'];
+
+    const rows = members.map((member) => [
       `"${member.name || ''}"`,
       `"${member.gender || ''}"`,
       `"${member.age || ''}"`,
       `"${member.relation || ''}"`,
       `"${member.location || ''}"`,
       `"${(member.generation || 0) + 1}"`,
-      `"${member.phone || ''}"`
+      `"${member.phone || ''}"`,
     ]);
-    
-    return [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+
+    return [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
   }
 
   exportSummary(analysis) {
@@ -733,7 +745,7 @@ export class FamilyAnalytics {
 - الجيل ${analysis.generationAnalysis.largestGeneration.generation} بـ ${analysis.generationAnalysis.largestGeneration.count} أفراد
 
 📈 الرؤى الذكية:
-${analysis.insights.map(insight => `- ${insight.icon} ${insight.title}: ${insight.description}`).join('\n')}
+${analysis.insights.map((insight) => `- ${insight.icon} ${insight.title}: ${insight.description}`).join('\n')}
 
 تاريخ التحليل: ${new Date(analysis.metadata.analysisDate).toLocaleDateString('ar-SA')}
 جودة البيانات: ${analysis.metadata.dataQuality}

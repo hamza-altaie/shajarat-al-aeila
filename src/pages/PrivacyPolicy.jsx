@@ -42,7 +42,7 @@ export default function PrivacyPolicy() {
             background: 'linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)',
             color: 'white',
             p: 4,
-            position: 'relative'
+            position: 'relative',
           }}
         >
           <IconButton
@@ -53,7 +53,7 @@ export default function PrivacyPolicy() {
               left: 16,
               color: 'white',
               bgcolor: 'rgba(255, 255, 255, 0.1)',
-              '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' }
+              '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' },
             }}
           >
             <CloseIcon />
@@ -70,26 +70,26 @@ export default function PrivacyPolicy() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 mx: 'auto',
-                mb: 2
+                mb: 2,
               }}
             >
               <SecurityIcon sx={{ fontSize: 40 }} />
             </Box>
-            
+
             <Typography variant="h4" fontWeight="bold" gutterBottom>
               سياسة الخصوصية والشروط
             </Typography>
-            
+
             <Typography variant="body1" sx={{ opacity: 0.9 }}>
               نحن نحترم خصوصيتك ونلتزم بحماية بياناتك الشخصية
             </Typography>
-            
+
             <Chip
               label="آخر تحديث: يونيو 2025"
-              sx={{ 
+              sx={{
                 mt: 2,
                 bgcolor: 'rgba(255, 255, 255, 0.2)',
-                color: 'white'
+                color: 'white',
               }}
             />
           </Box>
@@ -99,19 +99,23 @@ export default function PrivacyPolicy() {
           {/* تنبيه مهم */}
           <Alert severity="info" sx={{ mb: 4 }}>
             <Typography variant="body2">
-              <strong>مهم :</strong> باستخدامك لتطبيق شجرة القبيلة، فإنك توافق على هذه السياسة والشروط. 
-              يرجى قراءتها بعناية.
+              <strong>مهم :</strong> باستخدامك لتطبيق شجرة القبيلة، فإنك توافق على هذه السياسة
+              والشروط. يرجى قراءتها بعناية.
             </Typography>
           </Alert>
 
           {/* المعلومات التي نجمعها */}
           <Card sx={{ mb: 4 }}>
             <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography
+                variant="h6"
+                gutterBottom
+                sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+              >
                 <StorageIcon color="primary" />
                 المعلومات التي نجمعها
               </Typography>
-              
+
               <List>
                 <ListItem>
                   <ListItemText
@@ -124,7 +128,7 @@ export default function PrivacyPolicy() {
                     <PhoneIcon color="primary" />
                   </ListItemIcon>
                 </ListItem>
-                
+
                 <ListItem>
                   <ListItemText
                     primaryTypographyProps={{ align: 'right' }}
@@ -136,7 +140,7 @@ export default function PrivacyPolicy() {
                     <VisibilityIcon color="primary" />
                   </ListItemIcon>
                 </ListItem>
-                
+
                 <ListItem>
                   <ListItemText
                     primaryTypographyProps={{ align: 'right' }}
@@ -155,11 +159,15 @@ export default function PrivacyPolicy() {
           {/* كيف نحمي بياناتك */}
           <Card sx={{ mb: 4 }}>
             <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography
+                variant="h6"
+                gutterBottom
+                sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+              >
                 <LockIcon color="primary" />
                 كيف نحمي بياناتك
               </Typography>
-              
+
               <List>
                 <ListItem>
                   <ListItemText
@@ -172,7 +180,7 @@ export default function PrivacyPolicy() {
                     <SecurityIcon color="success" />
                   </ListItemIcon>
                 </ListItem>
-                
+
                 <ListItem>
                   <ListItemText
                     primaryTypographyProps={{ align: 'right' }}
@@ -184,7 +192,7 @@ export default function PrivacyPolicy() {
                     <ShieldIcon color="success" />
                   </ListItemIcon>
                 </ListItem>
-                
+
                 <ListItem>
                   <ListItemText
                     primaryTypographyProps={{ align: 'right' }}
@@ -203,11 +211,15 @@ export default function PrivacyPolicy() {
           {/* حقوقك */}
           <Card sx={{ mb: 4 }}>
             <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography
+                variant="h6"
+                gutterBottom
+                sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+              >
                 <VisibilityIcon color="primary" />
                 حقوقك في البيانات
               </Typography>
-              
+
               <List>
                 <ListItem>
                   <ListItemText
@@ -220,7 +232,7 @@ export default function PrivacyPolicy() {
                     <DeleteIcon color="error" />
                   </ListItemIcon>
                 </ListItem>
-                
+
                 <ListItem>
                   <ListItemText
                     primaryTypographyProps={{ align: 'right' }}
@@ -232,7 +244,7 @@ export default function PrivacyPolicy() {
                     <UpdateIcon color="primary" />
                   </ListItemIcon>
                 </ListItem>
-                
+
                 <ListItem>
                   <ListItemText
                     primaryTypographyProps={{ align: 'right' }}
@@ -254,7 +266,7 @@ export default function PrivacyPolicy() {
               <Typography variant="h6" gutterBottom color="error">
                 عدم مشاركة البيانات مع الغير
               </Typography>
-              
+
               <Typography variant="body1" paragraph>
                 نتعهد بعدم مشاركة أو بيع أو تأجير بياناتك الشخصية لأي طرف ثالث تحت أي ظرف من الظروف.
                 بياناتك ملكك الخاص ولن نستخدمها إلا لتشغيل التطبيق وتحسين خدماتنا.
@@ -268,7 +280,7 @@ export default function PrivacyPolicy() {
               <Typography variant="h6" gutterBottom>
                 شروط الاستخدام
               </Typography>
-              
+
               <List dense>
                 <ListItem>
                   <ListItemText
@@ -315,12 +327,12 @@ export default function PrivacyPolicy() {
               <Typography variant="h6" gutterBottom>
                 معلومات الاتصال
               </Typography>
-              
+
               <Typography variant="body1" paragraph>
-                إذا كان لديك أي أسئلة حول سياسة الخصوصية أو شروط الاستخدام، 
-                يمكنك التواصل معنا من خلال:
+                إذا كان لديك أي أسئلة حول سياسة الخصوصية أو شروط الاستخدام، يمكنك التواصل معنا من
+                خلال:
               </Typography>
-              
+
               <Typography variant="body2" color="text.secondary">
                 البريد الإلكتروني: Hamza.Altaie@gmail.com
               </Typography>

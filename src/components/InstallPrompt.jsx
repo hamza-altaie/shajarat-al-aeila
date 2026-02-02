@@ -19,8 +19,10 @@ const InstallPrompt = () => {
 
   useEffect(() => {
     // التحقق من التنصيب المسبق
-    if (window.matchMedia('(display-mode: standalone)').matches || 
-        window.navigator.standalone === true) {
+    if (
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true
+    ) {
       setIsInstalled(true);
       return;
     }
@@ -35,7 +37,7 @@ const InstallPrompt = () => {
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      
+
       // إظهار واجهة التنصيب فوراً
       setTimeout(() => {
         setShowInstallScreen(true);
@@ -47,7 +49,7 @@ const InstallPrompt = () => {
     // للأجهزة التي لا تدعم التنصيب التلقائي - إظهار الواجهة أيضاً
     const userAgent = navigator.userAgent.toLowerCase();
     const isMobile = /mobi|android|iphone|ipad|ipod/i.test(userAgent);
-    
+
     // إظهار واجهة التنصيب لجميع الأجهزة المحمولة بعد 3 ثوان
     if (isMobile) {
       setTimeout(() => {
@@ -63,7 +65,7 @@ const InstallPrompt = () => {
       // إظهار شاشة النجاح
       setShowSuccessScreen(true);
       localStorage.removeItem('install-declined');
-      
+
       // إخفاء شاشة النجاح بعد 5 ثوان
       setTimeout(() => {
         setShowSuccessScreen(false);
@@ -80,7 +82,6 @@ const InstallPrompt = () => {
   }, []);
 
   const handleInstallClick = async () => {
-
     if (deferredPrompt) {
       // تنصيب تلقائي للأجهزة التي تدعمه
       try {
@@ -99,9 +100,8 @@ const InstallPrompt = () => {
           localStorage.setItem('install-declined', 'true');
           setShowInstallScreen(false);
         }
-        
+
         setDeferredPrompt(null);
-        
       } catch (error) {
         console.error('❌ خطأ في التنصيب التلقائي:', error);
         setShowInstallScreen(false);
@@ -116,18 +116,21 @@ const InstallPrompt = () => {
     const userAgent = navigator.userAgent.toLowerCase();
     const isIOS = /iphone|ipad|ipod/.test(userAgent);
     const isAndroid = /android/.test(userAgent);
-    
+
     let message = '';
     if (isIOS) {
-      message = '📱 لتنصيب التطبيق على iPhone/iPad:\n\n1️⃣ اضغط على أيقونة المشاركة (📤) في الأسفل\n2️⃣ اختر "إضافة إلى الشاشة الرئيسية"\n3️⃣ اضغط "إضافة" لإنهاء التنصيب';
+      message =
+        '📱 لتنصيب التطبيق على iPhone/iPad:\n\n1️⃣ اضغط على أيقونة المشاركة (📤) في الأسفل\n2️⃣ اختر "إضافة إلى الشاشة الرئيسية"\n3️⃣ اضغط "إضافة" لإنهاء التنصيب';
     } else if (isAndroid) {
-      message = '🤖 لتنصيب التطبيق على Android:\n\n1️⃣ اضغط على قائمة المتصفح (⋮) في الأعلى\n2️⃣ اختر "إضافة إلى الشاشة الرئيسية"\n3️⃣ اضغط "إضافة" لإنهاء التنصيب';
+      message =
+        '🤖 لتنصيب التطبيق على Android:\n\n1️⃣ اضغط على قائمة المتصفح (⋮) في الأعلى\n2️⃣ اختر "إضافة إلى الشاشة الرئيسية"\n3️⃣ اضغط "إضافة" لإنهاء التنصيب';
     } else {
-      message = '💻 لتنصيب التطبيق:\n\n1️⃣ ابحث عن أيقونة التنصيب في شريط العناوين\n2️⃣ أو اضغط Ctrl+D لإضافة للمفضلة\n3️⃣ استمتع بالوصول السريع للتطبيق';
+      message =
+        '💻 لتنصيب التطبيق:\n\n1️⃣ ابحث عن أيقونة التنصيب في شريط العناوين\n2️⃣ أو اضغط Ctrl+D لإضافة للمفضلة\n3️⃣ استمتع بالوصول السريع للتطبيق';
     }
-    
+
     alert(message + '\n\n✨ بعد التنصيب ستجد التطبيق في الشاشة الرئيسية مع أيقونة جميلة!');
-    
+
     setShowInstallScreen(false);
     localStorage.setItem('install-declined', 'true');
   };
@@ -158,7 +161,7 @@ const InstallPrompt = () => {
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 9999,
-            p: 2
+            p: 2,
           }}
         >
           <Card
@@ -168,7 +171,7 @@ const InstallPrompt = () => {
               borderRadius: 4,
               background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
               boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-              textAlign: 'center'
+              textAlign: 'center',
             }}
           >
             <CardContent sx={{ p: 4 }}>
@@ -184,31 +187,31 @@ const InstallPrompt = () => {
                   justifyContent: 'center',
                   margin: '0 auto 24px',
                   boxShadow: '0 8px 24px rgba(46,125,50,0.4)',
-                  animation: 'pulse 1.5s infinite'
+                  animation: 'pulse 1.5s infinite',
                 }}
               >
                 <Typography sx={{ fontSize: 50 }}>✓</Typography>
               </Box>
 
-              <Typography 
-                variant="h4" 
-                sx={{ 
-                  fontWeight: 'bold', 
+              <Typography
+                variant="h4"
+                sx={{
+                  fontWeight: 'bold',
                   color: '#2e7d32',
                   mb: 2,
-                  fontFamily: 'Cairo, sans-serif'
+                  fontFamily: 'Cairo, sans-serif',
                 }}
               >
                 🎉 تم التثبيت بنجاح!
               </Typography>
 
-              <Typography 
-                variant="body1" 
-                sx={{ 
+              <Typography
+                variant="body1"
+                sx={{
                   color: '#1b5e20',
                   mb: 3,
                   lineHeight: 1.8,
-                  fontSize: '1.1rem'
+                  fontSize: '1.1rem',
                 }}
               >
                 تم تثبيت التطبيق على جهازك.
@@ -216,12 +219,14 @@ const InstallPrompt = () => {
                 ستجده الآن في الشاشة الرئيسية 📱
               </Typography>
 
-              <Box sx={{ 
-                backgroundColor: 'rgba(46,125,50,0.1)', 
-                borderRadius: 2, 
-                p: 2,
-                mb: 2
-              }}>
+              <Box
+                sx={{
+                  backgroundColor: 'rgba(46,125,50,0.1)',
+                  borderRadius: 2,
+                  p: 2,
+                  mb: 2,
+                }}
+              >
                 <Typography variant="body2" sx={{ color: '#2e7d32' }}>
                   💡 يمكنك الآن فتح التطبيق من الشاشة الرئيسية للحصول على تجربة أفضل
                 </Typography>
@@ -240,7 +245,7 @@ const InstallPrompt = () => {
                   borderRadius: 2,
                   background: 'linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)',
                   color: 'white',
-                  fontWeight: 'bold'
+                  fontWeight: 'bold',
                 }}
               >
                 حسناً، فهمت
@@ -266,7 +271,7 @@ const InstallPrompt = () => {
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 9999,
-          p: 2
+          p: 2,
         }}
       >
         <Card
@@ -276,7 +281,7 @@ const InstallPrompt = () => {
             borderRadius: 4,
             background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
             boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-            position: 'relative'
+            position: 'relative',
           }}
         >
           {/* زر الإغلاق */}
@@ -286,7 +291,7 @@ const InstallPrompt = () => {
               position: 'absolute',
               top: 8,
               right: 8,
-              color: 'text.secondary'
+              color: 'text.secondary',
             }}
           >
             <CloseIcon />
@@ -304,33 +309,33 @@ const InstallPrompt = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 margin: '0 auto 24px',
-                boxShadow: '0 8px 24px rgba(46,125,50,0.3)'
+                boxShadow: '0 8px 24px rgba(46,125,50,0.3)',
               }}
             >
               <PhoneIphoneIcon sx={{ fontSize: 40, color: 'white' }} />
             </Box>
 
             {/* العنوان */}
-            <Typography 
-              variant="h4" 
-              sx={{ 
-                fontWeight: 'bold', 
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: 'bold',
                 color: '#2e7d32',
                 mb: 2,
-                fontFamily: 'Cairo, sans-serif'
+                fontFamily: 'Cairo, sans-serif',
               }}
             >
               📱 نصب التطبيق
             </Typography>
 
             {/* الوصف */}
-            <Typography 
-              variant="body1" 
-              sx={{ 
+            <Typography
+              variant="body1"
+              sx={{
                 color: 'text.secondary',
                 mb: 4,
                 lineHeight: 1.6,
-                fontSize: '1.1rem'
+                fontSize: '1.1rem',
               }}
             >
               احصل على تجربة أفضل مع التطبيق المنصب على جهازك.
@@ -343,17 +348,17 @@ const InstallPrompt = () => {
               <Button
                 onClick={handleDecline}
                 variant="outlined"
-                sx={{ 
+                sx={{
                   px: 3,
                   py: 1.5,
                   borderRadius: 2,
                   color: 'text.secondary',
-                  borderColor: 'divider'
+                  borderColor: 'divider',
                 }}
               >
                 ليس الآن
               </Button>
-              
+
               <Button
                 onClick={handleInstallClick}
                 variant="contained"
@@ -371,9 +376,9 @@ const InstallPrompt = () => {
                   '&:hover': {
                     background: 'linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%)',
                     boxShadow: '0 6px 20px rgba(46,125,50,0.6)',
-                    transform: 'translateY(-2px)'
+                    transform: 'translateY(-2px)',
                   },
-                  transition: 'all 0.3s ease'
+                  transition: 'all 0.3s ease',
                 }}
               >
                 تنصيب الآن
@@ -381,13 +386,13 @@ const InstallPrompt = () => {
             </Box>
 
             {/* نص صغير */}
-            <Typography 
-              variant="caption" 
-              sx={{ 
+            <Typography
+              variant="caption"
+              sx={{
                 color: 'text.secondary',
                 mt: 3,
                 display: 'block',
-                fontSize: '0.9rem'
+                fontSize: '0.9rem',
               }}
             >
               💡 سيعمل التطبيق بشكل أسرع بعد التنصيب

@@ -26,7 +26,7 @@ class ErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     // حفظ معلومات الخطأ للعرض في وضع التطوير
     this.setState({ errorInfo });
-    
+
     // تسجيل الخطأ (يمكن إرساله لخدمة مراقبة الأخطاء)
     console.error('❌ خطأ في المكون:', error);
     console.error('📍 مكان الخطأ:', errorInfo?.componentStack);
@@ -64,18 +64,17 @@ class ErrorBoundary extends React.Component {
               bgcolor: 'background.paper',
             }}
           >
-            <ErrorOutlineIcon 
-              sx={{ fontSize: 72, color: 'error.main', mb: 2 }} 
-            />
-            
+            <ErrorOutlineIcon sx={{ fontSize: 72, color: 'error.main', mb: 2 }} />
+
             <Typography variant="h5" gutterBottom color="error.main" fontWeight="bold">
               حدث خطأ غير متوقع
             </Typography>
-            
+
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3, lineHeight: 1.8 }}>
-              {this.props.fallbackMessage || 'عذراً، حدث خطأ أثناء عرض هذا المحتوى. يرجى المحاولة مرة أخرى.'}
+              {this.props.fallbackMessage ||
+                'عذراً، حدث خطأ أثناء عرض هذا المحتوى. يرجى المحاولة مرة أخرى.'}
             </Typography>
-            
+
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
               <Button
                 variant="contained"
@@ -86,7 +85,7 @@ class ErrorBoundary extends React.Component {
               >
                 إعادة المحاولة
               </Button>
-              
+
               <Button
                 variant="outlined"
                 color="inherit"
@@ -97,7 +96,7 @@ class ErrorBoundary extends React.Component {
                 الصفحة الرئيسية
               </Button>
             </Box>
-            
+
             {/* عرض تفاصيل الخطأ في وضع التطوير فقط */}
             {process.env.NODE_ENV === 'development' && this.state.error && (
               <Box
@@ -114,11 +113,11 @@ class ErrorBoundary extends React.Component {
                   borderColor: 'grey.300',
                 }}
               >
-                <Typography 
-                  variant="caption" 
-                  component="pre" 
-                  sx={{ 
-                    fontFamily: 'monospace', 
+                <Typography
+                  variant="caption"
+                  component="pre"
+                  sx={{
+                    fontFamily: 'monospace',
                     fontSize: '0.75rem',
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word',

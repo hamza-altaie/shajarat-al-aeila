@@ -17,23 +17,23 @@ import HomeIcon from '@mui/icons-material/Home';
 
 // تعريف صفحات التنقل
 const NAV_ITEMS = [
-  { 
-    label: 'الشجرة', 
-    path: '/tree', 
+  {
+    label: 'الشجرة',
+    path: '/tree',
     icon: <AccountTreeIcon />,
-    color: '#10b981'
+    color: '#10b981',
   },
-  { 
-    label: 'العائلة', 
-    path: '/family', 
+  {
+    label: 'العائلة',
+    path: '/family',
     icon: <PeopleIcon />,
-    color: '#3b82f6'
+    color: '#3b82f6',
   },
-  { 
-    label: 'إحصائيات', 
-    path: '/statistics', 
+  {
+    label: 'إحصائيات',
+    path: '/statistics',
     icon: <BarChartIcon />,
-    color: '#f59e0b'
+    color: '#f59e0b',
   },
 ];
 
@@ -41,31 +41,31 @@ export default function MobileNavigation() {
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
-  
+
   // إظهار فقط على الشاشات الصغيرة (أقل من 768px)
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  
+
   // الصفحة الحالية
   const currentPath = location.pathname;
-  const currentIndex = NAV_ITEMS.findIndex(item => currentPath.startsWith(item.path));
-  
+  const currentIndex = NAV_ITEMS.findIndex((item) => currentPath.startsWith(item.path));
+
   // لا تظهر في صفحة تسجيل الدخول
   if (currentPath === '/login' || currentPath === '/privacy') {
     return null;
   }
-  
+
   // لا تظهر على الشاشات الكبيرة
   if (!isMobile) {
     return null;
   }
 
   return (
-    <Paper 
-      sx={{ 
-        position: 'fixed', 
-        bottom: 0, 
-        left: 0, 
-        right: 0, 
+    <Paper
+      sx={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
         zIndex: 1200,
         borderRadius: '20px 20px 0 0',
         overflow: 'hidden',
@@ -74,7 +74,7 @@ export default function MobileNavigation() {
         backdropFilter: 'blur(20px)',
         // دعم الـ Safe Area على الأيفون
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-      }} 
+      }}
       elevation={8}
     >
       <BottomNavigation
@@ -97,7 +97,7 @@ export default function MobileNavigation() {
               '& .MuiBottomNavigationAction-label': {
                 fontWeight: 700,
                 fontSize: '0.75rem',
-              }
+              },
             },
           },
           '& .MuiBottomNavigationAction-label': {
@@ -109,7 +109,7 @@ export default function MobileNavigation() {
           '& .MuiSvgIcon-root': {
             fontSize: '1.5rem',
             transition: 'all 0.3s ease',
-          }
+          },
         }}
       >
         {NAV_ITEMS.map((item, index) => (
@@ -124,7 +124,7 @@ export default function MobileNavigation() {
               },
               '& .MuiSvgIcon-root': {
                 color: 'inherit',
-              }
+              },
             }}
           />
         ))}
@@ -137,13 +137,15 @@ export default function MobileNavigation() {
 export function MobileNavSpacer() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  
+
   if (!isMobile) return null;
-  
+
   return (
-    <div style={{ 
-      height: 'calc(65px + env(safe-area-inset-bottom, 0px))',
-      width: '100%'
-    }} />
+    <div
+      style={{
+        height: 'calc(65px + env(safe-area-inset-bottom, 0px))',
+        width: '100%',
+      }}
+    />
   );
 }

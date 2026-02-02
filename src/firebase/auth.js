@@ -1,14 +1,13 @@
-import { 
+import {
   signInWithPhoneNumber,
   RecaptchaVerifier,
   signOut,
   onAuthStateChanged,
   PhoneAuthProvider,
   updatePhoneNumber,
-  deleteUser
+  deleteUser,
 } from 'firebase/auth';
 import { auth } from './config.js';
-
 
 let confirmationResult = null;
 let recaptchaVerifier = null;
@@ -29,7 +28,9 @@ export async function sendOtp(phoneNumber) {
     // تحقق من وجود عنصر reCAPTCHA
     const recaptchaContainer = document.getElementById('recaptcha-container');
     if (!recaptchaContainer) {
-      throw new Error('عنصر reCAPTCHA غير موجود في الصفحة. تأكد من وجود <div id="recaptcha-container"></div> في الصفحة');
+      throw new Error(
+        'عنصر reCAPTCHA غير موجود في الصفحة. تأكد من وجود <div id="recaptcha-container"></div> في الصفحة'
+      );
     }
 
     // إعادة تعيين RecaptchaVerifier إذا كان موجوداً أو مشغولاً
@@ -40,7 +41,7 @@ export async function sendOtp(phoneNumber) {
           recaptchaVerifier.clear();
         }
       } catch (e) {
-        console.warn("⚠️ تحذير: لا يمكن حذف RecaptchaVerifier السابق", e);
+        console.warn('⚠️ تحذير: لا يمكن حذف RecaptchaVerifier السابق', e);
       }
       recaptchaVerifier = null;
     }
@@ -54,10 +55,10 @@ export async function sendOtp(phoneNumber) {
         },
         'expired-callback': () => {
           recaptchaVerifier = null;
-        }
+        },
       });
     } catch (recaptchaError) {
-      console.error("❌ خطأ في reCAPTCHA:", recaptchaError);
+      console.error('❌ خطأ في reCAPTCHA:', recaptchaError);
       throw new Error(`فشل في تهيئة reCAPTCHA: ${recaptchaError.message || recaptchaError}`);
     }
 
@@ -68,11 +69,11 @@ export async function sendOtp(phoneNumber) {
     } catch (signInError) {
       // إعادة تعيين recaptchaVerifier عند فشل إرسال OTP
       recaptchaVerifier = null;
-      console.error("❌ خطأ في إرسال OTP:", signInError);
+      console.error('❌ خطأ في إرسال OTP:', signInError);
       throw new Error(signInError.message || 'فشل في إرسال الكود');
     }
   } catch (error) {
-    console.error("❌ خطأ في إرسال OTP:", error);
+    console.error('❌ خطأ في إرسال OTP:', error);
     throw new Error(error.message || 'فشل في إرسال الكود');
   }
 }
@@ -85,16 +86,16 @@ export async function verifyOtp(code) {
     }
 
     const result = await confirmationResult.confirm(code);
-    
+
     return {
       success: true,
       user: {
         id: result.user.uid,
         phone: result.user.phoneNumber,
-      }
+      },
     };
   } catch (error) {
-    console.error("❌ خطأ في التحقق:", error.message);
+    console.error('❌ خطأ في التحقق:', error.message);
     throw new Error(error.message || 'فشل التحقق من الكود');
   }
 }
@@ -107,7 +108,7 @@ export async function logout() {
     }
     await signOut(auth);
   } catch (error) {
-    console.error("❌ خطأ:", error.message);
+    console.error('❌ خطأ:', error.message);
     throw error;
   }
 }
@@ -116,7 +117,7 @@ export async function logout() {
 export async function getCurrentUser() {
   return new Promise((resolve) => {
     if (!auth) {
-      console.error("❌ Firebase غير مهيأ");
+      console.error('❌ Firebase غير مهيأ');
       resolve(null);
       return;
     }
@@ -128,7 +129,7 @@ export async function getCurrentUser() {
           uid: user.uid,
           id: user.uid,
           phone: user.phoneNumber,
-          phoneNumber: user.phoneNumber
+          phoneNumber: user.phoneNumber,
         });
       } else {
         resolve(null);
@@ -140,7 +141,7 @@ export async function getCurrentUser() {
 // الاستماع لتغييرات حالة المصادقة
 export function onAuthChange(callback) {
   if (!auth) {
-    console.error("❌ Firebase غير مهيأ");
+    console.error('❌ Firebase غير مهيأ');
     return () => {};
   }
 
@@ -150,7 +151,7 @@ export function onAuthChange(callback) {
         uid: user.uid,
         id: user.uid,
         phone: user.phoneNumber,
-        phoneNumber: user.phoneNumber
+        phoneNumber: user.phoneNumber,
       });
     } else {
       callback(null);
@@ -201,19 +202,16 @@ export async function sendOtpForPhoneUpdate(newPhoneNumber) {
       callback: () => {},
       'expired-callback': () => {
         recaptchaVerifier = null;
-      }
+      },
     });
 
     // إرسال OTP باستخدام PhoneAuthProvider
     const provider = new PhoneAuthProvider(auth);
-    phoneUpdateVerificationId = await provider.verifyPhoneNumber(
-      newPhoneNumber,
-      recaptchaVerifier
-    );
+    phoneUpdateVerificationId = await provider.verifyPhoneNumber(newPhoneNumber, recaptchaVerifier);
 
     return { success: true };
   } catch (error) {
-    console.error("❌ خطأ في إرسال OTP لتحديث الرقم:", error);
+    console.error('❌ خطأ في إرسال OTP لتحديث الرقم:', error);
     recaptchaVerifier = null;
     throw new Error(error.message || 'فشل في إرسال كود التحقق');
   }
@@ -235,10 +233,7 @@ export async function verifyAndUpdatePhone(verificationCode) {
     }
 
     // إنشاء credential من الكود
-    const credential = PhoneAuthProvider.credential(
-      phoneUpdateVerificationId,
-      verificationCode
-    );
+    const credential = PhoneAuthProvider.credential(phoneUpdateVerificationId, verificationCode);
 
     // تحديث رقم الهاتف
     await updatePhoneNumber(auth.currentUser, credential);
@@ -248,11 +243,11 @@ export async function verifyAndUpdatePhone(verificationCode) {
 
     return {
       success: true,
-      newPhone: auth.currentUser.phoneNumber
+      newPhone: auth.currentUser.phoneNumber,
     };
   } catch (error) {
-    console.error("❌ خطأ في تحديث رقم الهاتف:", error);
-    
+    console.error('❌ خطأ في تحديث رقم الهاتف:', error);
+
     // رسائل خطأ مفهومة
     let errorMessage = 'فشل في تحديث رقم الهاتف';
     if (error.code === 'auth/invalid-verification-code') {
@@ -262,7 +257,7 @@ export async function verifyAndUpdatePhone(verificationCode) {
     } else if (error.code === 'auth/credential-already-in-use') {
       errorMessage = 'هذا الرقم مستخدم بحساب آخر';
     }
-    
+
     throw new Error(errorMessage);
   }
 }
@@ -278,16 +273,15 @@ export async function deleteAccount() {
     }
 
     await deleteUser(auth.currentUser);
-    console.log("✅ تم حذف حساب المستخدم من Firebase");
   } catch (error) {
-    console.error("❌ خطأ في حذف الحساب من Firebase:", error);
-    
+    console.error('❌ خطأ في حذف الحساب من Firebase:', error);
+
     // رسائل خطأ مفهومة
     let errorMessage = 'فشل في حذف الحساب';
     if (error.code === 'auth/requires-recent-login') {
       errorMessage = 'يجب إعادة تسجيل الدخول قبل حذف الحساب لأسباب أمنية';
     }
-    
+
     throw new Error(errorMessage);
   }
 }

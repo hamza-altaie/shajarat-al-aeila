@@ -8,37 +8,37 @@
   --family-success: #10b981;
   --family-warning: #f59e0b;
   --family-error: #ef4444;
-  
+
   /* خلفيات زجاجية وشفافة */
   --family-bg-simple: #fff;
   --family-bg-extended: #fff;
   --family-bg-glass: rgba(30, 41, 59, 0.8);
   --family-bg-card: rgba(255, 255, 255, 0.05);
-  
+
   /* ألوان النصوص */
   --family-text-primary: #1a1a1a !important;
   --family-text-secondary: #2d3748 !important;
   --family-text-muted: #4a5568 !important;
-  
+
   /* ظلال عصرية */
   --family-shadow-light: 0 4px 6px rgba(0, 0, 0, 0.1);
   --family-shadow-medium: 0 8px 32px rgba(0, 0, 0, 0.3);
   --family-shadow-heavy: 0 20px 40px rgba(99, 102, 241, 0.3);
   --family-shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.3);
-  
+
   /* خطوط */
-  --family-font-primary: "Cairo", "Roboto", "Helvetica Neue", Arial, sans-serif;
-  
+  --family-font-primary: 'Cairo', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+
   /* أبعاد محدثة */
   --family-card-width: 320px;
   --family-card-height: 180px;
   --family-card-radius: 20px;
   --family-card-radius-small: 12px;
-  
+
   /* انتقالات سلسة */
   --family-transition-fast: all 0.2s ease;
-  --family-transition-normal: all 0.4s cubic-bezier(0.23, 1, 0.320, 1);
-  
+  --family-transition-normal: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+
   width: 100%;
   height: 100%;
   font-family: var(--family-font-primary);
@@ -59,12 +59,12 @@
   .family-tree-advanced-root {
     font-size: 14px;
   }
-  
+
   /* تقليل حجم الهيدر في الهواتف الذكية */
   .MuiPaper-root {
     backdrop-filter: blur(15px) !important;
   }
-  
+
   /* تحسين المسافات للشاشات الصغيرة - مقللة أكثر */
   .MuiBox-root {
     padding-left: 6px !important;
@@ -72,12 +72,12 @@
     padding-top: 4px !important;
     padding-bottom: 4px !important;
   }
-  
+
   /* تقليل ارتفاع الهيدر للهواتف */
   .MuiTypography-h5 {
     line-height: 1.2 !important;
   }
-  
+
   .MuiTypography-caption {
     line-height: 1.1 !important;
   }
@@ -87,7 +87,7 @@
   .family-tree-advanced-root {
     font-size: 15px;
   }
-  
+
   /* تحسين المسافات للأجهزة اللوحية */
   .MuiBox-root {
     padding-top: 6px !important;
@@ -103,10 +103,12 @@
 
 /* تحسينات خاصة بالهيدر */
 .header-gradient {
-  background: linear-gradient(145deg, 
-    rgba(255,255,255,0.98) 0%, 
-    rgba(249,250,251,0.98) 50%, 
-    rgba(243,244,246,0.98) 100%) !important;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(249, 250, 251, 0.98) 50%,
+    rgba(243, 244, 246, 0.98) 100%
+  ) !important;
   backdrop-filter: blur(25px) !important;
 }
 
@@ -119,12 +121,12 @@
 }
 
 .MuiButton-contained {
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
 }
 
 .MuiButton-contained:hover {
   transform: translateY(-2px) !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
 }
 
 /* تحسين شريط البحث */
@@ -237,7 +239,7 @@
 /* تأثيرات الهوفر الجديدة */
 .family-tree-chart-container .node:hover rect {
   transform: translateY(-3px) scale(1.02) !important;
-  filter: brightness(1.08) drop-shadow(0 12px 32px rgba(0,0,0,0.18)) !important;
+  filter: brightness(1.08) drop-shadow(0 12px 32px rgba(0, 0, 0, 0.18)) !important;
 }
 
 .family-tree-chart-container .node:active rect {
@@ -321,7 +323,7 @@
   font-size: 16px;
   font-weight: 700;
   fill: var(--family-text-primary);
-  filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.5));
+  filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.5));
   transition: var(--family-transition-fast);
 }
 
@@ -336,7 +338,7 @@
   font-size: 13px;
   font-weight: 500;
   fill: var(--family-text-secondary);
-  filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.4));
+  filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.4));
   opacity: 0.9;
 }
 
@@ -345,7 +347,7 @@
   font-size: 11px;
   font-weight: 400;
   fill: var(--family-text-muted);
-  filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.3));
+  filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.3));
   opacity: 0.8;
 }
 
@@ -358,7 +360,7 @@
   stroke-linejoin: round;
   opacity: 0.6;
   transition: var(--family-transition-normal);
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 
 .family-tree-chart-container .link:hover {
@@ -403,7 +405,7 @@
   pointer-events: none;
   user-select: none;
   font-size: 11px;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
 
 /* تأثيرات الإضاءة للعقد المحددة */
@@ -467,7 +469,7 @@
   background: rgba(255, 235, 59, 0.1) !important;
   border: 3px solid #ffeb3b !important;
   border-radius: 15px !important;
-  box-shadow: 
+  box-shadow:
     0 0 30px rgba(255, 235, 59, 0.8),
     inset 0 0 20px rgba(255, 235, 59, 0.2) !important;
   backdrop-filter: blur(10px) !important;
@@ -548,11 +550,12 @@
 
 /* تأثير النبض المحسن - قاعدة واحدة فقط */
 @keyframes pulse {
-  0%, 100% { 
+  0%,
+  100% {
     transform: scale(1);
     filter: brightness(1);
   }
-  50% { 
+  50% {
     transform: scale(1.05);
     filter: brightness(1.2);
   }
@@ -564,8 +567,13 @@
 
 /* تأثيرات تدرج الألوان */
 @keyframes gradientShift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
 }
 
 /* =================================================================== */
@@ -611,19 +619,19 @@
     --family-card-width: 200px;
     --family-card-height: 120px;
   }
-  
+
   .family-name-text {
     font-size: 13px;
   }
-  
+
   .family-relation-text {
     font-size: 11px;
   }
-  
+
   .family-info-text {
     font-size: 9px;
   }
-  
+
   /* إضافة مسافة سفلية للقائمة السفلية */
   .family-tree-chart-container {
     padding-bottom: 80px;
@@ -635,25 +643,25 @@
     --family-card-width: 160px;
     --family-card-height: 100px;
   }
-  
+
   .family-name-text {
     font-size: 11px;
   }
-  
+
   .family-relation-text {
     font-size: 10px;
   }
-  
+
   .family-info-text {
     font-size: 8px;
   }
-  
+
   /* تحسين اللمس على الهاتف */
   .family-tree-chart-container .node {
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
   }
-  
+
   .family-tree-chart-container .node rect,
   .family-tree-chart-container .node foreignObject {
     min-height: 44px; /* الحد الأدنى للمس */
@@ -704,23 +712,22 @@
     background: white !important;
     color: black !important;
   }
-  
+
   .family-node-card {
     stroke: black !important;
   }
-  
+
   .family-name-text,
   .family-relation-text,
   .family-info-text {
     fill: black !important;
   }
-  
+
   .search-highlight {
     animation: none !important;
     filter: none !important;
   }
 }
-
 
 /* 1. أنيميشن ظهور العقد - بسيط وجميل */
 @keyframes simpleNodeFadeIn {
@@ -750,7 +757,8 @@
 
 /* 3. أنيميشن النبض للعقدة الرئيسية */
 @keyframes gentlePulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     box-shadow: 0 0 0 0 rgba(25, 118, 210, 0.4);
   }
@@ -783,19 +791,19 @@
 }
 
 /* تأخير تدريجي للعقد حسب العمق */
-.family-tree-chart-container .node[data-depth="0"] {
+.family-tree-chart-container .node[data-depth='0'] {
   animation-delay: 0.1s;
 }
 
-.family-tree-chart-container .node[data-depth="1"] {
+.family-tree-chart-container .node[data-depth='1'] {
   animation-delay: 0.3s;
 }
 
-.family-tree-chart-container .node[data-depth="2"] {
+.family-tree-chart-container .node[data-depth='2'] {
   animation-delay: 0.5s;
 }
 
-.family-tree-chart-container .node[data-depth="3"] {
+.family-tree-chart-container .node[data-depth='3'] {
   animation-delay: 0.7s;
 }
 
@@ -807,10 +815,11 @@
 }
 
 /* العقدة الجذر لها نبضة لطيفة */
-.family-tree-chart-container .node[data-depth="0"] circle,
-.family-tree-chart-container .node[data-depth="0"] .node-content {
-  animation: simpleNodeFadeIn 0.6s ease-out 0.1s forwards, 
-             gentlePulse 3s ease-in-out 1s infinite;
+.family-tree-chart-container .node[data-depth='0'] circle,
+.family-tree-chart-container .node[data-depth='0'] .node-content {
+  animation:
+    simpleNodeFadeIn 0.6s ease-out 0.1s forwards,
+    gentlePulse 3s ease-in-out 1s infinite;
 }
 
 /* تأثير عند الـ hover */
@@ -845,7 +854,7 @@
 
 .MuiButton-root:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* أنيميشن الشرائح المعلوماتية */
@@ -864,8 +873,9 @@
 
 /* العقدة المعثور عليها */
 .family-tree-chart-container .node.search-highlight {
-  animation: simpleNodeFadeIn 0.6s ease-out forwards,
-             gentlePulse 2s ease-in-out infinite;
+  animation:
+    simpleNodeFadeIn 0.6s ease-out forwards,
+    gentlePulse 2s ease-in-out infinite;
 }
 
 /* نتائج البحث */
@@ -898,7 +908,7 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-  
+
   .family-tree-chart-container .node,
   .family-tree-chart-container .link {
     animation: none !important;
@@ -969,17 +979,16 @@
 
 /* تأثير الظلال العصرية */
 .modern-shadow {
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
   transition: box-shadow 0.3s ease;
 }
 
 .modern-shadow:hover {
-  box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
 
-
-
-html, body {
+html,
+body {
   touch-action: pan-x pan-y;
   overscroll-behavior: none;
   -webkit-user-select: none;
@@ -1002,26 +1011,26 @@ svg {
     width: 100vw !important;
     overflow: hidden;
   }
-  
+
   /* تقليل ارتفاع الهيدر في الوضع الأفقي */
   .family-tree-advanced-root .MuiPaper-root:first-of-type {
     padding: 4px 8px !important;
     min-height: auto !important;
   }
-  
+
   /* تكبير منطقة الشجرة */
   .family-tree-advanced-root > div:nth-child(2) {
     top: 70px !important;
     bottom: 0 !important;
   }
-  
+
   /* تصغير الأزرار العائمة */
   .family-tree-advanced-root .MuiFab-root {
     width: 36px !important;
     height: 36px !important;
     min-height: 36px !important;
   }
-  
+
   .family-tree-advanced-root .MuiFab-root svg {
     font-size: 18px !important;
   }
@@ -1040,7 +1049,7 @@ svg {
     height: 100vh !important;
     width: 100vw !important;
   }
-  
+
   .family-tree-advanced-root > div:nth-child(2) {
     top: 100px !important;
     bottom: 0 !important;
@@ -1053,7 +1062,7 @@ svg {
     width: 100% !important;
     height: 100% !important;
   }
-  
+
   /* منع تمرير الصفحة أثناء التنقل في الشجرة */
   .family-tree-advanced-root {
     touch-action: none;
@@ -1069,7 +1078,7 @@ svg {
       height: -webkit-fill-available !important;
       min-height: -webkit-fill-available !important;
     }
-    
+
     /* إصلاح مشكلة الهيدر على iOS landscape */
     .family-tree-advanced-root > div:nth-child(2) {
       position: fixed !important;

@@ -16,24 +16,24 @@ export class FamilyTreeBuilder {
       fatherName: memberData.fatherName?.trim() || '',
       grandfatherName: memberData.grandfatherName?.trim() || '',
       surname: memberData.surname?.trim() || '',
-      relation: memberData.relation?.trim() || 'عضو'
+      relation: memberData.relation?.trim() || 'عضو',
     };
   };
 
   // التحقق من صحة ربط الأحفاد وإعطاء نصائح
   validateGrandchildrenConnections = (familyMembers) => {
-    const accountOwner = familyMembers.find(m => m.relation === 'رب العائلة');
-    const grandchildren = familyMembers.filter(m => m.relation === 'حفيد' || m.relation === 'حفيدة');
-    const ownerChildren = familyMembers.filter(m => 
-      (m.relation === 'ابن' || m.relation === 'بنت')
+    const accountOwner = familyMembers.find((m) => m.relation === 'رب العائلة');
+    const grandchildren = familyMembers.filter(
+      (m) => m.relation === 'حفيد' || m.relation === 'حفيدة'
     );
+    const ownerChildren = familyMembers.filter((m) => m.relation === 'ابن' || m.relation === 'بنت');
 
     // Debug information for development (commented out for production)
     // console.warn(`👶 جميع الأطفال في العائلة:`, ownerChildren.map(c => `"${c.firstName}" (والده: "${c.fatherName}")`));
 
     // البحث عن الأطفال المباشرين لرب العائلة
-    const directChildren = ownerChildren.filter(child => 
-      child.fatherName === accountOwner?.firstName
+    const directChildren = ownerChildren.filter(
+      (child) => child.fatherName === accountOwner?.firstName
     );
 
     if (grandchildren.length === 0) return;
@@ -42,15 +42,15 @@ export class FamilyTreeBuilder {
     // console.warn(`🔍 تم العثور على ${grandchildren.length} حفيد/حفيدة - التحقق من الربط:`);
     // console.warn(`👨‍👦‍👦 رب العائلة: "${accountOwner?.firstName}"`);
     // console.warn(`👶 الأطفال المباشرين:`, directChildren.map(c => `"${c.firstName}"`));
-    
-    grandchildren.forEach(grandchild => {
-      const possibleParent = directChildren.find(child => 
-        child.firstName === grandchild.fatherName
+
+    grandchildren.forEach((grandchild) => {
+      const possibleParent = directChildren.find(
+        (child) => child.firstName === grandchild.fatherName
       );
-      
+
       // Debug information for development (commented out for production)
       // console.warn(`🔸 الحفيد: "${grandchild.firstName}" - والده: "${grandchild.fatherName}" - جده: "${grandchild.grandfatherName}"`);
-      
+
       if (!possibleParent) {
         // console.warn(`❌ الحفيد "${grandchild.firstName}" - لم يتم العثور على والد بالاسم "${grandchild.fatherName}"`);
         // console.warn(`💡 تأكد من وجود ابن/بنت باسم "${grandchild.fatherName}" في العائلة`);
@@ -64,17 +64,17 @@ export class FamilyTreeBuilder {
 
   // العثور على رب العائلة
   findFamilyHead = (members) => {
-    const head = members.find(m => m.relation === 'رب العائلة');
+    const head = members.find((m) => m.relation === 'رب العائلة');
     if (head) {
       return head;
     }
-    
+
     const sorted = [...members].sort((a, b) => {
       const dateA = new Date(a.createdAt || 0);
       const dateB = new Date(b.createdAt || 0);
       return dateA - dateB;
     });
-    
+
     return sorted[0] || members[0];
   };
 
@@ -82,11 +82,9 @@ export class FamilyTreeBuilder {
   buildFullName = (person) => {
     if (!person) return '';
 
-    const parts = [
-        person.firstName,
-        person.fatherName,
-        person.surname
-    ].filter(part => part && part.trim() !== '');
+    const parts = [person.firstName, person.fatherName, person.surname].filter(
+      (part) => part && part.trim() !== ''
+    );
 
     return parts.length > 0 ? parts.join(' ').trim() : '';
   };
@@ -99,38 +97,38 @@ export class FamilyTreeBuilder {
     }
 
     // الطريقة الأولى: التحقق من اسم الوالد
-    const isChildByFatherName = (
-      (RelationUtils.isSiblingChild(child.relation) || 
-       child.relation === 'ابن' || child.relation === 'بنت' ||
-       child.relation === 'والد' || child.relation === 'والدة' ||
-       child.relation === 'حفيد' || child.relation === 'حفيدة') &&
+    const isChildByFatherName =
+      (RelationUtils.isSiblingChild(child.relation) ||
+        child.relation === 'ابن' ||
+        child.relation === 'بنت' ||
+        child.relation === 'والد' ||
+        child.relation === 'والدة' ||
+        child.relation === 'حفيد' ||
+        child.relation === 'حفيدة') &&
       child.fatherName === parent.firstName &&
-      child.globalId !== parent.globalId
-    );
-    
+      child.globalId !== parent.globalId;
+
     // الطريقة الثانية: التحقق من معرف الوالد
-    const isChildByParentId = (
-      child.parentId === parent.globalId ||
-      child.fatherId === parent.globalId
-    );
-    
+    const isChildByParentId =
+      child.parentId === parent.globalId || child.fatherId === parent.globalId;
+
     // الطريقة الثالثة: التحقق من النسب الكامل
-    const isChildByFullLineage = (
+    const isChildByFullLineage =
       RelationUtils.isSiblingChild(child.relation) &&
       child.fatherName === parent.firstName &&
       child.grandfatherName === parent.fatherName &&
       child.surname === parent.surname &&
-      child.globalId !== parent.globalId
-    );
+      child.globalId !== parent.globalId;
 
     // الطريقة الرابعة: علاقة الوالد بالجد
-    const isFatherOfGrandfather = (
+    const isFatherOfGrandfather =
       child.relation === 'والد' &&
       parent.relation === 'جد' &&
-      child.fatherName === parent.firstName
-    );
+      child.fatherName === parent.firstName;
 
-    return isChildByFatherName || isChildByParentId || isChildByFullLineage || isFatherOfGrandfather;
+    return (
+      isChildByFatherName || isChildByParentId || isChildByFullLineage || isFatherOfGrandfather
+    );
   };
 
   // التحقق من انتماء أبناء العم للعم
@@ -141,25 +139,21 @@ export class FamilyTreeBuilder {
     }
 
     // الطريقة الأولى: التحقق من علاقة ابن عم مباشرة مع اسم العم
-    const isDirectCousin = (
+    const isDirectCousin =
       (cousin.relation === 'ابن عم' || cousin.relation === 'بنت عم') &&
       cousin.fatherName === uncle.firstName &&
-      cousin.globalId !== uncle.globalId
-    );
-    
+      cousin.globalId !== uncle.globalId;
+
     // الطريقة الثانية: التحقق من النسب - العم والوالد إخوة
-    const isCousinByLineage = (
+    const isCousinByLineage =
       (cousin.relation === 'ابن عم' || cousin.relation === 'بنت عم') &&
       cousin.grandfatherName === uncle.fatherName && // نفس الجد
       cousin.fatherName !== uncle.firstName && // ليس ابن مباشر للعم
-      cousin.globalId !== uncle.globalId
-    );
+      cousin.globalId !== uncle.globalId;
 
     // الطريقة الثالثة: التحقق من معرف العم
-    const isCousingByUncleId = (
-      cousin.uncleId === uncle.globalId ||
-      cousin.parentId === uncle.globalId
-    );
+    const isCousingByUncleId =
+      cousin.uncleId === uncle.globalId || cousin.parentId === uncle.globalId;
 
     return isDirectCousin || isCousinByLineage || isCousingByUncleId;
   };
@@ -172,54 +166,60 @@ export class FamilyTreeBuilder {
     }
 
     // الطريقة الأولى: التحقق من علاقة الحفيد المباشرة
-    const isDirectGrandchild = (
+    const isDirectGrandchild =
       (grandchild.relation === 'حفيد' || grandchild.relation === 'حفيدة') &&
-      grandchild.globalId !== accountOwner.globalId
-    );
+      grandchild.globalId !== accountOwner.globalId;
 
     // الطريقة الثانية: التحقق من النسب - الحفيد هو ابن أحد أطفال رب العائلة
-    const ownerChildren = familyMembers.filter(m => 
-      (m.relation === 'ابن' || m.relation === 'بنت') && 
-      this.isChildOfParent(m, accountOwner)
+    const ownerChildren = familyMembers.filter(
+      (m) => (m.relation === 'ابن' || m.relation === 'بنت') && this.isChildOfParent(m, accountOwner)
     );
 
-    const isGrandchildByLineage = ownerChildren.some(child => 
-      grandchild.fatherName === child.firstName &&
-      grandchild.grandfatherName === accountOwner.firstName &&
-      grandchild.globalId !== child.globalId
+    const isGrandchildByLineage = ownerChildren.some(
+      (child) =>
+        grandchild.fatherName === child.firstName &&
+        grandchild.grandfatherName === accountOwner.firstName &&
+        grandchild.globalId !== child.globalId
     );
 
     // الطريقة الثالثة: التحقق من معرف الوالد
-    const isGrandchildByParentId = ownerChildren.some(child =>
-      grandchild.parentId === child.globalId ||
-      grandchild.fatherId === child.globalId
+    const isGrandchildByParentId = ownerChildren.some(
+      (child) => grandchild.parentId === child.globalId || grandchild.fatherId === child.globalId
     );
 
     return isDirectGrandchild || isGrandchildByLineage || isGrandchildByParentId;
   };
 
   // إضافة الأطفال للعقدة مع دعم الأحفاد
-  addChildrenToNode = (parentNode, children, treeType, familyMembers = null, accountOwner = null) => {
+  addChildrenToNode = (
+    parentNode,
+    children,
+    treeType,
+    familyMembers = null,
+    accountOwner = null
+  ) => {
     // Debug information for development (commented out for production)
     // console.warn(`🔧 إضافة ${children.length} طفل لـ "${parentNode.attributes?.firstName || parentNode.name}"`);
-    
-    children.forEach(child => {
+
+    children.forEach((child) => {
       // تسجيل الطفل كمُضاف لتجنب التكرار
       this.addedChildrenIds.add(child.globalId);
-      
+
       // ✅ البحث عن زوجات هذا الطفل (الابن/الأخ) - عبر parentId أو parent_id
-      const childSpouses = familyMembers?.filter(m => {
-        if (this.addedChildrenIds.has(m.globalId)) return false;
-        const isWife = m.relation === 'زوجة' || RelationUtils.isAdditionalWife(m.relation);
-        if (!isWife) return false;
-        // التحقق من الربط عبر parentId أو parent_id (مقارنة كنصوص)
-        const parentMatch = String(m.parentId) === String(child.globalId) || 
-                           String(m.parent_id) === String(child.globalId) ||
-                           String(m.parentId) === String(child.id) ||
-                           String(m.parent_id) === String(child.id);
-        return parentMatch;
-      }) || [];
-      
+      const childSpouses =
+        familyMembers?.filter((m) => {
+          if (this.addedChildrenIds.has(m.globalId)) return false;
+          const isWife = m.relation === 'زوجة' || RelationUtils.isAdditionalWife(m.relation);
+          if (!isWife) return false;
+          // التحقق من الربط عبر parentId أو parent_id (مقارنة كنصوص)
+          const parentMatch =
+            String(m.parentId) === String(child.globalId) ||
+            String(m.parent_id) === String(child.globalId) ||
+            String(m.parentId) === String(child.id) ||
+            String(m.parent_id) === String(child.id);
+          return parentMatch;
+        }) || [];
+
       const childNode = {
         name: this.buildFullName(child),
         id: child.globalId,
@@ -227,99 +227,111 @@ export class FamilyTreeBuilder {
         attributes: {
           ...child,
           treeType,
-          isNephewNiece: RelationUtils.isSiblingChild(child.relation)
+          isNephewNiece: RelationUtils.isSiblingChild(child.relation),
         },
         children: [],
         // ✅ دعم الزوجات المتعددة - مصفوفة
-        spouses: childSpouses.map(spouse => ({
+        spouses: childSpouses.map((spouse) => ({
           name: this.buildFullName(spouse),
           id: spouse.globalId,
           avatar: spouse.avatar || null,
           attributes: {
             ...spouse,
             isSpouse: true,
-            treeType
-          }
+            treeType,
+          },
         })),
         // للتوافق مع الكود القديم
-        spouse: childSpouses[0] ? {
-          name: this.buildFullName(childSpouses[0]),
-          id: childSpouses[0].globalId,
-          avatar: childSpouses[0].avatar || null,
-          attributes: {
-            ...childSpouses[0],
-            isSpouse: true,
-            treeType
-          }
-        } : null
+        spouse: childSpouses[0]
+          ? {
+              name: this.buildFullName(childSpouses[0]),
+              id: childSpouses[0].globalId,
+              avatar: childSpouses[0].avatar || null,
+              attributes: {
+                ...childSpouses[0],
+                isSpouse: true,
+                treeType,
+              },
+            }
+          : null,
       };
-      
+
       // تسجيل كل الزوجات كمُضافة لتجنب إضافتها مرة أخرى
-      childSpouses.forEach(spouse => {
+      childSpouses.forEach((spouse) => {
         this.addedChildrenIds.add(spouse.globalId);
       });
 
       // إذا كان هذا الطفل يمكن أن يكون له أحفاد، أضف أحفاده
-      if (familyMembers && accountOwner && 
-          (child.relation === 'ابن' || child.relation === 'بنت')) {
-        
+      if (familyMembers && accountOwner && (child.relation === 'ابن' || child.relation === 'بنت')) {
         // البحث عن الأحفاد - طرق متعددة للربط
-        const grandchildren = familyMembers.filter(m => {
+        const grandchildren = familyMembers.filter((m) => {
           // تجنب إضافة نفس الحفيد مرتين
           if (this.addedChildrenIds.has(m.globalId)) {
             return false;
           }
-          
+
           // تجنب إضافة الطفل نفسه أو رب العائلة
           if (m.globalId === child.globalId || m.globalId === accountOwner.globalId) {
             return false;
           }
-          
+
           // الطريقة الأولى: علاقة حفيد/حفيدة مباشرة
-          const isDirectGrandchild = (
+          const isDirectGrandchild =
             (m.relation === 'حفيد' || m.relation === 'حفيدة') &&
-            (m.fatherName === child.firstName || m.parentId === child.globalId)
-          );
-          
-          // الطريقة الثانية: النسب - الحفيد ابن هذا الطفل  
-          const isChildByLineage = (
+            (m.fatherName === child.firstName || m.parentId === child.globalId);
+
+          // الطريقة الثانية: النسب - الحفيد ابن هذا الطفل
+          const isChildByLineage =
             m.fatherName === child.firstName &&
             (m.grandfatherName === accountOwner.firstName ||
-             m.grandfatherName === accountOwner.name ||
-             m.grandfatherName === this.buildFullName(accountOwner).split(' ')[0])
-          );
-          
+              m.grandfatherName === accountOwner.name ||
+              m.grandfatherName === this.buildFullName(accountOwner).split(' ')[0]);
+
           // الطريقة الثالثة: معرف الوالد يشير للطفل
-          const isGrandchildByParentId = (
-            m.parentId === child.globalId ||
-            m.fatherId === child.globalId
-          );
-          
+          const isGrandchildByParentId =
+            m.parentId === child.globalId || m.fatherId === child.globalId;
+
           // الطريقة الرابعة: أي شخص اسم والده يطابق اسم هذا الطفل (للأحفاد غير المصنفين)
-          const isPotentialGrandchild = (
+          const isPotentialGrandchild =
             m.fatherName === child.firstName &&
-            !['والد', 'والدة', 'جد', 'جدة', 'عم', 'عمة', 'خال', 'خالة', 'أخ', 'أخت', 'زوجة', 'رب العائلة'].includes(m.relation)
-          );
-          
-          const isGrandchild = isDirectGrandchild || isChildByLineage || isGrandchildByParentId || isPotentialGrandchild;
-          
+            ![
+              'والد',
+              'والدة',
+              'جد',
+              'جدة',
+              'عم',
+              'عمة',
+              'خال',
+              'خالة',
+              'أخ',
+              'أخت',
+              'زوجة',
+              'رب العائلة',
+            ].includes(m.relation);
+
+          const isGrandchild =
+            isDirectGrandchild ||
+            isChildByLineage ||
+            isGrandchildByParentId ||
+            isPotentialGrandchild;
+
           // Debug information for development (commented out for production)
           if ((m.relation === 'حفيد' || m.relation === 'حفيدة') && !isGrandchild) {
             // console.warn(`🔍 حفيد لم يتم ربطه: ${m.firstName}`, {
             //   'اسم والد الحفيد': m.fatherName,
             //   'اسم الطفل': child.firstName,
-            //   'اسم جد الحفيد': m.grandfatherName,  
+            //   'اسم جد الحفيد': m.grandfatherName,
             //   'اسم رب العائلة': accountOwner.firstName,
             //   'معرف والد الحفيد': m.parentId,
             //   'معرف الطفل': child.globalId
             // });
           }
-          
+
           return isGrandchild;
         });
 
         // إضافة الأحفاد
-        grandchildren.forEach(grandchild => {
+        grandchildren.forEach((grandchild) => {
           if (!this.addedChildrenIds.has(grandchild.globalId)) {
             this.addedChildrenIds.add(grandchild.globalId);
             childNode.children.push({
@@ -329,9 +341,9 @@ export class FamilyTreeBuilder {
               attributes: {
                 ...grandchild,
                 treeType,
-                isGrandchild: true
+                isGrandchild: true,
               },
-              children: []
+              children: [],
             });
             // console.warn(`✅ تم إضافة الحفيد "${grandchild.firstName}" تحت "${child.firstName}"`);
           }
@@ -349,20 +361,21 @@ export class FamilyTreeBuilder {
   // دالة مساعدة لإضافة الأطفال للوالد
   addChildrenToFather = (fatherNode, familyMembers, father, accountOwner) => {
     // ✅ البحث عن زوجات رب العائلة
-    const ownerSpouses = familyMembers.filter(m => {
+    const ownerSpouses = familyMembers.filter((m) => {
       if (this.addedChildrenIds.has(m.globalId)) return false;
       const isWife = m.relation === 'زوجة' || RelationUtils.isAdditionalWife(m.relation);
       if (!isWife) return false;
-      
+
       // الطريقة الأولى: التحقق من الربط عبر parentId أو parent_id
-      const parentMatch = String(m.parentId) === String(accountOwner.globalId) || 
-                         String(m.parent_id) === String(accountOwner.globalId) ||
-                         String(m.parentId) === String(accountOwner.id) ||
-                         String(m.parent_id) === String(accountOwner.id);
-      
+      const parentMatch =
+        String(m.parentId) === String(accountOwner.globalId) ||
+        String(m.parent_id) === String(accountOwner.globalId) ||
+        String(m.parentId) === String(accountOwner.id) ||
+        String(m.parent_id) === String(accountOwner.id);
+
       // الطريقة الثانية: إذا كانت الزوجة بدون parentId، نعتبرها زوجة رب العائلة
       const isUnlinkedWife = !m.parentId && !m.parent_id;
-      
+
       return parentMatch || isUnlinkedWife;
     });
 
@@ -374,72 +387,76 @@ export class FamilyTreeBuilder {
       attributes: {
         ...accountOwner,
         isCurrentUser: true,
-        treeType: 'hierarchical'
+        treeType: 'hierarchical',
       },
       children: [],
       // ✅ دعم الزوجات المتعددة - مصفوفة
-      spouses: ownerSpouses.map(spouse => ({
+      spouses: ownerSpouses.map((spouse) => ({
         name: this.buildFullName(spouse),
         id: spouse.globalId,
         avatar: spouse.avatar || null,
         attributes: {
           ...spouse,
           isSpouse: true,
-          treeType: 'hierarchical'
-        }
+          treeType: 'hierarchical',
+        },
       })),
       // للتوافق مع الكود القديم
-      spouse: ownerSpouses[0] ? {
-        name: this.buildFullName(ownerSpouses[0]),
-        id: ownerSpouses[0].globalId,
-        avatar: ownerSpouses[0].avatar || null,
-        attributes: {
-          ...ownerSpouses[0],
-          isSpouse: true,
-          treeType: 'hierarchical'
-        }
-      } : null
+      spouse: ownerSpouses[0]
+        ? {
+            name: this.buildFullName(ownerSpouses[0]),
+            id: ownerSpouses[0].globalId,
+            avatar: ownerSpouses[0].avatar || null,
+            attributes: {
+              ...ownerSpouses[0],
+              isSpouse: true,
+              treeType: 'hierarchical',
+            },
+          }
+        : null,
     };
-    
+
     // تسجيل كل الزوجات كمُضافة
-    ownerSpouses.forEach(spouse => {
+    ownerSpouses.forEach((spouse) => {
       this.addedChildrenIds.add(spouse.globalId);
     });
 
     // إضافة أطفال رب العائلة مع الأحفاد (مع استبعاد الزوجات)
-    const ownerChildren = familyMembers.filter(m => {
+    const ownerChildren = familyMembers.filter((m) => {
       // استبعاد الزوجات
       const isWife = m.relation === 'زوجة' || RelationUtils.isAdditionalWife(m.relation);
       if (isWife) return false;
-      
-      return (m.relation === 'ابن' || m.relation === 'بنت') && 
-             this.isChildOfParent(m, accountOwner);
+
+      return (
+        (m.relation === 'ابن' || m.relation === 'بنت') && this.isChildOfParent(m, accountOwner)
+      );
     });
 
     this.addChildrenToNode(ownerNode, ownerChildren, 'hierarchical', familyMembers, accountOwner);
     fatherNode.children.push(ownerNode);
 
     // إضافة الإخوة والأخوات كأطفال للوالد
-    const siblings = familyMembers.filter(m => 
-      RelationUtils.isSibling(m.relation) && 
-      m.globalId !== accountOwner.globalId && 
-      m.globalId !== father.globalId
+    const siblings = familyMembers.filter(
+      (m) =>
+        RelationUtils.isSibling(m.relation) &&
+        m.globalId !== accountOwner.globalId &&
+        m.globalId !== father.globalId
     );
 
-    siblings.forEach(sibling => {
+    siblings.forEach((sibling) => {
       const siblingNode = {
         name: this.buildFullName(sibling),
         id: sibling.globalId,
         avatar: sibling.avatar || null,
         attributes: {
           ...sibling,
-          treeType: 'hierarchical'
+          treeType: 'hierarchical',
         },
-        children: []
+        children: [],
       };
 
       // إضافة أطفال الأخ/الأخت
-      const siblingChildren = familyMembers.filter(m => this.isChildOfParent(m, sibling));
+      const siblingChildren = familyMembers.filter((m) => this.isChildOfParent(m, sibling));
       this.addChildrenToNode(siblingNode, siblingChildren, 'hierarchical', familyMembers, sibling);
 
       fatherNode.children.push(siblingNode);
@@ -453,21 +470,22 @@ export class FamilyTreeBuilder {
 
   // بناء الشجرة الهرمية (مع وجود والد)
   buildHierarchicalTree = (familyMembers) => {
-    const father = familyMembers.find(m => m.relation === 'الأب' || m.relation === 'والد');
-    const accountOwner = familyMembers.find(m => m.relation === 'رب العائلة');
-    
+    const father = familyMembers.find((m) => m.relation === 'الأب' || m.relation === 'والد');
+    const accountOwner = familyMembers.find((m) => m.relation === 'رب العائلة');
+
     if (!father || !accountOwner) {
       return null;
     }
 
     // البحث عن الجد الحقيقي في البيانات
-    const grandfather = familyMembers.find(m => m.relation === 'جد');
-    
+    const grandfather = familyMembers.find((m) => m.relation === 'جد');
+
     // البحث عن الأعمام
-    const unclesAunts = familyMembers.filter(m => 
-      RelationUtils.isUncleAunt(m.relation) && 
-      m.globalId !== father.globalId && 
-      m.globalId !== accountOwner.globalId
+    const unclesAunts = familyMembers.filter(
+      (m) =>
+        RelationUtils.isUncleAunt(m.relation) &&
+        m.globalId !== father.globalId &&
+        m.globalId !== accountOwner.globalId
     );
 
     let rootNode;
@@ -482,9 +500,9 @@ export class FamilyTreeBuilder {
           ...grandfather,
           isGrandfather: true,
           isRoot: true,
-          treeType: 'hierarchical'
+          treeType: 'hierarchical',
         },
-        children: []
+        children: [],
       };
 
       // إضافة الوالد كطفل للجد
@@ -495,28 +513,28 @@ export class FamilyTreeBuilder {
         attributes: {
           ...father,
           isMainFather: true,
-          treeType: 'hierarchical'
+          treeType: 'hierarchical',
         },
-        children: []
+        children: [],
       };
 
       rootNode.children.push(fatherNode);
 
       // إضافة الأعمام كإخوة للوالد (أطفال الجد)
-      unclesAunts.forEach(uncleAunt => {
+      unclesAunts.forEach((uncleAunt) => {
         const uncleAuntNode = {
           name: this.buildFullName(uncleAunt),
           id: uncleAunt.globalId,
           avatar: uncleAunt.avatar || null,
           attributes: {
             ...uncleAunt,
-            treeType: 'hierarchical'
+            treeType: 'hierarchical',
           },
-          children: []
+          children: [],
         };
 
         // إضافة أبناء العم/العمة
-        const cousins = familyMembers.filter(m => this.isCousinOfUncle(m, uncleAunt));
+        const cousins = familyMembers.filter((m) => this.isCousinOfUncle(m, uncleAunt));
         this.addChildrenToNode(uncleAuntNode, cousins, 'hierarchical', familyMembers, accountOwner);
 
         rootNode.children.push(uncleAuntNode);
@@ -524,21 +542,20 @@ export class FamilyTreeBuilder {
 
       // إضافة الأطفال للوالد
       this.addChildrenToFather(fatherNode, familyMembers, father, accountOwner);
-
     } else if (unclesAunts.length > 0) {
       // إنشاء عقدة جد افتراضية ظاهرة عندما يوجد أعمام فقط
       rootNode = {
-        name: father.fatherName || "الجد",
-        id: "grandfather-root",
+        name: father.fatherName || 'الجد',
+        id: 'grandfather-root',
         avatar: null,
         attributes: {
-          relation: "جد",
-          firstName: father.fatherName || "الجد",
+          relation: 'جد',
+          firstName: father.fatherName || 'الجد',
           isVirtualGrandfather: true,
           isGenerationRoot: true,
-          treeType: 'hierarchical'
+          treeType: 'hierarchical',
         },
-        children: []
+        children: [],
       };
 
       // إضافة الوالد كطفل للجد
@@ -549,28 +566,28 @@ export class FamilyTreeBuilder {
         attributes: {
           ...father,
           isMainFather: true,
-          treeType: 'hierarchical'
+          treeType: 'hierarchical',
         },
-        children: []
+        children: [],
       };
 
       rootNode.children.push(fatherNode);
 
       // إضافة الأعمام كإخوة للوالد (أطفال الجد)
-      unclesAunts.forEach(uncleAunt => {
+      unclesAunts.forEach((uncleAunt) => {
         const uncleAuntNode = {
           name: this.buildFullName(uncleAunt),
           id: uncleAunt.globalId,
           avatar: uncleAunt.avatar || null,
           attributes: {
             ...uncleAunt,
-            treeType: 'hierarchical'
+            treeType: 'hierarchical',
           },
-          children: []
+          children: [],
         };
 
         // إضافة أبناء العم/العمة
-        const cousins = familyMembers.filter(m => this.isCousinOfUncle(m, uncleAunt));
+        const cousins = familyMembers.filter((m) => this.isCousinOfUncle(m, uncleAunt));
         this.addChildrenToNode(uncleAuntNode, cousins, 'hierarchical', familyMembers, accountOwner);
 
         rootNode.children.push(uncleAuntNode);
@@ -578,7 +595,6 @@ export class FamilyTreeBuilder {
 
       // إضافة الأطفال للوالد
       this.addChildrenToFather(fatherNode, familyMembers, father, accountOwner);
-
     } else {
       // إذا لم يكن هناك جد أو أعمام، الوالد هو الجذر
       rootNode = {
@@ -588,9 +604,9 @@ export class FamilyTreeBuilder {
         attributes: {
           ...father,
           isRoot: true,
-          treeType: 'hierarchical'
+          treeType: 'hierarchical',
         },
-        children: []
+        children: [],
       };
 
       this.addChildrenToFather(rootNode, familyMembers, father, accountOwner);
@@ -610,19 +626,20 @@ export class FamilyTreeBuilder {
     }
 
     // ✅ البحث عن زوجات رب العائلة
-    const headSpouses = familyMembers.filter(m => {
+    const headSpouses = familyMembers.filter((m) => {
       const isWife = m.relation === 'زوجة' || RelationUtils.isAdditionalWife(m.relation);
       if (!isWife) return false;
-      
+
       // الطريقة الأولى: التحقق من الربط عبر parentId أو parent_id
-      const parentMatch = String(m.parentId) === String(head.globalId) || 
-                         String(m.parent_id) === String(head.globalId) ||
-                         String(m.parentId) === String(head.id) ||
-                         String(m.parent_id) === String(head.id);
-      
+      const parentMatch =
+        String(m.parentId) === String(head.globalId) ||
+        String(m.parent_id) === String(head.globalId) ||
+        String(m.parentId) === String(head.id) ||
+        String(m.parent_id) === String(head.id);
+
       // الطريقة الثانية: إذا كانت الزوجة بدون parentId، نعتبرها زوجة رب العائلة
       const isUnlinkedWife = !m.parentId && !m.parent_id;
-      
+
       return parentMatch || isUnlinkedWife;
     });
 
@@ -633,52 +650,53 @@ export class FamilyTreeBuilder {
       attributes: {
         ...head,
         isCurrentUser: true,
-        treeType: 'simple'
+        treeType: 'simple',
       },
       children: [],
       // ✅ دعم الزوجات المتعددة - مصفوفة
-      spouses: headSpouses.map(spouse => ({
+      spouses: headSpouses.map((spouse) => ({
         name: this.buildFullName(spouse),
         id: spouse.globalId,
         avatar: spouse.avatar || null,
         attributes: {
           ...spouse,
           isSpouse: true,
-          treeType: 'simple'
-        }
+          treeType: 'simple',
+        },
       })),
       // للتوافق مع الكود القديم
-      spouse: headSpouses[0] ? {
-        name: this.buildFullName(headSpouses[0]),
-        id: headSpouses[0].globalId,
-        avatar: headSpouses[0].avatar || null,
-        attributes: {
-          ...headSpouses[0],
-          isSpouse: true,
-          treeType: 'simple'
-        }
-      } : null
+      spouse: headSpouses[0]
+        ? {
+            name: this.buildFullName(headSpouses[0]),
+            id: headSpouses[0].globalId,
+            avatar: headSpouses[0].avatar || null,
+            attributes: {
+              ...headSpouses[0],
+              isSpouse: true,
+              treeType: 'simple',
+            },
+          }
+        : null,
     };
-    
+
     // تسجيل كل الزوجات كمُضافة
-    headSpouses.forEach(spouse => {
+    headSpouses.forEach((spouse) => {
       this.addedChildrenIds.add(spouse.globalId);
     });
 
     // إضافة الأطفال مع الأحفاد (مع استبعاد الزوجات)
-    const children = familyMembers.filter(m => {
+    const children = familyMembers.filter((m) => {
       // استبعاد الزوجات
       const isWife = m.relation === 'زوجة' || RelationUtils.isAdditionalWife(m.relation);
       if (isWife) return false;
-      
-      return (m.relation === 'ابن' || m.relation === 'بنت') && 
-             this.isChildOfParent(m, head);
+
+      return (m.relation === 'ابن' || m.relation === 'بنت') && this.isChildOfParent(m, head);
     });
 
     this.addChildrenToNode(rootNode, children, 'simple', familyMembers, head);
 
     // التحقق من وجود إخوة وأخوات
-    const hasSiblings = familyMembers.some(m => RelationUtils.isSibling(m.relation));
+    const hasSiblings = familyMembers.some((m) => RelationUtils.isSibling(m.relation));
 
     if (hasSiblings) {
       return this.buildSimpleTreeWithSiblings(familyMembers, rootNode, head);
@@ -696,38 +714,43 @@ export class FamilyTreeBuilder {
       attributes: {
         relation: 'عائلة',
         isVirtualRoot: true,
-        treeType: 'simple_with_siblings'
+        treeType: 'simple_with_siblings',
       },
-      children: []
+      children: [],
     };
 
     // إضافة رب العائلة
     familyRoot.children.push(rootNode);
 
     // إضافة الإخوة والأخوات
-    const siblings = familyMembers.filter(m => 
-      RelationUtils.isSibling(m.relation) && 
-      m.globalId !== head.globalId
+    const siblings = familyMembers.filter(
+      (m) => RelationUtils.isSibling(m.relation) && m.globalId !== head.globalId
     );
 
-    siblings.forEach(sibling => {
+    siblings.forEach((sibling) => {
       const siblingNode = {
         name: this.buildFullName(sibling),
         id: sibling.globalId,
         avatar: sibling.avatar || null,
         attributes: {
           ...sibling,
-          treeType: 'simple_with_siblings'
+          treeType: 'simple_with_siblings',
         },
-        children: []
+        children: [],
       };
 
       // إضافة أطفال الأخ/الأخت مع أحفادهم (إذا كان لديهم)
-      const siblingChildren = familyMembers.filter(m => this.isChildOfParent(m, sibling));
-      
+      const siblingChildren = familyMembers.filter((m) => this.isChildOfParent(m, sibling));
+
       // أطفال الإخوة هم أبناء عم/خال، لكن قد يكون لهم أطفال (أحفاد أبناء العم)
       // نمرر sibling كـ accountOwner لأنه والد أطفاله
-      this.addChildrenToNode(siblingNode, siblingChildren, 'simple_with_siblings', familyMembers, sibling);
+      this.addChildrenToNode(
+        siblingNode,
+        siblingChildren,
+        'simple_with_siblings',
+        familyMembers,
+        sibling
+      );
 
       familyRoot.children.push(siblingNode);
     });
@@ -741,15 +764,15 @@ export class FamilyTreeBuilder {
       node.children.sort((a, b) => {
         const aAttrs = a.attributes;
         const bAttrs = b.attributes;
-        
+
         // ترتيب حسب الأولوية
         const aPriority = RelationUtils.getRelationPriority(aAttrs.relation);
         const bPriority = RelationUtils.getRelationPriority(bAttrs.relation);
-        
+
         if (aPriority !== bPriority) {
           return aPriority - bPriority;
         }
-        
+
         // ترتيب أبجدي داخل نفس الفئة
         return (aAttrs.firstName || '').localeCompare(bAttrs.firstName || '', 'ar');
       });
@@ -761,13 +784,13 @@ export class FamilyTreeBuilder {
     if (!node || !node.children || node.children.length === 0) {
       return currentDepth;
     }
-    
+
     let maxDepth = currentDepth;
-    node.children.forEach(child => {
+    node.children.forEach((child) => {
       const childDepth = this.calculateTreeDepth(child, currentDepth + 1);
       maxDepth = Math.max(maxDepth, childDepth);
     });
-    
+
     return maxDepth;
   };
 
@@ -788,7 +811,7 @@ export class FamilyTreeBuilder {
 
     // تحديد نوع الشجرة وبناؤها
     const treeType = RelationUtils.determineTreeType(cleanMembers);
-    
+
     switch (treeType) {
       case 'hierarchical':
         return this.buildHierarchicalTree(cleanMembers);

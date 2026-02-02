@@ -38,18 +38,17 @@ const LoadingFallback = () => (
     }}
   >
     <CircularProgress size={50} sx={{ color: '#2e7d32' }} />
-    <Typography 
-      variant="h6" 
-      sx={{ 
+    <Typography
+      variant="h6"
+      sx={{
         fontFamily: 'Cairo, sans-serif',
-        color: '#666'
+        color: '#666',
       }}
     >
       جاري التحميل...
     </Typography>
   </Box>
 );
-
 
 export default function AppRoutes() {
   const { isAuthenticated, loading } = useAuth?.() || { isAuthenticated: false, loading: true };
@@ -148,63 +147,63 @@ export default function AppRoutes() {
         {/* الجذر */}
         <Route path="/" element={<IndexRoute />} />
 
-      {/* تسجيل الدخول برقم الهاتف (عام، مع تحويل المُسجَّل) */}
-      <Route path="/login" element={<LoginRoute />} />
+        {/* تسجيل الدخول برقم الهاتف (عام، مع تحويل المُسجَّل) */}
+        <Route path="/login" element={<LoginRoute />} />
 
-      {/* صفحات محمية */}
-      <Route
-        path="/family"
-        element={
-          <ProtectedRoute>
-            <Family />
-          </ProtectedRoute>
-        }
-      />
+        {/* صفحات محمية */}
+        <Route
+          path="/family"
+          element={
+            <ProtectedRoute>
+              <Family />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route
-        path="/tree"
-        element={
-          <ProtectedRoute>
-            <FamilyTree />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/tree"
+          element={
+            <ProtectedRoute>
+              <FamilyTree />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route
-        path="/statistics"
-        element={
-          <ProtectedRoute>
-            <Statistics />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/statistics"
+          element={
+            <ProtectedRoute>
+              <Statistics />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* صفحة المدير - محمية */}
-      <Route
-        path="/admin"
-        element={
-          <ProtectedRoute>
-            <AdminPanel />
-          </ProtectedRoute>
-        }
-      />
+        {/* صفحة المدير - محمية */}
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <AdminPanel />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* صفحة الإعدادات - محمية */}
-      <Route
-        path="/settings"
-        element={
-          <ProtectedRoute>
-            <Settings />
-          </ProtectedRoute>
-        }
-      />
+        {/* صفحة الإعدادات - محمية */}
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* صفحات عامة */}
-      <Route path="/privacy" element={<PrivacyPolicy />} />
+        {/* صفحات عامة */}
+        <Route path="/privacy" element={<PrivacyPolicy />} />
 
-      {/* 404 */}
-      <Route path="/404" element={<NotFound />} />
-      <Route path="*" element={<Navigate to="/404" replace />} />
+        {/* 404 */}
+        <Route path="/404" element={<NotFound />} />
+        <Route path="*" element={<Navigate to="/404" replace />} />
       </Routes>
     </Suspense>
   );

@@ -26,15 +26,11 @@ const PhoneLogin = () => {
   const [phoneInput, setPhoneInput] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
 
-  const {
-    loginPhoneRequest,
-    loginPhoneVerify,
-    clearError,
-  } = useAuth() || {};
+  const { loginPhoneRequest, loginPhoneVerify, clearError } = useAuth() || {};
 
   useEffect(() => {
     if (timer > 0) {
-      const interval = setInterval(() => setTimer(t => t - 1), 1000);
+      const interval = setInterval(() => setTimer((t) => t - 1), 1000);
       return () => clearInterval(interval);
     }
   }, [timer]);
@@ -44,26 +40,26 @@ const PhoneLogin = () => {
     if (!phoneInput || typeof phoneInput !== 'string') return false;
     const cleanInput = phoneInput.replace(/\s|\(|\)/g, '');
     const validPatterns = [
-      /^07[0-9]{9}$/,       // 0771234567 (10 أرقام)
-      /^07[0-9]{10}$/,      // 07712345670 (11 رقم)
-      /^7[0-9]{9}$/,        // 771234567 (10 أرقام)
-      /^7[0-9]{10}$/        // 7712345670 (11 رقم)
+      /^07[0-9]{9}$/, // 0771234567 (10 أرقام)
+      /^07[0-9]{10}$/, // 07712345670 (11 رقم)
+      /^7[0-9]{9}$/, // 771234567 (10 أرقام)
+      /^7[0-9]{10}$/, // 7712345670 (11 رقم)
     ];
-    return validPatterns.some(pattern => pattern.test(cleanInput));
+    return validPatterns.some((pattern) => pattern.test(cleanInput));
   };
 
   // تغيير رقم الهاتف (قبول 10-11 رقم)
   const handlePhoneChange = (e) => {
     let value = e.target.value.replace(/[^\d]/g, '');
-    
+
     // ❌ الحد الأقصى للرقم العراقي هو 11 رقم (07XXXXXXXXXX)
     if (value.length > 11) {
       value = value.slice(0, 11);
     }
-    
+
     setPhoneInput(value);
     let formattedPhone = '';
-    
+
     // تنسيق الرقم بناءً على البداية
     if (value.length > 0) {
       if (value.startsWith('07')) {
@@ -74,12 +70,12 @@ const PhoneLogin = () => {
         }
       } else if (value.startsWith('7')) {
         // 7xxxxxxxxx أو 7xxxxxxxxxxx (9-10 أرقام) -> +964 7xxxxxxxxxx
-        if ((value.length === 9 || value.length === 10)) {
+        if (value.length === 9 || value.length === 10) {
           formattedPhone = '+964' + value;
         }
       }
     }
-    
+
     setPhoneNumber(formattedPhone);
   };
 
@@ -94,7 +90,9 @@ const PhoneLogin = () => {
     // 2. التحقق الإضافي من صيغة الرقم (10 أرقام بعد 964)
     const digitCount = phoneNumber.replace(/[^\d]/g, '').length;
     if (digitCount !== 13) {
-      setError(`❌ خطأ في طول الرقم: يجب أن يكون 10 أرقام بعد 964 (13 مجموع)، الحالي: ${digitCount} أرقام`);
+      setError(
+        `❌ خطأ في طول الرقم: يجب أن يكون 10 أرقام بعد 964 (13 مجموع)، الحالي: ${digitCount} أرقام`
+      );
       return;
     }
 
@@ -125,12 +123,11 @@ const PhoneLogin = () => {
       setConfirmationResult(true);
       setSuccess(`✅ تم إرسال كود التحقق إلى ${phoneNumber}`);
       setTimer(120);
-
     } catch (error) {
       setConfirmationResult(null);
-      
+
       const errorMessage = error.message || 'فشل في إرسال الكود';
-      
+
       // معالجة أخطاء Firebase الشائعة
       if (errorMessage.includes('firebase') || errorMessage.includes('Firebase')) {
         setError('⚠️ خطأ في Firebase - تحقق من متغيرات البيئة وإعدادات المشروع');
@@ -197,14 +194,14 @@ const PhoneLogin = () => {
       }
 
       setSuccess('🎉 تم تسجيل الدخول بنجاح! جاري التوجه للتطبيق...');
-      
+
       // 🧪 تحديث الحالة فوراً في التطوير
       try {
         // لا حاجة لتسجيل هذا
       } catch {
         // تجاهل أي أخطاء
       }
-      
+
       // التوجيه مرة واحدة فقط بعد تأخير قصير
       setTimeout(() => {
         window.location.href = '/family';
@@ -246,21 +243,21 @@ const PhoneLogin = () => {
   };
 
   return (
-    <Container 
-      maxWidth="sm" 
-      sx={{ 
-        minHeight: '100vh', 
-        display: 'flex', 
-        alignItems: 'center', 
+    <Container
+      maxWidth="sm"
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
         justifyContent: 'center',
-        py: 4
+        py: 4,
       }}
     >
-      <Paper 
+      <Paper
         elevation={8}
-        sx={{ 
-          width: '100%', 
-          p: { xs: 3, sm: 4 }, 
+        sx={{
+          width: '100%',
+          p: { xs: 3, sm: 4 },
           borderRadius: 3,
           background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
         }}
@@ -278,31 +275,27 @@ const PhoneLogin = () => {
               justifyContent: 'center',
               mx: 'auto',
               mb: 2,
-              boxShadow: '0 8px 24px rgba(76, 175, 80, 0.3)'
+              boxShadow: '0 8px 24px rgba(76, 175, 80, 0.3)',
             }}
           >
             <Typography variant="h3" sx={{ color: 'white' }}>
               🌳
             </Typography>
           </Box>
-          
-          <Typography 
-            variant="h4" 
-            fontWeight="bold" 
+
+          <Typography
+            variant="h4"
+            fontWeight="bold"
             gutterBottom
-            sx={{ 
+            sx={{
               color: '#2e7d32',
-              fontSize: { xs: '1.5rem', sm: '2rem' }
+              fontSize: { xs: '1.5rem', sm: '2rem' },
             }}
           >
             شجرة القبيلة
           </Typography>
-          
-          <Typography 
-            variant="body1" 
-            color="text.secondary"
-            sx={{ mb: 3, lineHeight: 1.6 }}
-          >
+
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 3, lineHeight: 1.6 }}>
             ابنِ شجرة قبيلتك بسهولة وأمان. تطبيق شامل لإدارة وعرض أفراد القبيلة
           </Typography>
         </Box>
@@ -320,12 +313,7 @@ const PhoneLogin = () => {
 
         {/* نموذج تسجيل الدخول */}
         <Box>
-          <Typography 
-            variant="h6" 
-            gutterBottom 
-            textAlign="center"
-            sx={{ mb: 3, color: '#1976d2' }}
-          >
+          <Typography variant="h6" gutterBottom textAlign="center" sx={{ mb: 3, color: '#1976d2' }}>
             تسجيل الدخول برقم الهاتف
           </Typography>
 
@@ -350,28 +338,28 @@ const PhoneLogin = () => {
                   ),
                 }}
                 helperText={getHelperText()}
-                inputProps={{ 
+                inputProps={{
                   maxLength: 10,
-                  style: { textAlign: 'left' }
+                  style: { textAlign: 'left' },
                 }}
                 error={phoneInput.length > 0 && !isValidIraqiNumber(phoneInput)}
               />
-              
+
               <TextField
                 value="+964"
                 disabled
-                sx={{ 
+                sx={{
                   width: 80,
                   '& .MuiInputBase-input': {
                     textAlign: 'center',
                     fontWeight: 'bold',
-                    color: '#2e7d32'
-                  }
+                    color: '#2e7d32',
+                  },
                 }}
                 size="medium"
               />
             </Box>
-            
+
             {/* عرض الرقم الكامل المنسق */}
             {phoneNumber && (
               <Box mb={2} p={1} bgcolor="grey.50" borderRadius={1}>
@@ -380,10 +368,10 @@ const PhoneLogin = () => {
                 </Typography>
               </Box>
             )}
-            
+
             {/* 🔐 reCAPTCHA Container - rendered at bottom of page */}
             {/* Note: The recaptcha-container is rendered below as a hidden div */}
-            
+
             <Button
               variant="contained"
               color="success"
@@ -391,12 +379,12 @@ const PhoneLogin = () => {
               size="large"
               onClick={handleSendCode}
               disabled={loading || timer > 0 || !isPhoneValid() || !firebaseStatus?.isInitialized}
-              sx={{ 
-                py: 1.5, 
+              sx={{
+                py: 1.5,
                 fontSize: 16,
                 fontWeight: 600,
                 borderRadius: 2,
-                position: 'relative'
+                position: 'relative',
               }}
             >
               {loading ? (
@@ -436,11 +424,11 @@ const PhoneLogin = () => {
                 }}
                 inputProps={{
                   maxLength: 6,
-                  style: { textAlign: 'center', fontSize: '1.2rem', letterSpacing: '0.5rem' }
+                  style: { textAlign: 'center', fontSize: '1.2rem', letterSpacing: '0.5rem' },
                 }}
                 helperText="تم إرسال الكود إلى هاتفك"
               />
-              
+
               <Button
                 variant="contained"
                 color="primary"
@@ -448,12 +436,12 @@ const PhoneLogin = () => {
                 size="large"
                 onClick={handleVerifyCode}
                 disabled={confirmationLoading || !isCodeValid || !firebaseStatus?.isInitialized}
-                sx={{ 
-                  py: 1.5, 
+                sx={{
+                  py: 1.5,
                   fontSize: 16,
                   fontWeight: 600,
                   borderRadius: 2,
-                  mt: 2
+                  mt: 2,
                 }}
               >
                 {confirmationLoading ? (
@@ -485,7 +473,7 @@ const PhoneLogin = () => {
 
           {/* رسائل الحالة */}
           {error && (
-            <Alert 
+            <Alert
               severity="error"
               sx={{ mb: 2 }}
               action={
@@ -499,10 +487,7 @@ const PhoneLogin = () => {
           )}
 
           {success && (
-            <Alert 
-              severity="success"
-              sx={{ mb: 2 }}
-            >
+            <Alert severity="success" sx={{ mb: 2 }}>
               {success}
             </Alert>
           )}
@@ -519,19 +504,17 @@ const PhoneLogin = () => {
 
           {/* رابط سياسة الخصوصية */}
           <Box textAlign="center" mt={3}>
-            <Link
-              href="/privacy"
-              variant="body2"
-              color="primary"
-              underline="hover"
-            >
+            <Link href="/privacy" variant="body2" color="primary" underline="hover">
               سياسة الخصوصية والشروط
             </Link>
           </Box>
         </Box>
 
         {/* حاوية reCAPTCHA - مخفية (غير مرئية) */}
-        <div id="recaptcha-container" style={{ visibility: 'hidden', height: 0, position: 'absolute' }}></div>
+        <div
+          id="recaptcha-container"
+          style={{ visibility: 'hidden', height: 0, position: 'absolute' }}
+        ></div>
       </Paper>
     </Container>
   );

@@ -1,0 +1,34 @@
+# Build outputs
+dist/
+build/
+.vite/
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Firebase
+.firebase/
+firebase-debug.log
+
+# Git
+.git/
+
+# Editor
+.vscode/
+.idea/
+
+# Package manager
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Documentation (optional - keep formatting)
+# *.md

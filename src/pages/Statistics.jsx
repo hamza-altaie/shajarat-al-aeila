@@ -49,10 +49,10 @@ const Statistics = () => {
   const { tribe, loading: tribeLoading } = useTribe();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  
+
   // مرجع لتتبع التحميل الأولي
   const initialLoadRef = useRef(true);
-  
+
   // الحالات المحلية
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -61,7 +61,7 @@ const Statistics = () => {
   const [treeData, setTreeData] = useState(null);
   const [error, setError] = useState(null);
 
-    // دالة حساب العمر
+  // دالة حساب العمر
   const calculateAge = useCallback((birthdate) => {
     if (!birthdate) return null;
     try {
@@ -79,30 +79,38 @@ const Statistics = () => {
   }, []);
 
   // بناء عضو نظيف
-  const buildCleanMember = useCallback((memberData) => {
-    const fullName = [
-      memberData.firstName,
-      memberData.fatherName,
-      memberData.grandfatherName,
-      memberData.surname
-    ].filter(part => part && part.trim() !== '').join(' ');
-    
-    return {
-      ...memberData,
-      name: fullName || memberData.firstName,
-      age: memberData.birthdate ? calculateAge(memberData.birthdate) : null,
-      gender: memberData.relation === 'بنت' ? 'أنثى' : 
-             memberData.relation === 'ابن' ? 'ذكر' : 
-             memberData.gender || 'غير محدد'
-    };
-  }, [calculateAge]);
+  const buildCleanMember = useCallback(
+    (memberData) => {
+      const fullName = [
+        memberData.firstName,
+        memberData.fatherName,
+        memberData.grandfatherName,
+        memberData.surname,
+      ]
+        .filter((part) => part && part.trim() !== '')
+        .join(' ');
+
+      return {
+        ...memberData,
+        name: fullName || memberData.firstName,
+        age: memberData.birthdate ? calculateAge(memberData.birthdate) : null,
+        gender:
+          memberData.relation === 'بنت'
+            ? 'أنثى'
+            : memberData.relation === 'ابن'
+              ? 'ذكر'
+              : memberData.gender || 'غير محدد',
+      };
+    },
+    [calculateAge]
+  );
 
   // دالة بناء بيانات الشجرة
   const buildTreeData = useCallback((members) => {
     if (!members || members.length === 0) return null;
-    
+
     // البحث عن رب العائلة (الجذر)
-    const head = members.find(m => m.relation === 'رب العائلة' || m.is_root) || members[0];
+    const head = members.find((m) => m.relation === 'رب العائلة' || m.is_root) || members[0];
     if (!head) return null;
 
     // مجموعة لتتبع العقد المضافة ومنع الحلقات اللانهائية
@@ -113,37 +121,37 @@ const Statistics = () => {
     const buildChildren = (parentId, depth = 0) => {
       // حماية من العمق الزائد
       if (depth > 20) return [];
-      
+
       return members
-        .filter(m => {
+        .filter((m) => {
           if (addedIds.has(m.id)) return false;
           if (m.id === head.id) return false;
           return m.parentId === parentId;
         })
-        .map(child => {
+        .map((child) => {
           addedIds.add(child.id);
           return {
             name: child.name,
             id: child.globalId,
             attributes: child,
-            children: buildChildren(child.id, depth + 1)
+            children: buildChildren(child.id, depth + 1),
           };
         });
     };
 
     // بناء الأبناء المباشرين
     const directChildren = buildChildren(head.id, 0);
-    
+
     // إضافة الأعضاء بدون والد كأبناء للرأس
     const orphans = members
-      .filter(m => !addedIds.has(m.id) && m.id !== head.id)
-      .map(orphan => {
+      .filter((m) => !addedIds.has(m.id) && m.id !== head.id)
+      .map((orphan) => {
         addedIds.add(orphan.id);
         return {
           name: orphan.name,
           id: orphan.globalId,
           attributes: orphan,
-          children: []
+          children: [],
         };
       });
 
@@ -151,9 +159,9 @@ const Statistics = () => {
       name: head.name,
       id: head.globalId,
       attributes: head,
-      children: [...directChildren, ...orphans]
+      children: [...directChildren, ...orphans],
     };
-    
+
     return tree;
   }, []);
 
@@ -162,62 +170,66 @@ const Statistics = () => {
   // تم حذف دالة البحث عن العائلات المرتبطة
 
   // تحميل بيانات الشجرة العادية
-  const loadSimpleTreeData = useCallback(async (tribeId) => {
-    if (!tribeId) {
-      setFamilyMembers([]);
-      setError('لم يتم تحميل بيانات القبيلة');
-      return;
-    }
-
-    try {
-      // استخدام Tribe Service
-      const { getTribeTree } = await import('../services/tribeService');
-      
-      // ⚠️ تم إلغاء التنظيف التلقائي للتكرارات - يتم يدوياً من لوحة الإدارة
-      
-      const response = await getTribeTree(tribeId, { forceRefresh: true });
-      
-      if (!response || !response.persons) {
+  const loadSimpleTreeData = useCallback(
+    async (tribeId) => {
+      if (!tribeId) {
         setFamilyMembers([]);
-        setError('لا توجد بيانات');
+        setError('لم يتم تحميل بيانات القبيلة');
         return;
       }
 
-      // بناء خريطة العلاقات: child_id -> parent_id
-      const relationsMap = new Map();
-      if (response.relations) {
-        response.relations.forEach(rel => {
-          relationsMap.set(String(rel.child_id), String(rel.parent_id));
-        });
+      try {
+        // استخدام Tribe Service
+        const { getTribeTree } = await import('../services/tribeService');
+
+        // ⚠️ تم إلغاء التنظيف التلقائي للتكرارات - يتم يدوياً من لوحة الإدارة
+
+        const response = await getTribeTree(tribeId, { forceRefresh: true });
+
+        if (!response || !response.persons) {
+          setFamilyMembers([]);
+          setError('لا توجد بيانات');
+          return;
+        }
+
+        // بناء خريطة العلاقات: child_id -> parent_id
+        const relationsMap = new Map();
+        if (response.relations) {
+          response.relations.forEach((rel) => {
+            relationsMap.set(String(rel.child_id), String(rel.parent_id));
+          });
+        }
+
+        // تحويل البيانات من Supabase
+        const members = response.persons.map((person) => ({
+          id: String(person.id),
+          globalId: String(person.id),
+          firstName: person.first_name || '',
+          fatherName: person.father_name || '',
+          surname: person.family_name || '',
+          grandfatherName: person.grandfather_name || '',
+          relation:
+            person.relation ||
+            (person.is_root ? 'رب العائلة' : person.gender === 'M' ? 'ابن' : 'بنت'),
+          gender: person.gender,
+          birthdate: person.birth_date || '',
+          parentId: relationsMap.get(String(person.id)) || null, // تعيين parentId من relations
+          createdAt: person.created_at || '',
+        }));
+
+        const cleanMembers = members.map(buildCleanMember);
+        setFamilyMembers(cleanMembers);
+        setError(null); // مسح أي خطأ سابق
+
+        const tree = buildTreeData(cleanMembers);
+        setTreeData(tree);
+      } catch (err) {
+        console.error('❌ خطأ في تحميل البيانات:', err);
+        setError('فشل في تحميل بيانات العائلة: ' + err.message);
       }
-
-      // تحويل البيانات من Supabase
-      const members = response.persons.map(person => ({
-        id: String(person.id),
-        globalId: String(person.id),
-        firstName: person.first_name || '',
-        fatherName: person.father_name || '',
-        surname: person.family_name || '',
-        grandfatherName: person.grandfather_name || '',
-        relation: person.relation || (person.is_root ? 'رب العائلة' : (person.gender === 'M' ? 'ابن' : 'بنت')),
-        gender: person.gender,
-        birthdate: person.birth_date || '',
-        parentId: relationsMap.get(String(person.id)) || null, // تعيين parentId من relations
-        createdAt: person.created_at || '',
-      }));
-
-      const cleanMembers = members.map(buildCleanMember);
-      setFamilyMembers(cleanMembers);
-      setError(null); // مسح أي خطأ سابق
-      
-      const tree = buildTreeData(cleanMembers);
-      setTreeData(tree);
-      
-    } catch (err) {
-      console.error('❌ خطأ في تحميل البيانات:', err);
-      setError('فشل في تحميل بيانات العائلة: ' + err.message);
-    }
-  }, [buildCleanMember, buildTreeData]);
+    },
+    [buildCleanMember, buildTreeData]
+  );
 
   // تم حذف دالة تحميل الشجرة الموسعة
 
@@ -227,7 +239,7 @@ const Statistics = () => {
       if (tribeLoading) {
         return;
       }
-      
+
       if (!tribe?.id) {
         setError('لم يتم تحميل بيانات القبيلة');
         setLoading(false);
@@ -240,7 +252,6 @@ const Statistics = () => {
 
         // تحميل بيانات القبيلة - نمرر tribe.id مباشرة
         await loadSimpleTreeData(tribe.id);
-
       } catch (err) {
         console.error('خطأ في تحميل البيانات:', err);
         setError('فشل في تحميل بيانات القبيلة');
@@ -261,7 +272,7 @@ const Statistics = () => {
     if (!familyMembers?.length) {
       return null;
     }
-    
+
     try {
       const result = familyAnalytics.analyzeFamily(treeData, familyMembers);
       return result;
@@ -301,62 +312,80 @@ const Statistics = () => {
 
   // مكونات واجهة المستخدم
   const StatCard = ({ title, value, subtitle, color = 'primary', progress }) => (
-    <Card 
-      sx={{ 
+    <Card
+      sx={{
         height: '100%',
         background: `linear-gradient(135deg, ${
-          color === 'primary' ? '#e3f2fd 0%, #ffffff 100%' :
-          color === 'secondary' ? '#f3e5f5 0%, #ffffff 100%' :
-          color === 'success' ? '#e8f5e8 0%, #ffffff 100%' :
-          color === 'error' ? '#ffebee 0%, #ffffff 100%' :
-          '#f5f5f5 0%, #ffffff 100%'
+          color === 'primary'
+            ? '#e3f2fd 0%, #ffffff 100%'
+            : color === 'secondary'
+              ? '#f3e5f5 0%, #ffffff 100%'
+              : color === 'success'
+                ? '#e8f5e8 0%, #ffffff 100%'
+                : color === 'error'
+                  ? '#ffebee 0%, #ffffff 100%'
+                  : '#f5f5f5 0%, #ffffff 100%'
         })`,
         border: `1px solid ${
-          color === 'primary' ? '#2196f3' :
-          color === 'secondary' ? '#9c27b0' :
-          color === 'success' ? '#4caf50' :
-          color === 'error' ? '#f44336' :
-          '#e0e0e0'
+          color === 'primary'
+            ? '#2196f3'
+            : color === 'secondary'
+              ? '#9c27b0'
+              : color === 'success'
+                ? '#4caf50'
+                : color === 'error'
+                  ? '#f44336'
+                  : '#e0e0e0'
         }`,
         borderRadius: 2,
         transition: 'all 0.3s ease',
         '&:hover': {
           transform: 'translateY(-2px)',
           boxShadow: `0 8px 25px rgba(${
-            color === 'primary' ? '33, 150, 243' :
-            color === 'secondary' ? '156, 39, 176' :
-            color === 'success' ? '76, 175, 80' :
-            color === 'error' ? '244, 67, 54' :
-            '0, 0, 0'
-          }, 0.2)`
-        }
+            color === 'primary'
+              ? '33, 150, 243'
+              : color === 'secondary'
+                ? '156, 39, 176'
+                : color === 'success'
+                  ? '76, 175, 80'
+                  : color === 'error'
+                    ? '244, 67, 54'
+                    : '0, 0, 0'
+          }, 0.2)`,
+        },
       }}
     >
       <CardContent sx={{ textAlign: 'center', py: 3 }}>
         <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 1, color: `${color}.main` }}>
           {typeof value === 'number' ? value.toLocaleString('ar-SA') : value}
         </Typography>
-        <Typography variant="h6" sx={{ mb: 1, fontFamily: 'Cairo, sans-serif', color: `${color}.main` }}>
+        <Typography
+          variant="h6"
+          sx={{ mb: 1, fontFamily: 'Cairo, sans-serif', color: `${color}.main` }}
+        >
           {title}
         </Typography>
         {subtitle && (
-          <Typography variant="body2" sx={{ color: 'text.secondary', fontFamily: 'Cairo, sans-serif' }}>
+          <Typography
+            variant="body2"
+            sx={{ color: 'text.secondary', fontFamily: 'Cairo, sans-serif' }}
+          >
             {subtitle}
           </Typography>
         )}
         {progress !== undefined && (
           <Box sx={{ mt: 2 }}>
-            <LinearProgress 
-              variant="determinate" 
-              value={progress} 
-              sx={{ 
-                height: 8, 
+            <LinearProgress
+              variant="determinate"
+              value={progress}
+              sx={{
+                height: 8,
                 borderRadius: 4,
                 backgroundColor: 'rgba(0,0,0,0.1)',
                 [`& .MuiLinearProgress-bar`]: {
-                  backgroundColor: `${color}.main`
-                }
-              }} 
+                  backgroundColor: `${color}.main`,
+                },
+              }}
             />
             <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>
               {progress.toFixed(1)}%
@@ -367,30 +396,30 @@ const Statistics = () => {
     </Card>
   );
 
-  const DataList = ({ data, color = 'primary', maxItems = 0, emptyMessage = "لا توجد بيانات" }) => (
+  const DataList = ({ data, color = 'primary', maxItems = 0, emptyMessage = 'لا توجد بيانات' }) => (
     <List dense>
       {Object.keys(data).length === 0 ? (
         <ListItem>
-          <ListItemText 
+          <ListItemText
             primary={emptyMessage}
             sx={{ textAlign: 'center', fontStyle: 'italic', color: '#666666' }}
           />
         </ListItem>
       ) : (
         Object.entries(data)
-          .sort(([,a], [,b]) => b - a)
+          .sort(([, a], [, b]) => b - a)
           .slice(0, maxItems || Object.keys(data).length)
           .map(([key, value], index) => (
             <ListItem key={key} sx={{ py: 0.5 }}>
               <ListItemIcon sx={{ minWidth: 35 }}>
-                <Chip 
-                  label={index + 1} 
-                  size="small" 
+                <Chip
+                  label={index + 1}
+                  size="small"
                   color={color}
                   sx={{ width: 24, height: 24, fontSize: '0.75rem' }}
                 />
               </ListItemIcon>
-              <ListItemText 
+              <ListItemText
                 primary={key}
                 secondary={`${value} ${typeof value === 'number' ? 'عضو' : ''}`}
                 sx={{ fontFamily: 'Cairo, sans-serif' }}
@@ -403,53 +432,51 @@ const Statistics = () => {
 
   const TabPanel = ({ children, value, index }) => (
     <div role="tabpanel" hidden={value !== index}>
-      {value === index && (
-        <Box sx={{ py: 3 }}>
-          {children}
-        </Box>
-      )}
+      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
     </div>
   );
 
   // العرض الرئيسي
   return (
-    <Box sx={{ 
-      minHeight: '100vh', 
-      backgroundColor: '#f8f9fa',
-      direction: 'rtl'
-    }}>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        backgroundColor: '#f8f9fa',
+        direction: 'rtl',
+      }}
+    >
       {/* شريط التطبيق العلوي */}
-      <AppBar position="static" sx={{ 
-        background: 'linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)',
-        boxShadow: '0 4px 20px rgba(46, 125, 50, 0.3)'
-      }}>
+      <AppBar
+        position="static"
+        sx={{
+          background: 'linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)',
+          boxShadow: '0 4px 20px rgba(46, 125, 50, 0.3)',
+        }}
+      >
         <Toolbar>
-          <IconButton
-            color="inherit"
-            onClick={() => navigate('/family')}
-            sx={{ mr: 2 }}
-          >
+          <IconButton color="inherit" onClick={() => navigate('/family')} sx={{ mr: 2 }}>
             <ArrowBackIcon />
           </IconButton>
-          
+
           <AssessmentIcon sx={{ mr: 2 }} />
-          
-          <Typography variant="h6" component="div" sx={{ 
-            flexGrow: 1, 
-            fontFamily: 'Cairo, sans-serif',
-            fontWeight: 'bold'
-          }}>
+
+          <Typography
+            variant="h6"
+            component="div"
+            sx={{
+              flexGrow: 1,
+              fontFamily: 'Cairo, sans-serif',
+              fontWeight: 'bold',
+            }}
+          >
             📊 إحصائيات العائلة
           </Typography>
 
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             {/* تم إزالة مفتاح تبديل نوع الشجرة */}
-            
+
             <Tooltip title="تحديث البيانات">
-              <IconButton 
-                color="inherit" 
-                onClick={() => window.location.reload()}
-              >
+              <IconButton color="inherit" onClick={() => window.location.reload()}>
                 <RefreshIcon />
               </IconButton>
             </Tooltip>
@@ -464,12 +491,12 @@ const Statistics = () => {
             component="button"
             variant="body2"
             onClick={() => navigate('/family')}
-            sx={{ 
-              display: 'flex', 
+            sx={{
+              display: 'flex',
               alignItems: 'center',
               textDecoration: 'none',
               color: 'primary.main',
-              '&:hover': { textDecoration: 'underline' }
+              '&:hover': { textDecoration: 'underline' },
             }}
           >
             <HomeIcon sx={{ mr: 0.5, fontSize: 16 }} />
@@ -485,18 +512,28 @@ const Statistics = () => {
       {/* المحتوى الرئيسي */}
       <Container maxWidth="xl" sx={{ pb: 4 }}>
         {loading ? (
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            height: '400px' 
-          }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '400px',
+            }}
+          >
             <CircularProgress size={60} sx={{ mb: 2 }} />
-            <Typography variant="h6" color="text.secondary" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+            <Typography
+              variant="h6"
+              color="text.secondary"
+              sx={{ fontFamily: 'Cairo, sans-serif' }}
+            >
               🔍 جاري تحليل بيانات شجرة القبيلة...
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ fontFamily: 'Cairo, sans-serif' }}
+            >
               يتم معالجة البيانات واستخراج الإحصائيات
             </Typography>
           </Box>
@@ -505,12 +542,10 @@ const Statistics = () => {
             <Typography variant="h6" sx={{ mb: 1 }}>
               ⚠️ خطأ في تحميل البيانات
             </Typography>
-            <Typography variant="body2">
-              {error}
-            </Typography>
-            <Button 
-              variant="contained" 
-              startIcon={<RefreshIcon />} 
+            <Typography variant="body2">{error}</Typography>
+            <Button
+              variant="contained"
+              startIcon={<RefreshIcon />}
               onClick={() => window.location.reload()}
               sx={{ mt: 2 }}
             >
@@ -525,41 +560,55 @@ const Statistics = () => {
             <Typography variant="body2" sx={{ color: '#5d4037' }}>
               تأكد من وجود أعضاء في شجرة القبيلة
             </Typography>
-            <Button 
-              variant="contained" 
-              onClick={() => navigate('/family')}
-              sx={{ mt: 2 }}
-            >
+            <Button variant="contained" onClick={() => navigate('/family')} sx={{ mt: 2 }}>
               إضافة أعضاء العائلة
             </Button>
           </Alert>
         ) : (
           <Box>
             {/* تم إزالة تنبيهات الروابط */}
-            
+
             {/* معلومات سريعة */}
-            <Paper sx={{ 
-              p: 3, 
-              mb: 3, 
-              background: 'linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%)',
-              border: '1px solid #2196f3'
-            }}>
+            <Paper
+              sx={{
+                p: 3,
+                mb: 3,
+                background: 'linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%)',
+                border: '1px solid #2196f3',
+              }}
+            >
               <Grid container spacing={2} alignItems="center">
                 <Grid size={{ xs: 12, md: 8 }}>
-                  <Typography variant="h5" sx={{ 
-                    fontFamily: 'Cairo, sans-serif', 
-                    color: '#1976d2',
-                    fontWeight: 'bold',
-                    mb: 1
-                  }}>
-                    🌳 تم تحليل {analysis?.metadata?.treeMetrics?.totalNodes || analysis?.metadata?.totalMembers || 0} عضو في {analysis?.metadata?.processingTime || 0} ms
+                  <Typography
+                    variant="h5"
+                    sx={{
+                      fontFamily: 'Cairo, sans-serif',
+                      color: '#1976d2',
+                      fontWeight: 'bold',
+                      mb: 1,
+                    }}
+                  >
+                    🌳 تم تحليل{' '}
+                    {analysis?.metadata?.treeMetrics?.totalNodes ||
+                      analysis?.metadata?.totalMembers ||
+                      0}{' '}
+                    عضو في {analysis?.metadata?.processingTime || 0} ms
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'Cairo, sans-serif' }}>
-                    جودة البيانات: {analysis?.metadata?.dataQuality || 'غير محددة'} • آخر تحديث: {analysis?.metadata?.analysisDate ? new Date(analysis.metadata.analysisDate).toLocaleString('ar-SA') : 'غير محدد'}
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ fontFamily: 'Cairo, sans-serif' }}
+                  >
+                    جودة البيانات: {analysis?.metadata?.dataQuality || 'غير محددة'} • آخر تحديث:{' '}
+                    {analysis?.metadata?.analysisDate
+                      ? new Date(analysis.metadata.analysisDate).toLocaleString('ar-SA')
+                      : 'غير محدد'}
                   </Typography>
                 </Grid>
                 <Grid size={{ xs: 12, md: 4 }}>
-                  <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                  <Box
+                    sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}
+                  >
                     <Chip
                       icon={<BarChartIcon />}
                       label="تحليل شامل"
@@ -581,16 +630,16 @@ const Statistics = () => {
             {/* التبويبات */}
             <Paper sx={{ mb: 3 }}>
               <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                <Tabs 
-                  value={activeTab} 
+                <Tabs
+                  value={activeTab}
                   onChange={(e, newValue) => setActiveTab(newValue)}
                   variant="scrollable"
                   scrollButtons="auto"
                   sx={{
                     '& .MuiTab-root': {
                       fontFamily: 'Cairo, sans-serif',
-                      fontWeight: 'bold'
-                    }
+                      fontWeight: 'bold',
+                    },
                   }}
                 >
                   <Tab label="📊 نظرة عامة" />
@@ -607,21 +656,28 @@ const Statistics = () => {
                   <Grid container spacing={3}>
                     {/* العنوان */}
                     <Grid size={{ xs: 12 }}>
-                      <Typography variant="h5" sx={{ 
-                        mb: 3, 
-                        color: 'primary.main', 
-                        fontWeight: 'bold', 
-                        fontFamily: 'Cairo, sans-serif' 
-                      }}>
+                      <Typography
+                        variant="h5"
+                        sx={{
+                          mb: 3,
+                          color: 'primary.main',
+                          fontWeight: 'bold',
+                          fontFamily: 'Cairo, sans-serif',
+                        }}
+                      >
                         📈 الإحصائيات الأساسية
                       </Typography>
                     </Grid>
-                    
+
                     {/* الإحصائيات الأساسية */}
                     <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <StatCard
                         title="إجمالي الأعضاء"
-                        value={analysis?.metadata?.treeMetrics?.totalNodes || analysis?.metadata?.totalMembers || 0}
+                        value={
+                          analysis?.metadata?.treeMetrics?.totalNodes ||
+                          analysis?.metadata?.totalMembers ||
+                          0
+                        }
                         subtitle="في الشجرة"
                         color="primary"
                       />
@@ -652,8 +708,13 @@ const Statistics = () => {
                         title="جودة البيانات"
                         value={`${analysis?.basicStats?.dataCompleteness || 0}%`}
                         subtitle="اكتمال المعلومات"
-                        color={(analysis?.basicStats?.dataCompleteness || 0) >= 80 ? 'success' : 
-                               (analysis?.basicStats?.dataCompleteness || 0) >= 60 ? 'warning' : 'error'}
+                        color={
+                          (analysis?.basicStats?.dataCompleteness || 0) >= 80
+                            ? 'success'
+                            : (analysis?.basicStats?.dataCompleteness || 0) >= 60
+                              ? 'warning'
+                              : 'error'
+                        }
                         progress={analysis?.basicStats?.dataCompleteness || 0}
                       />
                     </Grid>
@@ -661,11 +722,15 @@ const Statistics = () => {
                     {/* توزيع الأعمار */}
                     <Grid size={{ xs: 12, md: 6 }}>
                       <Paper sx={{ p: 3, height: '100%' }}>
-                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography
+                          variant="h6"
+                          color="text.secondary"
+                          sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}
+                        >
                           🎂 توزيع الأعمار
                         </Typography>
-                        <DataList 
-                          data={analysis.demographicAnalysis?.ageGroups || {}} 
+                        <DataList
+                          data={analysis.demographicAnalysis?.ageGroups || {}}
                           color="primary"
                           maxItems={5}
                         />
@@ -675,14 +740,20 @@ const Statistics = () => {
                     {/* أكبر الأجيال */}
                     <Grid size={{ xs: 12, md: 6 }}>
                       <Paper sx={{ p: 3, height: '100%' }}>
-                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography
+                          variant="h6"
+                          color="text.secondary"
+                          sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}
+                        >
                           🏛️ توزيع الأجيال
                         </Typography>
-                        <DataList 
-                          data={analysis.generationAnalysis?.generations?.reduce((acc, gen) => {
-                            acc[`الجيل ${gen.generation}`] = gen.count;
-                            return acc;
-                          }, {}) || {}}
+                        <DataList
+                          data={
+                            analysis.generationAnalysis?.generations?.reduce((acc, gen) => {
+                              acc[`الجيل ${gen.generation}`] = gen.count;
+                              return acc;
+                            }, {}) || {}
+                          }
                           color="secondary"
                           maxItems={5}
                         />
@@ -696,12 +767,15 @@ const Statistics = () => {
                   <Grid container spacing={3}>
                     {/* العنوان */}
                     <Grid size={{ xs: 12 }}>
-                      <Typography variant="h5" sx={{ 
-                        mb: 3, 
-                        color: 'secondary.main', 
-                        fontWeight: 'bold', 
-                        fontFamily: 'Cairo, sans-serif' 
-                      }}>
+                      <Typography
+                        variant="h5"
+                        sx={{
+                          mb: 3,
+                          color: 'secondary.main',
+                          fontWeight: 'bold',
+                          fontFamily: 'Cairo, sans-serif',
+                        }}
+                      >
                         👥 التحليل الديموغرافي
                       </Typography>
                     </Grid>
@@ -709,11 +783,15 @@ const Statistics = () => {
                     {/* توزيع الأعمار المفصل */}
                     <Grid size={{ xs: 12, md: 6 }}>
                       <Paper sx={{ p: 3, height: '100%' }}>
-                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography
+                          variant="h6"
+                          color="text.secondary"
+                          sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}
+                        >
                           🎂 فئات الأعمار التفصيلية
                         </Typography>
-                        <DataList 
-                          data={analysis?.demographicAnalysis?.ageGroups || {}} 
+                        <DataList
+                          data={analysis?.demographicAnalysis?.ageGroups || {}}
                           color="primary"
                           emptyMessage="لا توجد بيانات أعمار"
                         />
@@ -723,36 +801,52 @@ const Statistics = () => {
                     {/* الهرم السكاني */}
                     <Grid size={{ xs: 12, md: 6 }}>
                       <Paper sx={{ p: 3, height: '100%' }}>
-                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography
+                          variant="h6"
+                          color="text.secondary"
+                          sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}
+                        >
                           📊 الهرم السكاني
                         </Typography>
                         {analysis?.demographicAnalysis?.populationPyramid?.length > 0 ? (
                           <Box>
                             {analysis.demographicAnalysis.populationPyramid.map((range, index) => (
                               <Box key={index} sx={{ mb: 2 }}>
-                                <Typography variant="body2" sx={{ mb: 1, fontFamily: 'Cairo, sans-serif' }}>
+                                <Typography
+                                  variant="body2"
+                                  sx={{ mb: 1, fontFamily: 'Cairo, sans-serif' }}
+                                >
                                   {range.ageRange} سنة
                                 </Typography>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                   <Box sx={{ flex: 1, display: 'flex' }}>
-                                    <Box sx={{ 
-                                      width: `${(range.males / Math.max(...analysis.demographicAnalysis.populationPyramid.map(r => r.total))) * 100}%`,
-                                      height: 20,
-                                      backgroundColor: 'primary.main',
-                                      borderRadius: '4px 0 0 4px'
-                                    }} />
-                                    <Box sx={{ 
-                                      width: `${(range.females / Math.max(...analysis.demographicAnalysis.populationPyramid.map(r => r.total))) * 100}%`,
-                                      height: 20,
-                                      backgroundColor: 'secondary.main',
-                                      borderRadius: '0 4px 4px 0'
-                                    }} />
+                                    <Box
+                                      sx={{
+                                        width: `${(range.males / Math.max(...analysis.demographicAnalysis.populationPyramid.map((r) => r.total))) * 100}%`,
+                                        height: 20,
+                                        backgroundColor: 'primary.main',
+                                        borderRadius: '4px 0 0 4px',
+                                      }}
+                                    />
+                                    <Box
+                                      sx={{
+                                        width: `${(range.females / Math.max(...analysis.demographicAnalysis.populationPyramid.map((r) => r.total))) * 100}%`,
+                                        height: 20,
+                                        backgroundColor: 'secondary.main',
+                                        borderRadius: '0 4px 4px 0',
+                                      }}
+                                    />
                                   </Box>
-                                  <Typography variant="caption" sx={{ minWidth: 40, textAlign: 'center' }}>
+                                  <Typography
+                                    variant="caption"
+                                    sx={{ minWidth: 40, textAlign: 'center' }}
+                                  >
                                     {range.total}
                                   </Typography>
                                 </Box>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                                <Box
+                                  sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}
+                                >
                                   <Typography variant="caption" sx={{ color: '#1976d2' }}>
                                     ذكور: {range.males}
                                   </Typography>
@@ -764,7 +858,10 @@ const Statistics = () => {
                             ))}
                           </Box>
                         ) : (
-                          <Typography color="text.secondary" sx={{ textAlign: 'center', fontStyle: 'italic' }}>
+                          <Typography
+                            color="text.secondary"
+                            sx={{ textAlign: 'center', fontStyle: 'italic' }}
+                          >
                             لا توجد بيانات أعمار كافية لبناء الهرم السكاني
                           </Typography>
                         )}
@@ -774,7 +871,11 @@ const Statistics = () => {
                     {/* التوزيع الجنسي حسب الأجيال */}
                     <Grid size={{ xs: 12, md: 6 }}>
                       <Paper sx={{ p: 3, height: '100%' }}>
-                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography
+                          variant="h6"
+                          color="text.secondary"
+                          sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}
+                        >
                           ⚖️ التوزيع الجنسي حسب الأجيال
                         </Typography>
                         {analysis?.demographicAnalysis?.genderByGeneration?.length > 0 ? (
@@ -787,10 +888,14 @@ const Statistics = () => {
                                   secondaryTypographyProps={{ component: 'div' }}
                                   secondary={
                                     <Box sx={{ mt: 1 }}>
-                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                                        <Typography variant="caption">
-                                          ذكور: {gen.males}
-                                        </Typography>
+                                      <Box
+                                        sx={{
+                                          display: 'flex',
+                                          justifyContent: 'space-between',
+                                          mb: 0.5,
+                                        }}
+                                      >
+                                        <Typography variant="caption">ذكور: {gen.males}</Typography>
                                         <Typography variant="caption">
                                           إناث: {gen.females}
                                         </Typography>
@@ -807,7 +912,10 @@ const Statistics = () => {
                             ))}
                           </List>
                         ) : (
-                          <Typography color="text.secondary" sx={{ textAlign: 'center', fontStyle: 'italic' }}>
+                          <Typography
+                            color="text.secondary"
+                            sx={{ textAlign: 'center', fontStyle: 'italic' }}
+                          >
                             لا توجد بيانات أجيال كافية
                           </Typography>
                         )}
@@ -817,14 +925,20 @@ const Statistics = () => {
                     {/* نسبة الإعالة */}
                     <Grid size={{ xs: 12, md: 6 }}>
                       <Paper sx={{ p: 3, height: '100%' }}>
-                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography
+                          variant="h6"
+                          color="text.secondary"
+                          sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}
+                        >
                           👨‍👩‍👧‍👦 إحصائيات الإعالة
                         </Typography>
                         <Grid container spacing={2}>
                           <Grid size={{ xs: 6 }}>
                             <StatCard
                               title="الأطفال"
-                              value={analysis?.demographicAnalysis?.ageGroups?.['أطفال (0-12)'] || 0}
+                              value={
+                                analysis?.demographicAnalysis?.ageGroups?.['أطفال (0-12)'] || 0
+                              }
                               subtitle="0-12 سنة"
                               color="info"
                             />
@@ -832,7 +946,9 @@ const Statistics = () => {
                           <Grid size={{ xs: 6 }}>
                             <StatCard
                               title="كبار السن"
-                              value={analysis?.demographicAnalysis?.ageGroups?.['كبار السن (56+)'] || 0}
+                              value={
+                                analysis?.demographicAnalysis?.ageGroups?.['كبار السن (56+)'] || 0
+                              }
                               subtitle="56+ سنة"
                               color="warning"
                             />
@@ -840,8 +956,12 @@ const Statistics = () => {
                           <Grid size={{ xs: 12 }}>
                             <StatCard
                               title="الفئة المنتجة"
-                              value={(analysis?.demographicAnalysis?.ageGroups?.['شباب (18-35)'] || 0) + 
-                                    (analysis?.demographicAnalysis?.ageGroups?.['متوسطو العمر (36-55)'] || 0)}
+                              value={
+                                (analysis?.demographicAnalysis?.ageGroups?.['شباب (18-35)'] || 0) +
+                                (analysis?.demographicAnalysis?.ageGroups?.[
+                                  'متوسطو العمر (36-55)'
+                                ] || 0)
+                              }
                               subtitle="18-55 سنة"
                               color="success"
                             />
@@ -856,12 +976,16 @@ const Statistics = () => {
                   <Grid container spacing={3}>
                     {/* العنوان */}
                     <Grid size={{ xs: 12 }}>
-                      <Typography variant="h5" color="text.secondary" sx={{ 
-                        mb: 3, 
-                        color: 'info.main', 
-                        fontWeight: 'bold', 
-                        fontFamily: 'Cairo, sans-serif' 
-                      }}>
+                      <Typography
+                        variant="h5"
+                        color="text.secondary"
+                        sx={{
+                          mb: 3,
+                          color: 'info.main',
+                          fontWeight: 'bold',
+                          fontFamily: 'Cairo, sans-serif',
+                        }}
+                      >
                         🏛️ تحليل الأجيال
                       </Typography>
                     </Grid>
@@ -888,8 +1012,15 @@ const Statistics = () => {
                     <Grid size={{ xs: 12, md: 4 }}>
                       <StatCard
                         title="متوسط حجم الجيل"
-                        value={analysis?.generationAnalysis?.totalGenerations > 0 ? 
-                               Math.round((analysis?.metadata?.treeMetrics?.totalNodes || analysis?.metadata?.totalMembers || 0) / analysis.generationAnalysis.totalGenerations) : 0}
+                        value={
+                          analysis?.generationAnalysis?.totalGenerations > 0
+                            ? Math.round(
+                                (analysis?.metadata?.treeMetrics?.totalNodes ||
+                                  analysis?.metadata?.totalMembers ||
+                                  0) / analysis.generationAnalysis.totalGenerations
+                              )
+                            : 0
+                        }
                         subtitle="أفراد لكل جيل"
                         color="warning"
                       />
@@ -898,21 +1029,28 @@ const Statistics = () => {
                     {/* تفاصيل الأجيال */}
                     <Grid size={{ xs: 12, md: 8 }}>
                       <Paper sx={{ p: 3, height: '400px', overflow: 'auto' }}>
-                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography
+                          variant="h6"
+                          color="text.secondary"
+                          sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}
+                        >
                           📋 تفاصيل كل جيل
                         </Typography>
                         {analysis?.generationAnalysis?.generations?.length > 0 ? (
                           <List>
                             {analysis.generationAnalysis.generations.map((gen, index) => (
-                              <ListItem key={index} sx={{ 
-                                mb: 1, 
-                                backgroundColor: index === 0 ? 'success.50' : 'grey.50',
-                                borderRadius: 1,
-                                border: `1px solid ${index === 0 ? 'success.200' : 'grey.200'}`
-                              }}>
+                              <ListItem
+                                key={index}
+                                sx={{
+                                  mb: 1,
+                                  backgroundColor: index === 0 ? 'success.50' : 'grey.50',
+                                  borderRadius: 1,
+                                  border: `1px solid ${index === 0 ? 'success.200' : 'grey.200'}`,
+                                }}
+                              >
                                 <ListItemIcon>
-                                  <Chip 
-                                    label={gen.generation} 
+                                  <Chip
+                                    label={gen.generation}
                                     color={index === 0 ? 'success' : 'default'}
                                     size="small"
                                   />
@@ -946,7 +1084,10 @@ const Statistics = () => {
                             ))}
                           </List>
                         ) : (
-                          <Typography color="text.secondary" sx={{ textAlign: 'center', fontStyle: 'italic' }}>
+                          <Typography
+                            color="text.secondary"
+                            sx={{ textAlign: 'center', fontStyle: 'italic' }}
+                          >
                             لا توجد بيانات أجيال
                           </Typography>
                         )}
@@ -956,7 +1097,11 @@ const Statistics = () => {
                     {/* نمو الأجيال */}
                     <Grid size={{ xs: 12, md: 4 }}>
                       <Paper sx={{ p: 3, height: '400px' }}>
-                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography
+                          variant="h6"
+                          color="text.secondary"
+                          sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}
+                        >
                           📈 نمو الأجيال
                         </Typography>
                         {analysis?.generationAnalysis?.generationGrowth?.length > 0 ? (
@@ -969,14 +1114,18 @@ const Statistics = () => {
                                   secondaryTypographyProps={{ component: 'div' }}
                                   secondary={
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                      <Typography 
-                                        variant="body2" 
-                                        color={growth.growthRate > 0 ? 'success.main' : 'error.main'}
+                                      <Typography
+                                        variant="body2"
+                                        color={
+                                          growth.growthRate > 0 ? 'success.main' : 'error.main'
+                                        }
                                       >
-                                        {growth.growthRate > 0 ? '+' : ''}{growth.growthRate}%
+                                        {growth.growthRate > 0 ? '+' : ''}
+                                        {growth.growthRate}%
                                       </Typography>
                                       <Typography variant="caption">
-                                        ({growth.absolute > 0 ? '+' : ''}{growth.absolute})
+                                        ({growth.absolute > 0 ? '+' : ''}
+                                        {growth.absolute})
                                       </Typography>
                                     </Box>
                                   }
@@ -985,7 +1134,10 @@ const Statistics = () => {
                             ))}
                           </List>
                         ) : (
-                          <Typography color="text.secondary" sx={{ textAlign: 'center', fontStyle: 'italic' }}>
+                          <Typography
+                            color="text.secondary"
+                            sx={{ textAlign: 'center', fontStyle: 'italic' }}
+                          >
                             يحتاج أكثر من جيل لحساب النمو
                           </Typography>
                         )}
@@ -998,12 +1150,15 @@ const Statistics = () => {
                   <Grid container spacing={3}>
                     {/* العنوان */}
                     <Grid size={{ xs: 12 }}>
-                      <Typography variant="h5" sx={{ 
-                        mb: 3, 
-                        color: 'error.main', 
-                        fontWeight: 'bold', 
-                        fontFamily: 'Cairo, sans-serif' 
-                      }}>
+                      <Typography
+                        variant="h5"
+                        sx={{
+                          mb: 3,
+                          color: 'error.main',
+                          fontWeight: 'bold',
+                          fontFamily: 'Cairo, sans-serif',
+                        }}
+                      >
                         💡 الرؤى الذكية والتوصيات
                       </Typography>
                     </Grid>
@@ -1011,67 +1166,94 @@ const Statistics = () => {
                     {/* الرؤى الذكية */}
                     <Grid size={{ xs: 12 }}>
                       <Paper sx={{ p: 3, mb: 3 }}>
-                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}>
+                        <Typography
+                          variant="h6"
+                          color="text.secondary"
+                          sx={{ mb: 3, fontFamily: 'Cairo, sans-serif' }}
+                        >
                           🧠 تحليل ذكي للبيانات
                         </Typography>
                         {analysis?.insights?.length > 0 ? (
                           <Grid container spacing={2}>
                             {analysis.insights.map((insight, index) => {
                               const getCardStyle = (level) => {
-                                switch(level) {
+                                switch (level) {
                                   case 'positive':
-                                    return { 
-                                      background: 'linear-gradient(135deg, #4caf50 0%, #81c784 100%)',
+                                    return {
+                                      background:
+                                        'linear-gradient(135deg, #4caf50 0%, #81c784 100%)',
                                       color: '#fff',
                                       borderRadius: 3,
-                                      boxShadow: '0 4px 15px rgba(76, 175, 80, 0.4)'
+                                      boxShadow: '0 4px 15px rgba(76, 175, 80, 0.4)',
                                     };
                                   case 'warning':
-                                    return { 
-                                      background: 'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)',
+                                    return {
+                                      background:
+                                        'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)',
                                       color: '#fff',
                                       borderRadius: 3,
-                                      boxShadow: '0 4px 15px rgba(255, 152, 0, 0.4)'
+                                      boxShadow: '0 4px 15px rgba(255, 152, 0, 0.4)',
                                     };
                                   case 'negative':
-                                    return { 
-                                      background: 'linear-gradient(135deg, #f44336 0%, #e57373 100%)',
+                                    return {
+                                      background:
+                                        'linear-gradient(135deg, #f44336 0%, #e57373 100%)',
                                       color: '#fff',
                                       borderRadius: 3,
-                                      boxShadow: '0 4px 15px rgba(244, 67, 54, 0.4)'
+                                      boxShadow: '0 4px 15px rgba(244, 67, 54, 0.4)',
                                     };
                                   default:
-                                    return { 
-                                      background: 'linear-gradient(135deg, #2196f3 0%, #64b5f6 100%)',
+                                    return {
+                                      background:
+                                        'linear-gradient(135deg, #2196f3 0%, #64b5f6 100%)',
                                       color: '#fff',
                                       borderRadius: 3,
-                                      boxShadow: '0 4px 15px rgba(33, 150, 243, 0.4)'
+                                      boxShadow: '0 4px 15px rgba(33, 150, 243, 0.4)',
                                     };
                                 }
                               };
                               return (
-                              <Grid size={{ xs: 12, md: 6 }} key={index}>
-                                <Paper 
-                                  elevation={3}
-                                  sx={{ 
-                                    p: 2.5,
-                                    height: '100%',
-                                    ...getCardStyle(insight.level)
-                                  }}
-                                >
-                                  <Typography variant="h6" sx={{ mb: 1, fontFamily: 'Cairo, sans-serif', fontWeight: 'bold', color: '#fff' }}>
-                                    {insight.icon} {insight.title}
-                                  </Typography>
-                                  <Typography variant="body2" sx={{ fontFamily: 'Cairo, sans-serif', color: 'rgba(255,255,255,0.95)' }}>
-                                    {insight.description}
-                                  </Typography>
-                                </Paper>
-                              </Grid>
-                            )})}
+                                <Grid size={{ xs: 12, md: 6 }} key={index}>
+                                  <Paper
+                                    elevation={3}
+                                    sx={{
+                                      p: 2.5,
+                                      height: '100%',
+                                      ...getCardStyle(insight.level),
+                                    }}
+                                  >
+                                    <Typography
+                                      variant="h6"
+                                      sx={{
+                                        mb: 1,
+                                        fontFamily: 'Cairo, sans-serif',
+                                        fontWeight: 'bold',
+                                        color: '#fff',
+                                      }}
+                                    >
+                                      {insight.icon} {insight.title}
+                                    </Typography>
+                                    <Typography
+                                      variant="body2"
+                                      sx={{
+                                        fontFamily: 'Cairo, sans-serif',
+                                        color: 'rgba(255,255,255,0.95)',
+                                      }}
+                                    >
+                                      {insight.description}
+                                    </Typography>
+                                  </Paper>
+                                </Grid>
+                              );
+                            })}
                           </Grid>
                         ) : (
                           <Alert severity="info">
-                            <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'Cairo, sans-serif' }}>
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{ fontFamily: 'Cairo, sans-serif' }}
+                            >
                               💭 يتم توليد الرؤى الذكية عند توفر بيانات أكثر تفصيلاً
                             </Typography>
                           </Alert>
@@ -1098,7 +1280,7 @@ const Statistics = () => {
       >
         <ArrowBackIcon />
       </Fab>
-      
+
       {/* مسافة سفلية للقائمة على الهاتف */}
       {isMobile && <Box sx={{ height: 80 }} />}
     </Box>
@@ -1106,4 +1288,3 @@ const Statistics = () => {
 };
 
 export default Statistics;
-
