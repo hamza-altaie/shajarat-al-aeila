@@ -59,33 +59,23 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          // React ecosystem
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) {
-            return 'react-vendor';
-          }
-          // MUI - تقسيم أفضل
-          if (id.includes('@mui/material')) {
-            return 'mui';
-          }
-          if (id.includes('@mui/icons-material')) {
-            return 'mui-icons';
-          }
-          if (id.includes('@emotion')) {
-            return 'emotion';
-          }
+        manualChunks: {
+          // React + MUI + Emotion معاً (تعتمد على بعض)
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          // MUI + Emotion في chunk واحد
+          'mui': [
+            '@mui/material',
+            '@mui/icons-material',
+            '@mui/system',
+            '@emotion/react',
+            '@emotion/styled',
+          ],
           // Firebase
-          if (id.includes('firebase')) {
-            return 'firebase';
-          }
+          'firebase': ['firebase/app', 'firebase/auth'],
           // Supabase
-          if (id.includes('@supabase')) {
-            return 'supabase';
-          }
-          // D3 + html2canvas - visualization
-          if (id.includes('node_modules/d3') || id.includes('html2canvas')) {
-            return 'visualization';
-          }
+          'supabase': ['@supabase/supabase-js'],
+          // D3 + html2canvas
+          'visualization': ['d3', 'html2canvas'],
         },
         chunkFileNames: 'js/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash][extname]',

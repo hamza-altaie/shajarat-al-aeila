@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { deleteAccount } from '../firebase/auth';
@@ -57,6 +58,17 @@ export default function Settings() {
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Paper sx={{ p: 4 }}>
+        {/* زر العودة */}
+        <Box sx={{ mb: 3 }}>
+          <Button
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate('/family')}
+            sx={{ mb: 2 }}
+          >
+            العودة
+          </Button>
+        </Box>
+
         <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold', mb: 3 }}>
           إعدادات الحساب
         </Typography>
