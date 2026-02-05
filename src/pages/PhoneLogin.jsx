@@ -35,6 +35,13 @@ const PhoneLogin = () => {
     }
   }, [timer]);
 
+  // ✅ التحقق التلقائي عند ملء الكود (6 أرقام)
+  useEffect(() => {
+    if (verificationCode.length === 6 && confirmationResult && !confirmationLoading) {
+      handleVerifyCode();
+    }
+  }, [verificationCode]);
+
   // التحقق من الرقم العراقي (10-11 رقم)
   const isValidIraqiNumber = (phoneInput) => {
     if (!phoneInput || typeof phoneInput !== 'string') return false;
@@ -415,6 +422,7 @@ const PhoneLogin = () => {
                 size="medium"
                 placeholder="أدخل الكود المكون من 6 أرقام"
                 disabled={!firebaseStatus?.isInitialized}
+                autoComplete="one-time-code"
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -424,9 +432,11 @@ const PhoneLogin = () => {
                 }}
                 inputProps={{
                   maxLength: 6,
+                  inputMode: 'numeric',
+                  autoComplete: 'one-time-code',
                   style: { textAlign: 'center', fontSize: '1.2rem', letterSpacing: '0.5rem' },
                 }}
-                helperText="تم إرسال الكود إلى هاتفك"
+                helperText="تم إرسال الكود إلى هاتفك (سيتم ملؤه تلقائياً إذا كان متاحاً)"
               />
 
               <Button
